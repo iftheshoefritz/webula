@@ -566,7 +566,11 @@ the cost registry (#1654, `moveCharge`); a download only takes a card into the h
 costs what any play does. The cost registry (`src/lib/costModels/`, one model per
 title, of `CostFacts` that `costFactsOf` builds) gives Borg Nanoprobes cost −2 while a Borg is
 commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2") that dispatches
-`correctCharge` with its `source`. A text that counts what the table does not see, the opponent's
+`correctCharge` with its `source`. A play names where it lands, the mission slot and the ship it boards
+(`CostPlay.missionIndex` and `shipId`, from the landed zone in `withCharge`, #1702), and each slot of
+`CostFacts.missions` lists its personnel and ships, for "at this mission" and "aboard your ship"; a core
+card prices another card's play with `costOfPlay` (Captain on the Bridge), and the changes stack in one
+source. A text that counts what the table does not see, the opponent's
 missions or the cards a play discards (#1695, `titles/opponentCost.ts`: Tacking Into the Wind, Rollins,
 Ptol and others), gives the printed cost and a counted choice (`CountedChoice`: `step`, `max`, and the
 printed `base`, `max` clamped where the cost reaches 0), a stepper `charge-choice-count` with

@@ -41,7 +41,7 @@ import {
 import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
-import { CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
+import { CostDestination, CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
 import { isCountedChoice } from '../../../lib/costModels/model';
 import type { CostSource, LimitGrant, PendingDiscount } from '../../../lib/costModels/model';
 import { limitGrantsOf, pendingDiscountOf } from '../../../lib/costModels/registry';
@@ -645,6 +645,18 @@ const costPlace = (zone: TableZone): CostPlace => {
   return zone.zone === 'missionPile' ? zone.pile : zone.zone;
 };
 
+// Where a card landed, for the cost models (#1702): the mission slot of a ship row or an away team, and
+// for a crew the slot of the ship's row and the ship. The core and a card placed on another give neither.
+const costDestination = (table: TableState, zone: TableZone): CostDestination => {
+  if (typeof zone === 'string') return {};
+  if (zone.zone === 'shipRow' || zone.zone === 'missionPile') return { missionIndex: zone.missionIndex };
+  if (zone.zone === 'crew') {
+    const missionIndex = table.missions.findIndex((slot) => slot.ships.some((ship) => ship.id === zone.shipId));
+    return missionIndex >= 0 ? { missionIndex, shipId: zone.shipId } : { shipId: zone.shipId };
+  }
+  return {};
+};
+
 // The action with its charge in it (#1606): a `move` of a card from the hand that landed on the
 // table, or from the discard pile where the card's text allows it (#1698), and a `drawCard` from the draw deck, in the play and draw segment, as `moveCharge` and
 // `drawCharge` give it. The place a move reads is where the card landed, so a refused move costs
@@ -681,7 +693,8 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
             costPlace(landed.zone),
             found.instance.card,
             costFactsOf(table, pending),
-            action.id
+            action.id,
+            costDestination(next, landed.zone)
           )
         : null;
     if (charge?.kind === 'play' && charge.source) {
