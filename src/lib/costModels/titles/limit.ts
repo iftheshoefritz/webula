@@ -22,4 +22,17 @@ export const LIMIT_MODELS: CostModel[] = [
       choice: { label: 'Raise the limit: +5', limit: 5 },
     }),
   },
+  // "Stop any number of your personnel, then count the number of different affiliations among those
+  // personnel. Spend that many additional counters this turn." The printed cost, and a choice of the
+  // personnel to stop (#1712): the table counts their affiliations and raises this turn's limit by it.
+  // Each personnel has one printed affiliation. "Remove this event from the game" stays with the player.
+  {
+    title: 'Common Purpose',
+    family: 'limit',
+    playCost: (play) => ({
+      cost: play.printed,
+      reason: 'stop personnel: +1 counter per affiliation',
+      choice: { label: 'Stop personnel…', personnel: 'stopAffiliations' },
+    }),
+  },
 ];

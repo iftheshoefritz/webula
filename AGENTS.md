@@ -582,7 +582,13 @@ and its `count`; `LogCharge.choiceCount` reads the last count back from the log.
 text reads "(cost 3, Borg Nanoprobes: you command a Borg)". The limit is 7, plus the grants of the models
 (#1655, `limitGrantsOf`, read from the table as it stands: Surprise Party +1 while it is in the core),
 plus the `counterLimit` changes; Tricia Jenkins's "Raise the limit: +5" is a `charge-choice` that
-dispatches `adjustCounterLimit` with its `source`. A pending discount (#1656, `pendingDiscountsOf`, from the log) waits for
+dispatches `adjustCounterLimit` with its `source`. Common Purpose's "Stop personnel…" (#1712, a
+`PersonnelChoice` of `model.ts`) opens a picker, `data-testid="personnel-choice"`
+(`PersonnelChoicePanel.tsx`): the unstopped personnel of every away team and crew, never the brig, by
+place (`personnelCandidateGroups`), a summary "3 personnel, 2 affiliations: +2"
+(`personnel-choice-summary`), Confirm and Cancel; Confirm dispatches `choosePersonnel`, which stops the
+chosen and raises the limit by their different affiliations in one `counterLimit` entry with `stopped`,
+one undo for both. A pending discount (#1656, `pendingDiscountsOf`, from the log) waits for
 the next play of the turn that passes its test: Sarish Rez makes the next [Fed][DS9] personnel cost −2,
 and the list shows it, `pending-discount`, with a Dismiss (`pending-discount-dismiss`) that dispatches
 `dismissDiscount`, one log entry; the turn ends it. `COST_BACKLOG=1 yarn test costModelBacklog` prints
@@ -646,10 +652,11 @@ The practice table has thirteen fixtures. Each one deals the same table on every
   outside every attempt. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
-- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 7
+- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 8
   more cards (`PRACTICE_COSTS_TSV` in `src/lib/practiceDeck.ts`): Borg Nanoprobes, Goran, Tricia
   Jenkins, Sarish Rez, Jadzia Dax, a [Fed][DS9] personnel, and Rollins, whose counted choice shows a
-  stepper (#1695) as Tacking Into the Wind's of the piles hand does (`card-9`, `card-10`), join the end
+  stepper (#1695) as Tacking Into the Wind's of the piles hand does (`card-9`, `card-10`), and Common
+  Purpose, whose choice of personnel opens a picker (#1712), join the end
   of the hand of 7, which
   holds the Tricorder (`card-1`) and Surprise Party (`card-7`, `card-8`) already, and Annexation Drone,
   a Borg, joins the crew of the ship at Bilana System, so the player commands a Borg. The draw deck
