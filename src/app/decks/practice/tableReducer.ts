@@ -2,7 +2,7 @@
 // issue #130) rather than several `useState` calls so every zone move goes through one place
 // and later slices can add zones/actions without touching how existing zones behave.
 
-import type { CostSource } from '../../../lib/costModels/model';
+import type { CostSource, CostUse } from '../../../lib/costModels/model';
 import { arrayMove } from '@dnd-kit/sortable';
 import { shuffleArray } from '../deckBuilderUtils';
 import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
@@ -302,6 +302,7 @@ export type TableAction =
   // `cost` is the printed cost of a card played from the hand in the play and draw segment (#1606,
   // `moveCharge`), which the page adds before the dispatch for the log. The reducer ignores it.
   // `costSource` is where a cost the table suggested came from (#1654): a cost model or a download.
+  // `costUses` are the uses the cards on the table offer for the play (#1713), for the log.
   // `cardText` is the setting "Apply card text to attributes" (#1668), which the page stamps on the
   // move (`withShuffleOrders`): absent is off, and the range models do not apply.
   | {
@@ -311,6 +312,7 @@ export type TableAction =
       position?: 'top' | 'bottom';
       cost?: number;
       costSource?: CostSource;
+      costUses?: CostUse[];
       cardText?: boolean;
     }
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,

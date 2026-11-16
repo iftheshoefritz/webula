@@ -23,6 +23,10 @@ export interface CostHandCard {
 /** A personnel the player commands, as a model reads it: its printed traits and whether it is unique (#1693). */
 export interface CommandedTraits extends PartnerTraits {
   unique?: boolean;
+  /** Its instance id, its title (`cardTitleOf`) and whether it is stopped (#1713). Absent in `commanded`. */
+  id?: string;
+  title?: string;
+  stopped?: boolean;
 }
 
 /**
@@ -93,6 +97,8 @@ export interface CostFacts {
 
 /** A card of the core (#1704): its title (`cardTitleOf`), its type and keywords, lowercased, and its printed cost. */
 export interface CostCoreCard {
+  /** Its instance id (#1713). */
+  id?: string;
   title: string;
   type: string;
   keywords: string[];
@@ -251,6 +257,39 @@ export interface ModelCost {
   choice?: CostChoice;
 }
 
+/**
+ * What a use of a card on the table does to that card (#1713): `'destroy'` moves it from the core to the
+ * discard pile, `'stop'` stops a personnel the player commands. A later use adds a tag.
+ */
+export type CostUseEffect = 'destroy' | 'stop';
+
+/**
+ * A use a card on the table offers for one play (#1713): the instance id of the card, the model's name,
+ * the label ("Destroy Delivery Boy: −3"), the counters it takes off and what it does to the card. Only
+ * data, since the log saves it.
+ */
+export interface CostUse {
+  id: string;
+  title: string;
+  label: string;
+  amount: number;
+  effect: CostUseEffect;
+}
+
+/** Whether `use` is a well-formed use, so a malformed save reads as no use. */
+export const isCostUse = (use: unknown): use is CostUse => {
+  const u = use as CostUse | null | undefined;
+  return (
+    !!u &&
+    typeof u.id === 'string' &&
+    typeof u.title === 'string' &&
+    typeof u.label === 'string' &&
+    typeof u.amount === 'number' &&
+    Number.isFinite(u.amount) &&
+    (u.effect === 'destroy' || u.effect === 'stop')
+  );
+};
+
 export interface CostModel {
   /** The title of the card, `cardTitleOf` of its name, the key of the registry. */
   title: string;
@@ -269,6 +308,12 @@ export interface CostModel {
    * on the Bridge makes a Commander aboard his ship cost −1. Null when the text changes nothing.
    */
   costOfPlay?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
+  /**
+   * The uses of the copies of this card on the table for the play from the hand of another card (#1713):
+   * Delivery Boy in the core may be destroyed to make a Q or Temporal event cost −3. One per copy that
+   * stands where its text says, by instance id. The registry adds the model's name and the label.
+   */
+  usesForPlay?: (play: CostPlay, facts: CostFacts) => { id: string; amount: number; effect: CostUseEffect }[];
   /** The counters the card adds to the turn's limit while the table stands as `facts` say, or null (#1655). */
   limitGrant?: (facts: CostFacts) => { amount: number; reason: string } | null;
   /** The most counters the turn's limit may reach while the table stands as `facts` say, or null (#1704). */

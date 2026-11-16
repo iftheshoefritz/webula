@@ -9,8 +9,8 @@
 // ask it too.
 
 import { cardDisplayName } from './cardCount';
-import { CostFacts, CostPlay, CostSource, CountedChoice, PendingDiscount } from './costModels/model';
-import { coreCostsOf, costModelName, costModelOf } from './costModels/registry';
+import { CostFacts, CostPlay, CostSource, CostUse, CountedChoice, PendingDiscount } from './costModels/model';
+import { coreCostsOf, costModelName, costModelOf, costUsesOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
 export type CostSegment = 'playAndDraw' | 'orders' | 'discard';
@@ -35,8 +35,9 @@ export type CostPlace =
   | 'on';
 
 // What a move charged: a play of a card at its cost, with the source of a cost the table suggested,
-// or a draw at 1.
-export type Charge = { kind: 'play'; cost: number; source?: CostSource } | { kind: 'draw'; cost: 1 };
+// or a draw at 1. `uses` are the uses the cards on the table offer for the play (#1713), which do not
+// change its cost until the player takes one.
+export type Charge = { kind: 'play'; cost: number; source?: CostSource; uses?: CostUse[] } | { kind: 'draw'; cost: 1 };
 
 // The places on the table a card is played to: a ship row, a ship's crew, a mission's away team,
 // the core, and on another card.
@@ -67,6 +68,35 @@ const listOf = (value: unknown, separator: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+// The card of a charge, as `moveCharge` reads it.
+type ChargedCard =
+  | {
+      type?: unknown;
+      cost?: unknown;
+      name?: unknown;
+      originalName?: unknown;
+      affiliation?: unknown;
+      icons?: unknown;
+      keywords?: unknown;
+      species?: unknown;
+      unique?: unknown;
+    }
+  | null
+  | undefined;
+
+// The play a model prices: the card's traits, its instance id and where it landed.
+const costPlayOf = (card: ChargedCard, id: string | undefined, destination: CostDestination): CostPlay => ({
+  id,
+  ...destination,
+  type: String(card?.type ?? '').toLowerCase(),
+  printed: printedCost(card),
+  unique: String(card?.unique ?? '').toLowerCase() === 'y',
+  affiliation: String(card?.affiliation ?? '').toLowerCase(),
+  icons: String(card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
+  keywords: listOf(card?.keywords, '.'),
+  species: listOf(card?.species, '/'),
+});
+
 // The charge of a move of `card` from `from` to `to`, the place it landed, or null. With `facts`, a
 // card's model gives its cost or its choice, less the first pending discount of `facts` that the card
 // passes, when one does (#1699); otherwise the
@@ -75,24 +105,28 @@ const listOf = (value: unknown, separator: string): string[] =>
 // `discardPlayCost`, and with no answer the move is no play. The cost never goes below 0. `id` is the card's instance id, so a model
 // that reads the hand leaves the card itself out. `destination` is the mission slot and the ship the card
 // landed in (#1702), and the cards of the core price the play from the hand too (`coreCostsOf`).
+// The uses the cards on the table offer for a play from the hand (#1713) join its charge. They change
+// no cost until the player takes one.
 export function moveCharge(
   segment: CostSegment,
   from: CostPlace,
   to: CostPlace,
-  card:
-    | {
-        type?: unknown;
-        cost?: unknown;
-        name?: unknown;
-        originalName?: unknown;
-        affiliation?: unknown;
-        icons?: unknown;
-        keywords?: unknown;
-        species?: unknown;
-        unique?: unknown;
-      }
-    | null
-    | undefined,
+  card: ChargedCard,
+  facts?: CostFacts,
+  id?: string,
+  destination: CostDestination = {}
+): Charge | null {
+  const charge = baseCharge(segment, from, to, card, facts, id, destination);
+  if (charge?.kind !== 'play' || from !== 'hand' || !facts) return charge;
+  const uses = costUsesOf(costPlayOf(card, id, destination), facts);
+  return uses.length ? { ...charge, uses } : charge;
+}
+
+function baseCharge(
+  segment: CostSegment,
+  from: CostPlace,
+  to: CostPlace,
+  card: ChargedCard,
   facts?: CostFacts,
   id?: string,
   destination: CostDestination = {}
@@ -103,17 +137,7 @@ export function moveCharge(
   const printed = printedCost(card);
   const name = card ? String(cardDisplayName(card) ?? '') : '';
   const model = facts && name ? costModelOf(name) : undefined;
-  const play: CostPlay = {
-    id,
-    ...destination,
-    type,
-    printed,
-    unique: String(card?.unique ?? '').toLowerCase() === 'y',
-    affiliation: String(card?.affiliation ?? '').toLowerCase(),
-    icons: String(card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
-    keywords: listOf(card?.keywords, '.'),
-    species: listOf(card?.species, '/'),
-  };
+  const play = costPlayOf(card, id, destination);
   const discount = from === 'hand' ? facts?.pending?.find((d) => d.applies(play)) : undefined;
   const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
   const suggested = price && facts ? price(play, facts) : null;

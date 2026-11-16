@@ -588,7 +588,17 @@ dispatches `adjustCounterLimit` with its `source`. Common Purpose's "Stop person
 place (`personnelCandidateGroups`), a summary "3 personnel, 2 affiliations: +2"
 (`personnel-choice-summary`), Confirm and Cancel; Confirm dispatches `choosePersonnel`, which stops the
 chosen and raises the limit by their different affiliations in one `counterLimit` entry with `stopped`,
-one undo for both. A pending discount (#1656, `pendingDiscountsOf`, from the log) waits for
+one undo for both. A card on the table may offer a use for a play (#1713, `usesForPlay` of a model,
+`costUsesOf`, `titles/tableUse.ts`): Delivery Boy in the core destroys itself for −3 on a Q or Temporal
+event, and Nathan Samuels (a non-Human [SF] personnel) or Guinan (an [AU][TNG] card), unstopped at the
+play's destination mission, stops for −2. The play's `move` carries the offers as `costUses`, the log
+keeps them per card (`LogMove.uses`, `LogCharge.uses`), and the chip and the list show one button per
+offer, `charge-use` (`data-use-card`), below the played card's own choice, disabled once used or while its
+card is no longer there (`costUseAvailable`); the card itself shows a badge button, `table-card-use`, in
+the core row and in the card list panels. A tap dispatches `useCard`, which destroys or stops the card and
+lowers the charge in one `chargeCorrected` entry with `used`, one undo for both; each copy once a play,
+two Delivery Boys −6. A choice of the played card's model sets its cost less the uses already taken, so
+the two stack in either order. A pending discount (#1656, `pendingDiscountsOf`, from the log) waits for
 the next play of the turn that passes its test: Sarish Rez makes the next [Fed][DS9] personnel cost −2,
 and the list shows it, `pending-discount`, with a Dismiss (`pending-discount-dismiss`) that dispatches
 `dismissDiscount`, one log entry; the turn ends it. `COST_BACKLOG=1 yarn test costModelBacklog` prints
@@ -652,14 +662,16 @@ The practice table has thirteen fixtures. Each one deals the same table on every
   outside every attempt. The draw deck and the dilemma pile get the rest. The hand holds a Tricorder (`card-1`), two
   events (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`,
   `card-40`).
-- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 8
+- `?fixture=costs` (#1654) deals the `?fixture=piles` table, the same cards and the same ids, with 10
   more cards (`PRACTICE_COSTS_TSV` in `src/lib/practiceDeck.ts`): Borg Nanoprobes, Goran, Tricia
   Jenkins, Sarish Rez, Jadzia Dax, a [Fed][DS9] personnel, and Rollins, whose counted choice shows a
   stepper (#1695) as Tacking Into the Wind's of the piles hand does (`card-9`, `card-10`), and Common
   Purpose, whose choice of personnel opens a picker (#1712), join the end
   of the hand of 7, which
   holds the Tricorder (`card-1`) and Surprise Party (`card-7`, `card-8`) already, and Annexation Drone,
-  a Borg, joins the crew of the ship at Bilana System, so the player commands a Borg. The draw deck
+  a Borg, joins the crew of the ship at Bilana System, so the player commands a Borg. Machinations, a
+  Temporal event of cost 2, joins the end of the hand too, and Delivery Boy the end of the core, so a play
+  of Machinations offers "Destroy Delivery Boy: −3" (#1713). The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
 - `?fixture=attributes` (#1666) deals the `?fixture=piles` table, the same cards and the same ids, with
   2 more (`PRACTICE_ATTRIBUTES_TSV`): Kira Nerys Reformed Collaborator, a [TN] personnel, joins the end of

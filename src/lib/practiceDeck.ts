@@ -163,7 +163,8 @@ export const PRACTICE_DECK_TSV_2 = `2\tCommon Cause (SS)
 // after the hand of `?fixture=piles`, and the crewed ship's crew gets the last, a Borg personnel, so
 // the player commands a Borg. Surprise Party and the Tricorder are in the hand of the piles deal already.
 // Rollins, and Tacking Into the Wind of the piles hand (`card-9`, `card-10`), show a counted choice (#1695).
-// Common Purpose shows a choice of personnel (#1712).
+// Common Purpose shows a choice of personnel (#1712). Delivery Boy goes into the core, where it offers
+// its use for the play of Machinations, a Temporal event of the hand (#1713).
 export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tGoran
 1\tTricia Jenkins Relaxed Pilot
@@ -171,10 +172,15 @@ export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tJadzia Dax Problem Solver
 1\tRollins Trusted Subordinate
 1\tCommon Purpose
-1\tAnnexation Drone`;
+1\tMachinations
+1\tAnnexation Drone
+1\tDelivery Boy`;
 
 // The name of the card of `PRACTICE_COSTS_TSV` that goes into the crew.
 export const PRACTICE_COSTS_CREW = 'Annexation Drone';
+
+// The name of the card of `PRACTICE_COSTS_TSV` that goes into the core (#1713).
+export const PRACTICE_COSTS_CORE = 'Delivery Boy';
 
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the

@@ -1,4 +1,4 @@
-import { CostFacts, CostModel, CostPlay, DiscountOrigin, LimitCap, LimitGrant, ModelCost, PendingDiscount, TurnLimitChoice } from './model';
+import { CostFacts, CostModel, CostPlay, CostUse, DiscountOrigin, LimitCap, LimitGrant, ModelCost, PendingDiscount, TurnLimitChoice } from './model';
 import { COMMANDED_MODELS } from './titles/commanded';
 import { COUNTER_LIMIT_MODELS } from './titles/counterLimit';
 import { COMPLETED_MISSION_MODELS } from './titles/completedMission';
@@ -13,6 +13,7 @@ import { OWN_COST_MODELS } from './titles/ownCost';
 import { OWN_COST_PLACE_MODELS } from './titles/ownCostPlace';
 import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
 import { STANDING_RULE_MODELS } from './titles/standingRule';
+import { TABLE_USE_MODELS } from './titles/tableUse';
 import { cardTitleOf } from '../cardTitle';
 
 // The cost registry of the practice table (#1654): one model per title, from the lists of `titles/`,
@@ -33,6 +34,7 @@ const MODELS: CostModel[] = [
   ...NAMED_GROUP_MODELS,
   ...OWN_COST_PLACE_MODELS,
   ...STANDING_RULE_MODELS,
+  ...TABLE_USE_MODELS,
   ...COUNTER_LIMIT_MODELS,
 ];
 
@@ -110,6 +112,23 @@ export function coreCostsOf(
     const cost = core.has(model.title) ? model.costOfPlay?.(play, facts) : null;
     return cost ? [{ title: costModelName(model), cost }] : [];
   });
+}
+
+const USE_VERBS = { destroy: 'Destroy', stop: 'Stop' } as const;
+
+/**
+ * The uses the cards on the table offer for the play from the hand of another card (#1713): those of
+ * every model with `usesForPlay`, one per copy, in the order of the registry, each at least 1 counter.
+ */
+export function costUsesOf(play: CostPlay, facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): CostUse[] {
+  return [...registry.values()].flatMap((model) =>
+    (model.usesForPlay?.(play, facts) ?? []).flatMap((use) => {
+      const amount = Math.round(use.amount);
+      if (!(amount > 0) || !Number.isFinite(amount) || use.id === play.id) return [];
+      const title = costModelName(model);
+      return [{ id: use.id, title, label: `${USE_VERBS[use.effect]} ${title}: −${amount}`, amount, effect: use.effect }];
+    })
+  );
 }
 
 /** The discount a play of the card `name` leaves, made by the play at `origin` (#1656), or null. */

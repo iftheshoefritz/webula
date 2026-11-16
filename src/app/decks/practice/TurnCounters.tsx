@@ -1,6 +1,6 @@
 import React from 'react';
 import { LAYER_CHARGE_CHIP, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
-import { countedCost, isCountedChoice, isPersonnelChoice, type PendingDiscount } from '../../../lib/costModels/model';
+import { countedCost, isCountedChoice, isPersonnelChoice, type CostUse, type PendingDiscount } from '../../../lib/costModels/model';
 import { pendingDiscountText } from '../../../lib/costModels/registry';
 import { useEscapeLayer } from './useEscapeLayer';
 import { ChargeTarget, LogCharge, TurnCounters } from './gameLog';
@@ -31,6 +31,13 @@ type OnRaiseLimit = (target: ChargeTarget, delta: number, source: string) => voi
 
 // A choice of personnel (#1712): the charge that offered it and the model's title. The page opens the picker.
 type OnChoosePersonnel = (target: ChargeTarget, source: string) => void;
+
+// A use of a card on the table for a play (#1713): the charge, and the instance id of the card. With it,
+// whether that card still stands where the use needs it.
+export interface UseHandlers {
+  onUse: (target: ChargeTarget, id: string) => void;
+  available: (use: CostUse) => boolean;
+}
 
 // The smallest cap on the limit (#1704), when it holds the limit below what it would be, or at it.
 const holdingCap = (counters: TurnCounters) => {
@@ -64,17 +71,21 @@ export const limitPartsText = (counters: TurnCounters): string | null => {
 // suggested names its source under the card, marked as the table's own (#1654), and a choice of its
 // model shows as one more button, disabled once taken. A choice of the limit raises the turn's limit (#1655).
 // A counted choice (#1695) shows as a stepper: its label, the count, and minus and plus, which set the
-// cost of the next count. A choice of personnel (#1712) opens the page's picker.
+// cost of the next count. A choice of personnel (#1712) opens the page's picker. Below the choice, one
+// button per use a card on the table offers for the play (#1713), disabled once used or while its card
+// is no longer where the use needs it.
 function ChargeRow({
   charge,
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  uses,
 }: {
   charge: LogCharge;
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  uses?: UseHandlers;
 }) {
   const label = chargeLabel(charge);
   const { source } = charge;
@@ -185,6 +196,25 @@ function ChargeRow({
           </button>
         )
       )}
+      {(charge.uses ?? []).map((use) => {
+        const gone = !use.used && !(uses?.available(use) ?? true);
+        return (
+          <button
+            key={use.id}
+            type="button"
+            data-testid="charge-use"
+            data-use-card={use.id}
+            data-used={use.used ? 'true' : undefined}
+            onClick={() => uses?.onUse(charge.target, use.id)}
+            disabled={use.used || gone}
+            aria-label={`${label}: ${use.label}${use.used ? ', used' : gone ? ', not available' : ''}`}
+            className="btn-icon h-7 w-auto self-start px-2 text-xs disabled:cursor-default disabled:opacity-60"
+          >
+            {use.label}
+            {use.used ? ' (used)' : ''}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -197,11 +227,13 @@ export function ChargeChip({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  uses,
 }: {
   charges: LogCharge[];
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  uses?: UseHandlers;
 }) {
   return (
     <div
@@ -217,6 +249,7 @@ export function ChargeChip({
           onCorrect={onCorrect}
           onRaiseLimit={onRaiseLimit}
           onChoosePersonnel={onChoosePersonnel}
+          uses={uses}
         />
       ))}
     </div>
@@ -232,6 +265,7 @@ export function TurnCountersList({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  uses,
   onAdjustLimit,
   onTurnChoice,
   pending = [],
@@ -243,6 +277,7 @@ export function TurnCountersList({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  uses?: UseHandlers;
   onAdjustLimit: (delta: number) => void;
   onTurnChoice?: (delta: number, source: string) => void;
   pending?: PendingDiscount[];
@@ -322,6 +357,7 @@ export function TurnCountersList({
                 onCorrect={onCorrect}
                 onRaiseLimit={onRaiseLimit}
                 onChoosePersonnel={onChoosePersonnel}
+                uses={uses}
               />
             ))
           )}
