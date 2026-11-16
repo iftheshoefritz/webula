@@ -8,9 +8,10 @@ import type { PartnerTraits } from '../dilemmaBot/gains';
 /**
  * The shape of the text a model reads. `'ownCost'`: a card that changes its own cost. `'limit'`: a card
  * that adds to the counters the player may spend this turn (#1655). `'pendingDiscount'`: a card whose
- * play makes a later card of this turn cheaper (#1656).
+ * play makes a later card of this turn cheaper (#1656). `'standingRule'`: a card of the core whose text prices
+ * the play of another card while it stands there (#1703).
  */
-export type CostFamily = 'ownCost' | 'limit' | 'pendingDiscount';
+export type CostFamily = 'ownCost' | 'limit' | 'pendingDiscount' | 'standingRule';
 
 /** A card of the hand, as a model reads it: its instance id, its title (`cardTitleOf`) and its type, lowercased. */
 export interface CostHandCard {
@@ -79,6 +80,24 @@ export interface CostFacts {
   missions?: CostMission[];
   /** The pending discounts of the turn, oldest first (`pendingDiscountsOf` in `gameLog.ts`, #1656). */
   pending?: PendingDiscount[];
+  /** The number of cards placed on each card of the core, in the order of `core` (#1703). Absent is none. */
+  corePlaced?: number[];
+  /**
+   * The cards played earlier this turn, oldest first, whatever they cost (`turnPlaysOf` in `gameLog.ts`,
+   * #1703), for "the first … each turn". Absent is none.
+   */
+  plays?: CostTurnPlay[];
+}
+
+/**
+ * A card played earlier this turn (#1703), by the traits a standing rule tests: its type, whether it is
+ * unique, and its icons, lowercased. A play the log recorded no traits of, from before #1703, has the type
+ * `''` and passes no test.
+ */
+export interface CostTurnPlay {
+  type: string;
+  unique: boolean;
+  icons: string[];
 }
 
 /**
@@ -89,6 +108,8 @@ export interface CostFacts {
  */
 export interface CostPlay {
   id?: string;
+  /** Whether the card is unique, the `Unique` column (#1703). */
+  unique?: boolean;
   missionIndex?: number;
   shipId?: string;
   type: string;

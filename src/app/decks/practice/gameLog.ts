@@ -43,9 +43,9 @@ import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
 import { isCountedChoice } from '../../../lib/costModels/model';
-import type { CostSource, LimitGrant, PendingDiscount } from '../../../lib/costModels/model';
+import type { CostSource, CostTurnPlay, LimitGrant, PendingDiscount } from '../../../lib/costModels/model';
 import { limitGrantsOf, pendingDiscountOf } from '../../../lib/costModels/registry';
-import { costFactsOf } from './costFacts';
+import { costFactsOf, turnPlayOf } from './costFacts';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
 // later move of a ship or a mission card does not change an old entry.
@@ -78,6 +78,9 @@ export interface LogMove {
   // cost or a card that was not a play. Absent when no cost of the move had one, and in an entry from
   // before #1654.
   sources?: (CostSource | null)[];
+  // The traits of each played card that a standing rule tests (#1703), in the order of `cards`, null
+  // for a card that was not a play. Present with `costs`; absent in an entry from before #1703.
+  plays?: (CostTurnPlay | null)[];
 }
 
 export interface LogRange {
@@ -317,12 +320,14 @@ function moveEntry(
           : { used, left: shipRangeOnTable(next, found.instance, !!move.cardText) - (next.rangeUsed?.[move.id] ?? 0) };
       const cost = typeof move.cost === 'number' ? move.cost : null;
       const source = cost !== null && move.costSource ? move.costSource : null;
+      const play = cost !== null ? turnPlayOf(found.instance.card) : null;
       const group = groups.find(
         (g) => placeKey(g.from) === placeKey(from) && placeKey(g.to) === placeKey(to) && g.position === position
       );
       if (group) {
         if (cost !== null || group.costs) group.costs = [...(group.costs ?? group.cards.map(() => null)), cost];
         if (source || group.sources) group.sources = [...(group.sources ?? group.cards.map(() => null)), source];
+        if (play || group.plays) group.plays = [...(group.plays ?? group.cards.map(() => null)), play];
         group.cards.push(card);
         if (range) group.range = [...(group.range ?? []), range];
       } else
@@ -334,6 +339,7 @@ function moveEntry(
           ...(range ? { range: [range] } : {}),
           ...(cost !== null ? { costs: [cost] } : {}),
           ...(source ? { sources: [source] } : {}),
+          ...(play ? { plays: [play] } : {}),
         });
     }
     state = next;
@@ -346,6 +352,7 @@ function moveEntry(
           cards: [...g.cards].reverse(),
           ...(g.costs ? { costs: [...g.costs].reverse() } : {}),
           ...(g.sources ? { sources: [...g.sources].reverse() } : {}),
+          ...(g.plays ? { plays: [...g.plays].reverse() } : {}),
         }
       : g
   );
@@ -664,19 +671,21 @@ const costDestination = (table: TableState, zone: TableZone): CostDestination =>
 // keeps it. A move reads the facts of the cost models (#1654) from the table and `turnFacts`, the
 // pending discounts of the turn (#1656); a play that uses a discount takes the discount off, so the
 // next action of a batch sees it gone. A download makes no play free: it only takes a card into the
-// hand.
+// hand. The plays of the turn (#1703) gain each play, so the next action of a batch sees it.
 interface TurnFacts {
   pending: PendingDiscount[];
+  plays: CostTurnPlay[];
 }
 
-const noTurnFacts = (): TurnFacts => ({ pending: [] });
+const noTurnFacts = (): TurnFacts => ({ pending: [], plays: [] });
 
 const turnFactsOf = (log: LogEntry[], turn: number): TurnFacts => ({
   pending: pendingDiscountsOf(log, turn),
+  plays: turnPlaysOf(log, turn),
 });
 
 function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction {
-  const { pending } = turnFacts;
+  const { pending, plays } = turnFacts;
   if (action.type === 'drawCard' && action.cost === undefined) {
     const charge = drawCharge(table.segment, action.from, action.to);
     if (charge && tableReducer(table, action) !== table) return { ...action, cost: charge.cost };
@@ -692,11 +701,12 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
             costPlace(found.zone),
             costPlace(landed.zone),
             found.instance.card,
-            costFactsOf(table, pending),
+            costFactsOf(table, pending, plays),
             action.id,
             costDestination(next, landed.zone)
           )
         : null;
+    if (charge?.kind === 'play') plays.push(turnPlayOf(found!.instance.card));
     if (charge?.kind === 'play' && charge.source) {
       const discount = charge.source.discount;
       const usedDiscount = discount ? pending.findIndex((d) => sameTarget(d.origin, discount)) : -1;
@@ -770,6 +780,28 @@ export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscou
     }
   });
   return open;
+}
+
+const NO_TRAITS: CostTurnPlay = { type: '', unique: false, icons: [] };
+
+const isTurnPlay = (play: unknown): play is CostTurnPlay => {
+  const p = play as CostTurnPlay | null | undefined;
+  return !!p && typeof p.type === 'string' && typeof p.unique === 'boolean' && Array.isArray(p.icons) && p.icons.every((i) => typeof i === 'string');
+};
+
+// The cards played in `turn` (#1703), oldest first, by the traits a standing rule tests: every card a
+// move of the effective log charged as a play, whatever its cost was corrected to. A play of an entry
+// from before #1703 has no traits and passes no test. Read from the log alone, so an undo, a redo and a
+// reload agree.
+export function turnPlaysOf(log: LogEntry[], turn: number): CostTurnPlay[] {
+  return effectiveLog(log).flatMap((entry) =>
+    entry.turn === turn && entry.kind === 'move'
+      ? entry.moves.flatMap((move) => {
+          const plays = Array.isArray(move.plays) && move.plays.length === move.cards.length ? move.plays : [];
+          return (moveCosts(move) ?? []).flatMap((cost, c) => (cost === null ? [] : [isTurnPlay(plays[c]) ? plays[c] : NO_TRAITS]));
+        })
+      : []
+  );
 }
 
 // The text of a place, with "the", the same words as the labels of the card list panel.

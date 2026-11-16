@@ -11,6 +11,7 @@ import { OPPONENT_COST_MODELS } from './titles/opponentCost';
 import { OWN_COST_MODELS } from './titles/ownCost';
 import { OWN_COST_PLACE_MODELS } from './titles/ownCostPlace';
 import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
+import { STANDING_RULE_MODELS } from './titles/standingRule';
 import { cardTitleOf } from '../cardTitle';
 
 // The cost registry of the practice table (#1654): one model per title, from the lists of `titles/`,
@@ -30,6 +31,7 @@ const MODELS: CostModel[] = [
   ...HAND_AND_DISCARD_MODELS,
   ...NAMED_GROUP_MODELS,
   ...OWN_COST_PLACE_MODELS,
+  ...STANDING_RULE_MODELS,
 ];
 
 /** The registry of `models`, by title. Two models of one title throw. */
