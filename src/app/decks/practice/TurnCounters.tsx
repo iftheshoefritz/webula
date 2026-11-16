@@ -1,6 +1,6 @@
 import React from 'react';
 import { LAYER_CHARGE_CHIP, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
-import { countedCost, isCountedChoice, type PendingDiscount } from '../../../lib/costModels/model';
+import { countedCost, isCountedChoice, isPersonnelChoice, type PendingDiscount } from '../../../lib/costModels/model';
 import { pendingDiscountText } from '../../../lib/costModels/registry';
 import { useEscapeLayer } from './useEscapeLayer';
 import { ChargeTarget, LogCharge, TurnCounters } from './gameLog';
@@ -28,6 +28,9 @@ type OnCorrect = (target: ChargeTarget, cost: number, source?: string, count?: n
 // A choice that raises the turn's limit (#1655): the charge that offered it, the counters it adds and
 // the model's title.
 type OnRaiseLimit = (target: ChargeTarget, delta: number, source: string) => void;
+
+// A choice of personnel (#1712): the charge that offered it and the model's title. The page opens the picker.
+type OnChoosePersonnel = (target: ChargeTarget, source: string) => void;
 
 // The smallest cap on the limit (#1704), when it holds the limit below what it would be, or at it.
 const holdingCap = (counters: TurnCounters) => {
@@ -61,8 +64,18 @@ export const limitPartsText = (counters: TurnCounters): string | null => {
 // suggested names its source under the card, marked as the table's own (#1654), and a choice of its
 // model shows as one more button, disabled once taken. A choice of the limit raises the turn's limit (#1655).
 // A counted choice (#1695) shows as a stepper: its label, the count, and minus and plus, which set the
-// cost of the next count.
-function ChargeRow({ charge, onCorrect, onRaiseLimit }: { charge: LogCharge; onCorrect: OnCorrect; onRaiseLimit: OnRaiseLimit }) {
+// cost of the next count. A choice of personnel (#1712) opens the page's picker.
+function ChargeRow({
+  charge,
+  onCorrect,
+  onRaiseLimit,
+  onChoosePersonnel,
+}: {
+  charge: LogCharge;
+  onCorrect: OnCorrect;
+  onRaiseLimit: OnRaiseLimit;
+  onChoosePersonnel?: OnChoosePersonnel;
+}) {
   const label = chargeLabel(charge);
   const { source } = charge;
   const choice = source?.choice;
@@ -157,9 +170,11 @@ function ChargeRow({ charge, onCorrect, onRaiseLimit }: { charge: LogCharge; onC
             data-testid="charge-choice"
             data-taken={charge.choiceTaken ? 'true' : undefined}
             onClick={() =>
-              choice.limit !== undefined
-                ? onRaiseLimit(charge.target, choice.limit, source.title)
-                : onCorrect(charge.target, choice.cost, source.title)
+              isPersonnelChoice(choice)
+                ? onChoosePersonnel?.(charge.target, source.title)
+                : choice.limit !== undefined
+                  ? onRaiseLimit(charge.target, choice.limit, source.title)
+                  : choice.cost !== undefined && onCorrect(charge.target, choice.cost, source.title)
             }
             disabled={charge.choiceTaken}
             aria-label={`${label}: ${choice.label}${charge.choiceTaken ? ', taken' : ''}`}
@@ -181,10 +196,12 @@ export function ChargeChip({
   charges,
   onCorrect,
   onRaiseLimit,
+  onChoosePersonnel,
 }: {
   charges: LogCharge[];
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
+  onChoosePersonnel?: OnChoosePersonnel;
 }) {
   return (
     <div
@@ -194,7 +211,13 @@ export function ChargeChip({
       style={{ top: `calc(0.5rem + ${SAFE_INSET_CSS.top})`, width: 'min(16rem, calc(100vw - 9rem))' }}
     >
       {charges.map((charge) => (
-        <ChargeRow key={targetKey(charge.target)} charge={charge} onCorrect={onCorrect} onRaiseLimit={onRaiseLimit} />
+        <ChargeRow
+          key={targetKey(charge.target)}
+          charge={charge}
+          onCorrect={onCorrect}
+          onRaiseLimit={onRaiseLimit}
+          onChoosePersonnel={onChoosePersonnel}
+        />
       ))}
     </div>
   );
@@ -208,6 +231,7 @@ export function TurnCountersList({
   counters,
   onCorrect,
   onRaiseLimit,
+  onChoosePersonnel,
   onAdjustLimit,
   onTurnChoice,
   pending = [],
@@ -218,6 +242,7 @@ export function TurnCountersList({
   counters: TurnCounters;
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
+  onChoosePersonnel?: OnChoosePersonnel;
   onAdjustLimit: (delta: number) => void;
   onTurnChoice?: (delta: number, source: string) => void;
   pending?: PendingDiscount[];
@@ -291,7 +316,13 @@ export function TurnCountersList({
             <p className="text-sm text-text-muted">Nothing charged this turn.</p>
           ) : (
             charges.map((charge) => (
-              <ChargeRow key={targetKey(charge.target)} charge={charge} onCorrect={onCorrect} onRaiseLimit={onRaiseLimit} />
+              <ChargeRow
+                key={targetKey(charge.target)}
+                charge={charge}
+                onCorrect={onCorrect}
+                onRaiseLimit={onRaiseLimit}
+                onChoosePersonnel={onChoosePersonnel}
+              />
             ))
           )}
         </div>

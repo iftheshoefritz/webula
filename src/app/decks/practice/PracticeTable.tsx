@@ -111,6 +111,8 @@ import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList } from './TurnCounters';
+import { PersonnelChoicePanel } from './PersonnelChoicePanel';
+import { personnelCandidateGroups } from './personnelChoice';
 import useLocalStorage from '../../../hooks/useLocalStorage';
 import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
@@ -2042,6 +2044,9 @@ function PracticeDrawContent() {
   // only while its entry is of the current turn, so the next turn removes it too.
   const [chargeChip, setChargeChip] = useState<{ entry: number } | null>(null);
   const [countersListOpen, setCountersListOpen] = useState(false);
+  // The picker of a choice of personnel (#1712): the charge that offered it and the model's title. It
+  // is page state, and the chip's timer does not close it: it stays open until Confirm or Cancel.
+  const [personnelChoice, setPersonnelChoice] = useState<{ target: ChargeTarget; source: string } | null>(null);
   const dispatch = (action: GameAction) => {
     const chosen = withShuffleOrders(table, action, game.log, cardTextOn);
     if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
@@ -3791,6 +3796,10 @@ function PracticeDrawContent() {
               raiseLimit(target, delta, source);
               setChargeChip((chip) => (chip ? { ...chip } : chip));
             }}
+            onChoosePersonnel={(target, source) => {
+              setPersonnelChoice({ target, source });
+              setChargeChip(null);
+            }}
           />
         )}
         {turnCountersOn && countersListOpen && currentCounters && table.segment === 'playAndDraw' && (
@@ -3799,11 +3808,26 @@ function PracticeDrawContent() {
             counters={currentCounters}
             onCorrect={correctCharge}
             onRaiseLimit={raiseLimit}
+            onChoosePersonnel={(target, source) => {
+              setPersonnelChoice({ target, source });
+              setCountersListOpen(false);
+            }}
             onAdjustLimit={(delta) => dispatch({ type: 'adjustCounterLimit', delta })}
             onTurnChoice={(delta, source) => dispatch({ type: 'adjustCounterLimit', delta, source })}
             pending={pendingDiscountsOf(game.log, turn)}
             onDismiss={(target) => dispatch({ type: 'dismissDiscount', target })}
             onClose={() => setCountersListOpen(false)}
+          />
+        )}
+        {personnelChoice && (
+          <PersonnelChoicePanel
+            title={personnelChoice.source}
+            groups={personnelCandidateGroups(table)}
+            onConfirm={(ids) => {
+              dispatch({ type: 'choosePersonnel', ids, ...personnelChoice });
+              setPersonnelChoice(null);
+            }}
+            onClose={() => setPersonnelChoice(null)}
           />
         )}
         {attemptDefaultsOpen && (

@@ -157,9 +157,33 @@ export interface PendingDiscount {
  * count `n` sets the cost to `max(0, base − step·n)`.
  */
 export type CostChoice =
-  | { label: string; cost: number; limit?: undefined; step?: undefined }
-  | { label: string; limit: number; cost?: undefined; step?: undefined }
-  | CountedChoice;
+  | { label: string; cost: number; limit?: undefined; step?: undefined; personnel?: undefined }
+  | { label: string; limit: number; cost?: undefined; step?: undefined; personnel?: undefined }
+  | CountedChoice
+  | PersonnelChoice;
+
+/**
+ * A choice of personnel from the table (#1712): the label, and what the choice does with them. Only data,
+ * since the log saves it. `stopAffiliations`: choose any number of the unstopped personnel the player
+ * commands, stop them, and raise the turn's limit by their different affiliations (Common Purpose).
+ */
+export interface PersonnelChoice {
+  label: string;
+  personnel: 'stopAffiliations';
+  cost?: undefined;
+  limit?: undefined;
+  step?: undefined;
+}
+
+/** Whether `choice` is a well-formed choice of personnel, so a malformed save reads as no choice. */
+export const isPersonnelChoice = (choice: unknown): choice is PersonnelChoice => {
+  const c = choice as PersonnelChoice | null | undefined;
+  return !!c && typeof c.label === 'string' && c.personnel === 'stopAffiliations';
+};
+
+/** The number of different affiliations among `affiliations`, an empty one not counted (#1712). */
+export const differentAffiliations = (affiliations: string[]): number =>
+  new Set(affiliations.map((a) => a.trim().toLowerCase()).filter(Boolean)).size;
 
 /** A choice of a count (#1695): "Completed missions of the opponent", −2 each, at most 2, from 4. */
 export interface CountedChoice {
@@ -169,6 +193,7 @@ export interface CountedChoice {
   base?: number;
   cost?: undefined;
   limit?: undefined;
+  personnel?: undefined;
 }
 
 /** Whether `choice` is a well-formed counted choice with its base, so a malformed save reads as no choice. */

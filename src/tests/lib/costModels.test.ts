@@ -1,5 +1,5 @@
 import { COST_REGISTRY, costModelOf, costRegistryOf, limitGrantsOf, pendingDiscountOf, pendingDiscountText } from '../../lib/costModels/registry';
-import { CostFacts, CostModel } from '../../lib/costModels/model';
+import { CostFacts, CostModel, differentAffiliations, isPersonnelChoice } from '../../lib/costModels/model';
 import { moveCharge } from '../../lib/playCost';
 import { partnerTraitsOf } from '../../lib/dilemmaBot/simulator';
 
@@ -79,6 +79,29 @@ describe('the limit models (#1655)', () => {
       cost: 2,
       source: { title: 'Tricia Jenkins', reason: 'you may spend 5 more counters this turn', choice: { label: 'Raise the limit: +5', limit: 5 } },
     });
+  });
+
+  it('offers Common Purpose its choice of personnel at its printed cost (#1712)', () => {
+    expect(costModelOf('Common Purpose')?.family).toBe('limit');
+    expect(costModelOf('Common Purpose *VP')?.family).toBe('limit');
+    const purpose = { name: 'common purpose', originalName: 'Common Purpose', type: 'event', cost: '1' };
+    expect(moveCharge('playAndDraw', 'hand', 'core', purpose, facts())).toEqual({
+      kind: 'play',
+      cost: 1,
+      source: {
+        title: 'Common Purpose',
+        reason: 'stop personnel: +1 counter per affiliation',
+        choice: { label: 'Stop personnel…', personnel: 'stopAffiliations' },
+      },
+    });
+  });
+
+  it('counts the different affiliations (#1712)', () => {
+    expect(differentAffiliations(['Federation', 'Bajoran'])).toBe(2);
+    expect(differentAffiliations(['Federation', 'Federation'])).toBe(1);
+    expect(differentAffiliations(['Federation', 'Starfleet'])).toBe(2);
+    expect(differentAffiliations([])).toBe(0);
+    expect(isPersonnelChoice({ label: 'x', personnel: 'other' })).toBe(false);
   });
 });
 

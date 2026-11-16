@@ -42,7 +42,8 @@ import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
-import { isCountedChoice } from '../../../lib/costModels/model';
+import { isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
+import { chosenPersonnel, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, turnPlayOf } from './costFacts';
@@ -171,8 +172,17 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
     }
   // A change of the turn's limit of counters by the player (#1607), and the limit it left.
   // `source` names the model whose choice raised the limit (#1655), "Tricia Jenkins", and `target` the
-  // charge of the play that offered it.
-  | { kind: 'counterLimit'; delta: number; limit: number; source?: string; target?: ChargeTarget }
+  // charge of the play that offered it. `stopped` names the personnel a choice of personnel stopped
+  // (#1712), Common Purpose's, and `affiliations` their different affiliations.
+  | {
+      kind: 'counterLimit';
+      delta: number;
+      limit: number;
+      source?: string;
+      target?: ChargeTarget;
+      stopped?: string[];
+      affiliations?: number;
+    }
   // The player dismissed a pending discount (#1656): `target` names the charge of the play that made
   // it, `source` the model's name, "Sarish Rez".
   | { kind: 'discountDismissed'; target: ChargeTarget; source: string }
@@ -217,6 +227,9 @@ export type GameAction =
   | { type: 'adjustCounterLimit'; delta: number; source?: string; target?: ChargeTarget }
   // A dismiss of the pending discount the play at `target` made (#1656), a log entry like a correction.
   | { type: 'dismissDiscount'; target: ChargeTarget }
+  // A choice of personnel of the play at `target` (#1712), Common Purpose's: stop the chosen personnel
+  // and raise the turn's limit by their different affiliations, in one entry that one undo takes back.
+  | { type: 'choosePersonnel'; ids: string[]; source: string; target: ChargeTarget }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
   | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
@@ -534,7 +547,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -608,6 +621,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     if (!entry) return state;
     return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
   }
+  if (action.type === 'choosePersonnel') return choosePersonnelState(state, action);
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),
@@ -735,7 +749,8 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'restore' ||
     action.type === 'correctCharge' ||
     action.type === 'adjustCounterLimit' ||
-    action.type === 'dismissDiscount'
+    action.type === 'dismissDiscount' ||
+    action.type === 'choosePersonnel'
   ) {
     return action;
   }
@@ -1072,8 +1087,14 @@ export function logEntryText(entry: LogEntry): string {
         source ? ` (${source}${counted})` : ''
       }`;
     }
-    case 'counterLimit':
-      return `Set this turn's counters to ${entry.limit}${typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''}`;
+    case 'counterLimit': {
+      const text = `et this turn's counters to ${entry.limit}${typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : ''}`;
+      // "Stopped Data, Kira Nerys (2 affiliations): set this turn's counters to 9 (Common Purpose)" (#1712).
+      const stopped = Array.isArray(entry.stopped) ? entry.stopped.filter((n) => typeof n === 'string') : [];
+      if (!stopped.length) return `S${text}`;
+      const n = isIndex(entry.affiliations) ? entry.affiliations : null;
+      return `Stopped ${stopped.join(', ')}${n !== null ? ` (${n} ${n === 1 ? 'affiliation' : 'affiliations'})` : ''}: s${text}`;
+    }
     case 'discountDismissed':
       return `Dismissed the discount of ${typeof entry.source === 'string' && entry.source ? entry.source : 'a card'}`;
   }
@@ -1443,6 +1464,37 @@ function counterLimitEntry(state: GameState, action: { delta: number; source?: s
     turn,
     segment: state.table.segment,
   };
+}
+
+// A choice of personnel (#1712): the play's charge must offer it, under `source`, and not have taken it.
+// The ids are filtered to the unstopped personnel the player commands as the table stands, so a stale,
+// stopped or brig id is dropped. The chosen are stopped, and the limit rises by their different
+// affiliations, in one `counterLimit` entry whose undo snapshot is the table before the stops. Nobody
+// chosen changes nothing.
+function choosePersonnelState(state: GameState, action: { ids: string[]; source: string; target: ChargeTarget }): GameState {
+  const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
+  if (!charge || charge.choiceTaken || charge.source?.title !== action.source || !isPersonnelChoice(charge.source.choice)) {
+    return state;
+  }
+  const chosen = chosenPersonnel(state.table, action.ids);
+  if (!chosen.length) return state;
+  const affiliations = personnelChoiceDelta(chosen);
+  // One personnel or more give one affiliation or more, so the limit always moves; should it not, the
+  // entry still records the stops, with a delta of 0.
+  const { turn, segment } = state.table;
+  const { grants, caps } = tableLimits(state.table);
+  const limit = counterLimitEntry(state, { delta: affiliations, source: action.source, target: charge.target }) ?? {
+    kind: 'counterLimit' as const,
+    delta: 0,
+    limit: turnCounterLimit(state.log, turn, grants, caps),
+    source: action.source,
+    target: charge.target,
+    turn,
+    segment,
+  };
+  const entry = { ...limit, stopped: chosen.map((c) => c.name), affiliations } as LogEntry;
+  const table = tableReducer(state.table, { type: 'setStopped', ids: chosen.map((c) => c.id), stopped: true });
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
 // The entry of a dismiss of a pending discount (#1656), or null when no pending discount of the

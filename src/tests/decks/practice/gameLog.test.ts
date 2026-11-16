@@ -928,6 +928,81 @@ describe('the cost models of the limit (#1655)', () => {
   });
 });
 
+describe("Common Purpose's choice of personnel (#1712)", () => {
+  const purpose = instance('c1', 'Common Purpose', 'up', 'event', { cost: '1' });
+  const data = instance('p1', 'Data', 'up', 'personnel', { affiliation: 'Federation' });
+  const riker = instance('p2', 'Riker', 'up', 'personnel', { affiliation: 'Federation' });
+  const kira = instance('p3', 'Kira Nerys', 'up', 'personnel', { affiliation: 'Bajoran' });
+  const worf = { ...instance('p4', 'Worf', 'up', 'personnel', { affiliation: 'Klingon' }), stopped: true };
+  const garak = instance('p5', 'Garak', 'up', 'personnel', { affiliation: 'Cardassian' });
+  const ship = { ...instance('s1', 'Defiant', 'up', 'ship'), crew: [kira, worf] };
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const bilana = instance('m2', 'Bilana System', 'up', 'mission');
+  const start = () =>
+    table({
+      hand: [purpose],
+      brig: [garak],
+      missions: slots([{ mission: earth, awayTeam: [data, riker] }, { mission: bilana, ships: [ship] }]),
+    });
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const counters = (state: GameState) => turnCounters(state.log, state.table.turn, tableLimitGrants(state.table));
+  const played = () => play(initialGameState(start()), { type: 'move', id: 'c1', to: 'core' });
+  const stoppedIds = (state: GameState) =>
+    state.table.missions.flatMap((m) => [...m.awayTeam, ...m.ships.flatMap((s) => s.crew ?? [])]).filter((c) => c.stopped).map((c) => c.id);
+
+  it('charges the printed cost and offers the choice', () => {
+    const [charge] = turnCharges(played().log, 1);
+    expect(charge.cost).toBe(1);
+    expect(charge.source).toEqual({
+      title: 'Common Purpose',
+      reason: 'stop personnel: +1 counter per affiliation',
+      choice: { label: 'Stop personnel…', personnel: 'stopAffiliations' },
+    });
+  });
+
+  it('stops the chosen personnel and raises the limit by their affiliations, in one entry one undo takes back', () => {
+    const before = played();
+    const [charge] = turnCharges(before.log, 1);
+    const chosen = play(before, { type: 'choosePersonnel', ids: ['p1', 'p2', 'p3'], source: 'Common Purpose', target: charge.target });
+    expect(chosen.log).toHaveLength(2);
+    expect(chosen.log[1]).toEqual(
+      expect.objectContaining({ kind: 'counterLimit', delta: 2, limit: 9, source: 'Common Purpose', stopped: ['Data', 'Riker', 'Kira Nerys'] })
+    );
+    expect(logEntryText(chosen.log[1])).toBe(
+      "Stopped Data, Riker, Kira Nerys (2 affiliations): set this turn's counters to 9 (Common Purpose)"
+    );
+    expect(stoppedIds(chosen).sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
+    expect(counters(chosen).limit).toBe(9);
+    expect(turnCharges(chosen.log, 1)[0].choiceTaken).toBe(true);
+    // Taken once a play.
+    expect(play(chosen, { type: 'choosePersonnel', ids: ['p1'], source: 'Common Purpose', target: charge.target })).toBe(chosen);
+    // A reload keeps the entry.
+    const saved = JSON.parse(JSON.stringify(chosen.log));
+    expect(saved.every(isLogEntry)).toBe(true);
+    expect(turnCounters(saved, 1).limit).toBe(9);
+    expect(turnCharges(saved, 1)[0].choiceTaken).toBe(true);
+    const undone = play(chosen, { type: 'undo' });
+    expect(undone.table).toBe(before.table);
+    expect(stoppedIds(undone)).toEqual(['p4']);
+    expect(counters(undone).limit).toBe(7);
+    expect(turnCharges(undone.log, 1)[0].choiceTaken).toBeUndefined();
+  });
+
+  it('changes nothing for nobody chosen, and ignores a stopped personnel and one in the brig', () => {
+    const before = played();
+    const [charge] = turnCharges(before.log, 1);
+    const target = charge.target;
+    expect(play(before, { type: 'choosePersonnel', ids: [], source: 'Common Purpose', target })).toBe(before);
+    expect(play(before, { type: 'choosePersonnel', ids: ['p4', 'p5'], source: 'Common Purpose', target })).toBe(before);
+    const chosen = play(before, { type: 'choosePersonnel', ids: ['p1', 'p4', 'p5'], source: 'Common Purpose', target });
+    expect(chosen.log[1]).toEqual(expect.objectContaining({ delta: 1, limit: 8, stopped: ['Data'] }));
+    expect(chosen.table.brig[0].stopped).toBeUndefined();
+    // A charge with no such choice takes none.
+    expect(play(before, { type: 'choosePersonnel', ids: ['p1'], source: 'Tricia Jenkins', target })).toBe(before);
+  });
+});
+
 describe('the cost models that cap the limit or offer a choice of the turn (#1704)', () => {
   const party = instance('e1', 'Surprise Party', 'up', 'event', { cost: '2' });
   const ushaan = instance('u1', 'Code of the Ushaan', 'up', 'event', { cost: '0' });
