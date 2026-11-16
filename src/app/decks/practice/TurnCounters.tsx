@@ -29,13 +29,33 @@ type OnCorrect = (target: ChargeTarget, cost: number, source?: string, count?: n
 // the model's title.
 type OnRaiseLimit = (target: ChargeTarget, delta: number, source: string) => void;
 
-// "7 + 1 Surprise Party": the limit's parts, or null with no grant.
-export const limitPartsText = (counters: TurnCounters): string | null =>
-  counters.grants.length
-    ? `${counters.limit - counters.grants.reduce((sum, g) => sum + g.amount, 0)} + ${counters.grants
+// The smallest cap on the limit (#1704), when it holds the limit below what it would be, or at it.
+const holdingCap = (counters: TurnCounters) => {
+  const caps = counters.caps ?? [];
+  if (!caps.length) return null;
+  const cap = caps.reduce((low, c) => (c.amount < low.amount ? c : low));
+  return counters.limit >= cap.amount ? cap : null;
+};
+
+// "capped at 7 (Code of the Ushaan)", when a cap holds the limit (#1704).
+const capText = (counters: TurnCounters): string | null => {
+  const cap = holdingCap(counters);
+  return cap ? `capped at ${cap.amount} (${cap.title})` : null;
+};
+
+// "7 + 1 Surprise Party": the limit's parts, or null with no grant. Under a cap that holds the limit
+// (#1704): "7 + 1 Surprise Party, capped at 7 (Code of the Ushaan)".
+export const limitPartsText = (counters: TurnCounters): string | null => {
+  const uncapped = counters.uncapped ?? counters.limit;
+  const grants = counters.grants.length
+    ? `${uncapped - counters.grants.reduce((sum, g) => sum + g.amount, 0)} + ${counters.grants
         .map((g) => `${g.amount} ${g.title}`)
         .join(' + ')}`
     : null;
+  const cap = capText(counters);
+  if (!cap) return grants;
+  return `${grants ?? uncapped}, ${cap}`;
+};
 
 // One charge: its card and cost, then Free, minus and plus. Minus and Free stop at 0. A cost the table
 // suggested names its source under the card, marked as the table's own (#1654), and a choice of its
@@ -189,6 +209,7 @@ export function TurnCountersList({
   onCorrect,
   onRaiseLimit,
   onAdjustLimit,
+  onTurnChoice,
   pending = [],
   onDismiss,
   onClose,
@@ -198,12 +219,14 @@ export function TurnCountersList({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onAdjustLimit: (delta: number) => void;
+  onTurnChoice?: (delta: number, source: string) => void;
   pending?: PendingDiscount[];
   onDismiss?: (target: ChargeTarget) => void;
   onClose: () => void;
 }) {
   useEscapeLayer(onClose);
   const parts = limitPartsText(counters);
+  const choices = counters.choices ?? [];
   return (
     <>
       <button
@@ -222,6 +245,26 @@ export function TurnCountersList({
         <h2 className="text-sm font-semibold text-text-primary">
           Counters: {counters.spent}/{counters.limit}
         </h2>
+        {choices.length > 0 && (
+          <div data-testid="turn-choices" className="flex flex-col gap-1 border-b border-white/10 pb-2">
+            {choices.map((choice) => (
+              <button
+                key={`${choice.title}-${choice.label}`}
+                type="button"
+                data-testid="turn-choice"
+                data-source={choice.title}
+                data-taken={choice.taken ? 'true' : undefined}
+                onClick={() => onTurnChoice?.(choice.limit, choice.title)}
+                disabled={choice.taken}
+                aria-label={`${choice.title}: ${choice.label}${choice.taken ? ', taken' : ''}`}
+                className="btn-icon h-7 w-auto self-start px-2 text-xs disabled:cursor-default disabled:opacity-60"
+              >
+                {choice.title}: {choice.label}
+                {choice.taken ? ' (taken)' : ''}
+              </button>
+            ))}
+          </div>
+        )}
         {pending.length > 0 && (
           <div data-testid="pending-discounts" className="flex flex-col gap-1 border-b border-white/10 pb-2">
             {pending.map((discount) => {
@@ -275,6 +318,7 @@ export function TurnCountersList({
             type="button"
             data-testid="turn-counters-limit-plus"
             onClick={() => onAdjustLimit(1)}
+            disabled={holdingCap(counters) !== null}
             aria-label="One counter more this turn"
             className={SMALL_BUTTON}
           >
@@ -304,7 +348,9 @@ export function TurnCounterButton({
   // "0/8 (Surprise Party +1)": the grants to the limit (#1655).
   const grants = counters.grants.length ? ` (${counters.grants.map((g) => `${g.title} +${g.amount}`).join(', ')})` : '';
   const counted = over ? `Counters ${spent} of ${limit}, ${spent - limit} over` : `Counters ${spent} of ${limit}`;
-  const text = `${counted}${grants}`;
+  // ", capped at 7 (Code of the Ushaan)" (#1704).
+  const cap = capText(counters);
+  const text = `${counted}${grants}${cap ? `, ${cap}` : ''}`;
   return (
     <button
       type="button"

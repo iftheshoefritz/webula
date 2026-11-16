@@ -43,8 +43,8 @@ import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
 import { isCountedChoice } from '../../../lib/costModels/model';
-import type { CostSource, CostTurnPlay, LimitGrant, PendingDiscount } from '../../../lib/costModels/model';
-import { limitGrantsOf, pendingDiscountOf } from '../../../lib/costModels/registry';
+import type { CostSource, CostTurnPlay, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
+import { cappedLimit, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, turnPlayOf } from './costFacts';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
@@ -1310,10 +1310,10 @@ export const turnCharges = (log: LogEntry[], turn: number): LogCharge[] =>
     effectiveLog(log).flatMap((entry, i) => (entry.turn === turn && entrySegment(entry) === 'playAndDraw' ? chargesOf(entry, i) : []))
   );
 
-// The limit of counters of `turn`: 7, the `grants` of the cost models (#1655), and the turn's changes,
-// never below 0. A new turn starts at 7 and its grants. The grants read the table as it stands now, so
-// they belong to the current turn, the one the counter shows.
-export const turnCounterLimit = (log: LogEntry[], turn: number, grants: LimitGrant[] = []): number =>
+// The limit of counters of `turn` before any cap: 7, the `grants` of the cost models (#1655), and the
+// turn's changes, never below 0. A new turn starts at 7 and its grants. The grants read the table as it
+// stands now, so they belong to the current turn, the one the counter shows.
+export const uncappedTurnCounterLimit = (log: LogEntry[], turn: number, grants: LimitGrant[] = []): number =>
   Math.max(
     0,
     log.reduce(
@@ -1322,23 +1322,68 @@ export const turnCounterLimit = (log: LogEntry[], turn: number, grants: LimitGra
     )
   );
 
+// The limit of counters of `turn`: the uncapped limit, never above the `caps` of the cost models (#1704).
+// The changes of the turn keep their deltas against the uncapped limit, so a raise under a cap counts
+// once the cap goes.
+export const turnCounterLimit = (log: LogEntry[], turn: number, grants: LimitGrant[] = [], caps: LimitCap[] = []): number =>
+  cappedLimit(uncappedTurnCounterLimit(log, turn, grants), caps);
+
+// A choice of the turn (#1704) and whether the player took a choice of its model this turn.
+export interface TurnChoiceState extends TurnLimitChoice {
+  taken: boolean;
+}
+
+// Whether the player took a choice of the turn of the model `title` in `turn` (#1704): a `counterLimit`
+// of the turn that names it and no charge.
+const turnChoiceTaken = (log: LogEntry[], turn: number, title: string): boolean =>
+  log.some((e) => e.kind === 'counterLimit' && e.turn === turn && e.source === title && !e.target);
+
 export interface TurnCounters {
   spent: number;
   limit: number;
   // The grants of the cost models to the limit (#1655), "Surprise Party +1".
   grants: LimitGrant[];
+  // The caps of the cost models on the limit (#1704), with the limit before them, absent with none.
+  caps?: LimitCap[];
+  uncapped?: number;
+  // The choices of the turn of the cost models (#1704), absent with none.
+  choices?: TurnChoiceState[];
 }
+
+// What the cost models make of the current turn's limit, from the table as it stands: the grants
+// (#1655), the caps and the choices of the turn (#1704).
+export interface TableLimits {
+  grants: LimitGrant[];
+  caps: LimitCap[];
+  choices: TurnLimitChoice[];
+}
+
+export const tableLimits = (table: TableState): TableLimits => {
+  const facts = costFactsOf(table, []);
+  return { grants: limitGrantsOf(facts), caps: limitCapsOf(facts), choices: turnChoicesOf(facts) };
+};
 
 // The grants of the cost models to the current turn's limit (#1655), from the table as it stands.
 export const tableLimitGrants = (table: TableState): LimitGrant[] => limitGrantsOf(costFactsOf(table, []));
 
-// The counters `turn` spent and its limit, derived from the log and the grants of the table, so an
-// undo, a redo and a reload agree.
-export const turnCounters = (log: LogEntry[], turn: number, grants: LimitGrant[] = []): TurnCounters => ({
-  spent: turnCharges(log, turn).reduce((sum, c) => sum + c.cost, 0),
-  limit: turnCounterLimit(log, turn, grants),
-  grants,
-});
+// The counters `turn` spent and its limit, derived from the log and the grants, caps and choices of the
+// table, so an undo, a redo and a reload agree.
+export const turnCounters = (
+  log: LogEntry[],
+  turn: number,
+  grants: LimitGrant[] = [],
+  caps: LimitCap[] = [],
+  choices: TurnLimitChoice[] = []
+): TurnCounters => {
+  const uncapped = uncappedTurnCounterLimit(log, turn, grants);
+  return {
+    spent: turnCharges(log, turn).reduce((sum, c) => sum + c.cost, 0),
+    limit: cappedLimit(uncapped, caps),
+    grants,
+    ...(caps.length ? { caps, uncapped } : {}),
+    ...(choices.length ? { choices: choices.map((c) => ({ ...c, taken: turnChoiceTaken(log, turn, c.title) })) } : {}),
+  };
+};
 
 const sameTarget = (a: ChargeTarget, b: ChargeTarget): boolean => a.entry === b.entry && a.move === b.move && a.card === b.card;
 
@@ -1376,18 +1421,26 @@ function chargeCorrectionEntry(
 }
 
 // The entry of a change of the current turn's limit, or null at 0 going down. A change by a model's
-// choice names its source and the charge that offered it (#1655).
+// choice names its source and the charge that offered it (#1655), or no charge for a choice of the turn
+// (#1704), which a model makes once a turn. Under a cap (#1704) a raise still counts, against the uncapped
+// limit, and a lowering lowers the limit shown.
 function counterLimitEntry(state: GameState, action: { delta: number; source?: string; target?: ChargeTarget }): LogEntry | null {
-  const limit = turnCounterLimit(state.log, state.table.turn, tableLimitGrants(state.table));
-  const next = Math.max(0, limit + Math.round(action.delta));
-  if (!Number.isFinite(next) || next === limit) return null;
+  const { turn } = state.table;
+  if (action.source && !action.target && turnChoiceTaken(state.log, turn, action.source)) return null;
+  const { grants, caps } = tableLimits(state.table);
+  const uncapped = uncappedTurnCounterLimit(state.log, turn, grants);
+  const shown = cappedLimit(uncapped, caps);
+  const delta = Math.round(action.delta);
+  const from = delta < 0 ? shown : uncapped;
+  const next = Math.max(0, from + delta);
+  if (!Number.isFinite(next) || next === from) return null;
   return {
     kind: 'counterLimit',
-    delta: next - limit,
-    limit: next,
+    delta: next - uncapped,
+    limit: cappedLimit(next, caps),
     ...(action.source ? { source: action.source } : {}),
     ...(action.source && action.target ? { target: action.target } : {}),
-    turn: state.table.turn,
+    turn,
     segment: state.table.segment,
   };
 }

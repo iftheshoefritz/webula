@@ -26,6 +26,7 @@ import {
   turnCounters,
   turnCounterLimit,
   tableLimitGrants,
+  tableLimits,
   pendingDiscountsOf,
   turnPlaysOf,
 } from '../../../app/decks/practice/gameLog';
@@ -924,6 +925,68 @@ describe('the cost models of the limit (#1655)', () => {
     const old: LogEntry = { kind: 'counterLimit', delta: 1, limit: 8, turn: 1 };
     expect(logEntryText(old)).toBe("Set this turn's counters to 8");
     expect(turnCounterLimit([old], 1)).toBe(8);
+  });
+});
+
+describe('the cost models that cap the limit or offer a choice of the turn (#1704)', () => {
+  const party = instance('e1', 'Surprise Party', 'up', 'event', { cost: '2' });
+  const ushaan = instance('u1', 'Code of the Ushaan', 'up', 'event', { cost: '0' });
+  const tricia = instance('t1', 'Tricia Jenkins Relaxed Pilot', 'up', 'personnel', { cost: '2' });
+  const gaila = instance('g1', 'Gaila Arms Dealer', 'up', 'personnel', { cost: '2' });
+  const earth = instance('m1', 'Earth', 'up', 'mission');
+  const ferenginar = instance('m2', 'Ferenginar Financial Hub', 'up', 'mission');
+  const awayTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const counters = (state: GameState) => {
+    const { grants, caps, choices } = tableLimits(state.table);
+    return turnCounters(state.log, state.table.turn, grants, caps, choices);
+  };
+
+  it('caps the limit at 7 while Code of the Ushaan is in the core, and a raise under it counts once it goes', () => {
+    const start = table({ hand: [party, ushaan, tricia], missions: slots([{ mission: earth }]) });
+    const capped = play(initialGameState(start), { type: 'move', id: 'e1', to: 'core' }, { type: 'move', id: 'u1', to: 'core' });
+    expect(counters(capped)).toEqual(
+      expect.objectContaining({ limit: 7, uncapped: 8, caps: [{ title: 'Code of the Ushaan', amount: 7, reason: 'in your core' }] })
+    );
+    const raised = play(capped, { type: 'move', id: 't1', to: awayTeam });
+    const charge = turnCharges(raised.log, 1)[2];
+    const chosen = play(raised, { type: 'adjustCounterLimit', delta: 5, source: 'Tricia Jenkins', target: charge.target });
+    expect(chosen.log).toHaveLength(4);
+    expect(chosen.log[3]).toEqual(expect.objectContaining({ kind: 'counterLimit', delta: 5, limit: 7, source: 'Tricia Jenkins' }));
+    expect(turnCharges(chosen.log, 1)[2].choiceTaken).toBe(true);
+    expect(counters(chosen)).toEqual(expect.objectContaining({ limit: 7, uncapped: 13 }));
+    // With Ushaan out of the core, the raise counts: 7 + 1 Surprise Party + 5.
+    const gone = play(chosen, { type: 'move', id: 'u1', to: 'discard' });
+    expect(counters(gone).limit).toBe(13);
+    expect(counters(gone).caps).toBeUndefined();
+    // The minus under the cap lowers the limit shown.
+    const lowered = play(chosen, { type: 'adjustCounterLimit', delta: -1 });
+    expect(counters(lowered).limit).toBe(6);
+    expect(lowered.log[4]).toEqual(expect.objectContaining({ kind: 'counterLimit', delta: -7, limit: 6 }));
+  });
+
+  it("offers Gaila's +4 as a choice of the turn, taken once a turn, freed by undo and by the next turn", () => {
+    const start = table({ missions: slots([{ mission: earth, awayTeam: [gaila] }, { mission: ferenginar }]) });
+    const initial = initialGameState(start);
+    expect(counters(initial).choices).toEqual([{ title: 'Gaila', label: 'Equipment from Ferenginar: +4', limit: 4, taken: false }]);
+    const taken = play(initial, { type: 'adjustCounterLimit', delta: 4, source: 'Gaila' });
+    expect(taken.log).toHaveLength(1);
+    expect(taken.log[0]).toEqual(expect.objectContaining({ kind: 'counterLimit', delta: 4, limit: 11, source: 'Gaila' }));
+    expect(taken.log[0]).not.toHaveProperty('target');
+    expect(logEntryText(taken.log[0])).toBe("Set this turn's counters to 11 (Gaila)");
+    expect(counters(taken)).toEqual(expect.objectContaining({ limit: 11, choices: [expect.objectContaining({ taken: true })] }));
+    // Once a turn: a second take changes nothing.
+    expect(play(taken, { type: 'adjustCounterLimit', delta: 4, source: 'Gaila' }).log).toHaveLength(1);
+    expect(counters(play(taken, { type: 'undo' })).choices?.[0].taken).toBe(false);
+    const nextTurn = play(taken, { type: 'advanceSegment' }, { type: 'advanceSegment' });
+    expect(nextTurn.table.turn).toBe(2);
+    expect(counters(nextTurn)).toEqual(expect.objectContaining({ limit: 7, choices: [expect.objectContaining({ taken: false })] }));
+  });
+
+  it('offers no choice of Gaila without Ferenginar among the missions', () => {
+    const start = table({ missions: slots([{ mission: earth, awayTeam: [gaila] }]) });
+    expect(counters(initialGameState(start)).choices).toBeUndefined();
   });
 });
 

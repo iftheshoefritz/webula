@@ -1,5 +1,6 @@
-import { CostFacts, CostModel, CostPlay, DiscountOrigin, LimitGrant, ModelCost, PendingDiscount } from './model';
+import { CostFacts, CostModel, CostPlay, DiscountOrigin, LimitCap, LimitGrant, ModelCost, PendingDiscount, TurnLimitChoice } from './model';
 import { COMMANDED_MODELS } from './titles/commanded';
+import { COUNTER_LIMIT_MODELS } from './titles/counterLimit';
 import { COMPLETED_MISSION_MODELS } from './titles/completedMission';
 import { HAND_AND_DISCARD_MODELS } from './titles/handAndDiscard';
 import { LIMIT_MODELS } from './titles/limit';
@@ -32,6 +33,7 @@ const MODELS: CostModel[] = [
   ...NAMED_GROUP_MODELS,
   ...OWN_COST_PLACE_MODELS,
   ...STANDING_RULE_MODELS,
+  ...COUNTER_LIMIT_MODELS,
 ];
 
 /** The registry of `models`, by title. Two models of one title throw. */
@@ -64,6 +66,34 @@ export function limitGrantsOf(facts: CostFacts, registry: ReadonlyMap<string, Co
     const amount = grant ? Math.round(grant.amount) : 0;
     return grant && amount > 0 && Number.isFinite(amount) ? [{ title: costModelName(model), amount, reason: grant.reason }] : [];
   });
+}
+
+/**
+ * The caps of the models on the turn's limit while the table stands as `facts` say (#1704), one per model
+ * that caps it, in the order of the registry.
+ */
+export function limitCapsOf(facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): LimitCap[] {
+  return [...registry.values()].flatMap((model) => {
+    const cap = model.limitCap?.(facts);
+    const amount = cap ? Math.round(cap.amount) : NaN;
+    return cap && amount >= 0 && Number.isFinite(amount) ? [{ title: costModelName(model), amount, reason: cap.reason }] : [];
+  });
+}
+
+/** The smallest of `caps` over `limit`, or `limit` with no cap (#1704). */
+export const cappedLimit = (limit: number, caps: LimitCap[]): number => Math.min(limit, ...caps.map((c) => c.amount));
+
+/**
+ * The choices of the turn that raise its limit while the table stands as `facts` say (#1704), those of
+ * each model of at least one counter, in the order of the registry.
+ */
+export function turnChoicesOf(facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): TurnLimitChoice[] {
+  return [...registry.values()].flatMap((model) =>
+    (model.turnChoices?.(facts) ?? []).flatMap((c) => {
+      const limit = Math.round(c.limit);
+      return limit > 0 && Number.isFinite(limit) ? [{ title: costModelName(model), label: c.label, limit }] : [];
+    })
+  );
 }
 
 /**

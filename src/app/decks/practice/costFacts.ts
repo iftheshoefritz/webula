@@ -7,7 +7,7 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import type { CommandedTraits, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
+import type { CommandedTraits, CostCoreCard, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
@@ -61,6 +61,19 @@ const handCardOf = (c: CardInstance) => ({
   type: String(c.card?.type ?? '').toLowerCase(),
 });
 
+const coreCardOf = (c: CardInstance): CostCoreCard => {
+  const cost = Number.parseInt(String(c.card?.cost ?? ''), 10);
+  return {
+    title: cardTitleOf(cardDisplayName(c.card)),
+    type: text(c.card?.type),
+    keywords: text(c.card?.keywords)
+      .split('.')
+      .map((k) => k.trim())
+      .filter(Boolean),
+    cost: Number.isFinite(cost) ? cost : 0,
+  };
+};
+
 /** The traits of a played card that a standing rule tests (#1703). */
 export const turnPlayOf = (card: CardInstance['card'] | null | undefined): CostTurnPlay => ({
   type: text(card?.type),
@@ -74,6 +87,7 @@ export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], 
   return {
     commanded: table.missions.flatMap(slotPersonnelOf),
     core: core.map((c) => cardTitleOf(cardDisplayName(c.card))),
+    coreCards: core.map(coreCardOf),
     corePlaced: core.map((c) => c.placedOn?.length ?? 0),
     hand: table.hand.map(handCardOf),
     discard: table.discard.filter((c) => !c.removedFromGame).map(handCardOf),
