@@ -1,12 +1,13 @@
 // What the cost models read of the practice table (#1654), as a plain `CostFacts`: the printed
 // traits and the uniqueness of every personnel the player commands (every away team and every ship's crew, at every
 // mission, never the brig), the titles of the core, the hand by title and type, and each mission slot
-// (#1694), the discard pile, the ships of the ship rows and the score (#1700). The pending
+// (#1694) with its personnel and ships (#1702), the discard pile, the ships of the ship rows and the
+// score (#1700). The pending
 // discounts of the turn come from the log (`pendingDiscountsOf` in `gameLog.ts`).
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import type { CostFacts, CostMission, PendingDiscount } from '../../../lib/costModels/model';
+import type { CommandedTraits, CostFacts, CostMission, CostShip, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
@@ -17,6 +18,24 @@ const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(af
 
 /** Every "Region: <name>." clause of a mission's keywords, lowercased (#1696). */
 const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
+
+const personnelTraitsOf = (cards: CardInstance[]): CommandedTraits[] =>
+  cards.flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y' }] : []));
+
+/** The personnel at a slot: its away team and every crew of its ship row (#1702). */
+const slotPersonnelOf = (s: MissionSlot): CommandedTraits[] => personnelTraitsOf([...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]);
+
+const costShipOf = (c: CardInstance): CostShip[] =>
+  c.card
+    ? [
+        {
+          id: c.id,
+          title: cardTitleOf(cardDisplayName(c.card)),
+          affiliation: text(c.card.affiliation),
+          icons: text(c.card.icons).match(/\[[a-z0-9]+\]/g) ?? [],
+        },
+      ]
+    : [];
 
 function costMissionOf(slot: MissionSlot): CostMission {
   const card = slot.mission?.card;
@@ -31,6 +50,8 @@ function costMissionOf(slot: MissionSlot): CostMission {
     quadrant: text(card?.quadrant),
     dilemmasUnder: slot.underMission.filter((c) => text(c.card?.type) === 'dilemma').length,
     regions: regionsOf(text(card?.keywords)),
+    personnel: slotPersonnelOf(slot),
+    ships: slot.ships.flatMap(costShipOf),
   };
 }
 
@@ -42,9 +63,7 @@ const handCardOf = (c: CardInstance) => ({
 
 export function costFactsOf(table: TableState, pending: PendingDiscount[] = []): CostFacts {
   return {
-    commanded: table.missions
-      .flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])])
-      .flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y' }] : [])),
+    commanded: table.missions.flatMap(slotPersonnelOf),
     core: table.core.flatMap((c) => (c.card ? [cardTitleOf(cardDisplayName(c.card))] : [])),
     hand: table.hand.map(handCardOf),
     discard: table.discard.filter((c) => !c.removedFromGame).map(handCardOf),

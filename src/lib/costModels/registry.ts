@@ -1,4 +1,4 @@
-import { CostFacts, CostModel, DiscountOrigin, LimitGrant, PendingDiscount } from './model';
+import { CostFacts, CostModel, CostPlay, DiscountOrigin, LimitGrant, ModelCost, PendingDiscount } from './model';
 import { COMMANDED_MODELS } from './titles/commanded';
 import { COMPLETED_MISSION_MODELS } from './titles/completedMission';
 import { HAND_AND_DISCARD_MODELS } from './titles/handAndDiscard';
@@ -9,6 +9,7 @@ import { NAMED_GROUP_MODELS } from './titles/namedGroup';
 import { NEXT_OF_KIND_MODELS } from './titles/nextOfKind';
 import { OPPONENT_COST_MODELS } from './titles/opponentCost';
 import { OWN_COST_MODELS } from './titles/ownCost';
+import { OWN_COST_PLACE_MODELS } from './titles/ownCostPlace';
 import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
 import { cardTitleOf } from '../cardTitle';
 
@@ -28,6 +29,7 @@ const MODELS: CostModel[] = [
   ...MAY_COST_MODELS,
   ...HAND_AND_DISCARD_MODELS,
   ...NAMED_GROUP_MODELS,
+  ...OWN_COST_PLACE_MODELS,
 ];
 
 /** The registry of `models`, by title. Two models of one title throw. */
@@ -59,6 +61,22 @@ export function limitGrantsOf(facts: CostFacts, registry: ReadonlyMap<string, Co
     const grant = model.limitGrant?.(facts);
     const amount = grant ? Math.round(grant.amount) : 0;
     return grant && amount > 0 && Number.isFinite(amount) ? [{ title: costModelName(model), amount, reason: grant.reason }] : [];
+  });
+}
+
+/**
+ * The costs the cards of the core set on the play of another card from the hand (#1702): one per model
+ * of a title in `facts.core` whose `costOfPlay` answers, once per title, in the order of the registry.
+ */
+export function coreCostsOf(
+  play: CostPlay,
+  facts: CostFacts,
+  registry: ReadonlyMap<string, CostModel> = COST_REGISTRY
+): { title: string; cost: ModelCost }[] {
+  const core = new Set(facts.core);
+  return [...registry.values()].flatMap((model) => {
+    const cost = core.has(model.title) ? model.costOfPlay?.(play, facts) : null;
+    return cost ? [{ title: costModelName(model), cost }] : [];
   });
 }
 

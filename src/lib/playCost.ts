@@ -9,8 +9,8 @@
 // ask it too.
 
 import { cardDisplayName } from './cardCount';
-import { CostFacts, CostSource, CountedChoice, PendingDiscount } from './costModels/model';
-import { costModelName, costModelOf } from './costModels/registry';
+import { CostFacts, CostPlay, CostSource, CountedChoice, PendingDiscount } from './costModels/model';
+import { coreCostsOf, costModelName, costModelOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
 export type CostSegment = 'playAndDraw' | 'orders' | 'discard';
@@ -42,6 +42,9 @@ export type Charge = { kind: 'play'; cost: number; source?: CostSource } | { kin
 // the core, and on another card.
 const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew', 'awayTeam', 'core', 'on']);
 
+// Where a played card landed (#1702): the mission slot, and the ship whose crew it boards.
+export type CostDestination = Pick<CostPlay, 'missionIndex' | 'shipId'>;
+
 // The printed cost of a card, the `Cost` column; an empty or missing cost is 0.
 export const printedCost = (card: { cost?: unknown } | null | undefined): number => Number(card?.cost) || 0;
 
@@ -70,7 +73,8 @@ const listOf = (value: unknown, separator: string): string[] =>
 // first pending discount of `facts` that the card passes takes off its amount; otherwise it costs its
 // printed cost. From the discard pile only the card's own model prices the play, with
 // `discardPlayCost`, and with no answer the move is no play. The cost never goes below 0. `id` is the card's instance id, so a model
-// that reads the hand leaves the card itself out.
+// that reads the hand leaves the card itself out. `destination` is the mission slot and the ship the card
+// landed in (#1702), and the cards of the core price the play from the hand too (`coreCostsOf`).
 export function moveCharge(
   segment: CostSegment,
   from: CostPlace,
@@ -89,7 +93,8 @@ export function moveCharge(
     | null
     | undefined,
   facts?: CostFacts,
-  id?: string
+  id?: string,
+  destination: CostDestination = {}
 ): Charge | null {
   if (segment !== 'playAndDraw' || (from !== 'hand' && from !== 'discard') || !PLAY_PLACES.has(to)) return null;
   const type = String(card?.type ?? '').toLowerCase();
@@ -97,8 +102,9 @@ export function moveCharge(
   const printed = printedCost(card);
   const name = card ? String(cardDisplayName(card) ?? '') : '';
   const model = facts && name ? costModelOf(name) : undefined;
-  const play = {
+  const play: CostPlay = {
     id,
+    ...destination,
     type,
     printed,
     affiliation: String(card?.affiliation ?? '').toLowerCase(),
@@ -109,23 +115,34 @@ export function moveCharge(
   const discount = from === 'hand' ? facts?.pending?.find((d) => d.applies(play)) : undefined;
   const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
   const suggested = price && facts ? price(play, facts) : null;
-  if (model && suggested) {
-    // Cost changes stack (#1699): a pending discount that applies comes off the suggested cost and off
-    // the choice's cost too.
+  // Cost changes stack (#1699, #1702): the card's own model, then each card of the core that prices its
+  // play from the hand, then a pending discount, every change summed. The charge keeps one source, whose
+  // title joins the names of the models and whose reason joins their reasons.
+  const parts = [
+    ...(model && suggested ? [{ title: costModelName(model), cost: suggested }] : []),
+    ...(from === 'hand' && facts ? coreCostsOf(play, facts) : []),
+  ];
+  if (parts.length > 0) {
     const off = discount?.amount ?? 0;
-    const offered = suggested.choice;
+    const deltas = parts.map((p) => p.cost.cost - printed);
+    const total = deltas.reduce((a, b) => a + b, 0) - off;
+    // At most one choice, the first part's that offers one; the other changes shift its cost too.
+    const chooser = parts.findIndex((p) => p.cost.choice);
+    const offered = chooser >= 0 ? parts[chooser].cost.choice : undefined;
+    const shift = total - (chooser >= 0 ? deltas[chooser] : 0);
     const choice =
       offered?.step !== undefined
-        ? countedChoiceOf(offered, Math.max(0, printed - off))
+        ? countedChoiceOf(offered, Math.max(0, printed + shift))
         : offered?.cost !== undefined
-          ? { ...offered, cost: Math.max(0, offered.cost - off) }
+          ? { ...offered, cost: Math.max(0, offered.cost + shift) }
           : offered;
-    const reason = discount ? `${suggested.reason}, and ${discount.title}: ${discountReason(discount)}` : suggested.reason;
+    const named = parts.length === 1 ? parts[0].cost.reason : parts.map((p) => `${p.title}: ${p.cost.reason}`).join('; ');
+    const reason = discount ? `${named}, and ${discount.title}: ${discountReason(discount)}` : named;
     return {
       kind: 'play',
-      cost: Math.max(0, suggested.cost - off),
+      cost: Math.max(0, printed + total),
       source: {
-        title: costModelName(model),
+        title: parts.map((p) => p.title).join(', '),
         reason,
         ...(choice ? { choice } : {}),
         ...(discount ? { discount: discount.origin } : {}),

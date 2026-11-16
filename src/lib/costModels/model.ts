@@ -42,6 +42,21 @@ export interface CostMission {
   dilemmasUnder: number;
   /** The regions of the mission's keywords, lowercased: "Region: Delphic Expanse." gives "delphic expanse" (#1696). */
   regions?: string[];
+  /**
+   * The personnel at the slot (#1702): its away team and the crew of each ship of its ship row, stopped
+   * personnel too, never the brig. Absent is none.
+   */
+  personnel?: CommandedTraits[];
+  /** The ships of the slot's ship row (#1702). Absent is none. */
+  ships?: CostShip[];
+}
+
+/** A ship of a mission slot (#1702): its instance id, its title (`cardTitleOf`), and its affiliation and icons, lowercased. */
+export interface CostShip {
+  id: string;
+  title: string;
+  affiliation: string;
+  icons: string[];
 }
 
 /** What the models read of the table, as it stands before the move. */
@@ -68,10 +83,14 @@ export interface CostFacts {
 
 /**
  * The card a model prices: its instance id, its type, its affiliation and its icons, lowercased ("[ds9]"),
- * its keywords and its species, lowercased ("temporal", "android", #1699), and its printed cost.
+ * its keywords and its species, lowercased ("temporal", "android", #1699), and its printed cost. Where it
+ * lands (#1702): the mission slot, and the instance id of the ship whose crew it boards. Absent is
+ * neither, as for a play to the core.
  */
 export interface CostPlay {
   id?: string;
+  missionIndex?: number;
+  shipId?: string;
   type: string;
   printed: number;
   affiliation?: string;
@@ -172,6 +191,11 @@ export interface CostModel {
    * A card with none is not played from the discard pile: the move is no play.
    */
   discardPlayCost?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
+  /**
+   * The cost of the play from the hand of another card, while this card is in the core (#1702): Captain
+   * on the Bridge makes a Commander aboard his ship cost −1. Null when the text changes nothing.
+   */
+  costOfPlay?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
   /** The counters the card adds to the turn's limit while the table stands as `facts` say, or null (#1655). */
   limitGrant?: (facts: CostFacts) => { amount: number; reason: string } | null;
   /**

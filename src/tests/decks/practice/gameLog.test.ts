@@ -1121,3 +1121,38 @@ describe('a counted choice in the log (#1695)', () => {
     expect(charge.choiceTaken).toBeUndefined();
   });
 });
+
+describe('the place a card is played in the cost models (#1702)', () => {
+  const remanA = instance('r1', 'Reman A', 'up', 'personnel', { species: 'Reman' });
+  const remanB = instance('r2', 'Reman B', 'up', 'personnel', { species: 'Reman' });
+  const remanElsewhere = instance('r3', 'Reman C', 'up', 'personnel', { species: 'Reman' });
+  const scimitar = instance('c1', 'Scimitar Reman Warbird', 'up', 'ship', { cost: '6' });
+  const worf = instance('c2', "Worf Governor of H'atoria", 'up', 'personnel', { cost: '3' });
+  const tngShip = instance('s1', 'Invented Ship', 'up', 'ship', { icons: '[TNG]' });
+  const start = () =>
+    table({
+      hand: [scimitar, worf],
+      missions: slots([
+        { mission: instance('m1', 'Earth', 'up', 'mission'), awayTeam: [remanA], ships: [{ ...tngShip, crew: [remanB] }] },
+        { mission: instance('m2', 'Vulcan', 'up', 'mission'), awayTeam: [remanElsewhere] },
+      ]),
+    });
+  const play = (state: GameState, action: GameAction) => gameReducer(state, withShuffleOrders(state.table, action, state.log));
+
+  it('counts the personnel of the slot a ship lands in, and no other slot', () => {
+    const state = play(initialGameState(start()), { type: 'move', id: 'c1', to: { zone: 'shipRow', missionIndex: 0 } });
+    expect(turnCharges(state.log, 1)[0]).toEqual(
+      expect.objectContaining({ cost: 4, source: { title: 'Scimitar', reason: '2 Remans at this mission' } })
+    );
+    const there = play(initialGameState(start()), { type: 'move', id: 'c1', to: { zone: 'shipRow', missionIndex: 1 } });
+    expect(turnCharges(there.log, 1)[0]).toEqual(expect.objectContaining({ cost: 5 }));
+  });
+
+  it('reads the ship a personnel boards, and not the away team', () => {
+    const aboard = play(initialGameState(start()), { type: 'move', id: 'c2', to: { zone: 'crew', shipId: 's1' } });
+    expect(turnCharges(aboard.log, 1)[0]).toEqual(expect.objectContaining({ cost: 5, source: { title: 'Worf', reason: 'aboard a [TNG] ship' } }));
+    const down = play(initialGameState(start()), { type: 'move', id: 'c2', to: { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } });
+    expect(turnCharges(down.log, 1)[0]).toEqual(expect.objectContaining({ cost: 3 }));
+    expect(turnCharges(down.log, 1)[0].source).toBeUndefined();
+  });
+});

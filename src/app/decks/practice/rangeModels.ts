@@ -5,6 +5,7 @@
 // `MissionRow` reads it without loading the reducer and its `@dnd-kit/sortable` import.
 
 import { cardTitleOf } from '../../../lib/cardTitle';
+import { isCommanderOf } from '../../../lib/commander';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
 // What the range models read of the table as it stands (#1671): the mission slots with their away
@@ -64,20 +65,8 @@ export const crewPersonnel = (ship: CardInstance): CardInstance[] => (ship.crew 
 const commandedMissions = (missions: MissionSlot[]): CardInstance[] =>
   missions.flatMap((slot) => (slot.mission ? [slot.mission] : []));
 
-// A ship's or a lore name with no dots, as `useDataFetching` writes "U.S.S." in the keywords ("uss").
-const dotless = (name: string) => name.toLowerCase().replace(/\./g, '').replace(/\s+/g, ' ').trim();
-
-// Whether the personnel `p` is the Commander of `ship`: a "Commander: <name>." keyword whose name is
-// the ship's title, or its title less the subtitle ("Commander: uss defiant." of "U.S.S. Defiant
-// Prototype Warship").
-const commands = (p: CardInstance, ship: CardInstance): boolean => {
-  const title = dotless(titleKeyOf(ship));
-  const keywords = String(p.card?.keywords ?? '').toLowerCase().replace(/u\.s\.s\./g, 'uss').replace(/i\.k\.s\./g, 'iks');
-  return Array.from(keywords.matchAll(/commander:\s*([^.;]+)/g)).some(([, name]) => {
-    const lore = dotless(name);
-    return lore !== '' && (title === lore || title.startsWith(`${lore} `));
-  });
-};
+// Whether the personnel `p` is the Commander of `ship` (`isCommanderOf`).
+const commands = (p: CardInstance, ship: CardInstance): boolean => isCommanderOf(String(p.card?.keywords ?? ''), titleKeyOf(ship));
 
 // The cards the player commands with the keyword `word`, by distinct title (#1683): the core, the cards
 // placed on each mission card and on each ship, of the type `type` when given. Two copies of one title
