@@ -11,7 +11,9 @@ export const dotless = (name: string): string => name.toLowerCase().replace(/\./
  */
 export function isCommanderOf(keywords: string, shipTitle: string): boolean {
   const title = dotless(shipTitle);
-  const text = keywords.toLowerCase().replace(/u\.s\.s\./g, 'uss').replace(/i\.k\.s\./g, 'iks');
+  // A dotted prefix ("U.S.S.", "I.S.S.", "E.C.S.") loses its dots first, so the name does not end at them (#1724).
+  // The keywords of a play come split at each dot and joined with ". " ("e. c. s. horizon"), so spaces may follow.
+  const text = keywords.toLowerCase().replace(/\b[a-z](?:\.\s*[a-z]\b)+\./g, (prefix) => prefix.replace(/[^a-z]/g, ''));
   return Array.from(text.matchAll(/commander:\s*([^.;]+)/g)).some(([, name]) => {
     const lore = dotless(name);
     return lore !== '' && (title === lore || title.startsWith(`${lore} `));

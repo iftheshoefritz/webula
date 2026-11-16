@@ -358,6 +358,12 @@ describe('Inspiring Leader (#1648)', () => {
     const bare = ship('U.S.S. Defiant Prototype Warship', 'federation', '7', [commander()]);
     expect(shipRangeOnTable(tableOf([]), bare)).toBe(7);
   });
+
+  it('reads a Commander of an I.S.S. ship (#1724)', () => {
+    const archer = personnel('Archer', 'terran-empire', { keywords: 'Commander: I.S.S. Enterprise.' });
+    const enterprise = { ...ship('I.S.S. Enterprise Invented Flagship', 'terran-empire', '7', [archer]), placedOn: [leader()] };
+    expect(shipRangeOnTable(tableOf([]), enterprise)).toBe(9);
+  });
 });
 
 describe('the (BP) version suffix (#1648)', () => {

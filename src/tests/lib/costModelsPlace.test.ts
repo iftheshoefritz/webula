@@ -161,6 +161,16 @@ describe('the cost models of the place of a play (#1702)', () => {
     expect(charge(commander, facts([mission({ ships })]), { missionIndex: 0, shipId: 's1' })).toEqual({ kind: 'play', cost: 4 });
   });
 
+  it('charges the Commander of an E.C.S. ship −1 aboard it (#1724)', () => {
+    const commander = card('An Invented Captain', 3, 'personnel', { keywords: 'Commander: E.C.S. Horizon. Dissident.' });
+    const ships = [ship('s1', { title: 'E.C.S. Horizon' })];
+    expect(charge(commander, facts([mission({ ships })], ['Captain on the Bridge']), { missionIndex: 0, shipId: 's1' })).toEqual({
+      kind: 'play',
+      cost: 2,
+      source: { title: 'Captain on the Bridge', reason: 'commands E.C.S. Horizon' },
+    });
+  });
+
   it("stacks Captain on the Bridge with the card's own model and a pending discount", () => {
     const worfCommander = card("Worf Governor of H'atoria", 3, 'personnel', { keywords: 'Commander: Invented Bird.' });
     const f: CostFacts = {
