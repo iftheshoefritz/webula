@@ -51,6 +51,7 @@ import {
   PRACTICE_ATTRIBUTES_TSV,
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
+  PRACTICE_COSTS_CORE,
   PRACTICE_DECK_TSV,
 } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
@@ -110,7 +111,7 @@ import MissionRow, {
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
-import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList } from './TurnCounters';
+import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList, type UseHandlers } from './TurnCounters';
 import { PersonnelChoicePanel } from './PersonnelChoicePanel';
 import { personnelCandidateGroups } from './personnelChoice';
 import useLocalStorage from '../../../hooks/useLocalStorage';
@@ -140,6 +141,7 @@ import HomeScreenHelp from './HomeScreenHelp';
 import {
   actionCharged,
   ChargeTarget,
+  costUseAvailable,
   entryCharges,
   GameAction,
   gameReducer,
@@ -191,6 +193,7 @@ import { SAFE_INSET_CSS, type SafeAreaInsets, safeAreaMargins, useSafeAreaInsets
 import { offsetFor } from './overlapOffset';
 import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { RangeUsedProvider } from './RangeUsedContext';
+import { TableCardUse, TableCardUseProvider } from './TableCardUseContext';
 import { shipRangesOnTable } from './shipRange';
 import { attributesOnTableOf } from './attributesOnTable';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
@@ -2551,11 +2554,12 @@ function PracticeDrawContent() {
 
   // The deck of the fixture route, which the deal and the restore share. The bot fixture's holds the
   // Chula pile in place of the fixture deck's dilemmas (#1289).
-  // The cards `?fixture=costs` adds (#1654), split into the hand's and the crew's.
+  // The cards `?fixture=costs` adds (#1654), split into the hand's, the crew's and the core's (#1713).
   const costsFixtureExtras = () => {
     const rows = extractDrawDeck(deckFromTsv(PRACTICE_COSTS_TSV, data));
     const crew = (row: any) => row.originalName === PRACTICE_COSTS_CREW;
-    return { hand: rows.filter((r) => !crew(r)), crew: rows.filter(crew), core: [] as any[] };
+    const core = (row: any) => row.originalName === PRACTICE_COSTS_CORE;
+    return { hand: rows.filter((r) => !crew(r) && !core(r)), crew: rows.filter(crew), core: rows.filter(core) };
   };
   // The cards `?fixture=attributes` adds (#1666), split into the crew's and the core's.
   const attributesFixtureExtras = () => {
@@ -2933,6 +2937,25 @@ function PracticeDrawContent() {
   // A model's choice that raises the turn's limit (#1655), "Tricia Jenkins".
   const raiseLimit = (target: ChargeTarget, delta: number, source: string) =>
     dispatch({ type: 'adjustCounterLimit', delta, source, target });
+  // A use of a card on the table for a play (#1713), Delivery Boy's, from the chip, the list or the card.
+  const cardUseHandlers: UseHandlers = {
+    onUse: (target, id) => dispatch({ type: 'useCard', target, id }),
+    available: (use) => costUseAvailable(table, use),
+  };
+  // The cards that offer a use for a charge of this turn's play and draw (#1713), each for the latest
+  // charge it can still serve, so its badge takes that one.
+  const tableCardUses = new Map<string, TableCardUse>();
+  if (turnCountersOn && table.segment === 'playAndDraw') {
+    for (const charge of [...turnCharges(game.log, turn)].reverse()) {
+      for (const use of charge.uses ?? []) {
+        if (use.used || tableCardUses.has(use.id) || !costUseAvailable(table, use)) continue;
+        tableCardUses.set(use.id, {
+          label: `${use.label} on ${charge.card ?? 'a card'}`,
+          onUse: () => cardUseHandlers.onUse(charge.target, use.id),
+        });
+      }
+    }
+  }
 
   const toggleCardSelection = (id: string) => {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
@@ -3800,6 +3823,13 @@ function PracticeDrawContent() {
               setPersonnelChoice({ target, source });
               setChargeChip(null);
             }}
+            uses={{
+              ...cardUseHandlers,
+              onUse: (target, id) => {
+                cardUseHandlers.onUse(target, id);
+                setChargeChip((chip) => (chip ? { ...chip } : chip));
+              },
+            }}
           />
         )}
         {turnCountersOn && countersListOpen && currentCounters && table.segment === 'playAndDraw' && (
@@ -3812,6 +3842,7 @@ function PracticeDrawContent() {
               setPersonnelChoice({ target, source });
               setCountersListOpen(false);
             }}
+            uses={cardUseHandlers}
             onAdjustLimit={(delta) => dispatch({ type: 'adjustCounterLimit', delta })}
             onTurnChoice={(delta, source) => dispatch({ type: 'adjustCounterLimit', delta, source })}
             pending={pendingDiscountsOf(game.log, turn)}
@@ -3934,6 +3965,7 @@ function PracticeDrawContent() {
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
             <RangeUsedProvider value={rangeUsedInfo}>
+            <TableCardUseProvider value={tableCardUses}>
             {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
                 row clears the home indicator, the table clears the notch, and the background stays
                 full-bleed under both. The scale hooks read the bottom padding from the computed
@@ -4477,6 +4509,7 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            </TableCardUseProvider>
             </RangeUsedProvider>
             </PlaceOnHoldProvider>
             </CardHoldProvider>

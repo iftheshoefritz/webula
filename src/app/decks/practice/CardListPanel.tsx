@@ -99,6 +99,7 @@ import { stopButtons } from './stopRules';
 import { safeAreaMargins } from './useSafeAreaInsets';
 import { ScrollIndicator } from './ScrollIndicator';
 import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
+import { TableCardUseBadge } from './TableCardUseContext';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -472,6 +473,7 @@ function CardListPanelCard({
           </span>
         )}
       </button>
+      <TableCardUseBadge id={instance.id} />
       {selected && (
         <button
           type="button"

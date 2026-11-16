@@ -22,8 +22,15 @@ const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:
 const personnelTraitsOf = (cards: CardInstance[]): CommandedTraits[] =>
   cards.flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y' }] : []));
 
-/** The personnel at a slot: its away team and every crew of its ship row (#1702). */
-const slotPersonnelOf = (s: MissionSlot): CommandedTraits[] => personnelTraitsOf([...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]);
+const slotCards = (s: MissionSlot): CardInstance[] => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])];
+
+/** The personnel at a slot: its away team and every crew of its ship row (#1702), each with its id, title and stopped state (#1713). */
+const slotPersonnelOf = (s: MissionSlot): CommandedTraits[] =>
+  slotCards(s).flatMap((c) =>
+    c.card?.type === 'personnel'
+      ? [{ ...personnelTraitsOf([c])[0], id: c.id, title: cardTitleOf(cardDisplayName(c.card)), stopped: !!c.stopped }]
+      : []
+  );
 
 const costShipOf = (c: CardInstance): CostShip[] =>
   c.card
@@ -64,6 +71,7 @@ const handCardOf = (c: CardInstance) => ({
 const coreCardOf = (c: CardInstance): CostCoreCard => {
   const cost = Number.parseInt(String(c.card?.cost ?? ''), 10);
   return {
+    id: c.id,
     title: cardTitleOf(cardDisplayName(c.card)),
     type: text(c.card?.type),
     keywords: text(c.card?.keywords)
@@ -85,7 +93,7 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined): CostT
 export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): CostFacts {
   const core = table.core.filter((c) => c.card);
   return {
-    commanded: table.missions.flatMap(slotPersonnelOf),
+    commanded: table.missions.flatMap((s) => personnelTraitsOf(slotCards(s))),
     core: core.map((c) => cardTitleOf(cardDisplayName(c.card))),
     coreCards: core.map(coreCardOf),
     corePlaced: core.map((c) => c.placedOn?.length ?? 0),
