@@ -50,6 +50,15 @@ const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew
 export const resolvesOnPlay = (card: { type?: unknown; gametext?: unknown } | null | undefined): boolean =>
   String(card?.type ?? '').toLowerCase() === 'event' && !/\bplays (in|on)\b/i.test(String(card?.gametext ?? ''));
 
+// Whether `card` is an event that removes itself from the game once it resolves (#1730): its text has the
+// sentence "Remove this event from the game.", at the start of the text or after the end of another
+// sentence. The card data lowercases the text, so the match ignores case and reads the sentence start
+// instead: "you may remove this event…" and "At the start of your next turn, remove this event…" are a
+// later choice or a condition of an event that stays in play, and do not count.
+export const removesItselfFromGame = (card: { type?: unknown; gametext?: unknown } | null | undefined): boolean =>
+  String(card?.type ?? '').toLowerCase() === 'event' &&
+  /(?:^|[.!?)]\s*)remove this event from the game/i.test(String(card?.gametext ?? ''));
+
 // Where a played card landed (#1702): the mission slot, and the ship whose crew it boards.
 export type CostDestination = Pick<CostPlay, 'missionIndex' | 'shipId'>;
 

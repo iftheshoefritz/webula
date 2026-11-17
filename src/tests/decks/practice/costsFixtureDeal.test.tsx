@@ -1,5 +1,6 @@
 // `?fixture=costs` (#1654) ends its hand with These Are The Voyages and At What Cost? (#1727), whose ids
-// come after every other card's, so every card of the fixture before #1727 keeps its id.
+// come after every other card's, so every card of the fixture before #1727 keeps its id, and then with
+// Ferengi Tradition (#1730), the last id of all.
 let mockSearchParamsValue = new URLSearchParams();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: jest.fn() }),
@@ -80,7 +81,7 @@ describe('?fixture=costs (#1727)', () => {
     });
   });
 
-  it('deals These Are The Voyages and At What Cost? at the end of the hand, with the last ids', async () => {
+  it('deals These Are The Voyages, At What Cost? and Ferengi Tradition at the end of the hand, with the last ids', async () => {
     mockSearchParamsValue = new URLSearchParams('fixture=costs&reset=1&menu=0');
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -88,16 +89,16 @@ describe('?fixture=costs (#1727)', () => {
     const saved = JSON.parse(localStorage.getItem('practiceGame:fixture=costs')!);
     const nameOf = (key: string) => saved.dealtDeck[key].row.originalName;
     const hand: { id: string; key: string }[] = saved.table.hand;
-    expect(hand.slice(-2).map((c) => nameOf(c.key))).toEqual(['These Are The Voyages', 'At What Cost?']);
+    expect(hand.slice(-3).map((c) => nameOf(c.key))).toEqual(['These Are The Voyages', 'At What Cost?', 'Ferengi Tradition']);
     // The cards before #1727 end with the crew's Annexation Drone and the core's Delivery Boy, and the
-    // two new cards come right after them.
+    // three new cards come right after them.
     const cards = savedCards(saved.table);
     const numbers = cards.map((c) => idNumber(c.id)).sort((a, b) => a - b);
     const last = numbers[numbers.length - 1];
-    expect(hand.slice(-2).map((c) => idNumber(c.id))).toEqual([last - 1, last]);
+    expect(hand.slice(-3).map((c) => idNumber(c.id))).toEqual([last - 2, last - 1, last]);
     const byNumber = new Map(cards.map((c) => [idNumber(c.id), nameOf(c.key)]));
-    expect(byNumber.get(last - 2)).toBe('Delivery Boy');
-    expect(byNumber.get(last - 3)).toBe('Annexation Drone');
+    expect(byNumber.get(last - 3)).toBe('Delivery Boy');
+    expect(byNumber.get(last - 4)).toBe('Annexation Drone');
     expect(saved.table.resolving).toBeNull();
   });
 });
