@@ -3871,21 +3871,6 @@ function PracticeDrawContent() {
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
         />
-        {/* The resolving event (#1728): the panel, below the charge chip and the splash, or its small
-            card. Resolved → Discard is a plain move; Cancel refunds the play. */}
-        {table.resolving && !resolvingCollapsed && (
-          <ResolvingPanel
-            instance={table.resolving}
-            hidden={draggingInstance !== null}
-            escapeActive={!gameMenuOpen}
-            onDiscard={() => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })}
-            onCancel={() => dispatch({ type: 'cancelResolving' })}
-            onViewTable={() => setResolvingCollapsed(true)}
-          />
-        )}
-        {table.resolving && resolvingCollapsed && (
-          <ResolvingMini instance={table.resolving} onOpen={() => setResolvingCollapsed(false)} />
-        )}
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
         {turnCountersOn && chipCharges.length > 0 && (
@@ -4591,6 +4576,22 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            {/* The resolving event (#1728): the panel, below the charge chip and the splash, or its small
+                card, inside the DndContext and the hold provider, so its card drags and previews.
+                Resolved → Discard is a plain move; Cancel refunds the play. */}
+            {table.resolving && !resolvingCollapsed && (
+              <ResolvingPanel
+                instance={table.resolving}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onDiscard={() => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })}
+                onCancel={() => dispatch({ type: 'cancelResolving' })}
+                onViewTable={() => setResolvingCollapsed(true)}
+              />
+            )}
+            {table.resolving && resolvingCollapsed && (
+              <ResolvingMini instance={table.resolving} onOpen={() => setResolvingCollapsed(false)} />
+            )}
             </TableCardUseProvider>
             </RangeUsedProvider>
             </PlaceOnHoldProvider>
