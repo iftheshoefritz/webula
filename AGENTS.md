@@ -682,7 +682,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has fourteen fixtures. Each one deals the same table on every load.
+The practice table has fifteen fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -754,6 +754,15 @@ The practice table has fourteen fixtures. Each one deals the same table on every
   (`botRedraws` in `useBotAttemptStart.ts`), it puts the drawn dilemmas on the bottom of the pile, face up,
   draws as many again and chooses from those. The one `botAttempt` carries `redrawn`, sets
   `TableState.botUsedUnexpectedDifficulties`, and its log entry says so; a new game clears the flag.
+- `?fixture=bot-costs` (#1738) deals the `?fixture=bot` table, the same cards and the same ids, with
+  Ptol (`17V077`, cost 5) at the end of the hand (`PRACTICE_BOT_COSTS_TSV`). In a bot game a play of
+  Ptol reveals the top four cards of the bot's dilemma pile (`CostFacts.opponentDilemmaPile`, filled only
+  when `opponent` is `'bot'`), costs 5 less the dual dilemmas among them, and puts the four on the bottom
+  of the pile in pile order: `withShuffleOrders` turns the play into one `batch`, the charged move (with
+  `costReveal`, its ids) and a move of each card to the bottom, so one entry and one undo. The page opens
+  the dilemma pile's reveal panel at the bottom on those four (`actionReveal`), where the player orders
+  them; an undo closes it. In a game with no bot Ptol keeps its counted choice. It keeps its game under
+  `practiceGame:fixture=bot-costs`.
 - `?fixture=bot-label` (#1519) deals the `?fixture=bot` table with one Well-Prepared Defenses
   (`17V017`) added to the dilemma pile, and starts a bot attempt at Bilana System with the bot's
   numbers, with no search, in `'face'`: the stack holds Well-Prepared Defenses on top, face up, and

@@ -9,7 +9,7 @@
 // ask it too.
 
 import { cardDisplayName } from './cardCount';
-import { CostFacts, CostPlay, CostSource, CostUse, CountedChoice, PendingDiscount } from './costModels/model';
+import { CostFacts, CostPlay, CostReveal, CostSource, CostUse, CountedChoice, PendingDiscount } from './costModels/model';
 import { coreCostsOf, costModelName, costModelOf, costUsesOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
@@ -37,8 +37,11 @@ export type CostPlace =
 
 // What a move charged: a play of a card at its cost, with the source of a cost the table suggested,
 // or a draw at 1. `uses` are the uses the cards on the table offer for the play (#1713), which do not
-// change its cost until the player takes one.
-export type Charge = { kind: 'play'; cost: number; source?: CostSource; uses?: CostUse[] } | { kind: 'draw'; cost: 1 };
+// change its cost until the player takes one. `reveal` are the cards of the opponent's dilemma pile the
+// play reveals (#1738), which go to the bottom of that pile.
+export type Charge =
+  | { kind: 'play'; cost: number; source?: CostSource; uses?: CostUse[]; reveal?: CostReveal }
+  | { kind: 'draw'; cost: 1 };
 
 // The places on the table a card is played to: a ship row, a ship's crew, a mission's away team,
 // the core, on another card, and the resolving zone of an event (#1727).
@@ -180,8 +183,11 @@ function baseCharge(
           : offered;
     const named = parts.length === 1 ? parts[0].cost.reason : parts.map((p) => `${p.title}: ${p.cost.reason}`).join('; ');
     const reason = discount ? `${named}, and ${discount.title}: ${discountReason(discount)}` : named;
+    // Only the card's own model reveals, on its play from the hand (#1738).
+    const reveal = from === 'hand' && model && suggested?.reveal?.ids.length ? suggested.reveal : undefined;
     return {
       kind: 'play',
+      ...(reveal ? { reveal } : {}),
       cost: Math.max(0, printed + total),
       source: {
         title: parts.map((p) => p.title).join(', '),

@@ -104,5 +104,9 @@ export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], 
     missions: table.missions.map(costMissionOf),
     pending,
     plays,
+    // The bot's dilemma pile is the opponent's (#1738); in a game with no bot the pile is the player's own.
+    ...(table.opponent === 'bot'
+      ? { opponentDilemmaPile: table.dilemmaPile.map((c) => ({ id: c.id, dilemmaType: text(c.card?.dilemmatype) })) }
+      : {}),
   };
 }

@@ -53,6 +53,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
   PRACTICE_ATTRIBUTES_CORE,
   PRACTICE_ATTRIBUTES_TSV,
+  PRACTICE_BOT_COSTS_TSV,
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
   PRACTICE_COSTS_CORE,
@@ -160,6 +161,7 @@ import {
   turnCounters,
   TurnCounters,
   withShuffleOrders,
+  actionReveal,
 } from './gameLog';
 import {
   CardHoldProvider,
@@ -2073,7 +2075,9 @@ function PracticeDrawContent() {
   // `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps, and
   // `?fixture=bot-resolve-becalmed` (#1628) with Becalmed, whose roll and check the preview names.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
-  const isBotFixture = fixture === 'bot' || botRevealFixture !== null;
+  // `?fixture=bot-costs` (#1738) deals the `?fixture=bot` table with Ptol at the end of the hand.
+  const isBotCostsFixture = fixture === 'bot-costs';
+  const isBotFixture = fixture === 'bot' || isBotCostsFixture || botRevealFixture !== null;
   const isFixture =
     fixture === '1' || isPilesFixture || isCostsFixture || isAttributesFixture || isAttemptFixture || isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -2110,10 +2114,22 @@ function PracticeDrawContent() {
   // The picker of a choice of personnel (#1712): the charge that offered it and the model's title. It
   // is page state, and the chip's timer does not close it: it stays open until Confirm or Cancel.
   const [personnelChoice, setPersonnelChoice] = useState<{ target: ChargeTarget; source: string } | null>(null);
+  // `play` marks the panel a play opened on the cards it revealed (#1738).
+  const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; end: 'top' | 'bottom'; ids: string[]; play?: true } | null>(
+    null
+  );
   const dispatch = (action: GameAction) => {
     const chosen = withShuffleOrders(table, action, game.log, cardTextOn);
     if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
     else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) setChargeChip(null);
+    // A play that reveals the opponent's dilemma pile (#1738) opens the reveal panel at the bottom of the
+    // pile, on the cards it put there, where the player orders them. The panel draws over every other
+    // one. An undo or a new game closes that panel, since the cards are no longer at the bottom.
+    const revealed = actionReveal(chosen);
+    if (revealed.length) setOpenReveal({ pile: 'dilemmaPile', end: 'bottom', ids: revealed, play: true });
+    else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) {
+      setOpenReveal((reveal) => (reveal?.play ? null : reveal));
+    }
     dispatchGame(chosen);
   };
   useEffect(() => {
@@ -2439,7 +2455,6 @@ function PracticeDrawContent() {
   // and cleared on every close, so the next open starts empty. The panel lists the pile's cards
   // whose ids are here, in pile order, read from the pile on every render. A plain count would
   // show cards the player never revealed once a card goes to the bottom.
-  const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; end: 'top' | 'bottom'; ids: string[] } | null>(null);
   // The cards checked in the currently open card list panel (#677), by id. UI state, scoped to
   // whichever panel is open — only one panel is ever open at a time — and cleared whenever a
   // panel closes, the same as the panels themselves.
@@ -2564,7 +2579,15 @@ function PracticeDrawContent() {
   ) => {
     // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal,
     // or those of `?fixture=attributes` (#1666), dealt to the crew and the core.
-    const extras = fixturePiles ? (isCostsFixture ? costsFixtureExtras() : isAttributesFixture ? attributesFixtureExtras() : null) : null;
+    const extras = fixturePiles
+      ? isCostsFixture
+        ? costsFixtureExtras()
+        : isAttributesFixture
+          ? attributesFixtureExtras()
+          : isBotCostsFixture
+            ? botCostsFixtureExtras()
+            : null
+      : null;
     const extraKeys = new Set(
       extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand].map((c: any) => c.collectorsinfo) : []
     );
@@ -2663,12 +2686,22 @@ function PracticeDrawContent() {
     const core = (row: any) => row.originalName === PRACTICE_ATTRIBUTES_CORE;
     return { hand: [] as any[], crew: rows.filter((r) => !core(r)), core: rows.filter(core), lateHand: [] as any[] };
   };
+  // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
+  const botCostsFixtureExtras = () => ({
+    hand: [] as any[],
+    crew: [] as any[],
+    core: [] as any[],
+    lateHand: extractDrawDeck(deckFromTsv(PRACTICE_BOT_COSTS_TSV, data)),
+  });
   const fixtureDeck = (): DeckList => {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (!isBotFixture) return deck;
-    const botDeck = mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']);
+    const botDeck = {
+      ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
+      ...(isBotCostsFixture ? deckFromTsv(PRACTICE_BOT_COSTS_TSV, data) : {}),
+    };
     // The dilemma a revealing bot fixture adds, by its collector's info as `parseCardData` stores it.
     const labelled = botRevealFixture
       ? data.find((row: any) => row.collectorsinfo === collectorsKey(botRevealFixture.collectorsInfo))
