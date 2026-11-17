@@ -168,6 +168,10 @@ describe('playtest cards on the practice table (#1615)', () => {
     await act(async () => {
       result = render(<PracticeDrawPage />);
     });
+    // The next-turn button shows once the opening hand is drawn (#1736).
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('draw-opening-hand'));
+    });
     const nextTurn = within(screen.getByTestId('turn-score-column')).getByRole('button', { name: 'Go to orders' });
     await act(async () => {
       fireEvent.click(nextTurn);

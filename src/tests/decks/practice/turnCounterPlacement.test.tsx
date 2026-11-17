@@ -53,6 +53,68 @@ const mockMatchMedia = (fine: boolean) => {
   });
 };
 
+// Renders a new game and draws its opening hand, so the turn controls show (#1736).
+const renderPage = async () => {
+  await act(async () => {
+    render(<PracticeDrawPage />);
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('draw-opening-hand'));
+  });
+};
+
+// Issue #1736: a new game shows one "Draw 7" button in place of the turn controls. A tap draws the
+// opening hand at no cost, and one undo takes it back.
+describe('the opening hand of a new game (#1736)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem('currentDeck', JSON.stringify(deck));
+  });
+
+  for (const fine of [false, true]) {
+    it(`shows Draw 7 in place of the turn controls, and keeps the score (${fine ? 'desktop' : 'touch'})`, async () => {
+      mockMatchMedia(fine);
+      await act(async () => {
+        render(<PracticeDrawPage />);
+      });
+      const column = screen.getByTestId('turn-score-column');
+      const draw7 = within(column).getByTestId('draw-opening-hand');
+      expect(draw7).toHaveTextContent('Draw 7');
+      expect(draw7).toHaveClass(fine ? 'btn-icon' : 'btn-system', 'w-full');
+      expect(within(column).queryByTestId('turn-counter')).toBeNull();
+      expect(within(column).queryByTestId('turn-segment-row')).toBeNull();
+      expect(within(column).getByTestId('score-counter')).toBeInTheDocument();
+      expect(within(column).getByRole('button', { name: 'Increase score' })).toBeInTheDocument();
+    });
+  }
+
+  it('draws 7 cards into the hand, then shows turn 1, and one undo brings the button back', async () => {
+    mockMatchMedia(false);
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    const hand = (n: number) => screen.getByRole('button', { name: new RegExp(`^hand, ${n} cards?, tap to open$`, 'i') });
+    expect(hand(0)).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('draw-opening-hand'));
+    });
+    expect(hand(7)).toBeInTheDocument();
+    expect(screen.queryByTestId('draw-opening-hand')).toBeNull();
+    expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
+    expect(screen.getByTestId('turn-segment')).toHaveTextContent('Play');
+    expect(JSON.parse(localStorage.getItem('practiceGame')!).table.drawDeck).toHaveLength(1);
+
+    const undo = screen.getByTestId('undo-button');
+    expect(undo).toHaveAttribute('aria-label', 'Undo: Drew the opening hand (7 cards)');
+    await act(async () => {
+      fireEvent.click(undo);
+    });
+    expect(hand(0)).toBeInTheDocument();
+    expect(screen.getByTestId('draw-opening-hand')).toBeInTheDocument();
+    expect(screen.queryByTestId('turn-counter')).toBeNull();
+  });
+});
+
 // Issue #1337: on a touch screen the turn and score controls sit in the column left of the
 // missions, and no counter shows above the draw deck or the discard.
 describe('the turn and score controls in the left column on a touch screen (#1337)', () => {
@@ -63,9 +125,7 @@ describe('the turn and score controls in the left column on a touch screen (#133
   });
 
   it('sits in the left column, and not in the bottom row', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     const column = screen.getByTestId('turn-score-column');
     expect(within(column).getByTestId('turn-counter')).toBeInTheDocument();
     expect(within(column).getByTestId('score-counter')).toBeInTheDocument();
@@ -81,9 +141,7 @@ describe('the turn and score controls in the left column on a touch screen (#133
   });
 
   it('shows the turn number on the next-turn button, and a press adds 1 to it (#1449)', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     const column = screen.getByTestId('turn-score-column');
     const button = within(column).getByRole('button', { name: 'Go to orders' });
     expect(within(button).getByTestId('turn-counter')).toHaveTextContent('1');
@@ -95,9 +153,7 @@ describe('the turn and score controls in the left column on a touch screen (#133
   });
 
   it('shows the segment under the turn, and the button says what a tap does (#1605)', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     const column = screen.getByTestId('turn-score-column');
     const button = within(column).getByRole('button', { name: 'Go to orders' });
     expect(button).toHaveAttribute('title', 'Go to orders');
@@ -111,9 +167,7 @@ describe('the turn and score controls in the left column on a touch screen (#133
   });
 
   it('keeps the round 24 px corner buttons (#1497)', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     const corner = screen.getByTestId('corner-buttons');
     for (const button of within(corner).getAllByRole('button')) {
       expect(button).toHaveClass('btn-system', 'w-6', 'h-6');
@@ -122,9 +176,7 @@ describe('the turn and score controls in the left column on a touch screen (#133
   });
 
   it('still raises the turn and changes the score by SCORE_STEP within 0 to 140', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
     fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
@@ -150,9 +202,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
   });
 
   it('sits in the left column, and not in the bottom row', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     const column = screen.getByTestId('turn-score-column');
     expect(within(column).getByTestId('turn-counter')).toBeInTheDocument();
     expect(within(column).getByTestId('score-counter')).toBeInTheDocument();
@@ -173,9 +223,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
   });
 
   it('shows the turn number on the next-turn button, and a press adds 1 to it (#1449)', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     const button = screen.getByRole('button', { name: 'Go to orders' });
     expect(within(button).getByTestId('turn-counter')).toHaveTextContent('Turn 1');
     fireEvent.click(button);
@@ -185,9 +233,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
   });
 
   it('starts below five corner buttons, and the corner column takes its width', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     // `top-2`, five 28 px buttons 4 px apart (#1497), then 8 px clear: 8 + 156 + 8.
     expect(screen.getByTestId('turn-score-column').style.top).toBe('172px');
     expect(screen.getByTestId('corner-buttons').style.width).toBe(
@@ -196,9 +242,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
   });
 
   it('draws the corner buttons as wide and as tall as the next-turn button (#1497)', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     const next = screen.getByRole('button', { name: 'Go to orders' });
     expect(next).toHaveClass('w-full', 'h-7');
     const corner = screen.getByTestId('corner-buttons');
@@ -211,9 +255,7 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
   });
 
   it('still raises the turn and changes the score', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+    await renderPage();
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');
     fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 1');

@@ -328,6 +328,8 @@ function repairTable(table: TableState): TableState {
   if (table.opponent !== 'bot' || !isValidBotPile(table.botPile)) delete table.botPile;
   // The bot's use of Unexpected Difficulties (#1563) loads only in a bot game.
   if (table.opponent !== 'bot' || table.botUsedUnexpectedDifficulties !== true) delete table.botUsedUnexpectedDifficulties;
+  // The pending opening hand (#1736) loads only as `'pending'`; absent means drawn.
+  if (table.openingHand !== 'pending') delete table.openingHand;
   // The segment of the turn (#1605): a save from before it, or one with a value the table does not
   // know, restores in play and draw.
   if (!TURN_SEGMENTS.includes(table.segment)) table.segment = 'playAndDraw';

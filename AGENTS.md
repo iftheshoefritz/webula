@@ -584,7 +584,13 @@ table** (`resolving-view-table`) and Escape collapse the panel to a small card a
 (`resolving-mini`, `LAYER_RESOLVING_MINI`), which a tap opens again, a hold previews and a drag moves. The
 view is page state: a new resolving card, an undo that brings it back and a reload open the panel. While
 the zone holds a card the next-turn button is disabled, its `aria-label` and `title` "Resolve These Are The
-Voyages first". The next-turn button has its row to itself, and the segment's name sits on a row of its own below it
+Voyages first". Before the first turn a new game (`reset`, never `resetWithPiles`, so no fixture
+that deals a hand) sets `TableState.openingHand: 'pending'` (#1736): the column then shows one **Draw 7**
+button, `data-testid="draw-opening-hand"`, in place of the next-turn button and the segment's row, the
+score below it as before. A tap dispatches `drawOpeningHand`, which moves the top 7 of the draw deck (fewer
+when it is short) to the hand at no cost, in one log entry, "Drew the opening hand (7 cards)", and
+clears the flag; one undo brings it back. An empty draw deck disables it. A hand draw meanwhile is an
+ordinary charged draw and keeps the flag; `nextTurn` clears it. The next-turn button has its row to itself, and the segment's name sits on a row of its own below it
 (`data-testid="turn-segment-row"`, #1679), which the compact column keeps. With counters on, the
 counter of the turn's counters, `data-testid="turn-counters"`, shares the segment's row in play and
 draw only, "Play 0/7": "<spent>/<limit>", with `data-over="true"` past the limit. In Orders and
@@ -680,8 +686,9 @@ The practice table has fourteen fixtures. Each one deals the same table on every
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
-  ship rows are empty. A new game deals no opening hand (#1115): a tap on the draw deck draws one
-  card into the hand.
+  ship rows are empty. A new game deals no opening hand (#1115): the turn and score column shows
+  "Draw 7" (`draw-opening-hand`, #1736) in place of the turn controls, and a tap on the draw deck
+  draws one card into the hand.
 - `?fixture=piles` (#802, #1024) deals the cards in deck order, with no shuffle, and **a hand of 7**
   (`FIXTURE_HAND` in `tableReducer.ts`), its own and not the opening hand of a new game. Mission 0 has an
   away team of 20 personnel. Mission 2, Bilana System, a space mission, has a ship with a crew of 12

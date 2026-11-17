@@ -40,12 +40,12 @@ const row = (collectorsinfo: string, originalName: string, type: string) => ({
   imagefile: collectorsinfo,
 });
 
-// Eight draw deck cards, so the draw deck still holds one after seven opening draws.
+// Ten draw deck cards, so the draw deck still holds three after the opening hand of seven (#1736).
 // The personnel cost 2.
 const deck = {
   '1M001': { count: 1, row: row('1M001', 'Test Mission', 'mission') },
   '1D001': { count: 2, row: row('1D001', 'Test Dilemma', 'dilemma') },
-  '1P001': { count: 8, row: { ...row('1P001', 'Test Personnel', 'personnel'), cost: '2' } },
+  '1P001': { count: 10, row: { ...row('1P001', 'Test Personnel', 'personnel'), cost: '2' } },
 };
 
 describe('the counter of the turn\'s counters (#1607)', () => {
@@ -68,6 +68,13 @@ describe('the counter of the turn\'s counters (#1607)', () => {
   const draw = async () => {
     await act(async () => {
       fireEvent.click(screen.getAllByRole('button', { name: /draw deck top, tap to draw/i })[0]);
+    });
+  };
+
+  // A new game shows "Draw 7" in place of the turn controls until the opening hand is drawn (#1736).
+  const drawOpeningHand = async () => {
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('draw-opening-hand'));
     });
   };
 
@@ -146,6 +153,7 @@ describe('the counter of the turn\'s counters (#1607)', () => {
       render(<PracticeDrawPage />);
     });
     await switchOn();
+    await drawOpeningHand();
     expect(localStorage.getItem('practice-turn-counters')).toBe('true');
     const counter = screen.getByTestId('turn-counters');
     expect(counter).toHaveTextContent('0/7');
@@ -174,6 +182,7 @@ describe('the counter of the turn\'s counters (#1607)', () => {
       render(<PracticeDrawPage />);
     });
     await switchOn();
+    await drawOpeningHand();
     const column = screen.getByTestId('turn-score-column');
     const segmentRow = within(column).getByTestId('turn-segment-row');
     expect(segmentRow).toHaveTextContent('Play0/7');
@@ -195,6 +204,20 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     expect(segmentRow).toHaveTextContent('Play0/7');
   });
 
+  it('draws the opening hand of 7 at no cost, and shows the turn controls after it (#1736)', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    await switchOn();
+    const column = screen.getByTestId('turn-score-column');
+    expect(within(column).queryByTestId('turn-counters')).toBeNull();
+    await drawOpeningHand();
+    expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
+    expect(within(column).getByTestId('turn-counters')).toHaveTextContent('0/7');
+    expect(screen.queryByTestId('charge-chip')).toBeNull();
+    expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', 'Undo: Drew the opening hand (7 cards)');
+  });
+
   it('removes the chip by itself', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
@@ -213,6 +236,7 @@ describe('the counter of the turn\'s counters (#1607)', () => {
       render(<PracticeDrawPage />);
     });
     await switchOn();
+    await drawOpeningHand();
     await draw();
     await draw();
     await act(async () => {

@@ -114,6 +114,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   | { kind: 'removedFromGame'; cards: string[]; removedFromGame: boolean }
   | { kind: 'missionCompleted'; mission: string; completed: boolean }
   | { kind: 'nextTurn' }
+  // "Draw 7" drew the opening hand (#1736), `count` cards, at no cost.
+  | { kind: 'openingHand'; count: number }
   // The next-turn button moved the turn to another segment of the same turn (#1605).
   | { kind: 'segment'; to: TurnSegment }
   | { kind: 'score'; delta: number; score: number }
@@ -570,6 +572,8 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
     // The turn waits while an event resolves (#1727): a held button makes no entry.
     case 'nextTurn':
       return after === before ? null : { kind: 'nextTurn' };
+    case 'drawOpeningHand':
+      return after === before ? null : { kind: 'openingHand', count: after.hand.length - before.hand.length };
     case 'advanceSegment':
       if (after === before) return null;
       return after.turn !== before.turn ? { kind: 'nextTurn' } : { kind: 'segment', to: after.segment };
@@ -1047,6 +1051,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   removedFromGame: true,
   missionCompleted: true,
   nextTurn: true,
+  openingHand: true,
   segment: true,
   score: true,
   attemptStarted: true,
@@ -1103,6 +1108,8 @@ export function logEntryText(entry: LogEntry): string {
       return `Marked ${entry.mission} ${entry.completed ? 'complete' : 'not complete'}`;
     case 'nextTurn':
       return `Started turn ${entry.turn}`;
+    case 'openingHand':
+      return `Drew the opening hand (${entry.count} ${entry.count === 1 ? 'card' : 'cards'})`;
     case 'segment':
       return `Went to ${entry.to === 'discard' ? 'discard' : 'orders'}`;
     case 'score':
