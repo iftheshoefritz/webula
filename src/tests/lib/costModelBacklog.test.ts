@@ -71,6 +71,10 @@ describe('the cost model backlog', () => {
     }
   );
 
+  it.each(['Pavel A. Chekov Hapless Puppet', 'Exo III Seek Lost Scientist', 'Khar'])('finds the set cost of %s (#1737)', (name) => {
+    expect(changesCost(textOf(name))).toBe(true);
+  });
+
   it.each(['Uninvited', 'Julian Bashir Displaced Doctor'])('leaves out %s', (name) => {
     expect(changesCost(textOf(name))).toBe(false);
   });

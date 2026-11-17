@@ -8,6 +8,8 @@ import { cardTitleOf } from '../cardTitle';
 const COST_PATTERNS: RegExp[] = [
   /\bcosts? [+\-−]\s?\d/i, // "she is cost -1", "play this personnel at cost +1", "costs -2", "this personnel's cost -1"
   /\badditional (\d+ |\w+ )?counters?\b/i, // "an additional counter", "5 additional counters"
+  /\b(at|is) cost \d/i, // a set cost: "play this personnel at cost 1", "is cost 1" (#1737)
+  /\bcost is [+\-−]\d/i, // "this personnel's cost is -1"
 ];
 
 /**
