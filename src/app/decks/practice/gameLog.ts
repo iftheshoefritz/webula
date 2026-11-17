@@ -191,6 +191,10 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // The player dismissed a pending discount (#1656): `target` names the charge of the play that made
   // it, `source` the model's name, "Sarish Rez".
   | { kind: 'discountDismissed'; target: ChargeTarget; source: string }
+  // A Cancel of the resolving event (#1728): the event went back to the hand, and `target` names the
+  // charge of its play, absent for a move into the resolving zone that charged nothing. The effective
+  // log reads that play as no play from then on.
+  | { kind: 'playCancelled'; card: string; target?: ChargeTarget }
 );
 
 // The card on the table a use acted on (#1713).
@@ -245,6 +249,9 @@ export type GameAction =
   // A use of the card `id` on the table for the play at `target` (#1713), Delivery Boy's: the cost change
   // and the card's own part, a destroy or a stop, in one entry that one undo takes back.
   | { type: 'useCard'; target: ChargeTarget; id: string }
+  // A Cancel of the resolving event (#1728): it goes back to the end of the hand, and its play's charge
+  // is refunded, in one entry that one undo takes back.
+  | { type: 'cancelResolving' }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
   | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
@@ -568,7 +575,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'cancelResolving' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -644,6 +651,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   }
   if (action.type === 'choosePersonnel') return choosePersonnelState(state, action);
   if (action.type === 'useCard') return cardUseState(state, action);
+  if (action.type === 'cancelResolving') return cancelResolvingState(state);
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),
@@ -774,7 +782,8 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'adjustCounterLimit' ||
     action.type === 'dismissDiscount' ||
     action.type === 'choosePersonnel' ||
-    action.type === 'useCard'
+    action.type === 'useCard' ||
+    action.type === 'cancelResolving'
   ) {
     return action;
   }
@@ -797,7 +806,8 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
 // The pending discounts of `turn` (#1656), oldest first: each play of the turn whose card's model makes
 // one, less those a later charge used (its source names the play) and those a `discountDismissed`
 // entry dismissed. Read from the effective log alone, so an undo, a redo and a reload agree, and the
-// next turn has none. A correction of the play that used a discount leaves it used. A play whose
+// next turn has none. A correction of the play that used a discount leaves it used, but a Cancel of it
+// (#1728) makes it no play, so the discount it used waits again. A play whose
 // choice was taken makes none (#1699): McCoy played at −2 ignores his next ability, the discount, and
 // an undo of the choice brings it back. A play that used the discount before the choice keeps its cost.
 export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscount[] {
@@ -1018,6 +1028,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   chargeCorrected: true,
   counterLimit: true,
   discountDismissed: true,
+  playCancelled: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1138,6 +1149,8 @@ export function logEntryText(entry: LogEntry): string {
     }
     case 'discountDismissed':
       return `Dismissed the discount of ${typeof entry.source === 'string' && entry.source ? entry.source : 'a card'}`;
+    case 'playCancelled':
+      return `Cancelled playing ${typeof entry.card === 'string' && entry.card ? entry.card : 'a card'}`;
   }
 }
 
@@ -1268,17 +1281,40 @@ function withCorrectedCharge(entry: LogEntry, target: ChargeTarget, cost: number
   return { ...entry, moves };
 }
 
+// The entry `target` names with that card's play taken out (#1728): its cost null, so no reader counts it
+// as a play, and the move reads as a plain move. Null when it names no play.
+function withCancelledPlay(entry: LogEntry, target: ChargeTarget): LogEntry | null {
+  if (entry.kind !== 'move' || !isIndex(target.move) || !isIndex(target.card)) return null;
+  const move = entry.moves[target.move];
+  const costs = move ? moveCosts(move) : null;
+  if (!costs || costs[target.card] === null || costs[target.card] === undefined) return null;
+  const moves = entry.moves.map((m, i) =>
+    i === target.move ? { ...m, costs: costs.map((c, j) => (j === target.card ? null : c)) } : m
+  );
+  return { ...entry, moves };
+}
+
 const effectiveCache = new WeakMap<LogEntry[], LogEntry[]>();
 
 // The log with each charge at the cost of the last correction aimed at it (#1607). The play's own
 // entry then reads the corrected cost, and the totals count it. A correction made in orders lands in
 // the orders group, while its charge sits in play and draw, so this runs over the whole log before
 // `logByTurn` groups it. A log with no correction is returned as it is.
+// A Cancel of the resolving event (#1728) takes its play out: the counters it spent go back, the
+// discount it used waits again, and the standing rules no longer count it.
 export function effectiveLog(log: LogEntry[]): LogEntry[] {
   const cached = effectiveCache.get(log);
   if (cached) return cached;
   let result = log;
   log.forEach((entry, i) => {
+    if (entry.kind === 'playCancelled') {
+      if (!entry.target || !isIndex(entry.target.entry) || entry.target.entry >= i) return;
+      const cancelled = withCancelledPlay(result[entry.target.entry], entry.target);
+      if (!cancelled) return;
+      if (result === log) result = [...log];
+      result[entry.target.entry] = cancelled;
+      return;
+    }
     if (entry.kind !== 'chargeCorrected' || !entry.target || !isIndex(entry.target.entry) || entry.target.entry >= i) return;
     if (typeof entry.to !== 'number' || entry.to < 0) return;
     const corrected = withCorrectedCharge(result[entry.target.entry], entry.target, entry.to);
@@ -1629,6 +1665,44 @@ function discountDismissedEntry(state: GameState, action: { target: ChargeTarget
     turn: state.table.turn,
     segment: state.table.segment,
   };
+}
+
+// The charge of the play that moved the resolving event in (#1728): the last move into the resolving zone
+// in the effective log. The zone holds one card and a move is the one way in, and undo drops the later
+// entries, so that move is this card's. Null when that move charged nothing, outside play and draw.
+function resolvingPlayOf(log: LogEntry[], name: string): ChargeTarget | null {
+  const effective = effectiveLog(log);
+  for (let i = effective.length - 1; i >= 0; i--) {
+    const entry = effective[i];
+    if (entry.kind !== 'move') continue;
+    for (let m = entry.moves.length - 1; m >= 0; m--) {
+      const move = entry.moves[m];
+      if (move.to.kind !== 'resolving') continue;
+      const c = move.cards.lastIndexOf(name);
+      const cost = c >= 0 ? moveCosts(move)?.[c] : null;
+      return typeof cost === 'number' ? { entry: i, move: m, card: c } : null;
+    }
+  }
+  return null;
+}
+
+// A Cancel of the resolving event (#1728): it goes to the end of the hand, uncharged, and the entry names
+// its play's charge, which the effective log then reads as no play. Nothing resolving changes nothing.
+function cancelResolvingState(state: GameState): GameState {
+  const event = state.table.resolving;
+  if (!event) return state;
+  const table = tableReducer(state.table, { type: 'move', id: event.id, to: 'hand' });
+  if (table === state.table) return state;
+  const card = cardName(state.table, event.id);
+  const target = resolvingPlayOf(state.log, card);
+  const entry: LogEntry = {
+    kind: 'playCancelled',
+    card,
+    ...(target ? { target } : {}),
+    turn: table.turn,
+    segment: table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
 // Whether an action carries a charge of the table (#1607), so the page shows its chip.

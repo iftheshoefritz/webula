@@ -564,8 +564,21 @@ move from the hand into it in play and draw is a play (`PLAY_PLACES`), charged b
 logged "Played These Are The Voyages (cost 1)"; a move out is not charged, and to the discard pile it
 logs "Resolved These Are The Voyages, and it went to the discard pile". `resolvesOnPlay`
 (`playCost.ts`) names the events with no "Plays in …" or "Plays on …" clause. The save keeps it, and a
-save from before it, or a malformed or unknown one, restores `null` and keeps the rest. Nothing on the
-table draws the zone yet (#1728). The next-turn button has its row to itself, and the segment's name sits on a row of its own below it
+save from before it, or a malformed or unknown one, restores `null` and keeps the rest. While the zone
+holds a card, a modal panel shows it (#1728, `ResolvingPanel.tsx`, `data-testid="resolving-panel"`), the
+event a whole card (`resolving-card`, `data-zone="resolving"`, its `data-card-id`) that previews on a hold
+and drags out, the panel hidden during the drag as a card list panel is; the panel is no drop target. Its
+layer, `LAYER_RESOLVING_PANEL`, is below the charge chip, so the play's choices stay reachable, and below
+the splash. **Resolved → Discard** (`resolving-discard`) is a plain `move` to the discard pile. **Cancel**
+(`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
+`playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
+into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
+discount it used waits again, and the standing rules no longer count it. What its choices did stays. **View
+table** (`resolving-view-table`) and Escape collapse the panel to a small card at the right side
+(`resolving-mini`, `LAYER_RESOLVING_MINI`), which a tap opens again, a hold previews and a drag moves. The
+view is page state: a new resolving card, an undo that brings it back and a reload open the panel. While
+the zone holds a card the next-turn button is disabled, its `aria-label` and `title` "Resolve These Are The
+Voyages first". The next-turn button has its row to itself, and the segment's name sits on a row of its own below it
 (`data-testid="turn-segment-row"`, #1679), which the compact column keeps. With counters on, the
 counter of the turn's counters, `data-testid="turn-counters"`, shares the segment's row in play and
 draw only, "Play 0/7": "<spent>/<limit>", with `data-over="true"` past the limit. In Orders and
@@ -657,7 +670,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has thirteen fixtures. Each one deals the same table on every load.
+The practice table has fourteen fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -686,6 +699,10 @@ The practice table has thirteen fixtures. Each one deals the same table on every
   Cost? (cost 0), two events that resolve when played, end the hand (#1727), with ids after every other
   card's, so the cards of the fixture before them keep theirs (`PRACTICE_COSTS_LATE_HAND`). The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
+- `?fixture=resolving` (#1728) deals the `?fixture=costs` table, the same cards and the same ids, with
+  These Are The Voyages already moved from the hand into the resolving zone, charged 1 and logged "Played
+  These Are The Voyages (cost 1)", so the page opens on the resolving panel. It keeps its game under
+  `practiceGame:fixture=resolving`.
 - `?fixture=attributes` (#1666) deals the `?fixture=piles` table, the same cards and the same ids, with
   2 more (`PRACTICE_ATTRIBUTES_TSV`): Kira Nerys Reformed Collaborator, a [TN] personnel, joins the end of
   the crew of the ship at Bilana System, and Dark Dissension the end of the core (`extraCore` of

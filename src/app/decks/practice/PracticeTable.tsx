@@ -53,6 +53,7 @@ import {
   PRACTICE_COSTS_TSV,
   PRACTICE_COSTS_CORE,
   PRACTICE_COSTS_LATE_HAND,
+  RESOLVING_FIXTURE_EVENT,
   PRACTICE_DECK_TSV,
 } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
@@ -202,6 +203,7 @@ import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
+import { ResolvingMini, ResolvingPanel } from './ResolvingPanel';
 import {
   DILEMMA_STACK_CHOICE_END_LABELS,
   DILEMMA_STACK_ROW_END,
@@ -815,6 +817,7 @@ function TurnScoreColumn({
   touch,
   counters,
   onOpenCounters,
+  blockedBy = null,
 }: {
   turn: number;
   segment: TurnSegment;
@@ -832,6 +835,8 @@ function TurnScoreColumn({
   // The counters of the turn (#1607), or null while the game menu's setting is off.
   counters: TurnCounters | null;
   onOpenCounters: () => void;
+  // What holds the turn (#1728): "Resolve These Are The Voyages first" while an event resolves, or null.
+  blockedBy?: string | null;
 }) {
   const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
   const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
@@ -858,8 +863,9 @@ function TurnScoreColumn({
         <button
           className={`${button} flex items-center justify-center gap-1`}
           onClick={onNextTurn}
-          aria-label={ADVANCE_LABELS[next]}
-          title={ADVANCE_LABELS[next]}
+          disabled={!!blockedBy}
+          aria-label={blockedBy ?? ADVANCE_LABELS[next]}
+          title={blockedBy ?? ADVANCE_LABELS[next]}
         >
           <span data-testid="turn-counter" className="text-text-primary">
             <span className="sr-only">Turn </span>
@@ -2014,7 +2020,9 @@ function PracticeDrawContent() {
   const isPilesFixture = fixture === 'piles';
   // `?fixture=costs` (#1654) deals the piles table with the cards of the cost models added: Borg
   // Nanoprobes, Goran and the cards of the later models in the hand, and a Borg in the ship's crew.
-  const isCostsFixture = fixture === 'costs';
+  // `?fixture=resolving` (#1728) deals the costs table with These Are The Voyages already resolving.
+  const isResolvingFixture = fixture === 'resolving';
+  const isCostsFixture = fixture === 'costs' || isResolvingFixture;
   // `?fixture=attributes` (#1666) deals the piles table with a [TN] personnel in the ship's crew and
   // Dark Dissension in the core, for the arrows of the attribute bands.
   const isAttributesFixture = fixture === 'attributes';
@@ -2309,6 +2317,16 @@ function PracticeDrawContent() {
   }
   const botLabelText = botLabel && !dismissedBotLabels.has(botLabel.id) ? botLabel.text : null;
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
+  // Issue #1728: the resolving event shows in the modal panel, or after View table or Escape as a small
+  // card. Page state, not part of the save: an event that starts resolving, a restore, a reload and an
+  // undo that brings the event back all open the panel. Adjusted during render on the change of the id.
+  const resolvingId = table.resolving?.id ?? null;
+  const [resolvingCollapsed, setResolvingCollapsed] = useState(false);
+  const [prevResolvingId, setPrevResolvingId] = useState(resolvingId);
+  if (resolvingId !== prevResolvingId) {
+    setPrevResolvingId(resolvingId);
+    setResolvingCollapsed(false);
+  }
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -2571,6 +2589,13 @@ function PracticeDrawContent() {
           dispatch({ type: 'batch', actions: fixtureAttemptStack(dealt), unseen: true });
         }
       }
+    }
+    // `?fixture=resolving` (#1728): These Are The Voyages moves from the hand into the resolving zone, a
+    // play charged and logged as any play is. `table` is still this render's, so it reads the dealt table.
+    if (fixturePiles && isResolvingFixture) {
+      const dealt = tableReducer(initialTableState, deal);
+      const event = dealt.hand.find((c) => c.card?.originalName === RESOLVING_FIXTURE_EVENT);
+      if (event) dispatchGame(withShuffleOrders(dealt, { type: 'move', id: event.id, to: 'resolving' }, [], cardTextOn));
     }
     setDeckEmpty(isDeckEmpty(deck));
     setDealtDeck(deck);
@@ -2949,7 +2974,10 @@ function PracticeDrawContent() {
 
   // Moves the turn to its next segment, or at the end of the turn raises the turn counter by one and
   // unstops every stopped personnel card on the table (#718, #1605).
+  // The turn waits while an event resolves (#1728): the reducer ignores the action then too.
+  const turnBlockedBy = table.resolving ? `Resolve ${cardDisplayName(table.resolving.card)} first` : null;
   const nextTurn = () => {
+    if (turnBlockedBy) return;
     dispatch({ type: 'advanceSegment' });
   };
 
@@ -3843,6 +3871,21 @@ function PracticeDrawContent() {
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
         />
+        {/* The resolving event (#1728): the panel, below the charge chip and the splash, or its small
+            card. Resolved → Discard is a plain move; Cancel refunds the play. */}
+        {table.resolving && !resolvingCollapsed && (
+          <ResolvingPanel
+            instance={table.resolving}
+            hidden={draggingInstance !== null}
+            escapeActive={!gameMenuOpen}
+            onDiscard={() => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })}
+            onCancel={() => dispatch({ type: 'cancelResolving' })}
+            onViewTable={() => setResolvingCollapsed(true)}
+          />
+        )}
+        {table.resolving && resolvingCollapsed && (
+          <ResolvingMini instance={table.resolving} onOpen={() => setResolvingCollapsed(false)} />
+        )}
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
         {turnCountersOn && chipCharges.length > 0 && (
@@ -4135,6 +4178,7 @@ function PracticeDrawContent() {
                 touch={!finePointer}
                 counters={currentCounters}
                 onOpenCounters={() => setCountersListOpen(true)}
+                blockedBy={turnBlockedBy}
               />
                 </>
               )}
