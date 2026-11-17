@@ -758,11 +758,14 @@ const turnFactsOf = (log: LogEntry[], turn: number): TurnFacts => ({
   plays: turnPlaysOf(log, turn),
 });
 
-function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction {
+// A play whose charge reveals cards of the opponent's dilemma pile (#1738) comes back with a move of each
+// of them to the bottom of that pile, in pile order, so the play, the reveal and the moves are one batch,
+// one entry and one undo.
+function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction[] {
   const { pending, plays } = turnFacts;
   if (action.type === 'drawCard' && action.cost === undefined) {
     const charge = drawCharge(table.segment, action.from, action.to);
-    if (charge && tableReducer(table, action) !== table) return { ...action, cost: charge.cost };
+    if (charge && tableReducer(table, action) !== table) return [{ ...action, cost: charge.cost }];
   }
   if (action.type === 'move' && action.cost === undefined) {
     const found = findInstanceAnywhere(table, action.id);
@@ -782,15 +785,18 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
         : null;
     if (charge?.kind === 'play') plays.push(turnPlayOf(found!.instance.card));
     const uses = charge?.kind === 'play' && charge.uses?.length ? { costUses: charge.uses } : {};
+    const revealIds = charge?.kind === 'play' && charge.reveal?.ids.length ? charge.reveal.ids : [];
+    const reveal = revealIds.length ? { costReveal: revealIds } : {};
+    const toBottom: TableAction[] = revealIds.map((id) => ({ type: 'move', id, to: 'dilemmaPile', position: 'bottom' }));
     if (charge?.kind === 'play' && charge.source) {
       const discount = charge.source.discount;
       const usedDiscount = discount ? pending.findIndex((d) => sameTarget(d.origin, discount)) : -1;
       if (usedDiscount >= 0) pending.splice(usedDiscount, 1);
-      return { ...action, cost: charge.cost, costSource: charge.source, ...uses };
+      return [{ ...action, cost: charge.cost, costSource: charge.source, ...uses, ...reveal }, ...toBottom];
     }
-    if (charge) return { ...action, cost: charge.cost, ...uses };
+    if (charge) return [{ ...action, cost: charge.cost, ...uses, ...reveal }, ...toBottom];
   }
-  return action;
+  return [action];
 }
 
 // The setting "Apply card text to attributes" (#1668) joins every move while it is on, so the reducer
@@ -798,7 +804,7 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
 const withCardText = (action: TableAction, cardText: boolean): TableAction =>
   cardText && action.type === 'move' && action.cardText === undefined ? { ...action, cardText: true } : action;
 
-const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts, cardText: boolean): TableAction =>
+const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts, cardText: boolean): TableAction[] =>
   withCharge(table, withShuffleOrder(table, withCardText(action, cardText)), turnFacts);
 
 // `log` is the game's log, for the pending discounts of the turn (#1656). With none, no discount waits.
@@ -823,14 +829,22 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     }
     const turnFacts = turnFactsOf(log, table.turn);
     let state = table;
-    const actions = action.actions.map((a) => {
+    const actions = action.actions.flatMap((a) => {
       const chosen = withOrderAndCharge(state, a, turnFacts, cardText);
-      state = tableReducer(state, chosen);
+      state = chosen.reduce(tableReducer, state);
       return chosen;
     });
     return { ...action, actions };
   }
-  return withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts(), cardText);
+  const chosen = withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts(), cardText);
+  return chosen.length === 1 ? chosen[0] : { type: 'batch', actions: chosen };
+}
+
+// The cards of the opponent's dilemma pile a play of `action` revealed (#1738), from the `costReveal` of
+// its moves, or none. The page opens the reveal panel on them.
+export function actionReveal(action: GameAction): string[] {
+  const actions = action.type === 'batch' ? action.actions : [action];
+  return actions.flatMap((a) => (a.type === 'move' && a.costReveal?.length ? a.costReveal : []));
 }
 
 // The pending discounts of `turn` (#1656), oldest first: each play of the turn whose card's model makes

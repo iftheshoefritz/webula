@@ -193,6 +193,10 @@ export const PRACTICE_COSTS_LATE_HAND = ['These Are The Voyages', 'At What Cost?
 // The event `?fixture=resolving` (#1728) deals already resolving, played from that hand.
 export const RESOLVING_FIXTURE_EVENT = PRACTICE_COSTS_LATE_HAND[0];
 
+// The card `?fixture=bot-costs` (#1738) adds to the end of the hand of the `?fixture=bot` table: Ptol,
+// whose play in a bot game reveals the top four cards of the bot's dilemma pile.
+export const PRACTICE_BOT_COSTS_TSV = `1\tPtol`;
+
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the
 // core, for the arrows of the attribute bands.

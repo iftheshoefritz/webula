@@ -3,9 +3,13 @@ import { CostModel, ModelCost } from '../model';
 // The cards whose cost depends on the opponent, or on cards the table does not see (#1695). The table
 // models no opponent, and the discard, the draws and the reveal these texts name come after the play.
 // So each gives the printed cost and a choice, and never guesses: a count where the text counts, one
-// choice where it does not.
+// choice where it does not. Ptol in a bot game is the exception (#1738): the bot's dilemma pile is on
+// the table, so the play reveals its top four and counts them.
 
 const MINUS = '−';
+
+/** The cards Ptol reveals from the top of the opponent's dilemma pile (#1738). */
+const PTOL_REVEALS = 4;
 
 /** "Cost −`step` for each <what>": the printed cost, and the count of `label`, at most `max`. */
 const forEachChosen =
@@ -65,10 +69,23 @@ export const OPPONENT_COST_MODELS: CostModel[] = [
   },
   // "When you play this personnel, reveal four cards from the top of an opponent's dilemma pile. This
   // personnel is cost -1 for each dual dilemma revealed."
+  // In a bot game the table holds the opponent's dilemma pile (#1738): the play reveals its top four,
+  // counts the dual dilemmas and puts the four on the bottom of the pile. Elsewhere the player counts.
   {
     title: 'Ptol',
     family: 'ownCost',
-    playCost: forEachChosen(1, 4, 'Dual dilemmas revealed', `${MINUS}1 for each dual dilemma of four revealed`),
+    playCost: (play, facts) => {
+      const pile = facts.opponentDilemmaPile;
+      if (!pile) return forEachChosen(1, 4, 'Dual dilemmas revealed', `${MINUS}1 for each dual dilemma of four revealed`)(play);
+      const revealed = pile.slice(0, PTOL_REVEALS);
+      const duals = revealed.filter((c) => c.dilemmaType === 'd').length;
+      const cards = revealed.length === 1 ? 'card' : 'cards';
+      return {
+        cost: Math.max(0, play.printed - duals),
+        reason: `${duals} dual ${duals === 1 ? 'dilemma' : 'dilemmas'} of ${revealed.length} ${cards} revealed, put on the bottom of the dilemma pile`,
+        ...(revealed.length ? { reveal: { ids: revealed.map((c) => c.id) } } : {}),
+      };
+    },
   },
   // "When you play this personnel, if an opponent commands a Maneuver event, he is cost -2." Its download
   // is not a cost.

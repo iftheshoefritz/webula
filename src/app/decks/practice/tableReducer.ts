@@ -318,6 +318,8 @@ export type TableAction =
   // `moveCharge`), which the page adds before the dispatch for the log. The reducer ignores it.
   // `costSource` is where a cost the table suggested came from (#1654): a cost model or a download.
   // `costUses` are the uses the cards on the table offer for the play (#1713), for the log.
+  // `costReveal` are the cards of the opponent's dilemma pile the play reveals (#1738), which the moves
+  // after it in the same batch put on the bottom of that pile; the page opens the reveal panel on them.
   // `cardText` is the setting "Apply card text to attributes" (#1668), which the page stamps on the
   // move (`withShuffleOrders`): absent is off, and the range models do not apply.
   | {
@@ -328,6 +330,7 @@ export type TableAction =
       cost?: number;
       costSource?: CostSource;
       costUses?: CostUse[];
+      costReveal?: string[];
       cardText?: boolean;
     }
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,

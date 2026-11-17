@@ -93,6 +93,18 @@ export interface CostFacts {
    * #1703), for "the first … each turn". Absent is none.
    */
   plays?: CostTurnPlay[];
+  /**
+   * The opponent's dilemma pile, top first, in a bot game only (#1738): each card's instance id and its
+   * dilemma type, lowercased (`d` is a dual dilemma). Absent where the table holds no opponent's pile: in a
+   * game with no bot the dilemma pile is the player's own.
+   */
+  opponentDilemmaPile?: CostPileCard[];
+}
+
+/** A card of the opponent's dilemma pile (#1738): its instance id and its dilemma type, lowercased. */
+export interface CostPileCard {
+  id: string;
+  dilemmaType: string;
 }
 
 /** A card of the core (#1704): its title (`cardTitleOf`), its type and keywords, lowercased, and its printed cost. */
@@ -255,6 +267,17 @@ export interface ModelCost {
   cost: number;
   reason: string;
   choice?: CostChoice;
+  /** The cards of the opponent's dilemma pile the play reveals (#1738), which then go to its bottom. */
+  reveal?: CostReveal;
+}
+
+/**
+ * The cards a play reveals from the top of the opponent's dilemma pile (#1738), by instance id, top first.
+ * The page shows them in the reveal panel, and the play puts them on the bottom of the pile, where the
+ * player orders them.
+ */
+export interface CostReveal {
+  ids: string[];
 }
 
 /**
