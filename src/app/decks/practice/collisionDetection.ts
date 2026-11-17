@@ -1,5 +1,6 @@
 import { Collision, CollisionDetection, pointerWithin, rectIntersection } from '@dnd-kit/core';
 import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
+import { PLAY_TARGET_ID } from './playTarget';
 
 // Two stages, and the order between them is the whole point.
 //
@@ -33,6 +34,10 @@ import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
 // a pointer on the fan is inside both, and the fan is the element the player sees under it. The fan
 // is a drop target over the box of its visible cards only, so beside it the core or the brig wins.
 //
+// Both stages put the Play target first (#1729): it covers the whole table above the bottom row, and
+// exists only while the pointer is above that line, so a drop anywhere on it is a play, never a drop
+// on the mission or the ship under it.
+//
 // A separate module, not defined inline in `page.tsx`: Next.js only allows a page module to
 // export the page's own default component and a small fixed set of named exports (`metadata`,
 // `generateStaticParams`, and the like), so a plain named export here fails the production build
@@ -41,7 +46,12 @@ const CLOSED_HAND_IDS = new Set<Collision['id']>(['hand', 'dilemmaHand']);
 
 const overlapRatio = (collision: Collision): number => (collision.data as { value?: number } | undefined)?.value ?? 0;
 
-export const collisionDetection: CollisionDetection = (args) => {
+const playFirst = (collisions: Collision[]): Collision[] => {
+  const play = collisions.filter((collision) => collision.id === PLAY_TARGET_ID);
+  return play.length > 0 ? [...play, ...collisions.filter((collision) => collision.id !== PLAY_TARGET_ID)] : collisions;
+};
+
+const rankedCollisions: CollisionDetection = (args) => {
   const withinPointer = pointerWithin(args);
   if (withinPointer.length > 0) {
     const hands = withinPointer.filter((collision) => CLOSED_HAND_IDS.has(collision.id));
@@ -55,3 +65,5 @@ export const collisionDetection: CollisionDetection = (args) => {
   };
   return [...intersections].sort((a, b) => areaOf(a.id) - areaOf(b.id) || overlapRatio(b) - overlapRatio(a));
 };
+
+export const collisionDetection: CollisionDetection = (args) => playFirst(rankedCollisions(args));

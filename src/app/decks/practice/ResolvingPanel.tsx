@@ -23,6 +23,7 @@ import { useEscapeLayer } from './useEscapeLayer';
 import { PREVIEW_MAX_HEIGHT } from './previewSize';
 import { SAFE_INSET_CSS, safeAreaMargins } from './useSafeAreaInsets';
 import { PANEL_SURFACE_CLASSNAME } from './CardListPanel';
+import { LandedRing, useLandedNonce } from './LandedZoneContext';
 
 // The height of the panel's card: the native height of the image at most, and what the screen leaves
 // once the panel's padding and the insets are off, so the card and its buttons fit 667×375.
@@ -47,8 +48,10 @@ function ResolvingCard({
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: panelDraggableId(instance.id) });
   const holdListeners = useCardHold(instance.id, listeners);
   const name = cardDisplayName(instance.card);
+  // A drop on the Play target (#1729) plays the landed cue here.
+  const landedNonce = useLandedNonce('resolving');
   return (
-    <div data-zone="resolving" data-testid={testId} className="relative shrink-0">
+    <div data-zone="resolving" data-testid={testId} data-landed={landedNonce !== null || undefined} className="relative shrink-0 rounded-md">
       <button
         ref={setNodeRef}
         type="button"
@@ -71,6 +74,7 @@ function ResolvingCard({
           style={{ ...NO_CALLOUT_STYLE, ...imageStyle }}
         />
       </button>
+      <LandedRing nonce={landedNonce} />
     </div>
   );
 }

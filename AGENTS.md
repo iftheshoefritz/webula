@@ -555,7 +555,8 @@ under `practice-card-text-attributes`, off by default, turns on the range and sp
 total the printed spans plus the 2 between quadrants, a rule of the game. `withShuffleOrders` stamps
 it on each `move` as `cardText` (absent is off), so the reducer reads no storage and a change of it
 leaves `rangeUsed` as it was. The same setting turns on the attribute models of `ATTRIBUTE_REGISTRY` (`attributeModels.ts`, #1664: U.S.S. Enterprise-J, Orlitus Cluster Astronomical Survey, Dark Dissension): `personnelAttributesOnTable` and `shipAttributesOnTable` give a card's Integrity, Cunning and Strength, or Weapons and Shields, on the table, each never below 0, and the printed values with it off. A ship's clause that changes its attributes (#1671: Groumall, A. G. Robinson, Wesley Crusher, Erika Hernandez, Geordi La Forge, Rotarran, Keldon Advanced, Sarajevo, Vedek Assembly Transport, Vidiian Cruiser) has one condition in `SHIP_CLAUSES` (`rangeModels.ts`) that its range model and its attribute model both call; the range hooks read a `RangeTable` (the missions, the discard and the core), and a commanded personnel that changes ships uses `commandedShipRange` and `commandedShipAttributes`. An equipment's `groupAttributes` changes its own group (The Sword of Kahless, #1683), and an event placed on a ship changes it through `placedOnShipAttributes` (Exceed Engine Output). With it on, the bands of the cropped personnel and ships (`PersonnelOverlay`, `ShipOverlay`) show them (#1666): `PracticeTable` builds `attributesOnTableOf` (`attributesOnTable.ts`), the values that differ from the printed ones by instance id, and shares it as `attributes` of `RangeUsedContext`; each differing value carries an arrow left of its number, up in green for a rise and down in red for a fall (`<prefix>-<attribute>-modified`, `data-direction`), and the band's `aria-label` adds the printed value, "Integrity 4, printed 5". A ship's Range arrow compares its Range on the table with the printed Range, never the range left: a moved ship still shows the range left, "Range 9 left of 12, printed 7". A whole ship card shows `ShipRangeLeftBox` when it moved or its Range differs (`shipRangeShown`), with the arrow; the other whole-card attributes show no change yet. With the setting off no arrow shows. The dilemma bot reads them (#1665): `useBotAttemptStart` stamps the setting on the `botAttempt` as `cardText`, the reducer keeps it on the `Attempt`, and `pileTableInputOf` gives the attempting personnel and ship their attributes and Range on the table, before the modifiers of `PileModifiers`, for the bot's search, label, Resolve and reveal roll; a change of the setting mid-attempt takes effect at the next attempt. Beside them, "Resolve events in a panel: On/Off" (`game-menu-resolve-events`, #1727), under
-`practice-resolve-events`, off by default, decides only whether the Play target of #1729 shows; an
+`practice-resolve-events`, off by default, decides only whether the Play target of #1729 shows (see
+the drag section); an
 event already resolving stays whatever the setting. The resolving zone, `TableState.resolving` and the
 `Zone` `'resolving'`, holds one card or `null`, never a list (`FlatZone` is every other top-level zone;
 `cardsAt` reads the slot as 0 or 1 cards): a `move` into it is refused while it holds a card, a move out
@@ -917,6 +918,27 @@ bash scripts/practice_drag.sh card-9 crew-card-39        # places an interrupt o
 A tap anywhere on the ship, the counter of the cards on it too, opens its crew panel (#963). The crew panel shows the cards on the ship as tiny cards below the ship, and a drag of a tiny card out of the panel takes it off the ship.
 
 A drag out of the core onto a ship has failed once. See #701.
+
+The **Play** target (#1729, `PlayTarget.tsx`, `playTarget.ts`) plays an event that resolves at once.
+It shows during a drag only when "Resolve events in a panel" is on, the segment is play and draw, no
+attempt is in progress, `resolving` is empty, and the drag carries one card, from the hand, for which
+`resolvesOnPlay` is true (`playTargetEligible`), and only while the pointer is above the line:
+`PLAY_TARGET_MARGIN` (16 px) above the higher of the bottom row's top and the closed hand fan's top
+(`playTargetLine`, read on each `onDragMove`). It goes away below the line and when the drag ends. It
+is a droppable, `data-zone="resolving"`, `data-testid="play-target"`, reading Play, over the whole
+table above the line, in `LAYER_PLAY_TARGET`, with no pointer events; it shows the `valid` ring and
+the `over` ring under the pointer. `collisionDetection.ts` ranks it first in both stages, so a drop
+anywhere on it is a play, never a drop on the mission or ship under it. A drop dispatches a `move` to
+`resolving`, charged and logged as a play, the panel opens, and its card plays the landed cue. Below
+the line every target of the bottom row takes the card as before, uncharged. `resolvesOnPlay` matches
+"plays in" and "plays on" in any case: the page's card data is lowercased. `practice_drag.sh` aims at
+it as `resolving`: it first glides to a point above the line (`cdp_input.sh --via-eval`), then reads
+the target, and prints `resolving`:
+
+```bash
+# on ?fixture=costs with the setting on, where These Are The Voyages ends the hand but one
+bash scripts/practice_drag.sh <its card id> resolving   # prints resolving
+```
 
 ### Undo
 

@@ -5,11 +5,11 @@
 //   bash scripts/cdp_input.sh double-tap <x> <y> | <selector>
 //   bash scripts/cdp_input.sh pan <selector> <dx> <dy>
 //   bash scripts/cdp_input.sh touch-drag <x> <y> <tx> <ty>
-//   bash scripts/cdp_input.sh touch-drag <x> <y> --to-eval '<js that returns "x y">'
+//   bash scripts/cdp_input.sh touch-drag <x> <y> [--via-eval '<js that returns "x y">'] --to-eval '<js that returns "x y">'
 //   bash scripts/cdp_input.sh click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh double-click <x> <y> | <selector> [--mod shift,ctrl,meta,alt]
 //   bash scripts/cdp_input.sh mouse-drag <x> <y> <tx> <ty> [--mod shift,ctrl,meta,alt]
-//   bash scripts/cdp_input.sh mouse-drag <x> <y> --to-eval '<js that returns "x y">'
+//   bash scripts/cdp_input.sh mouse-drag <x> <y> [--via-eval '<js that returns "x y">'] --to-eval '<js that returns "x y">'
 //   bash scripts/cdp_input.sh mouse-path <x> <y> <tx>,<ty>,<hold-ms> ... [--mod shift,ctrl,meta,alt] [--first <dx>,<dy>]
 //   bash scripts/cdp_input.sh touch-path <x> <y> <tx>,<ty>,<hold-ms> ... [--first <dx>,<dy>]
 //   bash scripts/cdp_input.sh offline-reload [<url>]
@@ -22,6 +22,10 @@
 // `double-tap` and `double-click` (#1060) send two presses at one point on one connection, about
 // `DOUBLE_GAP_MS` apart, inside the 250 ms `DOUBLE_TAP_MS` window of a mission card. Two runs of
 // `tap` or `click` cannot: each run starts its own Node process, which takes longer than that.
+//
+// `--via-eval` (#1729) glides to the point its script returns after the first move, and only then
+// reads `--to-eval`: a target that appears only once the pointer is somewhere, such as the Play
+// target above the bottom row, exists by then.
 //
 // `mouse-path` and `touch-path` (#1044) press at <x> <y>, make the first small move, then glide to
 // each waypoint in turn and rest there for its hold, and release at the last one. One run times
@@ -179,6 +183,7 @@ async function main() {
 
   let modifiers = 0;
   let toEval = null;
+  let viaEval = null;
   let firstMove = FIRST_MOVE;
   const args = [];
   for (let i = 0; i < rest.length; i++) {
@@ -193,6 +198,8 @@ async function main() {
       firstMove = { dx: Number(m[1]), dy: Number(m[2]) };
     } else if (rest[i] === '--to-eval') {
       toEval = rest[++i];
+    } else if (rest[i] === '--via-eval') {
+      viaEval = rest[++i];
     } else {
       args.push(rest[i]);
     }
@@ -302,9 +309,19 @@ async function main() {
       await sleep(HOVER_SETTLE_MS);
     }
     await press(from);
-    const first = { x: from.x + FIRST_MOVE.dx, y: from.y + FIRST_MOVE.dy };
+    let first = { x: from.x + FIRST_MOVE.dx, y: from.y + FIRST_MOVE.dy };
     await move(first);
     await sleep(100);
+    if (viaEval) {
+      const m = /^(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)$/.exec(String(await evaluate(viaEval)));
+      if (m) {
+        const via = { x: Number(m[1]), y: Number(m[2]) };
+        await glide(first, via, move);
+        await move(via);
+        await sleep(100);
+        first = via;
+      }
+    }
     // The layout can reflow when the drag starts, so a target given as a script is read now.
     let to;
     if (toEval) {

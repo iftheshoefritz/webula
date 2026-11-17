@@ -5,6 +5,7 @@
 #   bash scripts/practice_drag.sh card-7 core
 #   bash scripts/practice_drag.sh card-1 mission-pile-awayTeam-0
 #   bash scripts/practice_drag.sh --touch card-7 core
+#   bash scripts/practice_drag.sh <an event that resolves at once> resolving
 #
 # The examples drag hand cards of `/decks/practice?fixture=piles&reset=1&menu=0`,
 # the fixture that deals a hand (#1116). `?fixture=1` deals a new game with no
@@ -281,7 +282,17 @@ if [ -n "$TOUCH" ]; then
 else
   DRAG=mouse-drag
 fi
-target=$(bash "$(dirname "$0")/cdp_input.sh" "$DRAG" "$ax" "$ay" --to-eval "$TARGET_JS" 2>&1 | head -1)
+# The Play target (#1729), `resolving`, exists only while the pointer is above
+# the line: the top of the bottom row and of the closed hand's small fan, less
+# 16 px. So for it the drag first glides to a point halfway between the top of
+# the screen and that line, straight above the press point, and only then reads
+# TARGET_JS. A drop on it puts the card in the resolving panel, whose card has
+# `data-zone="resolving"`.
+VIA=()
+if [ "$ZONE" = "resolving" ]; then
+  VIA=(--via-eval "(()=>{const tops=['[data-zone=\"core\"]','[data-zone=\"discard\"]','[data-testid=\"hand-closed-fan\"]'].map((s)=>document.querySelector(s)?.getBoundingClientRect()).filter((r)=>r&&r.height>0).map((r)=>r.top);if(!tops.length)return 'NONE';return $ax+' '+Math.round(Math.min(...tops)/2)})()")
+fi
+target=$(bash "$(dirname "$0")/cdp_input.sh" "$DRAG" "$ax" "$ay" "${VIA[@]}" --to-eval "$TARGET_JS" 2>&1 | head -1)
 case "$target" in
   MISSING|DEAD) ;;
   "$DRAG "*) target="" ;;

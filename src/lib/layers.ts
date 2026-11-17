@@ -8,6 +8,7 @@
 // | Pile count badge                       | `z-[140]` | `CountBadge.tsx`       |
 // | Resolving event's small card (#1728)   | `z-[141]` | `ResolvingPanel.tsx`   |
 // | Closed hand fan (#1489)                | `z-[142]` | `CardHand.tsx`         |
+// | Play target (#1729)                    | `z-[143]` | `PlayTarget.tsx`       |
 // | Open hand backdrop                     | `z-[145]` | `CardHand.tsx`         |
 // | Open hand card fan                     | `z-[146]` | `CardHand.tsx`         |
 // | Resolving panel (#1728)                | `z-[147]` | `ResolvingPanel.tsx`   |
@@ -32,6 +33,8 @@ export const LAYER_COUNT_BADGE = 'z-[140]';
 // The small card of a resolving event under View table (#1728): above the table and its badges.
 export const LAYER_RESOLVING_MINI = 'z-[141]';
 export const LAYER_CLOSED_HAND = 'z-[142]';
+// The Play target (#1729), during a drag only: over the table above the bottom row and its badges.
+export const LAYER_PLAY_TARGET = 'z-[143]';
 export const LAYER_HAND_BACKDROP = 'z-[145]';
 export const LAYER_HAND_FAN = 'z-[146]';
 // The resolving panel (#1728), with its backdrop: over the hand, below the charge chip, so the play's

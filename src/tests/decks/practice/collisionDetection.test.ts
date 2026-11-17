@@ -163,4 +163,25 @@ describe('collisionDetection with the closed hand over the core', () => {
     const result = collisionDetection(argsFor(rect(300, 500, 56, 78), rects, { x: 330, y: 560 }));
     expect(result.map((c) => c.id)).toEqual(['core']);
   });
+
+  // The Play target (#1729) covers the table above the bottom row, so it ranks before the mission and
+  // ship targets inside it in both stages.
+  it('puts the Play target first when the pointer is inside it and a ship', () => {
+    const rects = {
+      'crew-ship-1': rect(100, 100, 34, 26),
+      'ship-row-0': rect(90, 90, 72, 46),
+      resolving: rect(0, 0, 800, 400),
+    };
+    const result = collisionDetection(argsFor(rect(90, 80, 56, 78), rects, { x: 110, y: 110 }));
+    expect(result[0].id).toBe('resolving');
+  });
+
+  it('puts the Play target first in the area-ranked stage too', () => {
+    const rects = {
+      'crew-ship-1': rect(100, 100, 34, 26),
+      resolving: rect(0, 0, 800, 400),
+    };
+    const result = collisionDetection(argsFor(rect(90, 80, 56, 78), rects));
+    expect(result.map((collision) => collision.id)).toEqual(['resolving', 'crew-ship-1']);
+  });
 });
