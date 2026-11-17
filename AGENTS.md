@@ -570,7 +570,12 @@ holds a card, a modal panel shows it (#1728, `ResolvingPanel.tsx`, `data-testid=
 event a whole card (`resolving-card`, `data-zone="resolving"`, its `data-card-id`) that previews on a hold
 and drags out, the panel hidden during the drag as a card list panel is; the panel is no drop target. Its
 layer, `LAYER_RESOLVING_PANEL`, is below the charge chip, so the play's choices stay reachable, and below
-the splash. **Resolved → Discard** (`resolving-discard`) is a plain `move` to the discard pile. **Cancel**
+the splash. **Resolved → Discard** (`resolving-discard`) is a plain `move` to the discard pile. For an event whose text has the
+sentence "Remove this event from the game." (`removesItselfFromGame` in `playCost.ts`, matched at a
+sentence start in any case, #1730), **Resolved → Remove from game** (`resolving-remove-from-game`) shows
+first: one `batch` (`resolvedRemoveFromGameAction`), that `move` and then `setRemovedFromGame`, which
+leaves the card at the end of the discard pile marked as the discard pile panel's Remove from game marks
+it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -698,7 +703,8 @@ The practice table has fourteen fixtures. Each one deals the same table on every
   Temporal event of cost 2, joins the end of the hand too, and Delivery Boy the end of the core, so a play
   of Machinations offers "Destroy Delivery Boy: −3" (#1713). These Are The Voyages (cost 1) and At What
   Cost? (cost 0), two events that resolve when played, end the hand (#1727), with ids after every other
-  card's, so the cards of the fixture before them keep theirs (`PRACTICE_COSTS_LATE_HAND`). The draw deck
+  card's, so the cards of the fixture before them keep theirs (`PRACTICE_COSTS_LATE_HAND`), and after
+  them Ferengi Tradition (#1730), an event that removes itself from the game, with the last id. The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
 - `?fixture=resolving` (#1728) deals the `?fixture=costs` table, the same cards and the same ids, with
   These Are The Voyages already moved from the hand into the resolving zone, charged 1 and logged "Played

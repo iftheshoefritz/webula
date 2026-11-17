@@ -85,6 +85,9 @@ export interface LogMove {
   // The uses the cards on the table offered for each played card (#1713), in the order of `cards`, null
   // for a card with none. Absent when no card of the move had one.
   uses?: (CostUse[] | null)[];
+  // The cards of the move that the same action removed from the game (#1730): the resolving event that
+  // Resolved → Remove from game sends to the discard pile, marked. Absent for every other move.
+  removedFromGame?: true;
 }
 
 export interface LogRange {
@@ -332,10 +335,12 @@ const ORDERED_PLACES: ReadonlySet<MoveTarget> = new Set<MoveTarget>(['drawDeck',
 
 // The moves of one player action, with every move that changed nothing left out: a refused move,
 // and a drop back in the card's own place (which only reorders an unordered zone).
+// `removed` names the cards the same action removed from the game (#1730), each in a group of its own.
 function moveEntry(
   before: TableState,
   moves: Extract<TableAction, { type: 'move' }>[],
-  unseen: boolean
+  unseen: boolean,
+  removed: ReadonlySet<string> = new Set()
 ): LogMove[] {
   const groups: LogMove[] = [];
   let state = before;
@@ -357,8 +362,13 @@ function moveEntry(
       const source = cost !== null && move.costSource ? move.costSource : null;
       const play = cost !== null ? turnPlayOf(found.instance.card) : null;
       const uses = cost !== null && move.costUses?.length ? move.costUses : null;
+      const removedFromGame = removed.has(move.id);
       const group = groups.find(
-        (g) => placeKey(g.from) === placeKey(from) && placeKey(g.to) === placeKey(to) && g.position === position
+        (g) =>
+          placeKey(g.from) === placeKey(from) &&
+          placeKey(g.to) === placeKey(to) &&
+          g.position === position &&
+          !!g.removedFromGame === removedFromGame
       );
       if (group) {
         if (cost !== null || group.costs) group.costs = [...(group.costs ?? group.cards.map(() => null)), cost];
@@ -378,6 +388,7 @@ function moveEntry(
           ...(source ? { sources: [source] } : {}),
           ...(play ? { plays: [play] } : {}),
           ...(uses ? { uses: [uses] } : {}),
+          ...(removedFromGame ? { removedFromGame: true as const } : {}),
         });
     }
     state = next;
@@ -583,7 +594,11 @@ export function logEntryFor(
     const moves = action.actions.filter((a): a is Extract<TableAction, { type: 'move' }> => a.type === 'move');
     const flips = action.actions.filter((a): a is Extract<TableAction, { type: 'flip' }> => a.type === 'flip');
     if (moves.length) {
-      const logMoves = moveEntry(before, moves, !!action.unseen);
+      // A `setRemovedFromGame` after the moves marks the cards it removes on their move (#1730).
+      const removed = new Set(
+        action.actions.flatMap((a) => (a.type === 'setRemovedFromGame' && a.removedFromGame ? a.ids : []))
+      );
+      const logMoves = moveEntry(before, moves, !!action.unseen, removed);
       // The shuffle of a download runs after its moves, so it shuffles what the moves left.
       const afterMoves = moves.reduce(tableReducer, before);
       const shuffle = action.actions.find((a): a is Extract<TableAction, { type: 'shuffle' }> => a.type === 'shuffle');
@@ -603,6 +618,17 @@ export function logEntryFor(
   }
   return body ? ({ ...body, turn: after.turn, segment: after.segment } as LogEntry) : null;
 }
+
+// Resolved → Remove from game of the resolving event (#1730): the move Resolved → Discard makes, then the
+// discard pile's Remove from game, in one batch and one entry. The order matters: a move out of the
+// discard pile clears the flag, so the flag goes on after the card is there.
+export const resolvedRemoveFromGameAction = (id: string): GameAction => ({
+  type: 'batch',
+  actions: [
+    { type: 'move', id, to: 'discard' },
+    { type: 'setRemovedFromGame', ids: [id], removedFromGame: true },
+  ],
+});
 
 export const initialGameState = (table: TableState): GameState => ({ table, log: [], undo: [], redo: [] });
 
@@ -958,18 +984,21 @@ const playedPlaceText = (place: LogPlace): string => {
 };
 
 // The text of one move, with its verb: "played" when every card of it was a play, and "resolved" for
-// the resolving event that goes to the discard pile (#1727).
+// the resolving event that goes to the discard pile (#1727), or is removed from the game (#1730).
 const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text: string } => {
   const costs = moveCosts(move);
   if (costs && costs.every((c) => c !== null)) {
     return { verb: 'played', text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}` };
+  }
+  if (move.from.kind === 'resolving' && move.to.kind === 'discard' && move.removedFromGame) {
+    return { verb: 'resolved', text: `${cardsText(move.cards)}, and removed it from the game` };
   }
   if (move.from.kind === 'resolving' && move.to.kind === 'discard') {
     return { verb: 'resolved', text: `${cardsText(move.cards)}, and it went to ${placeText(move.to)}` };
   }
   return {
     verb: 'moved',
-    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}`,
+    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}${move.removedFromGame ? ', and removed from the game' : ''}`,
   };
 };
 

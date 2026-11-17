@@ -73,6 +73,8 @@ describe('?fixture=resolving (#1728)', () => {
     expect(screen.getByTestId('resolving-discard')).toHaveTextContent('Resolved → Discard');
     expect(screen.getByTestId('resolving-cancel')).toBeInTheDocument();
     expect(screen.getByTestId('resolving-view-table')).toBeInTheDocument();
+    // These Are The Voyages does not remove itself from the game (#1730).
+    expect(screen.queryByTestId('resolving-remove-from-game')).toBeNull();
     const card = screen.getByTestId('resolving-card');
     expect(card).toHaveAttribute('data-zone', 'resolving');
     expect(card.querySelector('[data-card-id]')).toHaveAttribute('data-card-id', saved().table.resolving.id);

@@ -1,7 +1,8 @@
 // The resolving event (#1728): the modal panel that shows the event of `TableState.resolving` while its
 // text resolves, and the small card it collapses to under View table or Escape.
 //
-// The panel shows the event as a whole card, with Resolved → Discard, Cancel and View table. Its card,
+// The panel shows the event as a whole card, with Resolved → Discard, Cancel and View table, and first of
+// them Resolved → Remove from game for an event whose text removes it from the game (#1730). Its card,
 // and the small card, drag out under `panelDraggableId` like a card list panel's, so the page's drag
 // handlers find the card in `resolving` and the drop lands wherever any drop of it lands. The panel is no
 // drop target. It follows the card list panel's `hidden` convention: during a drag it stays mounted, with
@@ -84,6 +85,7 @@ export function ResolvingPanel({
   hidden,
   escapeActive,
   onDiscard,
+  onRemoveFromGame,
   onCancel,
   onViewTable,
 }: {
@@ -93,6 +95,8 @@ export function ResolvingPanel({
   // Whether Escape reaches the panel: not while the game menu splash covers it.
   escapeActive: boolean;
   onDiscard: () => void;
+  // Shown only for an event that removes itself from the game (`removesItselfFromGame`).
+  onRemoveFromGame?: () => void;
   onCancel: () => void;
   onViewTable: () => void;
 }) {
@@ -125,6 +129,16 @@ export function ResolvingPanel({
         />
         <div className="flex w-32 flex-col gap-2">
           <p className="text-xs text-text-muted">Resolving</p>
+          {onRemoveFromGame && (
+            <button
+              type="button"
+              data-testid="resolving-remove-from-game"
+              className="btn-primary w-full text-sm leading-tight"
+              onClick={onRemoveFromGame}
+            >
+              Resolved → Remove from game
+            </button>
+          )}
           <button type="button" data-testid="resolving-discard" className={button} onClick={onDiscard}>
             Resolved → Discard
           </button>

@@ -26,7 +26,7 @@ import {
 import { collisionDetection } from './collisionDetection';
 import { PLAY_TARGET_ID, playTargetEligible, playTargetLine } from './playTarget';
 import { PlayTarget } from './PlayTarget';
-import { resolvesOnPlay } from '../../../lib/playCost';
+import { removesItselfFromGame, resolvesOnPlay } from '../../../lib/playCost';
 import { useEscapeLayer } from './useEscapeLayer';
 import { FaLayerGroup, FaMobileAlt, FaForward, FaTimes } from 'react-icons/fa';
 import {
@@ -154,6 +154,7 @@ import {
   initialGameState,
   logEntryText,
   pendingDiscountsOf,
+  resolvedRemoveFromGameAction,
   tableLimits,
   turnCharges,
   turnCounters,
@@ -4617,13 +4618,19 @@ function PracticeDrawContent() {
             {playEligible && playTargetAt !== null && <PlayTarget line={playTargetAt} container={gameLayer} />}
             {/* The resolving event (#1728): the panel, below the charge chip and the splash, or its small
                 card, inside the DndContext and the hold provider, so its card drags and previews.
-                Resolved → Discard is a plain move; Cancel refunds the play. */}
+                Resolved → Discard is a plain move; Resolved → Remove from game (#1730) is that move and the
+                discard pile's Remove from game, in one batch; Cancel refunds the play. */}
             {table.resolving && !resolvingCollapsed && (
               <ResolvingPanel
                 instance={table.resolving}
                 hidden={draggingInstance !== null}
                 escapeActive={!gameMenuOpen}
                 onDiscard={() => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })}
+                onRemoveFromGame={
+                  removesItselfFromGame(table.resolving.card)
+                    ? () => table.resolving && dispatch(resolvedRemoveFromGameAction(table.resolving.id))
+                    : undefined
+                }
                 onCancel={() => dispatch({ type: 'cancelResolving' })}
                 onViewTable={() => setResolvingCollapsed(true)}
               />

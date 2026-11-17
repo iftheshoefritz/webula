@@ -176,7 +176,8 @@ export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tAnnexation Drone
 1\tDelivery Boy
 1\tThese Are The Voyages
-1\tAt What Cost?`;
+1\tAt What Cost?
+1\tFerengi Tradition`;
 
 // The name of the card of `PRACTICE_COSTS_TSV` that goes into the crew.
 export const PRACTICE_COSTS_CREW = 'Annexation Drone';
@@ -186,8 +187,9 @@ export const PRACTICE_COSTS_CORE = 'Delivery Boy';
 
 // The names of the cards of `PRACTICE_COSTS_TSV` that join the end of the hand after the others (#1727),
 // two events that resolve when played. Their ids come after every other card's, so the cards of the
-// fixture before #1727 keep theirs.
-export const PRACTICE_COSTS_LATE_HAND = ['These Are The Voyages', 'At What Cost?'];
+// fixture before #1727 keep theirs. Ferengi Tradition (#1730), an event that removes itself from the game,
+// comes last, so the two before it keep theirs too.
+export const PRACTICE_COSTS_LATE_HAND = ['These Are The Voyages', 'At What Cost?', 'Ferengi Tradition'];
 // The event `?fixture=resolving` (#1728) deals already resolving, played from that hand.
 export const RESOLVING_FIXTURE_EVENT = PRACTICE_COSTS_LATE_HAND[0];
 
