@@ -823,6 +823,7 @@ function TurnScoreColumn({
   counters,
   onOpenCounters,
   blockedBy = null,
+  openingHand = null,
 }: {
   turn: number;
   segment: TurnSegment;
@@ -842,6 +843,9 @@ function TurnScoreColumn({
   onOpenCounters: () => void;
   // What holds the turn (#1728): "Resolve These Are The Voyages first" while an event resolves, or null.
   blockedBy?: string | null;
+  // Before the first turn (#1736): the "Draw 7" button takes the place of the turn controls. `empty`
+  // disables it on an empty draw deck. Null once the opening hand is drawn.
+  openingHand?: { onDraw: () => void; empty: boolean } | null;
 }) {
   const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
   const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
@@ -861,34 +865,54 @@ function TurnScoreColumn({
       {/* One button shows the turn and advances it (#1449), through the segments of the turn (#1605).
           The visible label sits above it, and `turn-counter` keeps a screen-reader "Turn" of its own,
           so its text still reads "Turn N". The segment's row shows under it, in compact too. */}
-      <div className="flex flex-col items-center gap-1">
-        <span className={label} aria-hidden="true">
-          Turn
-        </span>
-        <button
-          className={`${button} flex items-center justify-center gap-1`}
-          onClick={onNextTurn}
-          disabled={!!blockedBy}
-          aria-label={blockedBy ?? ADVANCE_LABELS[next]}
-          title={blockedBy ?? ADVANCE_LABELS[next]}
-        >
-          <span data-testid="turn-counter" className="text-text-primary">
-            <span className="sr-only">Turn </span>
-            <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
+      {openingHand ? (
+        // The opening hand (#1736): one free draw of 7 in place of the turn block, as tall as it, so
+        // the score below does not move.
+        <div className="flex flex-col items-center gap-1">
+          <span className={label} aria-hidden="true">
+            Hand
           </span>
-          <FaForward className="shrink-0" />
-        </button>
-        {/* The segment's row, below the next-turn button (#1679): its name, and in play and draw the
-            counter of the turn (#1607) beside it, "Play 0/7". Orders and Discard show no counter. */}
-        <div data-testid="turn-segment-row" className="flex h-4 w-full items-center justify-center gap-1">
-          <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
-            {TURN_SEGMENT_NAMES[segment]}
-          </span>
-          {counters && segment === 'playAndDraw' && (
-            <TurnCounterButton counters={counters} className={`${look} h-4`} onOpen={onOpenCounters} />
-          )}
+          <button
+            data-testid="draw-opening-hand"
+            className={`${button} text-xs font-semibold text-text-primary`}
+            onClick={openingHand.onDraw}
+            disabled={openingHand.empty}
+            title="Draw the opening hand of 7 cards, at no cost"
+          >
+            Draw 7
+          </button>
+          <div className="h-4" aria-hidden="true" />
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col items-center gap-1">
+          <span className={label} aria-hidden="true">
+            Turn
+          </span>
+          <button
+            className={`${button} flex items-center justify-center gap-1`}
+            onClick={onNextTurn}
+            disabled={!!blockedBy}
+            aria-label={blockedBy ?? ADVANCE_LABELS[next]}
+            title={blockedBy ?? ADVANCE_LABELS[next]}
+          >
+            <span data-testid="turn-counter" className="text-text-primary">
+              <span className="sr-only">Turn </span>
+              <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
+            </span>
+            <FaForward className="shrink-0" />
+          </button>
+          {/* The segment's row, below the next-turn button (#1679): its name, and in play and draw the
+              counter of the turn (#1607) beside it, "Play 0/7". Orders and Discard show no counter. */}
+          <div data-testid="turn-segment-row" className="flex h-4 w-full items-center justify-center gap-1">
+            <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
+              {TURN_SEGMENT_NAMES[segment]}
+            </span>
+            {counters && segment === 'playAndDraw' && (
+              <TurnCounterButton counters={counters} className={`${look} h-4`} onOpen={onOpenCounters} />
+            )}
+          </div>
+        </div>
+      )}
       <div className="flex flex-col items-center gap-1">
         <div data-testid="score-counter" className="text-center text-text-primary">
           <span className={label}>Score</span> <span className={number}>{score}</span>
@@ -4202,6 +4226,11 @@ function PracticeDrawContent() {
                 counters={currentCounters}
                 onOpenCounters={() => setCountersListOpen(true)}
                 blockedBy={turnBlockedBy}
+                openingHand={
+                  table.openingHand === 'pending'
+                    ? { onDraw: () => dispatch({ type: 'drawOpeningHand' }), empty: table.drawDeck.length === 0 }
+                    : null
+                }
               />
                 </>
               )}

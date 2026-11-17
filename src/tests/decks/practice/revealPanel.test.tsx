@@ -193,10 +193,11 @@ describe('Practice draw: the reveal panel of a pile (#1070)', () => {
     for (const button of buttons) {
       expect(button).toHaveClass('btn-icon', 'bg-bg-raised', 'hover:bg-[#323832]');
     }
-    const nextTurn = screen.getByRole('button', { name: 'Go to orders' });
+    // A new game's "Draw 7" stands where the next-turn button shows later (#1736).
+    const draw7 = screen.getByTestId('draw-opening-hand');
     // The touch column takes the round look of the iPadOS close button (#1394).
-    expect(nextTurn).toHaveClass('btn-system');
-    expect(nextTurn).not.toHaveClass('bg-bg-raised');
+    expect(draw7).toHaveClass('btn-system');
+    expect(draw7).not.toHaveClass('bg-bg-raised');
   });
 
   it('reveals one more card from the top with each tap, without moving it', async () => {

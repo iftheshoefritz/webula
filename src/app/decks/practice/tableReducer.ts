@@ -188,6 +188,10 @@ export interface TableState {
   // (`moveSpanTotal`, #1635) of every move of the ship from one mission's ship row to another's. Only
   // that `move` adds to it, and `nextTurn` clears it. Absent when no ship has used range.
   rangeUsed?: Record<string, number>;
+  // A new game waits for its opening hand (#1736): the turn controls show only "Draw 7" until
+  // `drawOpeningHand` (or `nextTurn`) clears it. Only `reset` sets it, so absent means drawn: a
+  // fixture that deals its own hand and a save from before it never show the button.
+  openingHand?: 'pending';
 }
 
 // The three segments of a turn (#1605): Play and Draw Cards, Execute Orders and Discard Excess
@@ -198,6 +202,9 @@ export const TURN_SEGMENTS: readonly TurnSegment[] = ['playAndDraw', 'orders', '
 
 // The most cards the hand holds at the end of the turn before the discard segment (#1605).
 export const HAND_LIMIT = 7;
+
+// The cards the "Draw 7" button draws at the start of a game (#1736), at no cost.
+export const OPENING_HAND = 7;
 
 // Where a tap of the next-turn button goes from `state` (#1605): orders after play and draw, then
 // discard only when the hand holds more than `HAND_LIMIT`, then the next turn.
@@ -366,6 +373,10 @@ export type TableAction =
   // Raises the turn counter by one and unstops every stopped personnel card, in every zone
   // (#718): the flat zones, every mission's piles, every ship row, and every ship's crew.
   | { type: 'nextTurn' }
+  // The "Draw 7" button of a new game (#1736): moves the top `OPENING_HAND` cards of the draw deck
+  // (fewer when it is short) to the end of the hand in one step, and clears `openingHand`. It carries
+  // no `cost`, so it spends no counter. Does nothing on an empty draw deck.
+  | { type: 'drawOpeningHand' }
   // The next-turn button (#1605): moves the turn to the segment `nextSegmentOf` names, or, at the end
   // of the turn, does what `nextTurn` does.
   | { type: 'advanceSegment' }
@@ -1147,7 +1158,21 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       };
       // Every ship has its full range again (#1634).
       delete nextTurn.rangeUsed;
+      // The first turn is over, so its opening hand is no longer offered (#1736).
+      delete nextTurn.openingHand;
       return nextTurn;
+    }
+
+    case 'drawOpeningHand': {
+      if (state.drawDeck.length === 0) return state;
+      const drawn = state.drawDeck.slice(0, OPENING_HAND);
+      const next: TableState = {
+        ...state,
+        drawDeck: state.drawDeck.slice(drawn.length),
+        hand: [...state.hand, ...drawn.map((c) => ({ ...c, face: entryFace(state, 'hand') }))],
+      };
+      delete next.openingHand;
+      return next;
     }
 
     case 'advanceSegment': {
@@ -1269,8 +1294,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
 
     case 'reset': {
       // A new game (and the reset button) deals no hand (#1115): every card goes to the draw deck,
-      // and the player draws the opening cards with ordinary `draw` actions, so the game log
-      // records each one.
+      // and the player draws the opening hand with "Draw 7" (#1736, `drawOpeningHand`), which
+      // `openingHand` offers until the first turn starts.
       const drawDeck = action.cards;
       // The missions are dealt face up into the mission row in deck order, as a fixed set: no
       // shuffling, and reset re-deals the identical set every time (unlike the draw deck). No
@@ -1298,6 +1323,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         turn: 1,
         segment: 'playAndDraw',
         score: 0,
+        openingHand: 'pending',
         ...(action.opponent ? { opponent: action.opponent } : {}),
         ...(action.opponent && action.botPile ? { botPile: action.botPile } : {}),
       };
@@ -1325,7 +1351,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         cards: rest,
         dilemmas: action.dilemmas.slice(FIXTURE_UNDER_MISSION),
       });
-      // The fixture deals its own hand; `reset` deals none.
+      // The fixture deals its own hand; `reset` deals none. So it skips the opening hand (#1736).
+      delete dealt.openingHand;
       const handSize = Math.min(FIXTURE_HAND, rest.length);
       const missions = dealt.missions.map((slot, i) => {
         if (i === 0) {

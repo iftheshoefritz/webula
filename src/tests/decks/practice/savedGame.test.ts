@@ -205,6 +205,15 @@ describe('savedGame', () => {
     expect('botPile' in repaired).toBe(false);
   });
 
+  it('keeps a pending opening hand, and drops any other value (#1736)', () => {
+    const saved = toSavedGame({ ...dealtTable(), openingHand: 'pending' }, deck, 'builder');
+    expect(fromSavedGame(JSON.stringify(saved), deck)!.table.openingHand).toBe('pending');
+    expect('openingHand' in fromSavedGame(JSON.stringify(toSavedGame(dealtTable(), deck, 'builder')), deck)!.table).toBe(false);
+    const bad: any = toSavedGame(dealtTable(), deck, 'builder');
+    bad.table.openingHand = 'drawn';
+    expect('openingHand' in fromSavedGame(JSON.stringify(bad), deck)!.table).toBe(false);
+  });
+
   it('drops an opponent that is not the bot (#1289)', () => {
     const save: any = toSavedGame(dealtTable(), deck, 'builder');
     save.table.opponent = 'human';

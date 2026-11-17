@@ -165,8 +165,12 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
       render(<PracticeDrawPage />);
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    // A new game first offers its opening hand, which hides the next-turn button (#1736).
+    fireEvent.click(screen.getByTestId('draw-opening-hand'));
     fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
+    // The hand now holds 8, so the turn goes through discard (#1605).
+    fireEvent.click(screen.getByRole('button', { name: 'Go to discard' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
 
     fireEvent.click(screen.getByTestId('game-log-button'));
@@ -178,7 +182,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
       fireEvent.click(within(panel).getByRole('button', { name: 'Copy' }));
     });
     expect(writeText).toHaveBeenCalledWith(
-      'Turn 1\nPlay and Draw Cards\n1 counter: 0 on cards, 1 on draws\n- Drew a card from the draw deck into the hand (cost 1)\nExecute Orders\n- Went to orders\n\n' +
+      'Turn 1\nPlay and Draw Cards\n1 counter: 0 on cards, 1 on draws\n- Drew the opening hand (7 cards)\n- Drew a card from the draw deck into the hand (cost 1)\nExecute Orders\n- Went to orders\nDiscard Excess Cards\n- Went to discard\n\n' +
         'Turn 2\nPlay and Draw Cards\n- Started turn 2'
     );
     expect(within(panel).getByRole('button', { name: 'Copied' })).toBeInTheDocument();
@@ -186,8 +190,12 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
 
   const drawAndNextTurn = () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    // A new game first offers its opening hand, which hides the next-turn button (#1736).
+    fireEvent.click(screen.getByTestId('draw-opening-hand'));
     fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     fireEvent.click(screen.getByRole('button', { name: 'Go to orders' }));
+    // The hand now holds 8, so the turn goes through discard (#1605).
+    fireEvent.click(screen.getByRole('button', { name: 'Go to discard' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }));
   };
 
@@ -198,7 +206,7 @@ describe('the game log button of the corner column (#1065, #1399)', () => {
     });
     drawAndNextTurn();
     expect(screen.getByTestId('undo-button')).not.toBeDisabled();
-    expect(JSON.parse(localStorage.getItem('practiceGame')!).log).toHaveLength(3);
+    expect(JSON.parse(localStorage.getItem('practiceGame')!).log).toHaveLength(5);
     view!.unmount();
 
     await act(async () => {
