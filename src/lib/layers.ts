@@ -6,9 +6,11 @@
 // |----------------------------------------|-----------|------------------------|
 // | Game menu + fullscreen button, closed  | `z-50`    | `PracticeTable.tsx`    |
 // | Pile count badge                       | `z-[140]` | `CountBadge.tsx`       |
+// | Resolving event's small card (#1728)   | `z-[141]` | `ResolvingPanel.tsx`   |
 // | Closed hand fan (#1489)                | `z-[142]` | `CardHand.tsx`         |
 // | Open hand backdrop                     | `z-[145]` | `CardHand.tsx`         |
 // | Open hand card fan                     | `z-[146]` | `CardHand.tsx`         |
+// | Resolving panel (#1728)                | `z-[147]` | `ResolvingPanel.tsx`   |
 // | Charge chip (#1607)                    | `z-[148]` | `TurnCounters.tsx`     |
 // | Card list panel                        | `z-[150]` | `CardListPanel.tsx`    |
 // | Game menu splash                       | `z-[160]` | `PracticeTable.tsx`    |
@@ -27,9 +29,14 @@ export const LAYER_COUNT_BADGE = 'z-[140]';
 // The closed hand is a small fan on top of the bottom row (#1489), portalled into the game layer as
 // the open fan is, since the bottom row has a transform that traps `fixed`. It sits above the bottom
 // row's badges and below the backdrop of an open hand.
+// The small card of a resolving event under View table (#1728): above the table and its badges.
+export const LAYER_RESOLVING_MINI = 'z-[141]';
 export const LAYER_CLOSED_HAND = 'z-[142]';
 export const LAYER_HAND_BACKDROP = 'z-[145]';
 export const LAYER_HAND_FAN = 'z-[146]';
+// The resolving panel (#1728), with its backdrop: over the hand, below the charge chip, so the play's
+// choices stay reachable, and below the splash.
+export const LAYER_RESOLVING_PANEL = 'z-[147]';
 // The brief chip of a charge (#1607), at the top of the screen: above the table and the open hand,
 // below a card list panel.
 export const LAYER_CHARGE_CHIP = 'z-[148]';

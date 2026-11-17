@@ -188,6 +188,8 @@ export const PRACTICE_COSTS_CORE = 'Delivery Boy';
 // two events that resolve when played. Their ids come after every other card's, so the cards of the
 // fixture before #1727 keep theirs.
 export const PRACTICE_COSTS_LATE_HAND = ['These Are The Voyages', 'At What Cost?'];
+// The event `?fixture=resolving` (#1728) deals already resolving, played from that hand.
+export const RESOLVING_FIXTURE_EVENT = PRACTICE_COSTS_LATE_HAND[0];
 
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the
