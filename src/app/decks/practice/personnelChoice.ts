@@ -20,17 +20,19 @@ export interface PersonnelCandidateGroup {
   cards: PersonnelCandidate[];
 }
 
-const candidatesOf = (cards: CardInstance[]): PersonnelCandidate[] =>
+const candidatesOf = (cards: CardInstance[], includeStopped: boolean): PersonnelCandidate[] =>
   cards.flatMap((c) =>
-    c.card?.type === 'personnel' && !c.stopped
+    c.card?.type === 'personnel' && (includeStopped || !c.stopped)
       ? [{ id: c.id, name: cardDisplayName(c.card), affiliation: String(c.card.affiliation ?? '').trim(), card: c }]
       : []
   );
 
-export function personnelCandidateGroups(table: TableState): PersonnelCandidateGroup[] {
+// `includeStopped` lists the stopped personnel too (#1739): These Are The Voyages reads "one of your
+// personnel", and a stop changes no cost.
+export function personnelCandidateGroups(table: TableState, { includeStopped = false }: { includeStopped?: boolean } = {}): PersonnelCandidateGroup[] {
   const groups: PersonnelCandidateGroup[] = [];
   table.missions.forEach((slot, missionIndex) => {
-    const cards = candidatesOf(slot.awayTeam);
+    const cards = candidatesOf(slot.awayTeam, includeStopped);
     if (cards.length) {
       const mission = slot.mission ? cardDisplayName(slot.mission.card) : `mission ${missionIndex + 1}`;
       groups.push({ key: `awayTeam-${missionIndex}`, label: `Away team at ${mission}`, cards });
@@ -39,7 +41,7 @@ export function personnelCandidateGroups(table: TableState): PersonnelCandidateG
   table.missions.forEach((slot, missionIndex) => {
     const mission = slot.mission ? cardDisplayName(slot.mission.card) : `mission ${missionIndex + 1}`;
     for (const ship of slot.ships) {
-      const cards = candidatesOf(ship.crew ?? []);
+      const cards = candidatesOf(ship.crew ?? [], includeStopped);
       if (cards.length) groups.push({ key: `crew-${ship.id}`, label: `Crew of ${cardDisplayName(ship.card)} at ${mission}`, cards });
     }
   });

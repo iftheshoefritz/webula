@@ -41,9 +41,10 @@ import {
 import { drawSpend } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
-import { CostDestination, CostPlace, drawCharge, moveCharge } from '../../../lib/playCost';
+import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
+import { resolveModelOf } from '../../../lib/resolveModels';
 import { isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
-import { chosenPersonnel, personnelChoiceDelta } from './personnelChoice';
+import { chosenPersonnel, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, turnPlayOf } from './costFacts';
@@ -200,6 +201,12 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // charge of its play, absent for a move into the resolving zone that charged nothing. The effective
   // log reads that play as no play from then on.
   | { kind: 'playCancelled'; card: string; target?: ChargeTarget }
+  // The free draw of the resolving event's text (#1739): `count` cards drawn, and the personnel whose
+  // printed cost set it, for These Are The Voyages. No counter is charged.
+  | { kind: 'resolveDrew'; event: string; count: number; personnel?: string; personnelCost?: number }
+  // The last step of the resolving event's text (#1739): `count` cards of the hand went to the bottom of
+  // the draw deck, and the event to the discard pile.
+  | { kind: 'resolveBottom'; event: string; count: number }
 );
 
 // The card on the table a use acted on (#1713).
@@ -257,6 +264,11 @@ export type GameAction =
   // A Cancel of the resolving event (#1728): it goes back to the end of the hand, and its play's charge
   // is refunded, in one entry that one undo takes back.
   | { type: 'cancelResolving' }
+  // The steps of the resolving event's resolve model (#1739), each one entry that one undo takes back:
+  // the free draw, by the printed cost of the personnel `personnelId` or by the model's fixed number, and
+  // then the hand cards `ids` to the bottom of the draw deck, in that order, and the event to the discard pile.
+  | { type: 'resolveDraw'; personnelId?: string }
+  | { type: 'resolveBottom'; ids: string[] }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
   | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
@@ -590,7 +602,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'cancelResolving' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -682,6 +694,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'choosePersonnel') return choosePersonnelState(state, action);
   if (action.type === 'useCard') return cardUseState(state, action);
   if (action.type === 'cancelResolving') return cancelResolvingState(state);
+  if (action.type === 'resolveDraw') return resolveDrawState(state, action);
+  if (action.type === 'resolveBottom') return resolveBottomState(state, action);
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),
@@ -819,7 +833,9 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'dismissDiscount' ||
     action.type === 'choosePersonnel' ||
     action.type === 'useCard' ||
-    action.type === 'cancelResolving'
+    action.type === 'cancelResolving' ||
+    action.type === 'resolveDraw' ||
+    action.type === 'resolveBottom'
   ) {
     return action;
   }
@@ -1077,6 +1093,8 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   counterLimit: true,
   discountDismissed: true,
   playCancelled: true,
+  resolveDrew: true,
+  resolveBottom: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1201,6 +1219,24 @@ export function logEntryText(entry: LogEntry): string {
       return `Dismissed the discount of ${typeof entry.source === 'string' && entry.source ? entry.source : 'a card'}`;
     case 'playCancelled':
       return `Cancelled playing ${typeof entry.card === 'string' && entry.card ? entry.card : 'a card'}`;
+    case 'resolveDrew': {
+      // "Drew 4 cards (These Are The Voyages, Data cost 4)" (#1739).
+      const n = isIndex(entry.count) ? entry.count : 0;
+      const event = typeof entry.event === 'string' && entry.event ? entry.event : 'an event';
+      const personnel =
+        typeof entry.personnel === 'string' && entry.personnel && isIndex(entry.personnelCost)
+          ? `, ${entry.personnel} cost ${entry.personnelCost}`
+          : '';
+      return `Drew ${n} ${n === 1 ? 'card' : 'cards'} (${event}${personnel})`;
+    }
+    case 'resolveBottom': {
+      // "Put 3 cards on the bottom of the draw deck, and These Are The Voyages went to the discard pile".
+      const n = isIndex(entry.count) ? entry.count : 0;
+      const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
+      return n > 0
+        ? `Put ${n} ${n === 1 ? 'card' : 'cards'} on the bottom of the draw deck, and ${event} went to the discard pile`
+        : `${event} went to the discard pile`;
+    }
   }
 }
 
@@ -1752,6 +1788,83 @@ function cancelResolvingState(state: GameState): GameState {
     turn: table.turn,
     segment: table.segment,
   };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The step of the resolving event's resolve model (#1739), derived from the log so an undo and a reload
+// agree: `'bottom'` once a `resolveDrew` entry of this event follows the latest move of a card into the
+// resolving zone, `'draw'` before it. Null when nothing resolves or the event has no model.
+export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'draw' | 'bottom' | null {
+  const event = state.table.resolving;
+  if (!event) return null;
+  const name = cardName(state.table, event.id);
+  if (!resolveModelOf(name)) return null;
+  for (let i = state.log.length - 1; i >= 0; i--) {
+    const entry = state.log[i];
+    if (entry.kind === 'resolveDrew') return entry.event === name ? 'bottom' : 'draw';
+    if (entry.kind === 'resolveBottom' || entry.kind === 'playCancelled') return 'draw';
+    if (entry.kind === 'move' && entry.moves.some((m) => m.to.kind === 'resolving')) return 'draw';
+  }
+  return 'draw';
+}
+
+// The free draw of the resolving event (#1739): only at the draw step of its model. These Are The Voyages
+// draws the printed cost of `personnelId`, one of the player's personnel in an away team or a crew,
+// stopped or not, never the brig; Miracle Working its fixed number. The draws stop when the draw deck
+// runs out, and the entry gives the real count, 0 included, so the step still moves on. No draw is charged.
+function resolveDrawState(state: GameState, action: { personnelId?: string }): GameState {
+  const event = state.table.resolving;
+  if (!event || resolveStepOf(state) !== 'draw') return state;
+  const name = cardName(state.table, event.id);
+  const model = resolveModelOf(name);
+  if (!model) return state;
+  let wanted: number;
+  let personnel: { personnel: string; personnelCost: number } | null = null;
+  if (model.draw.kind === 'fixed') {
+    wanted = model.draw.count;
+  } else {
+    const chosen = personnelCandidateGroups(state.table, { includeStopped: true })
+      .flatMap((g) => g.cards)
+      .find((c) => c.id === action.personnelId);
+    if (!chosen) return state;
+    wanted = printedCost(chosen.card.card);
+    personnel = { personnel: chosen.name, personnelCost: wanted };
+  }
+  let table = state.table;
+  let count = 0;
+  while (count < wanted) {
+    const next = tableReducer(table, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+    if (next === table) break;
+    table = next;
+    count++;
+  }
+  const entry: LogEntry = {
+    kind: 'resolveDrew',
+    event: name,
+    count,
+    ...(personnel ?? {}),
+    turn: table.turn,
+    segment: table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The last step of the resolving event (#1739): exactly `min(bottomFromHand, hand)` different cards of
+// the hand go to the bottom of the draw deck in `ids` order, the last at the very bottom, and the event to
+// the discard pile ("Destroy this event"), in one entry. Anything else changes nothing.
+function resolveBottomState(state: GameState, action: { ids: string[] }): GameState {
+  const event = state.table.resolving;
+  if (!event || resolveStepOf(state) !== 'bottom') return state;
+  const name = cardName(state.table, event.id);
+  const model = resolveModelOf(name);
+  if (!model) return state;
+  const ids = [...new Set(action.ids)];
+  const n = Math.min(model.bottomFromHand, state.table.hand.length);
+  if (ids.length !== n || !ids.every((id) => state.table.hand.some((c) => c.id === id))) return state;
+  const placed = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), state.table);
+  const table = tableReducer(placed, { type: 'move', id: event.id, to: 'discard' });
+  if (table === placed) return state;
+  const entry: LogEntry = { kind: 'resolveBottom', event: name, count: n, turn: table.turn, segment: table.segment };
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 

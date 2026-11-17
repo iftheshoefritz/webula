@@ -162,6 +162,7 @@ import {
   TurnCounters,
   withShuffleOrders,
   actionReveal,
+  resolveStepOf,
 } from './gameLog';
 import {
   CardHoldProvider,
@@ -210,7 +211,8 @@ import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
-import { ResolvingMini, ResolvingPanel } from './ResolvingPanel';
+import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
+import { resolveModelOf } from '../../../lib/resolveModels';
 import {
   DILEMMA_STACK_CHOICE_END_LABELS,
   DILEMMA_STACK_ROW_END,
@@ -2378,6 +2380,26 @@ function PracticeDrawContent() {
     setPrevResolvingId(resolvingId);
     setResolvingCollapsed(false);
   }
+  // The step of the resolving event's resolve model (#1739), derived from the log, so an undo and a reload
+  // agree: These Are The Voyages and Miracle Working draw free, then put cards of the hand on the bottom.
+  const resolveStepName = resolveStepOf(game);
+  const resolveModel = table.resolving ? resolveModelOf(cardDisplayName(table.resolving.card)) : undefined;
+  const resolvingStep: ResolveStep | undefined =
+    resolveModel && resolveStepName === 'draw'
+      ? {
+          step: 'draw',
+          groups: resolveModel.draw.kind === 'personnelCost' ? personnelCandidateGroups(table, { includeStopped: true }) : [],
+          ...(resolveModel.draw.kind === 'fixed' ? { fixed: resolveModel.draw.count } : {}),
+          onDraw: (personnelId) => dispatch({ type: 'resolveDraw', ...(personnelId ? { personnelId } : {}) }),
+        }
+      : resolveModel && resolveStepName === 'bottom'
+        ? {
+            step: 'bottom',
+            count: Math.min(resolveModel.bottomFromHand, table.hand.length),
+            hand: table.hand,
+            onPlace: (ids) => dispatch({ type: 'resolveBottom', ids }),
+          }
+        : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -4695,6 +4717,7 @@ function PracticeDrawContent() {
                 }
                 onCancel={() => dispatch({ type: 'cancelResolving' })}
                 onViewTable={() => setResolvingCollapsed(true)}
+                step={resolvingStep}
               />
             )}
             {table.resolving && resolvingCollapsed && (
