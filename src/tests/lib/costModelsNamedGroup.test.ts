@@ -1,6 +1,6 @@
 import { costModelOf } from '../../lib/costModels/registry';
-import { CommandedTraits, CostFacts } from '../../lib/costModels/model';
-import { moveCharge } from '../../lib/playCost';
+import { CommandedTraits, CostFacts, CostMission } from '../../lib/costModels/model';
+import { CostDestination, moveCharge } from '../../lib/playCost';
 import { partnerTraitsOf, TraitsRow } from '../../lib/dilemmaBot/simulator';
 import { costFactsOf } from '../../app/decks/practice/costFacts';
 import { CardInstance, initialTableState } from '../../app/decks/practice/tableReducer';
@@ -28,6 +28,7 @@ const KLINGON_TITLES: [string, string, number, number][] = [
   ['Kras Merciless Officer', 'Kras', 3, 2],
   ['Korax Instigator', 'Korax', 2, 1],
   ["Ro'suv", "Ro'suv", 3, 1],
+  ['Mara Science Officer', 'Mara', 5, 2],
 ];
 const KHAN_TITLES = ['Rodriguez', 'Kati', 'McPherson', 'Otto'];
 
@@ -39,6 +40,9 @@ describe('the cost models of a named group (#1701)', () => {
     }
     expect(costModelOf('Kang Honored Warrior')).toBeUndefined();
     expect(costModelOf('Kor Dahar Master')).toBeUndefined();
+    for (const title of ['Khar', 'Marla McGivers Superior Woman', 'Pavel A. Chekov Hapless Puppet']) {
+      expect(costModelOf(title)).toMatchObject({ title, family: 'ownCost' });
+    }
   });
 
   it.each(KLINGON_TITLES)('charges %s less at two [Pa] Klingons, each both', (title, label, printed, off) => {
@@ -81,5 +85,70 @@ describe('the cost models of a named group (#1701)', () => {
       cost: 1,
       source: { title: 'Korax', reason: 'you command 2 [Pa] Klingons' },
     });
+  });
+
+  it('charges Khar −1 while a Kahless is commanded', () => {
+    expect(charge('Khar', 2, facts(paKlingon))).toEqual({ kind: 'play', cost: 2 });
+    expect(charge('Khar', 2, facts(person({ name: 'Kahlessa' })))).toEqual({ kind: 'play', cost: 2 });
+    for (const name of ['Kahless', 'Kahless Invented Subtitle']) {
+      expect(charge('Khar', 2, facts(person({ name })))).toEqual({ kind: 'play', cost: 1, source: { title: 'Khar', reason: 'you command Kahless' } });
+    }
+  });
+});
+
+describe('the Khan personnel played to Ceti Alpha V (#1737)', () => {
+  const mission = (name: string, personnel: CommandedTraits[] = []): CostMission => ({
+    completed: false,
+    name,
+    requirements: '',
+    points: 35,
+    type: 'p',
+    icons: [],
+    quadrant: 'a',
+    dilemmasUnder: 0,
+    personnel,
+    ships: [{ id: 's1', title: 'Invented Ship', affiliation: '', icons: [] }],
+  });
+  // Khan is at mission 0, so he is commanded wherever the play lands.
+  const table = (cetiName: string, withKhan = true): CostFacts => {
+    const missions = [mission('An Invented Mission', withKhan ? [khan] : [paHuman]), mission(cetiName)];
+    return { commanded: missions.flatMap((m) => m.personnel ?? []), core: [], hand: [], missions };
+  };
+  const chargeAt = (name: string, printed: number, f: CostFacts, to: CostDestination, place: 'awayTeam' | 'crew' = 'awayTeam') =>
+    moveCharge('playAndDraw', 'hand', place, play(name, printed), f, 'c0', to);
+
+  const CETI = ['Ceti Alpha V Forge Settlement', 'Ceti Alpha V Forge Settlement (MAH)', 'Ceti Alpha V Find Lifeless World', 'ceti alpha v forge settlement'];
+
+  it.each(CETI)('charges Marla McGivers −1 at %s while a Khan is commanded', (ceti) => {
+    const reason = 'you command Khan Noonien Singh, at Ceti Alpha V';
+    expect(chargeAt('Marla McGivers Superior Woman', 3, table(ceti), { missionIndex: 1 })).toEqual({
+      kind: 'play',
+      cost: 2,
+      source: { title: 'Marla McGivers', reason },
+    });
+    expect(chargeAt('Marla McGivers Superior Woman', 3, table(ceti), { missionIndex: 1, shipId: 's1' }, 'crew')).toEqual({
+      kind: 'play',
+      cost: 2,
+      source: { title: 'Marla McGivers', reason },
+    });
+  });
+
+  it.each(CETI)('sets Pavel A. Chekov to cost 1 at %s while a Khan is commanded', (ceti) => {
+    for (const printed of [3, 5]) {
+      expect(chargeAt('Pavel A. Chekov Hapless Puppet', printed, table(ceti), { missionIndex: 1 })).toEqual({
+        kind: 'play',
+        cost: 1,
+        source: { title: 'Pavel A. Chekov', reason: 'you command Khan Noonien Singh, at Ceti Alpha V' },
+      });
+    }
+    expect(chargeAt('Pavel A. Chekov Hapless Puppet', 3, table(ceti), { missionIndex: 1, shipId: 's1' }, 'crew')?.cost).toBe(1);
+  });
+
+  it.each(['Marla McGivers Superior Woman', 'Pavel A. Chekov Hapless Puppet'])('charges %s the printed cost elsewhere or with no Khan', (name) => {
+    const ceti = 'Ceti Alpha V Forge Settlement';
+    expect(chargeAt(name, 3, table(ceti), { missionIndex: 0 })).toEqual({ kind: 'play', cost: 3 });
+    expect(chargeAt(name, 3, table(ceti), {})).toEqual({ kind: 'play', cost: 3 });
+    expect(chargeAt(name, 3, table(ceti, false), { missionIndex: 1 })).toEqual({ kind: 'play', cost: 3 });
+    expect(chargeAt(name, 3, table('Ceti Alpha Vista Invented'), { missionIndex: 1 })).toEqual({ kind: 'play', cost: 3 });
   });
 });
