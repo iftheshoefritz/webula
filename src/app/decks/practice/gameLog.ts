@@ -549,9 +549,11 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         })(),
       };
     }
+    // The turn waits while an event resolves (#1727): a held button makes no entry.
     case 'nextTurn':
-      return { kind: 'nextTurn' };
+      return after === before ? null : { kind: 'nextTurn' };
     case 'advanceSegment':
+      if (after === before) return null;
       return after.turn !== before.turn ? { kind: 'nextTurn' } : { kind: 'segment', to: after.segment };
     case 'adjustScore':
       if (after.score === before.score) return null;
@@ -862,6 +864,8 @@ export function placeText(place: LogPlace): string {
       return 'the dilemma stack';
     case 'botBrig':
       return "the bot's brig";
+    case 'resolving':
+      return 'the resolving zone';
     case 'missions':
       return 'the mission row';
     case 'shipRow':
@@ -934,19 +938,24 @@ const movedCostText = (move: LogMove): string => {
   return ` (${parts.join('; ')})`;
 };
 
-// Where a card was played (#1606): "at Earth" for a ship row or an away team, "on Data" for a card,
-// and "to" the crew or the core.
+// Where a card was played (#1606): " at Earth" for a ship row or an away team, " on Data" for a card,
+// " to" the crew or the core, and nothing for an event that resolves (#1727).
 const playedPlaceText = (place: LogPlace): string => {
-  if (place.kind === 'shipRow' || place.kind === 'awayTeam') return `at ${place.mission}`;
-  if (place.kind === 'on') return `on ${place.card}`;
-  return `to ${placeText(place)}`;
+  if (place.kind === 'shipRow' || place.kind === 'awayTeam') return ` at ${place.mission}`;
+  if (place.kind === 'on') return ` on ${place.card}`;
+  if (place.kind === 'resolving') return '';
+  return ` to ${placeText(place)}`;
 };
 
-// The text of one move, with its verb: "played" when every card of it was a play.
-const moveText = (move: LogMove): { verb: 'played' | 'moved'; text: string } => {
+// The text of one move, with its verb: "played" when every card of it was a play, and "resolved" for
+// the resolving event that goes to the discard pile (#1727).
+const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text: string } => {
   const costs = moveCosts(move);
   if (costs && costs.every((c) => c !== null)) {
-    return { verb: 'played', text: `${cardsText(move.cards)} ${playedPlaceText(move.to)}${movedCostText(move)}` };
+    return { verb: 'played', text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}` };
+  }
+  if (move.from.kind === 'resolving' && move.to.kind === 'discard') {
+    return { verb: 'resolved', text: `${cardsText(move.cards)}, and it went to ${placeText(move.to)}` };
   }
   return {
     verb: 'moved',

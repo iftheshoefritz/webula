@@ -55,8 +55,12 @@ const savedSlot = (slot: MissionSlot, save: SaveCard): SavedMissionSlot => ({
   underMission: slot.underMission.map(save),
 });
 
-const savedField = (field: string, value: unknown, save: SaveCard): unknown =>
-  CARD_FIELDS.has(field) && Array.isArray(value) ? value.map(save) : value;
+const savedField = (field: string, value: unknown, save: SaveCard): unknown => {
+  if (CARD_FIELDS.has(field) && Array.isArray(value)) return value.map(save);
+  // The resolving event (#1727) is one card or null.
+  if (field === 'resolving' && value) return save(value as CardInstance);
+  return value;
+};
 
 // The JSON of the change from `before` to `after`. The change of a pair of tables never changes, so
 // it is kept per pair, and each write converts only the new steps.

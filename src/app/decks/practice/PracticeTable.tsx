@@ -52,6 +52,7 @@ import {
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
   PRACTICE_COSTS_CORE,
+  PRACTICE_COSTS_LATE_HAND,
   PRACTICE_DECK_TSV,
 } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
@@ -403,6 +404,8 @@ function GameMenu({
   onToggleTurnCounters,
   cardText,
   onToggleCardText,
+  resolveEvents,
+  onToggleResolveEvents,
   botGame,
   botPileName,
   touch,
@@ -445,6 +448,9 @@ function GameMenu({
   // span models of the moves.
   cardText: boolean;
   onToggleCardText: () => void;
+  // The setting "Resolve events in a panel" (#1727).
+  resolveEvents: boolean;
+  onToggleResolveEvents: () => void;
   // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
   botPileName: string;
@@ -559,6 +565,15 @@ function GameMenu({
                 className={SPLASH_ITEM_CLASS}
               >
                 Apply card text to attributes: {cardText ? 'On' : 'Off'}
+              </button>
+              <button
+                type="button"
+                onClick={onToggleResolveEvents}
+                aria-pressed={resolveEvents}
+                data-testid="game-menu-resolve-events"
+                className={SPLASH_ITEM_CLASS}
+              >
+                Resolve events in a panel: {resolveEvents ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -895,6 +910,9 @@ export const TURN_COUNTERS_KEY = 'practice-turn-counters';
 
 // The localStorage key of the setting "Apply card text to attributes" (#1668).
 export const CARD_TEXT_ATTRIBUTES_KEY = 'practice-card-text-attributes';
+
+// The localStorage key of the setting "Resolve events in a panel" (#1727).
+export const RESOLVE_EVENTS_KEY = 'practice-resolve-events';
 
 function RotateDeviceOverlay() {
   return (
@@ -2042,6 +2060,8 @@ function PracticeDrawContent() {
   // "Apply card text to attributes" (#1668) is a setting of the device too. It joins each move in
   // `withShuffleOrders`, so the range a move used never changes with it.
   const [cardTextOn, setCardTextOn] = useLocalStorage<boolean>(CARD_TEXT_ATTRIBUTES_KEY, false);
+  // Whether a played event that resolves goes to the resolving zone (#1727); the Play target reads it.
+  const [resolveEventsOn, setResolveEventsOn] = useLocalStorage<boolean>(RESOLVE_EVENTS_KEY, false);
   // The brief chip of the last charge: the index of its entry in the log. It is page state, so a
   // reload does not bring it back. A newer charge replaces it, undo and redo remove it, and it shows
   // only while its entry is of the current turn, so the next turn removes it too.
@@ -2492,8 +2512,23 @@ function PracticeDrawContent() {
     // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal,
     // or those of `?fixture=attributes` (#1666), dealt to the crew and the core.
     const extras = fixturePiles ? (isCostsFixture ? costsFixtureExtras() : isAttributesFixture ? attributesFixtureExtras() : null) : null;
-    const extraKeys = new Set(extras ? [...extras.hand, ...extras.crew, ...extras.core].map((c: any) => c.collectorsinfo) : []);
+    const extraKeys = new Set(
+      extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand].map((c: any) => c.collectorsinfo) : []
+    );
     const cards = extractDrawDeck(deck).filter((c: any) => !extraKeys.has(c.collectorsinfo));
+    // The extra cards' instances, made after the deal's own, so the ids of every other card are those of
+    // the piles deal, and in this order, so the hand's late cards (#1727) take ids after the core's.
+    const extraInstances = () => {
+      if (!extras || !fixturePiles) return {};
+      const hand = createCardInstances(extras.hand);
+      const crew = createCardInstances(extras.crew);
+      const core = createCardInstances(extras.core);
+      return {
+        extraHand: [...hand, ...createCardInstances(extras.lateHand)],
+        extraCrew: crew,
+        ...(core.length ? { extraCore: core } : {}),
+      };
+    };
     const deal: TableAction = {
       type: fixturePiles ? 'resetWithPiles' : 'reset',
       cards: createCardInstances(
@@ -2507,13 +2542,7 @@ function PracticeDrawContent() {
       ...(opponent ? { opponent } : {}),
       ...(opponent && dealtBotPile ? { botPile: dealtBotPile } : {}),
       // Last, so the ids of every other card are those of the piles deal.
-      ...(extras && fixturePiles
-        ? {
-            extraHand: createCardInstances(extras.hand),
-            extraCrew: createCardInstances(extras.crew),
-            ...(extras.core.length ? { extraCore: createCardInstances(extras.core) } : {}),
-          }
-        : {}),
+      ...extraInstances(),
     };
     dispatch(deal);
     const botDealt = botRevealTitle ? tableReducer(initialTableState, deal) : null;
@@ -2559,13 +2588,20 @@ function PracticeDrawContent() {
     const rows = extractDrawDeck(deckFromTsv(PRACTICE_COSTS_TSV, data));
     const crew = (row: any) => row.originalName === PRACTICE_COSTS_CREW;
     const core = (row: any) => row.originalName === PRACTICE_COSTS_CORE;
-    return { hand: rows.filter((r) => !crew(r) && !core(r)), crew: rows.filter(crew), core: rows.filter(core) };
+    const late = (row: any) => PRACTICE_COSTS_LATE_HAND.includes(row.originalName);
+    return {
+      hand: rows.filter((r) => !crew(r) && !core(r) && !late(r)),
+      crew: rows.filter(crew),
+      core: rows.filter(core),
+      // The hand's last cards (#1727), in the order of `PRACTICE_COSTS_LATE_HAND`.
+      lateHand: PRACTICE_COSTS_LATE_HAND.flatMap((name) => rows.filter((r) => r.originalName === name)),
+    };
   };
   // The cards `?fixture=attributes` adds (#1666), split into the crew's and the core's.
   const attributesFixtureExtras = () => {
     const rows = extractDrawDeck(deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data));
     const core = (row: any) => row.originalName === PRACTICE_ATTRIBUTES_CORE;
-    return { hand: [] as any[], crew: rows.filter((r) => !core(r)), core: rows.filter(core) };
+    return { hand: [] as any[], crew: rows.filter((r) => !core(r)), core: rows.filter(core), lateHand: [] as any[] };
   };
   const fixtureDeck = (): DeckList => {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
@@ -3801,6 +3837,8 @@ function PracticeDrawContent() {
           onToggleTurnCounters={() => setTurnCountersOn((on) => !on)}
           cardText={cardTextOn}
           onToggleCardText={() => setCardTextOn((on) => !on)}
+          resolveEvents={resolveEventsOn}
+          onToggleResolveEvents={() => setResolveEventsOn((on) => !on)}
           botGame={table.opponent === 'bot'}
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}

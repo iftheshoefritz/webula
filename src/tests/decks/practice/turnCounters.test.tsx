@@ -103,6 +103,33 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     expect(localStorage.getItem('practice-card-text-attributes')).toBe('true');
   });
 
+  it('shows "Resolve events in a panel" after "Apply card text to attributes", off by default, and keeps it on a reload (#1727)', async () => {
+    const openSettings = () => {
+      const menuButton = screen.getByRole('button', { name: 'Game menu' });
+      if (menuButton.getAttribute('aria-expanded') !== 'true') fireEvent.click(menuButton);
+      fireEvent.click(screen.getByTestId('game-menu-settings-item'));
+      return screen.getByTestId('game-menu-resolve-events');
+    };
+    let view!: ReturnType<typeof render>;
+    await act(async () => {
+      view = render(<PracticeDrawPage />);
+    });
+    const toggle = openSettings();
+    expect(screen.getByTestId('game-menu-card-text-attributes').nextElementSibling).toBe(toggle);
+    expect(toggle).toHaveTextContent('Resolve events in a panel: Off');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+    expect(toggle).toHaveTextContent('Resolve events in a panel: On');
+    expect(localStorage.getItem('practice-resolve-events')).toBe('true');
+    view.unmount();
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    expect(openSettings()).toHaveTextContent('Resolve events in a panel: On');
+  });
+
   it('shows no counter, chip or list while the setting is off, its default', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);

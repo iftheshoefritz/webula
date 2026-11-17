@@ -9,6 +9,7 @@
 import { DeckList } from '../../../types';
 import {
   CardInstance,
+  FlatZone,
   MissionSlot,
   TableState,
   Zone,
@@ -42,7 +43,7 @@ export type SavedMissionSlot = {
 };
 
 export type SavedTable = Omit<TableState, Zone | 'missions'> &
-  Record<Zone, SavedCardInstance[]> & { missions: SavedMissionSlot[] };
+  Record<FlatZone, SavedCardInstance[]> & { missions: SavedMissionSlot[]; resolving?: SavedCardInstance | null };
 
 export interface SavedGame {
   version: number;
@@ -77,13 +78,14 @@ export interface RestoredGame {
   maxInstanceId: number;
 }
 
-const FLAT_ZONES = Object.keys(ZONE_FACE) as Zone[];
+const FLAT_ZONES = Object.keys(ZONE_FACE) as FlatZone[];
 
-// Applies `f` to every card instance at the top level of the table: the flat zones and the
-// four places of each mission slot. `f` handles a card's own `crew` and `placedOn`.
+// Applies `f` to every card instance at the top level of the table: the flat zones, the resolving
+// event (#1727) and the four places of each mission slot. `f` handles a card's own `crew` and `placedOn`.
 const mapTable = <A, B>(table: any, f: (c: A) => B): any => ({
   ...table,
   ...Object.fromEntries(FLAT_ZONES.filter((zone) => zone in table).map((zone) => [zone, table[zone].map(f)])),
+  ...('resolving' in table ? { resolving: table.resolving ? f(table.resolving) : null } : {}),
   ...(table.missions
     ? {
         missions: table.missions.map((slot: any) => ({
@@ -358,6 +360,15 @@ function tableRestorer(dealtDeck: DeckList) {
       ...(placedOn ? { placedOn: placedOn.map(restore) } : {}),
     };
   };
+  const restoreResolving = (saved: unknown): CardInstance | null => {
+    if (!isObject(saved) || typeof saved.id !== 'string' || typeof saved.key !== 'string') return null;
+    try {
+      return restore(saved as SavedCardInstance);
+    } catch (error) {
+      if (error instanceof MissingKeyError || error instanceof TypeError) return null;
+      throw error;
+    }
+  };
   const zones = new WeakMap<object, CardInstance[]>();
   const slots = new WeakMap<object, MissionSlot>();
   const cached = <S extends object, T>(cache: WeakMap<object, T>, saved: S, convert: (s: S) => T): T => {
@@ -370,6 +381,9 @@ function tableRestorer(dealtDeck: DeckList) {
     for (const zone of FLAT_ZONES) {
       if (zone in saved) restored[zone] = cached(zones, saved[zone], (cards) => cards.map(restore));
     }
+    // The resolving event (#1727): a malformed one, or one whose key is not in the deck, restores as
+    // null and keeps the rest of the save. A save from before #1727 has none.
+    if ('resolving' in saved) restored.resolving = restoreResolving(saved.resolving);
     if (saved.missions) {
       restored.missions = saved.missions.map((slot) =>
         cached(slots, slot, (s) => mapTable({ missions: [s] }, restore).missions[0] as MissionSlot)

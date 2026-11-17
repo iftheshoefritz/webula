@@ -6,7 +6,7 @@ const interrupt = { type: 'interrupt', cost: '0' };
 const dilemma = { type: 'dilemma', cost: '2' };
 
 describe('moveCharge (#1606)', () => {
-  const plays: CostPlace[] = ['shipRow', 'crew', 'awayTeam', 'core', 'on'];
+  const plays: CostPlace[] = ['shipRow', 'crew', 'awayTeam', 'core', 'on', 'resolving'];
   const notPlays: CostPlace[] = ['brig', 'discard', 'drawDeck', 'dilemmaPile', 'missions', 'underMission', 'hand', 'dilemmaStack'];
 
   it.each(plays)('a card from the hand to %s is a play at its printed cost, in play and draw only', (to) => {
