@@ -55,6 +55,12 @@ describe('resolvesOnPlay (#1727)', () => {
     expect(resolvesOnPlay(cardNamed('Surprise Party'))).toBe(false);
   });
 
+  // The card data of the page is lowercased (`useDataFetching`), so the clause matches in any case (#1729).
+  it('is false for Surprise Party with its text lowercased, as the page reads it', () => {
+    const row = cardNamed('Surprise Party')!;
+    expect(resolvesOnPlay({ ...row, gametext: row.gametext.toLowerCase() })).toBe(false);
+  });
+
   it('is false for an event that plays on a mission', () => {
     const onMission = cardRows.find((r) => r.type === 'event' && r.gametext.includes('Plays on a mission'));
     expect(onMission).toBeDefined();

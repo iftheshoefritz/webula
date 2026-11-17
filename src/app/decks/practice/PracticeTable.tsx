@@ -15,6 +15,7 @@ import {
   CollisionDetection,
   DndContext,
   DragEndEvent,
+  DragMoveEvent,
   DragOverEvent,
   DragOverlay,
   DragStartEvent,
@@ -23,6 +24,9 @@ import {
   useDroppable,
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
+import { PLAY_TARGET_ID, playTargetEligible, playTargetLine } from './playTarget';
+import { PlayTarget } from './PlayTarget';
+import { resolvesOnPlay } from '../../../lib/playCost';
 import { useEscapeLayer } from './useEscapeLayer';
 import { FaLayerGroup, FaMobileAlt, FaForward, FaTimes } from 'react-icons/fa';
 import {
@@ -987,6 +991,9 @@ function computeMoveTargetForInstance(
   armedTargetId: string | null = null
 ): MoveTarget | null {
   if (!over) return null;
+
+  // The Play target (#1729) plays an event that resolves at once into the resolving zone.
+  if (over.id === PLAY_TARGET_ID) return resolvesOnPlay(instance.card) ? 'resolving' : null;
 
   if (FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
     if (over.id === 'dilemmaStack' && instance.card.type !== 'dilemma') return null;
@@ -2184,6 +2191,9 @@ function PracticeDrawContent() {
     bumpShuffleCount(location);
   };
   const [draggingInstance, setDraggingInstance] = useState<CardInstance | null>(null);
+  // The line of the Play target (#1729) while the pointer is above it during a drag that may play,
+  // else null. A line, not the pointer, so the page renders only when the pointer crosses it.
+  const [playTargetAt, setPlayTargetAt] = useState<number | null>(null);
   // Whether the `DragOverlay` shows the card back rather than the card (#814).
   const [draggingShowsBack, setDraggingShowsBack] = useState(false);
   // The full set of cards this drag moves together (#677): normally just `draggingInstance`
@@ -3329,6 +3339,30 @@ function PracticeDrawContent() {
     );
   };
 
+  // Whether this drag may show the Play target (#1729), wherever the pointer is.
+  const playEligible =
+    draggingInstance !== null &&
+    playTargetEligible({
+      resolveEvents: resolveEventsOn,
+      table,
+      group: draggingGroup,
+      fromHand: hand.some((c) => c.id === draggingInstance.id),
+    });
+
+  // The pointer is the press point plus the drag's delta. The line is the higher of the bottom row's
+  // top and the closed hand fan's top, less `PLAY_TARGET_MARGIN`, read on each move: the fan shows
+  // only once the drag has closed the open hand.
+  const handleDragMove = (event: DragMoveEvent) => {
+    const press = pressRef.current;
+    let next: number | null = null;
+    if (playEligible && press) {
+      const fan = document.querySelector('[data-testid="hand-closed-fan"]')?.getBoundingClientRect();
+      const line = playTargetLine([bottomRow?.getBoundingClientRect().top, fan && fan.height > 0 ? fan.top : null]);
+      if (line !== null && press.y + event.delta.y < line) next = line;
+    }
+    if (next !== playTargetAt) setPlayTargetAt(next);
+  };
+
   // Closes a card list panel after a drag ends, unless the drag started from a card inside that very
   // panel and the panel still holds a card after the drop (#675): the player can then drag the
   // next card out with no extra tap. A drag that did not start from a given panel still closes
@@ -3465,6 +3499,7 @@ function PracticeDrawContent() {
     // `handleDragStart`'s own `findInstanceAnywhere` lookup would).
     const group = draggingGroup.length > 0 ? draggingGroup : dragOrigin ? [dragOrigin.instance] : [];
     setDraggingInstance(null);
+    setPlayTargetAt(null);
     draggingRef.current = false;
     setDraggingGroup([]);
     // An open card list panel (#602), including the core's/the brig's own panel (#640) and a ship's
@@ -3592,6 +3627,7 @@ function PracticeDrawContent() {
   // every card it held before the drag, so it stays open, and the hand it started from reopens.
   const cancelDrag = (dragOrigin: { instance: CardInstance; zone: TableZone } | null) => {
     setDraggingInstance(null);
+    setPlayTargetAt(null);
     draggingRef.current = false;
     setDraggingGroup([]);
     closePanelsAfterDrag(dragOrigin, table);
@@ -4019,6 +4055,7 @@ function PracticeDrawContent() {
             // always wins.
             collisionDetection={orderedPanelCollisionDetection}
             onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
@@ -4576,6 +4613,8 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            {/* The Play target (#1729), only while the pointer is above its line. */}
+            {playEligible && playTargetAt !== null && <PlayTarget line={playTargetAt} container={gameLayer} />}
             {/* The resolving event (#1728): the panel, below the charge chip and the splash, or its small
                 card, inside the DndContext and the hold provider, so its card drags and previews.
                 Resolved → Discard is a plain move; Cancel refunds the play. */}

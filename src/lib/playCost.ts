@@ -46,8 +46,9 @@ const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew
 
 // Whether `card` is an event that resolves at once when played (#1727): an event whose text has no
 // "Plays in …" or "Plays on …" clause, so it stays in no place. Every other card, an interrupt too, is not.
+// The card data lowercases the text (`useDataFetching`), so the clause matches in any case (#1729).
 export const resolvesOnPlay = (card: { type?: unknown; gametext?: unknown } | null | undefined): boolean =>
-  String(card?.type ?? '').toLowerCase() === 'event' && !/\bPlays (in|on)\b/.test(String(card?.gametext ?? ''));
+  String(card?.type ?? '').toLowerCase() === 'event' && !/\bplays (in|on)\b/i.test(String(card?.gametext ?? ''));
 
 // Where a played card landed (#1702): the mission slot, and the ship whose crew it boards.
 export type CostDestination = Pick<CostPlay, 'missionIndex' | 'shipId'>;
