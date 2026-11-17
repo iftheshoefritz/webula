@@ -27,6 +27,7 @@ export type CostPlace =
   | 'dilemmaHand'
   | 'dilemmaStack'
   | 'botBrig'
+  | 'resolving'
   | 'missions'
   | 'shipRow'
   | 'crew'
@@ -40,8 +41,13 @@ export type CostPlace =
 export type Charge = { kind: 'play'; cost: number; source?: CostSource; uses?: CostUse[] } | { kind: 'draw'; cost: 1 };
 
 // The places on the table a card is played to: a ship row, a ship's crew, a mission's away team,
-// the core, and on another card.
-const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew', 'awayTeam', 'core', 'on']);
+// the core, on another card, and the resolving zone of an event (#1727).
+const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew', 'awayTeam', 'core', 'on', 'resolving']);
+
+// Whether `card` is an event that resolves at once when played (#1727): an event whose text has no
+// "Plays in …" or "Plays on …" clause, so it stays in no place. Every other card, an interrupt too, is not.
+export const resolvesOnPlay = (card: { type?: unknown; gametext?: unknown } | null | undefined): boolean =>
+  String(card?.type ?? '').toLowerCase() === 'event' && !/\bPlays (in|on)\b/.test(String(card?.gametext ?? ''));
 
 // Where a played card landed (#1702): the mission slot, and the ship whose crew it boards.
 export type CostDestination = Pick<CostPlay, 'missionIndex' | 'shipId'>;

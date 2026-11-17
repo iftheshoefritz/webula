@@ -174,13 +174,20 @@ export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tCommon Purpose
 1\tMachinations
 1\tAnnexation Drone
-1\tDelivery Boy`;
+1\tDelivery Boy
+1\tThese Are The Voyages
+1\tAt What Cost?`;
 
 // The name of the card of `PRACTICE_COSTS_TSV` that goes into the crew.
 export const PRACTICE_COSTS_CREW = 'Annexation Drone';
 
 // The name of the card of `PRACTICE_COSTS_TSV` that goes into the core (#1713).
 export const PRACTICE_COSTS_CORE = 'Delivery Boy';
+
+// The names of the cards of `PRACTICE_COSTS_TSV` that join the end of the hand after the others (#1727),
+// two events that resolve when played. Their ids come after every other card's, so the cards of the
+// fixture before #1727 keep theirs.
+export const PRACTICE_COSTS_LATE_HAND = ['These Are The Voyages', 'At What Cost?'];
 
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the

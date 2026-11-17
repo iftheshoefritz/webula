@@ -14,7 +14,7 @@ export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
 // a mission (usually events), the brig for captured personnel, though the zone rules are
 // advisory, so both accept any card type, the same as the discard pile.
-export type Zone =
+export type FlatZone =
   | 'drawDeck'
   | 'hand'
   | 'discard'
@@ -26,6 +26,11 @@ export type Zone =
   // The bot's brig (#1580): the player's personnel the bot holds captive. A hidden zone: nothing on
   // the table draws it, and it is no drop target. `brig` stays the player's own brig.
   | 'botBrig';
+
+// The resolving zone (#1727): the one event the player played and whose text is resolving, before it
+// goes to the discard pile. Unlike every other zone it holds a single card, `TableState.resolving`, so
+// it is no `FlatZone`: `cardsAt` reads it as a list of 0 or 1 cards.
+export type Zone = FlatZone | 'resolving';
 
 // The mission row always has exactly 5 positional slots (see the parent design in issue #130
 // and the plan for #597), regardless of how many missions the deck has. A slot holds a
@@ -153,6 +158,9 @@ export interface TableState {
   dilemmaStack: CardInstance[];
   // The bot's brig (#1580): never drawn, never a drop target. Only a `move` fills it.
   botBrig: CardInstance[];
+  // The event that is resolving (#1727), or null. A `move` into it is refused while it holds a card,
+  // and `advanceSegment` and `nextTurn` wait while it does.
+  resolving: CardInstance | null;
   missions: MissionSlot[];
   // The turn counter (#718): starts at 1 on a new game and on reset, and only ever changes via
   // `nextTurn` below.
@@ -292,7 +300,7 @@ export type TableAction =
   // pile in the order the page chose (#1401), so the reducer calls no random function.
   // `cost` is the charge of the draw in the play and draw segment (#1606, `drawCharge`), which the
   // page adds before the dispatch for the log. The reducer ignores it, as it ignores `counted`.
-  | { type: 'drawCard'; from: Zone; to: Zone; counted?: boolean; order?: string[]; cost?: number }
+  | { type: 'drawCard'; from: FlatZone; to: FlatZone; counted?: boolean; order?: string[]; cost?: number }
   // `position` chooses which end of the destination array the moved card lands on: 'bottom'
   // (the default, when omitted) keeps every existing call site's behaviour — the moved card (and
   // any crew it releases) goes after the destination's existing cards, same as always. 'top'
@@ -457,7 +465,7 @@ export const FIXTURE_DILEMMA_STACK = 4;
 // Bilana System in the fixture deck, a space mission, where a ship can be (#1166).
 export const FIXTURE_SHIP_SLOT = 2;
 
-export const ZONE_FACE: Record<Zone, Face> = {
+export const ZONE_FACE: Record<FlatZone, Face> = {
   drawDeck: 'down',
   hand: 'up',
   discard: 'up',
@@ -468,6 +476,9 @@ export const ZONE_FACE: Record<Zone, Face> = {
   dilemmaStack: 'down',
   botBrig: 'up',
 };
+
+// The resolving event is face up (#1727).
+const RESOLVING_FACE: Face = 'up';
 
 // A ship row's face convention, kept apart from ZONE_FACE since a ship row is not a top-level
 // Zone: a ship is always played face up (parent design, issue #130).
@@ -517,6 +528,7 @@ export const initialTableState: TableState = {
   dilemmaHand: [],
   dilemmaStack: [],
   botBrig: [],
+  resolving: null,
   missions: Array.from({ length: MISSION_SLOTS }, () => ({
     mission: null,
     ships: [],
@@ -573,6 +585,7 @@ const findZone = (state: TableState, id: string): Zone | null => {
   if (state.dilemmaHand.some((c) => c.id === id)) return 'dilemmaHand';
   if (state.dilemmaStack.some((c) => c.id === id)) return 'dilemmaStack';
   if (state.botBrig.some((c) => c.id === id)) return 'botBrig';
+  if (state.resolving?.id === id) return 'resolving';
   return null;
 };
 
@@ -650,7 +663,7 @@ export function findInstanceAnywhere(
 ): { instance: CardInstance; zone: TableZone } | null {
   const zone = findZone(state, id);
   if (zone) {
-    return { instance: state[zone].find((c) => c.id === id)!, zone };
+    return { instance: cardsAt(state, zone).find((c) => c.id === id)!, zone };
   }
   const missionIdx = state.missions.findIndex((slot) => slot.mission?.id === id);
   if (missionIdx !== -1) {
@@ -688,6 +701,7 @@ export const cardsAt = (state: TableState, location: MoveTarget): CardInstance[]
   if (isCrewLocation(location)) return findShipInstance(state, location.shipId)?.crew ?? [];
   if (isMissionPileLocation(location)) return state.missions[location.missionIndex][location.pile];
   if (isPlacedOnLocation(location)) return findPlacedOnTarget(state, location.targetId)?.placedOn ?? [];
+  if (location === 'resolving') return state.resolving ? [state.resolving] : [];
   return state[location];
 };
 
@@ -728,6 +742,7 @@ const withCardsAt = (state: TableState, location: MoveTarget, cards: CardInstanc
       })),
     };
   }
+  if (location === 'resolving') return { ...state, resolving: cards[0] ?? null };
   return { ...state, [location]: cards };
 };
 
@@ -741,6 +756,7 @@ const faceForLocation = (location: MoveTarget): Face => {
   if (isCrewLocation(location)) return CREW_FACE;
   if (isMissionPileLocation(location)) return MISSION_PILE_FACE[location.pile];
   if (isPlacedOnLocation(location)) return ON_FACE;
+  if (location === 'resolving') return RESOLVING_FACE;
   return ZONE_FACE[location];
 };
 
@@ -922,6 +938,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const card = cardsAt(state, from).find((c) => c.id === action.id)!;
       // Only a dilemma goes into the dilemma stack (#1369).
       if (action.to === 'dilemmaStack' && card.card.type !== 'dilemma') return state;
+      // The resolving zone holds one card (#1727): a move into it waits until it is empty.
+      if (action.to === 'resolving' && state.resolving) return state;
       // A move within the same zone (or the same mission's ship row, or the same ship's crew)
       // keeps the card's current face; a move to a different location takes on that location's
       // face.
@@ -1006,10 +1024,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // issue #130) and have no Flip control (#599, #600), so flip only applies to the string
       // zones (drawDeck/hand/discard) and a mission's piles, handled above.
       if (typeof zone !== 'string') return state;
-      const flipped: TableState = {
-        ...state,
-        [zone]: state[zone].map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)),
-      };
+      const flipped = withCardsAt(state, zone, cardsAt(state, zone).map((c) => (c.id === action.id ? { ...c, face: flipFace(c.face) } : c)));
       // A bot game's attempt records each card the table reveals in its stack in `'face'` (#1556).
       const { attempt } = state;
       if (
@@ -1089,6 +1104,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'nextTurn': {
+      // The turn waits while an event resolves (#1727).
+      if (state.resolving) return state;
       // Unstops one card, leaving an already-unstopped card untouched (and so `===` to the old
       // one, same as every other zone-wide update here).
       const unstopOne = (c: CardInstance): CardInstance => (c.stopped ? { ...c, stopped: false } : c);
@@ -1134,6 +1151,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'advanceSegment': {
+      if (state.resolving) return state;
       const next = nextSegmentOf(state);
       return next === 'nextTurn' ? tableReducer(state, { type: 'nextTurn' }) : { ...state, segment: next };
     }
@@ -1275,6 +1293,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         dilemmaHand: [],
         dilemmaStack: [],
         botBrig: [],
+        resolving: null,
         missions,
         turn: 1,
         segment: 'playAndDraw',
