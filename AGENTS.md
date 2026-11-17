@@ -579,7 +579,18 @@ it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`L
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
-discount it used waits again, and the standing rules no longer count it. What its choices did stays. **View
+discount it used waits again, and the standing rules no longer count it. What its choices did stays. An
+event of the resolve registry (`RESOLVE_MODELS` in `src/lib/resolveModels/`, #1739: These Are The Voyages,
+Miracle Working) shows its steps in a column of the panel, the step derived from the log (`resolveStepOf`
+in `gameLog.ts`). The draw step (`resolve-step-draw`): These Are The Voyages lists every personnel of the
+away teams and crews, stopped ones too, never the brig (`resolve-personnel`, with its cost), and
+**Draw N** (`resolve-draw`) dispatches `resolveDraw`, which draws the chosen personnel's printed cost
+(Miracle Working: 4) at no cost, as many as the draw deck holds, in one `resolveDrew` entry, "Drew 4
+cards (These Are The Voyages, Data cost 4)". The bottom step (`resolve-step-bottom`) asks for 3 cards of
+the hand, or the whole hand when it holds fewer (`resolve-hand-card`), in an order the player sets
+(`resolve-order`, up and down); **Place on bottom** (`resolve-place-bottom`) dispatches `resolveBottom`,
+which puts them on the bottom of the draw deck in that order and the event in the discard pile, in one
+`resolveBottom` entry. Cancel hides at the bottom step. Each step is one undo. **View
 table** (`resolving-view-table`) and Escape collapse the panel to a small card at the right side
 (`resolving-mini`, `LAYER_RESOLVING_MINI`), which a tap opens again, a hold previews and a drag moves. The
 view is page state: a new resolving card, an undo that brings it back and a reload open the panel. While
