@@ -10,9 +10,10 @@ import type { PartnerTraits } from '../dilemmaBot/gains';
  * that adds to the counters the player may spend this turn (#1655). `'pendingDiscount'`: a card whose
  * play makes a later card of this turn cheaper (#1656). `'standingRule'`: a card of the core whose text prices
  * the play of another card while it stands there (#1703). `'missionRule'`: a mission of the player's whose text prices
- * the play of another card (#1752).
+ * the play of another card (#1752). `'personnelRule'`: a personnel of the player's whose text prices the play of
+ * another card while it is unstopped (#1756).
  */
-export type CostFamily = 'ownCost' | 'limit' | 'pendingDiscount' | 'standingRule' | 'missionRule';
+export type CostFamily = 'ownCost' | 'limit' | 'pendingDiscount' | 'standingRule' | 'missionRule' | 'personnelRule';
 
 /** A card of the hand, as a model reads it: its instance id, its title (`cardTitleOf`) and its type, lowercased. */
 export interface CostHandCard {
@@ -369,6 +370,12 @@ export interface CostModel {
    * for its first slot. Null when the text changes nothing.
    */
   missionCostOfPlay?: (play: CostPlay, facts: CostFacts, slot: number) => ModelCost | null;
+  /**
+   * The cost of the play from the hand of another card, while an unstopped personnel of this title is in an
+   * away team or a crew of the player's, never the brig (#1756): Anthwara makes an event played on a mission
+   * cost −1. Asked once per title. Null when the text changes nothing.
+   */
+  personnelCostOfPlay?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
   /**
    * The uses of the copies of this card on the table for the play from the hand of another card (#1713):
    * Delivery Boy in the core may be destroyed to make a Q or Temporal event cost −3. One per copy that
