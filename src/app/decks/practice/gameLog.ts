@@ -48,6 +48,16 @@ import { chosenPersonnel, personnelCandidateGroups, personnelChoiceDelta } from 
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, slotQuadrantOf, turnPlayOf } from './costFacts';
+import {
+  EARTH_SPEND_COST,
+  EARTH_SPEND_DRAW,
+  EARTH_TITLE,
+  isNimbusPersonnel,
+  MissionSpendKind,
+  NIMBUS_SPEND_COST,
+  nimbusSpendOf,
+  slotsTitled,
+} from './missionSpends';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
 // later move of a ship or a mission card does not change an old entry.
@@ -236,6 +246,10 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // The last step of the resolving event's text (#1739): `count` cards of the hand went to the bottom of
   // the draw deck, and the event to the discard pile.
   | { kind: 'resolveBottom'; event: string; count: number }
+  // A spend of counters a mission's text allows (#1754): Earth's "spend a counter to draw two cards",
+  // `drew` cards drawn, or Nimbus III's "spend three counters to download …", `downloaded` the card that
+  // went into its away team. `cost` is the charge, which the chip and the list correct as any other.
+  | { kind: 'missionSpend'; mission: string; spend: MissionSpendKind; cost: number; drew?: number; downloaded?: string }
 );
 
 // The card on the table a use acted on (#1713).
@@ -298,6 +312,11 @@ export type GameAction =
   // then the hand cards `ids` to the bottom of the draw deck, in that order, and the event to the discard pile.
   | { type: 'resolveDraw'; personnelId?: string }
   | { type: 'resolveBottom'; ids: string[] }
+  // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
+  // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
+  // `order`, which `withShuffleOrders` chooses.
+  | { type: 'missionSpend'; spend: 'earth'; slot: number }
+  | { type: 'missionSpend'; spend: 'nimbus'; slot: number; id: string; order?: string[] }
   // A restore of the saved game (#1400) that brings its log back too, and its undo and redo
   // histories (#1401).
   | { type: 'restore'; state: TableState; log?: LogEntry[]; undo?: TableState[]; redo?: RedoStep[] };
@@ -706,7 +725,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'missionSpend' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -803,6 +822,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'cancelResolving') return cancelResolvingState(state);
   if (action.type === 'resolveDraw') return resolveDrawState(state, action);
   if (action.type === 'resolveBottom') return resolveBottomState(state, action);
+  if (action.type === 'missionSpend') return missionSpendState(state, action);
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),
@@ -951,6 +971,10 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'resolveBottom'
   ) {
     return action;
+  }
+  if (action.type === 'missionSpend') {
+    if (action.spend !== 'nimbus' || action.order) return action;
+    return { ...action, order: shuffledIds(table.drawDeck.filter((c) => c.id !== action.id)) };
   }
   if (action.type === 'batch') {
     if (!action.actions.some((a) => a.type === 'shuffle' || a.type === 'drawCard' || a.type === 'flip' || a.type === 'move')) {
@@ -1221,6 +1245,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   playCancelled: true,
   resolveDrew: true,
   resolveBottom: true,
+  missionSpend: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1372,6 +1397,15 @@ export function logEntryText(entry: LogEntry): string {
         ? `Put ${n} ${n === 1 ? 'card' : 'cards'} on the bottom of the draw deck, and ${event} went to the discard pile`
         : `${event} went to the discard pile`;
     }
+    case 'missionSpend': {
+      // "Spent 1 counter at Earth Lush and Beautiful Home, and drew 2 cards".
+      const spent = `Spent ${countersText(isIndex(entry.cost) ? entry.cost : 0)} at ${entry.mission}`;
+      if (entry.spend === 'earth') {
+        const n = isIndex(entry.drew) ? entry.drew : 0;
+        return `${spent}, and drew ${n} ${n === 1 ? 'card' : 'cards'}`;
+      }
+      return `${spent}, and downloaded ${entry.downloaded ?? 'a card'} into its away team`;
+    }
   }
 }
 
@@ -1438,6 +1472,12 @@ export function segmentCounters(entries: LogEntry[]): SegmentCounters | null {
       draws += entry.cost;
       charged = true;
     }
+    // A mission's spend (#1754): Earth's buys draws, Nimbus III's a card.
+    if (entry.kind === 'missionSpend' && typeof entry.cost === 'number') {
+      if (entry.spend === 'earth') draws += entry.cost;
+      else cards += entry.cost;
+      charged = true;
+    }
     if (entry.kind === 'move') {
       for (const move of entry.moves) {
         for (const cost of moveCosts(move) ?? []) {
@@ -1489,7 +1529,7 @@ const isIndex = (n: unknown): n is number => typeof n === 'number' && Number.isI
 
 // The entry `target` names with the charge it sets to `cost`, or null when it names no charge.
 function withCorrectedCharge(entry: LogEntry, target: ChargeTarget, cost: number): LogEntry | null {
-  if (entry.kind === 'draw') {
+  if (entry.kind === 'draw' || entry.kind === 'missionSpend') {
     return target.move === undefined && typeof entry.cost === 'number' ? { ...entry, cost } : null;
   }
   if (entry.kind !== 'move' || !isIndex(target.move) || !isIndex(target.card)) return null;
@@ -1574,6 +1614,9 @@ export interface LogChargeUse extends CostUse {
 function chargesOf(entry: LogEntry, index: number): LogCharge[] {
   if (entry.kind === 'draw' && typeof entry.cost === 'number') {
     return [{ target: { entry: index }, card: null, draw: true, cost: entry.cost }];
+  }
+  if (entry.kind === 'missionSpend' && typeof entry.cost === 'number') {
+    return [{ target: { entry: index }, card: missionSpendLabel(entry), draw: false, cost: entry.cost }];
   }
   if (entry.kind !== 'move') return [];
   return entry.moves.flatMap((move, m) => {
@@ -2005,6 +2048,90 @@ function resolveBottomState(state: GameState, action: { ids: string[] }): GameSt
 
 // Whether an action carries a charge of the table (#1607), so the page shows its chip.
 export function actionCharged(action: GameAction): boolean {
+  if (action.type === 'missionSpend') return true;
   const actions = action.type === 'batch' ? action.actions : [action];
   return actions.some((a) => (a.type === 'move' || a.type === 'drawCard') && typeof a.cost === 'number');
+}
+
+// The label of a mission's spend in the chip and the list (#1754), "Earth Lush and Beautiful Home: draw 2".
+export const missionSpendLabel = (entry: Extract<LogEntry, { kind: 'missionSpend' }>): string =>
+  entry.spend === 'earth' ? `${entry.mission}: draw ${entry.drew ?? 0}` : `${entry.mission}: ${entry.downloaded ?? 'download'}`;
+
+// Earth's offer of a spend (#1754): its slot, and the entries of this turn's plays of a [TOS] card into
+// its away team or onto its mission card, from the effective log, so a cancelled play offers nothing.
+// Null outside play and draw, with no such play this turn, with an empty draw deck, or once the turn has
+// spent at Earth. Earth's first slot counts.
+export function earthSpendOf(state: { table: TableState; log: LogEntry[] }): { slot: number; entries: number[] } | null {
+  const { table } = state;
+  if (table.segment !== 'playAndDraw' || table.drawDeck.length === 0) return null;
+  const slot = slotsTitled(table, EARTH_TITLE)[0];
+  if (slot === undefined) return null;
+  const name = missionName(table, slot);
+  const log = effectiveLog(state.log);
+  const turnEntries = log.flatMap((e, i) => (e.turn === table.turn && entrySegment(e) === 'playAndDraw' ? [{ e, i }] : []));
+  if (turnEntries.some(({ e }) => e.kind === 'missionSpend' && e.spend === 'earth')) return null;
+  const here = (to: LogPlace): boolean => (to.kind === 'awayTeam' && to.mission === name) || (to.kind === 'on' && to.card === name);
+  const entries = turnEntries.flatMap(({ e, i }) =>
+    e.kind === 'move' &&
+    e.moves.some((m) => {
+      const costs = moveCosts(m);
+      return (
+        here(m.to) &&
+        !!costs &&
+        costs.some((c, j) => typeof c === 'number' && (m.plays?.[j]?.icons ?? []).includes('[tos]'))
+      );
+    })
+      ? [i]
+      : []
+  );
+  return entries.length ? { slot, entries } : null;
+}
+
+// A mission's spend (#1754), checked again against the table and the log, so a stale dispatch changes
+// nothing: Earth draws 2 (fewer from a short draw deck) for 1, Nimbus III moves a candidate from the draw
+// deck into its away team and shuffles the draw deck in `order` for 3. One entry, the table before it its
+// undo.
+function missionSpendState(
+  state: GameState,
+  action: { spend: 'earth'; slot: number } | { spend: 'nimbus'; slot: number; id: string; order?: string[] }
+): GameState {
+  let table = state.table;
+  let entry: LogEntry;
+  if (action.spend === 'earth') {
+    const offer = earthSpendOf(state);
+    if (!offer || offer.slot !== action.slot) return state;
+    let drew = 0;
+    while (drew < EARTH_SPEND_DRAW) {
+      const next = tableReducer(table, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+      if (next === table) break;
+      table = next;
+      drew++;
+    }
+    entry = {
+      kind: 'missionSpend',
+      mission: missionName(state.table, action.slot),
+      spend: 'earth',
+      cost: EARTH_SPEND_COST,
+      drew,
+      turn: table.turn,
+      segment: table.segment,
+    };
+  } else {
+    const offer = nimbusSpendOf(table);
+    const card = table.drawDeck.find((c) => c.id === action.id);
+    if (!offer || offer.slot !== action.slot || !card || !isNimbusPersonnel(card)) return state;
+    table = tableReducer(table, { type: 'move', id: card.id, to: { zone: 'missionPile', missionIndex: action.slot, pile: 'awayTeam' } });
+    if (table === state.table) return state;
+    table = tableReducer(table, { type: 'shuffle', location: 'drawDeck', ...(action.order ? { order: action.order } : {}) });
+    entry = {
+      kind: 'missionSpend',
+      mission: missionName(state.table, action.slot),
+      spend: 'nimbus',
+      cost: NIMBUS_SPEND_COST,
+      downloaded: cardDisplayName(card.card!),
+      turn: table.turn,
+      segment: table.segment,
+    };
+  }
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }

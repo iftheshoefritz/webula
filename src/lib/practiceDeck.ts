@@ -219,3 +219,23 @@ export const PRACTICE_COMPLETION_TSV = `${PRACTICE_DECK_TSV.split('\n')
 1\tBassen Rift Interdict Genocidal Praetor
 1\tSaturn Continue Invasion
 1\tGateway Flee in Terror`;
+
+// The deck of `?fixture=missions` (#1754): the practice deck with Earth, Lush and Beautiful Home in slot
+// 0 (the headquarters of the away team) and Nimbus III, Staff Backwater Embassy in slot 1, the missions
+// whose text lets the player spend counters, and Korrd and Caithlin Dar for Nimbus III's download.
+// Robert Tomlinson, a [TOS] personnel of cost 1, joins the end of the hand (`PRACTICE_MISSIONS_HAND`), for
+// Earth's draw.
+export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
+  .slice(0, -5)
+  .join('\n')}
+1\tKorrd Obsolete Consul
+1\tCaithlin Dar Innocent Consul
+1\tRobert Tomlinson
+1\tEarth Lush and Beautiful Home
+1\tNimbus III Staff Backwater Embassy
+1\tBilana System Evaluate Soliton Wave
+1\tMetron Arena Resolve Standing Conflict
+1\tCurnab Sector Prevent Historical Disruption (MAH)`;
+
+// The card of `PRACTICE_MISSIONS_TSV` that joins the end of the hand.
+export const PRACTICE_MISSIONS_HAND = 'Robert Tomlinson';

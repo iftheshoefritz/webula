@@ -106,6 +106,7 @@ import CountBadge from './CountBadge';
 import { LAYER_COUNT_BADGE } from '../../../lib/layers';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { DOUBLE_TAP_MS, NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
+import { MissionSpendButton } from './MissionSpendContext';
 // Imported, not linked as `/icons/...`, so Next.js emits it under `_next/static` and the service
 // worker precaches it for offline play (#1051).
 import eventIcon from '../../../../public/icons/icon_event.gif';
@@ -1743,6 +1744,7 @@ export function MissionCard({
                 {mission.card.backimagefile && (
                   <MissionFlipButton mission={mission} height={badgeHeight} onFlip={onFlipMission} />
                 )}
+                <MissionSpendButton missionIndex={missionIndex} height={badgeHeight} />
                 {countsOnCard && (
                   <MissionCountsOnCard
                     {...counts}
