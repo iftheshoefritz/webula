@@ -74,7 +74,7 @@ const start = { type: 'startAttempt', missionIndex: 1, shipId: 's1', personnel: 
 describe('tableReducer: startAttempt and endAttempt (#1163)', () => {
   it('starts an attempt with the numbers given, and ends it', () => {
     const started = tableReducer(table(), start);
-    expect(started.attempt).toEqual({ missionIndex: 1, shipId: 's1', personnel: 7, subtract: 2, phase: 'choose', drawn: 0 });
+    expect(started.attempt).toEqual({ missionIndex: 1, shipId: 's1', personnel: 7, subtract: 2, draw: 5, spend: 5, phase: 'choose', drawn: 0 });
     const ended = tableReducer(started, { type: 'endAttempt' });
     expect(ended.attempt).toBeUndefined();
     expect('attempt' in ended).toBe(false);
@@ -250,7 +250,7 @@ describe('the save of an attempt (#1163)', () => {
 
   it('restores an attempt in progress with the same numbers', () => {
     const t = tableReducer(dealt(), { type: 'startAttempt', missionIndex: 0, personnel: 20, subtract: 25 });
-    expect(fromSavedGame(saved(t), deck)!.table.attempt).toEqual({ missionIndex: 0, personnel: 20, subtract: 25, phase: 'choose', drawn: 0 });
+    expect(fromSavedGame(saved(t), deck)!.table.attempt).toEqual({ missionIndex: 0, personnel: 20, subtract: 25, draw: 0, spend: 0, phase: 'choose', drawn: 0 });
   });
 
   it('loads a save with no attempt with none', () => {
@@ -271,7 +271,7 @@ describe('the save of an attempt (#1163)', () => {
       ['card-4', 'down'],
     ]);
     // A save with an attempt keeps its stack.
-    const attempting = { ...t, attempt: { missionIndex: 0, personnel: 1, subtract: 0, phase: 'face' as const, drawn: 0 } };
+    const attempting = { ...t, attempt: { missionIndex: 0, personnel: 1, subtract: 0, draw: 1, spend: 1, phase: 'face' as const, drawn: 0 } };
     const kept = fromSavedGame(JSON.stringify(toSavedGame(attempting, withDilemmas, 'builder')), withDilemmas)!.table;
     expect(kept.dilemmaStack.map((c) => c.id)).toEqual(['card-3', 'card-4']);
   });
@@ -322,6 +322,8 @@ describe('the attempt of ?fixture=attempt (#1169)', () => {
       shipId: piles.missions[2].ships[0].id,
       personnel: 12,
       subtract: 3,
+      draw: 9,
+      spend: 9,
       phase: 'choose',
       drawn: 0,
     });

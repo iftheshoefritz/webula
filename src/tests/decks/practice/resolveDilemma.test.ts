@@ -57,7 +57,7 @@ const startTable = (attempt: Partial<Attempt> = BOT): TableState => ({
     underMission: [],
   })),
   dilemmaStack: [inst('card-6', 'limbo', 'down'), inst('card-7', 'wall', 'down')],
-  attempt: { missionIndex: 0, personnel: 3, subtract: 0, phase: 'face', drawn: 2, ...attempt },
+  attempt: { missionIndex: 0, personnel: 3, subtract: 0, draw: 3, spend: 3, phase: 'face', drawn: 2, ...attempt },
 });
 
 const revealed = (attempt?: Partial<Attempt>) => tableReducer(startTable(attempt), { type: 'flip', id: 'card-6' });

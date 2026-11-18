@@ -199,7 +199,7 @@ describe('tableReducer', () => {
       const start = {
         ...initialTableState,
         dilemmaPile: pile(),
-        attempt: { missionIndex: 0, personnel: 5, subtract: 0, phase: 'choose' as const, drawn: 2 },
+        attempt: { missionIndex: 0, personnel: 5, subtract: 0, draw: 5, spend: 5, phase: 'choose' as const, drawn: 2 },
       };
 
       const state = tableReducer(start, { type: 'drawCard', from: 'dilemmaPile', to: 'dilemmaHand', counted: true, order });

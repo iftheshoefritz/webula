@@ -58,7 +58,7 @@ const renderLayout = (phase: Attempt['phase']) => {
   render(
     <DraggedCardTypeProvider value="dilemma">
       <AttemptLayout
-        attempt={{ missionIndex: 2, personnel: 12, subtract: 3, phase, drawn: 0 }}
+        attempt={{ missionIndex: 2, personnel: 12, subtract: 3, draw: 9, spend: 9, phase, drawn: 0 }}
         slot={slot}
         sizes={sizes}
         personnelCount={12}

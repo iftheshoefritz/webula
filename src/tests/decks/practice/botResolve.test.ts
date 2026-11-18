@@ -28,7 +28,7 @@ function revealed(title: string, crewSkills: string[] = ['Physics', 'Physics', '
       underMission: [],
     })),
     dilemmaStack: [dilemma('card-6', title), dilemma('card-7', 'Wall of Fire')],
-    attempt: { missionIndex: 0, personnel: 3, subtract: 0, phase: 'face', drawn: 0, botDraw: 9, botSpend: 9, botStack: ['card-6', 'card-7'], botRevealed: [] },
+    attempt: { missionIndex: 0, personnel: 3, subtract: 0, draw: 3, spend: 3, phase: 'face', drawn: 0, botDraw: 9, botSpend: 9, botStack: ['card-6', 'card-7'], botRevealed: [] },
   };
   return tableReducer(start, { type: 'flip', id: 'card-6', ...(picks ? { picks } : {}) });
 }

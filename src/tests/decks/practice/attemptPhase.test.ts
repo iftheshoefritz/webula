@@ -175,13 +175,16 @@ describe('the save of the phase of an attempt (#1189)', () => {
       missionIndex: 0,
       personnel: 3,
       subtract: 1,
+      // A save from before #1759 restores the draw and the spend as N.
+      draw: 2,
+      spend: 2,
       phase: 'face',
       drawn: 0,
     });
   });
 
   it('drops an attempt with an invalid phase or count', () => {
-    expect(restoreWith({ missionIndex: 0, personnel: 3, subtract: 1, phase: 'x' })).toBeUndefined();
+    expect(restoreWith({ missionIndex: 0, personnel: 3, subtract: 1, draw: 2, spend: 2, phase: 'x' })).toBeUndefined();
     expect(restoreWith({ missionIndex: 0, personnel: 3, subtract: 1, drawn: -1 })).toBeUndefined();
   });
 
@@ -203,7 +206,7 @@ describe('the view key of an attempt (#1189)', () => {
   });
 
   it('differs for another mission or ship, and is null with no attempt', () => {
-    const base = { missionIndex: 0, personnel: 1, subtract: 0, phase: 'choose', drawn: 0 } as const;
+    const base = { missionIndex: 0, personnel: 1, subtract: 0, draw: 1, spend: 1, phase: 'choose', drawn: 0 } as const;
     expect(attemptViewKey(base)).not.toBe(attemptViewKey({ ...base, missionIndex: 1 }));
     expect(attemptViewKey(base)).not.toBe(attemptViewKey({ ...base, shipId: 's1' }));
     expect(attemptViewKey(undefined)).toBeNull();

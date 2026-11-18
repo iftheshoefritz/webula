@@ -38,7 +38,7 @@ import {
   tableReducer,
   Zone,
 } from './tableReducer';
-import { drawSpend } from './drawSpend';
+import { drawSpend, drawSpendText } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
@@ -121,7 +121,19 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   | { kind: 'segment'; to: TurnSegment }
   | { kind: 'score'; delta: number; score: number }
   // A mission attempt (#1163): the ship only at a space mission.
-  | { kind: 'attemptStarted'; mission: string; ship?: string; personnel: number; subtract: number }
+  // The draw and the spend (#1759), the mission's changes and the cards Rigel X drew; an entry from
+  // before #1759 has none of them, and reads as N.
+  | {
+      kind: 'attemptStarted';
+      mission: string;
+      ship?: string;
+      personnel: number;
+      subtract: number;
+      draw?: number;
+      spend?: number;
+      changes?: string[];
+      drewCards?: number;
+    }
   // The dilemmas still in the stack that Attempt done moved under the mission (#1170), when any.
   | { kind: 'attemptEnded'; mission: string; moved?: string[] }
   // A change of the attempt's phase (#1189). Choose -> face names the dilemmas it sent from the
@@ -138,6 +150,10 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       ship?: string;
       personnel: number;
       subtract: number;
+      draw?: number;
+      spend?: number;
+      changes?: string[];
+      drewCards?: number;
       drew: number;
       stacked: number;
       random?: true;
@@ -289,6 +305,37 @@ export interface RedoStep {
   entry: LogEntry;
   table: TableState;
 }
+
+// The draw and the spend an attempt started with (#1759), and the cards Rigel X drew into the hand.
+const attemptStartFields = (before: TableState, after: TableState): { draw?: number; spend?: number; drewCards?: number } => {
+  const drewCards = after.hand.length - before.hand.length;
+  return {
+    ...(after.attempt ? { draw: after.attempt.draw, spend: after.attempt.spend } : {}),
+    ...(drewCards > 0 ? { drewCards } : {}),
+  };
+};
+
+// "12 personnel − 3 = draw/spend 9", then the mission's changes and Rigel X's draw (#1759). An entry
+// from before #1759 has no draw and spend, and reads as N.
+const attemptNumbersText = (entry: {
+  personnel: number;
+  subtract: number;
+  draw?: number;
+  spend?: number;
+  changes?: string[];
+  drewCards?: number;
+}): string => {
+  const n = drawSpend(entry.personnel, entry.subtract);
+  const draw = typeof entry.draw === 'number' ? entry.draw : n;
+  const spend = typeof entry.spend === 'number' ? entry.spend : n;
+  const notes = [
+    ...(Array.isArray(entry.changes) ? entry.changes : []),
+    ...(typeof entry.drewCards === 'number' && entry.drewCards > 0
+      ? [`drew ${entry.drewCards} ${entry.drewCards === 1 ? 'card' : 'cards'}`]
+      : []),
+  ];
+  return `${entry.personnel} personnel − ${entry.subtract} = ${drawSpendText(draw, spend)}${notes.length ? ` (${notes.join('; ')})` : ''}`;
+};
 
 const missionName = (state: TableState, index: number): string => {
   const mission = state.missions[index]?.mission;
@@ -492,6 +539,8 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ...(action.shipId ? { ship: cardName(before, action.shipId) } : {}),
         personnel: action.personnel,
         subtract: action.subtract,
+        ...attemptStartFields(before, after),
+        ...(action.changes?.length ? { changes: [...action.changes] } : {}),
       };
     case 'endAttempt':
       if (after === before || !before.attempt) return null;
@@ -522,6 +571,8 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ...(action.shipId ? { ship: cardName(before, action.shipId) } : {}),
         personnel: action.personnel,
         subtract: action.subtract,
+        ...attemptStartFields(before, after),
+        ...(action.changes?.length ? { changes: [...action.changes] } : {}),
         drew: action.drawn.length,
         stacked: stacked.size,
         ...(action.random ? { random: true as const } : {}),
@@ -1147,18 +1198,14 @@ export function logEntryText(entry: LogEntry): string {
     case 'score':
       return `Score ${entry.delta > 0 ? '+' : ''}${entry.delta} (now ${entry.score})`;
     case 'attemptStarted':
-      return `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${entry.personnel} personnel − ${
-        entry.subtract
-      } = draw/spend ${drawSpend(entry.personnel, entry.subtract)}`;
+      return `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${attemptNumbersText(entry)}`;
     case 'attemptEnded':
       return entry.moved?.length
         ? `Ended the attempt at ${entry.mission}, and moved ${cardsText(entry.moved)} under ${entry.mission}`
         : `Ended the attempt at ${entry.mission}`;
     case 'botAttempt': {
       const dilemmas = (n: number) => `${n} ${n === 1 ? 'dilemma' : 'dilemmas'}`;
-      const text = `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${entry.personnel} personnel − ${
-        entry.subtract
-      }; the bot drew ${dilemmas(entry.redrew ?? entry.drew)}${
+      const text = `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${attemptNumbersText(entry)}; the bot drew ${dilemmas(entry.redrew ?? entry.drew)}${
         entry.redrew ? `, used Unexpected Difficulties to return them and draw ${entry.drew} more,` : ''
       } and put ${entry.stacked} in the stack${entry.random ? ' at random' : ''}`;
       const returned = Array.isArray(entry.returned) ? entry.returned.length : (entry.returned ?? 0);

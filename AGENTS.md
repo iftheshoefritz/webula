@@ -1037,6 +1037,16 @@ growing where it would take their width, and the dilemma choice, which keeps the
 `missionScale`, draws the same mission. The bottom row does not change. The dilemma stack mounts only here
 (#1170), so the `dilemmaStack` drop target exists only in the attempt layout.
 
+Every attempt keeps its own draw and spend, `Attempt.draw` and `Attempt.spend` (#1759): N, the bot's
+Draw and Spend in a bot game, or N changed by the attempted mission (`attemptMissions.ts`, by whole
+title): Class 9 Nebula Bypass Disputed Region lowers both by 1 when every unstopped personnel involved
+shares an affiliation (`attempt-mission-change` names it), and two toggles of the popup,
+`attempt-mission-offer-<key>`, off at first: Mouth of the Wormhole Form Labor Union's "Spend −1" for 6
+unstopped Dabo Girls or Waiters, and Rigel X Locate Mysterious Contact's "Draw 2 cards" for 6 unstopped
+personnel, which draws 2 cards into the hand, free, in the same `startAttempt` (`drawCards`), and raises
+both by 1. The strip, "Drawn 3 of D" and the log read the stored pair; a save from before restores it as
+`botDraw`/`botSpend`, else N.
+
 In a bot game (`?fixture=bot`), Start opens straight into `'face'` (#1299). The popup stays open,
 with Start reading "The bot is choosing…", while the bot draws Draw dilemmas and chooses a stack
 within Spend; then one `botAttempt` action starts the attempt with the chosen stack face down and the

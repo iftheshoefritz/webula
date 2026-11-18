@@ -130,6 +130,7 @@ import {
   AttemptMoveDestination,
   AttemptPanel,
   attemptDefaults,
+  attemptMissionRulesOf,
   attemptMoveDestinations,
   attemptViewKey,
   canAttempt,
@@ -3763,6 +3764,7 @@ function PracticeDrawContent() {
   // The Attempt button of the open away team or crew panel (#1163), given only where `canAttempt` says yes.
   const attemptFrom = (panel: AttemptPanel) => (canAttempt(table, panel) ? () => setAttemptPopup(panel) : undefined);
   const attemptDefaultsOpen = attemptPopup ? attemptDefaults(table, attemptPopup) : null;
+  const attemptRulesOpen = attemptPopup ? attemptMissionRulesOf(table, attemptPopup) : null;
   // The popup's Start closes it and every panel, and clears the selection.
   const closeAfterStart = () => {
     setAttemptPopup(null);
@@ -4048,18 +4050,19 @@ function PracticeDrawContent() {
             mission={cardDisplayName(missions[attemptDefaultsOpen.missionIndex].mission!.card)}
             personnel={attemptDefaultsOpen.personnel}
             subtract={attemptDefaultsOpen.subtract}
+            rules={attemptRulesOpen ?? undefined}
             bot={table.opponent === 'bot'}
             choosing={botStart.choosing}
             onCancel={() => {
               botStart.cancel();
               setAttemptPopup(null);
             }}
-            onStart={(personnel, subtract, bot) => {
+            onStart={(personnel, subtract, bot, mission) => {
               if (bot && table.opponent === 'bot') {
-                botStart.start({ ...attemptDefaultsOpen, personnel, subtract, ...bot });
+                botStart.start({ ...attemptDefaultsOpen, personnel, subtract, ...bot, ...mission });
                 return;
               }
-              dispatch({ type: 'startAttempt', ...attemptDefaultsOpen, personnel, subtract, ...bot });
+              dispatch({ type: 'startAttempt', ...attemptDefaultsOpen, personnel, subtract, ...bot, ...mission });
               closeAfterStart();
             }}
           />
