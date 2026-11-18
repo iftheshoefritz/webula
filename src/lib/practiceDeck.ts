@@ -205,3 +205,17 @@ export const PRACTICE_ATTRIBUTES_TSV = `1\tKira Nerys Reformed Collaborator
 
 // The name of the card of `PRACTICE_ATTRIBUTES_TSV` that goes into the core; the rest go into the crew.
 export const PRACTICE_ATTRIBUTES_CORE = 'Dark Dissension';
+
+// The deck of `?fixture=completion` (#1757): the practice deck with the five missions whose completion
+// acts on the player's cards in place of its own, in slot order Aldea (the planet of the away team),
+// Starbase 718, Bassen Rift (the space mission of the crewed ship), Saturn and Gateway, and Population 9
+// Billion - All Borg in the draw deck, for Saturn's download.
+export const PRACTICE_COMPLETION_TSV = `${PRACTICE_DECK_TSV.split('\n')
+  .slice(0, -5)
+  .join('\n')}
+1\tPopulation 9 Billion - All Borg
+1\tAldea Aid Legendary Civilization
+1\tStarbase 718 Investigate Cryosatellite
+1\tBassen Rift Interdict Genocidal Praetor
+1\tSaturn Continue Invasion
+1\tGateway Flee in Terror`;

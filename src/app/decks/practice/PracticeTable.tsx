@@ -53,6 +53,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
   PRACTICE_ATTRIBUTES_CORE,
   PRACTICE_ATTRIBUTES_TSV,
+  PRACTICE_COMPLETION_TSV,
   PRACTICE_BOT_COSTS_TSV,
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
@@ -121,6 +122,8 @@ import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList, type UseHandlers } from './TurnCounters';
 import { PersonnelChoicePanel } from './PersonnelChoicePanel';
+import { CompletionEffectPanel } from './CompletionEffectPanel';
+import { completionBatch, completionEffectOf, flipActions } from './completionEffects';
 import { personnelCandidateGroups } from './personnelChoice';
 import useLocalStorage from '../../../hooks/useLocalStorage';
 import { AttemptDialog } from './AttemptPanel';
@@ -2064,6 +2067,9 @@ function PracticeDrawContent() {
   // `?fixture=attributes` (#1666) deals the piles table with a [TN] personnel in the ship's crew and
   // Dark Dissension in the core, for the arrows of the attribute bands.
   const isAttributesFixture = fixture === 'attributes';
+  // `?fixture=completion` (#1757) deals the piles table with the five missions whose completion acts on the
+  // player's cards, and Population 9 Billion - All Borg in the draw deck.
+  const isCompletionFixture = fixture === 'completion';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2083,7 +2089,7 @@ function PracticeDrawContent() {
   const isBotCostsFixture = fixture === 'bot-costs';
   const isBotFixture = fixture === 'bot' || isBotCostsFixture || botRevealFixture !== null;
   const isFixture =
-    fixture === '1' || isPilesFixture || isCostsFixture || isAttributesFixture || isAttemptFixture || isBotFixture;
+    fixture === '1' || isPilesFixture || isCostsFixture || isAttributesFixture || isCompletionFixture || isAttemptFixture || isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
   // Browser checks use it with `?fixture=1` to start from the same table every time.
@@ -2135,6 +2141,24 @@ function PracticeDrawContent() {
       setOpenReveal((reveal) => (reveal?.play ? null : reveal));
     }
     dispatchGame(chosen);
+  };
+  // The panel of a completion effect (#1757): the mission slot whose completion waits on the player's
+  // choice. Page state: the mission stays not complete until Confirm or Skip.
+  const [completionPanel, setCompletionPanel] = useState<number | null>(null);
+  // A completion of a mission with an effect on the player's cards (#1757): Gateway flips at once, every
+  // other effect opens its panel. Marking a mission not complete, or one with no effect, is as before.
+  const setMissionCompleted = (missionIndex: number, completed: boolean) => {
+    const effect = completed && !table.missions[missionIndex]?.completed ? completionEffectOf(table, missionIndex) : undefined;
+    if (!effect) {
+      dispatch({ type: 'setMissionCompleted', missionIndex, completed });
+      return;
+    }
+    if (effect.kind === 'flip') {
+      const flip = flipActions(table, missionIndex);
+      dispatch(flip.length ? completionBatch(missionIndex, flip) : { type: 'setMissionCompleted', missionIndex, completed });
+      return;
+    }
+    setCompletionPanel(missionIndex);
   };
   useEffect(() => {
     if (!chargeChip) return;
@@ -2719,6 +2743,7 @@ function PracticeDrawContent() {
     lateHand: extractDrawDeck(deckFromTsv(PRACTICE_BOT_COSTS_TSV, data)),
   });
   const fixtureDeck = (): DeckList => {
+    if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
@@ -2802,7 +2827,7 @@ function PracticeDrawContent() {
       if (loading || data.length === 0) return;
       dealDeck(
         fixtureDeck(),
-        isPilesFixture || isCostsFixture || isAttributesFixture || isAttemptFixture || isBotFixture,
+        isPilesFixture || isCostsFixture || isAttributesFixture || isCompletionFixture || isAttemptFixture || isBotFixture,
         attemptFixturePhase,
         isBotFixture ? 'bot' : undefined,
         botRevealFixture?.title ?? null
@@ -4049,6 +4074,22 @@ function PracticeDrawContent() {
             onClose={() => setCountersListOpen(false)}
           />
         )}
+        {completionPanel !== null && completionEffectOf(table, completionPanel) && (
+          <CompletionEffectPanel
+            table={table}
+            missionIndex={completionPanel}
+            effect={completionEffectOf(table, completionPanel)!}
+            onComplete={(actions) => {
+              dispatch(
+                actions.length
+                  ? completionBatch(completionPanel, actions)
+                  : { type: 'setMissionCompleted', missionIndex: completionPanel, completed: true }
+              );
+              setCompletionPanel(null);
+            }}
+            onClose={() => setCompletionPanel(null)}
+          />
+        )}
         {personnelChoice && (
           <PersonnelChoicePanel
             title={personnelChoice.source}
@@ -4195,9 +4236,7 @@ function PracticeDrawContent() {
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                   onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
-                  onSetMissionCompleted={(missionIndex, completed) =>
-                    dispatch({ type: 'setMissionCompleted', missionIndex, completed })
-                  }
+                  onSetMissionCompleted={setMissionCompleted}
                   selectedIds={selectedCardIds}
                   botMarks={botRowMarks}
                   onToggleSelect={toggleCardSelection}
@@ -4270,9 +4309,7 @@ function PracticeDrawContent() {
                   onOpenShipRow={(missionIndex) => openOnlyShipRowPanel(missionIndex)}
                   onOpenPlacedOn={openOnlyPlacedOnPanel}
                   onFlipMission={(id) => dispatch({ type: 'flipMission', id })}
-                  onSetMissionCompleted={(missionIndex, completed) =>
-                    dispatch({ type: 'setMissionCompleted', missionIndex, completed })
-                  }
+                  onSetMissionCompleted={setMissionCompleted}
                   attempt={table.attempt}
                   onBackToAttempt={() => setFullTableFor(null)}
                   scale={missionScale}

@@ -111,7 +111,9 @@ describe('tableReducer: startAttempt and endAttempt (#1163)', () => {
   it('moves nothing when the stack is empty, and nothing with no attempt', () => {
     const started = tableReducer(table(), start);
     const ended = tableReducer(started, { type: 'endAttempt' });
-    expect(ended.missions).toBe(started.missions);
+    // No card moves; the attempted slot records the personnel involved (#1757).
+    expect(ended.missions.map(({ involved: _involved, ...slot }) => slot)).toEqual(started.missions);
+    expect(ended.missions[started.attempt!.missionIndex].involved).toEqual(['s1-p1', 's1-p3']);
     expect(ended.dilemmaStack).toBe(started.dilemmaStack);
     const idle = table({ dilemmaStack: [dilemma('k1')] });
     expect(tableReducer(idle, { type: 'endAttempt' })).toBe(idle);
