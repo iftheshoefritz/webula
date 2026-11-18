@@ -92,7 +92,7 @@ export default function AttemptLayout({
   parked = false,
   viewFullTableHoldEnabled = false,
   modifiersText = '',
-  donePrompt = false,
+  donePrompt = null,
   attempt,
   slot,
   sizes,
@@ -128,8 +128,9 @@ export default function AttemptLayout({
   viewFullTableHoldEnabled?: boolean;
   // The active modifiers of a bot attempt in `'face'` (#1598), `attemptModifiersText`; '' shows no line.
   modifiersText?: string;
-  // No one is left to face the stack (#1600, `attemptDonePrompt`): Done is emphasised, with a prompt.
-  donePrompt?: boolean;
+  // The prompt by Done (#1600, #1760, `attemptDonePromptText`), "No one left" or "Stack overcome": Done is
+  // emphasised, with the prompt. Null: none.
+  donePrompt?: string | null;
   attempt: Attempt;
   slot: MissionSlot;
   sizes: AttemptSizes;
@@ -369,7 +370,7 @@ export default function AttemptLayout({
           </button>
           {donePrompt && (
             <span data-testid="attempt-done-prompt" className="self-center whitespace-nowrap text-xs font-bold text-amber-300">
-              No one left
+              {donePrompt}
             </span>
           )}
           <button

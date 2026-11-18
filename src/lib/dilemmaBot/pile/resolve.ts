@@ -82,6 +82,12 @@ export type PileResolve =
       fetched?: { title: string; from: 'botPile' | 'underMissions' };
       /** The dilemma ends the stack (#1600): it and the rest of the stack return to the dilemma pile. */
       endsStack?: true;
+      /**
+       * The mission's change of the cost took the total past the spend at the reveal (#1760): the dilemma
+       * and the rest of the stack are overcome, and go beneath the mission with no effect. `reason` is
+       * "Stakoron II raised the cost past the spend".
+       */
+      overcome?: { reason: string };
     };
 
 /** Where a resolved dilemma goes (#1599): beneath the attempted mission, or a `DilemmaPlacement`. */
@@ -494,6 +500,25 @@ export function pileRevealPicksOf(
 }
 
 /**
+ * The Resolve of a dilemma overcome over the spend at its reveal (#1760): no effect, it goes beneath the
+ * mission, and the rest of the stack with it. "Overcome with the 2 after it: Stakoron II raised the cost
+ * past the spend".
+ */
+function overcomeResolve(source: string, input: PileResolveInput): PileResolve {
+  const reason = `${source} raised the cost past the spend`;
+  const after = input.rest?.length ?? 0;
+  return {
+    resolvable: true,
+    preview: `Overcome${after ? ` with the ${after} after it` : ''}: ${reason}`,
+    changes: [],
+    done: [],
+    byTable: [],
+    destination: 'under',
+    overcome: { reason },
+  };
+}
+
+/**
  * The Resolve of `row`, the revealed top card, when the group of `attempt` faces it (#1588). `attempt` is
  * the snapshot's group, with the attempt's spend, as `pileLabelOf` takes it; the cost of `revealed` counts
  * as spent, and the play faces the `rest` after it, as the label's does. No Resolve, with a reason, for a
@@ -509,7 +534,9 @@ export function pileRevealPicksOf(
  * of the dilemma's own play takes `input.revealPicks`, the roll the reveal kept (#1594, #1628), and never
  * rolls, so the preview, a reload and the press agree: the preview goes step by step in counts, "1 of 3
  * has Strength > 6: stops 1", or "Choose 1 of the selected to be stopped" while a choice is pending (#1632).
- * A play that selects at random with no kept roll has no Resolve. The pool of a select is the snapshot's
+ * A play that selects at random with no kept roll has no Resolve. With the attempted mission's cost change
+ * (#1760), a dilemma revealed past the spend is overcome, with the rest of the stack (`overcomeResolve`).
+ * The pool of a select is the snapshot's
  * group, so a selected personnel the player stopped by hand since the reveal stays selected, and counts
  * as already stopped.
  */
@@ -518,12 +545,14 @@ export function pileResolveOf(row: LabelRow, attempt: PileAttempt, input: PileRe
   if (!model) return { resolvable: false, reason: 'the bot has no model of this dilemma' };
   const played = withRevealedCost(attempt, model, input.revealed ?? []);
   const rest = modelsOf(input.rest ?? []);
-  const refused = NO_CHOICE_RESOLVE[model.title];
-  if (refused) return { resolvable: false, reason: refused };
   const rolled = !!input.revealPicks;
   // A fresh reader of the kept roll for each play.
   const kept = () => (input.revealPicks ? { picks: picksFrom(input, input.revealPicks) } : {});
   const modelPlay = recordPlay(played, model, rest, kept());
+  // A mission that raised the cost past the spend (#1760): the dilemma and the rest are overcome.
+  if (played.missionCost && modelPlay.own.some((e) => e.op === 'overcome')) return overcomeResolve(played.missionCost.source, input);
+  const refused = NO_CHOICE_RESOLVE[model.title];
+  if (refused) return { resolvable: false, reason: refused };
   const modelReason = noResolveReason(modelPlay.kept, rolled);
   if (modelReason) return { resolvable: false, reason: modelReason };
 

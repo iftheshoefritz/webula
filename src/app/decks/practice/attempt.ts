@@ -24,6 +24,7 @@ import { PileDestination, PileResolveWhere, PileSteps, modifiersText, pileResolv
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
+import { missionCostOf } from '../../../lib/dilemmaBot/pile/missionCost';
 import { ATTRIBUTE_REGISTRY, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
 import { shipRangeOnTable } from './shipRange';
 import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
@@ -80,11 +81,15 @@ function revealedPlayOf(table: TableState, snapshot: RevealSnapshot | undefined 
   // card's own Resolve does not count again, and the attempt's otherwise.
   const kept = snapshot?.dilemmaId === top.id ? snapshot.modifiers : attempt.modifiers;
   const built = kept ? { ...pile, modifiers: playModifiersOf(kept, personnelIds) } : pile;
+  // The attempted mission's change of the cost of a revealed dilemma (#1760), in a bot game only: the
+  // bot chose its stack at printed costs, and the change counts from the reveal.
+  const missionCost = attempt.botSpend !== undefined ? missionCostOf(table.missions[attempt.missionIndex]?.mission?.card) : undefined;
+  const costed = missionCost ? { ...built, missionCost } : built;
   const revealedIds = attempt.botRevealed ?? [];
   const at = revealedIds.indexOf(top.id);
   return {
     top,
-    attempt: attempt.botSpend !== undefined ? { ...built, spend: attempt.botSpend } : built,
+    attempt: attempt.botSpend !== undefined ? { ...costed, spend: attempt.botSpend } : costed,
     personnelIds,
     revealed: (at === -1 ? revealedIds : revealedIds.slice(0, at)).map((id) => findInstanceAnywhere(table, id)?.instance.card),
     rest: dilemmaStack.slice(1).map((c) => c.card),
@@ -139,6 +144,10 @@ export type BotResolve =
       fetchedId?: string;
       // The cards after the dilemma when it ends the stack (#1600), in stack order, for the bottom of the pile.
       restToPile?: string[];
+      // The cards after the dilemma when the mission's cost change overcomes it (#1760), in stack order,
+      // for beneath the mission, and the reason, "Stakoron II raised the cost past the spend".
+      restUnder?: string[];
+      overcome?: string;
     };
 
 // Where the resolved dilemma goes, in table terms (#1599).
@@ -210,21 +219,28 @@ export function botResolveOf(
         ...(move ? { move } : {}),
         ...(fetchedId ? { fetchedId } : {}),
         ...(resolve.endsStack ? { restToPile: table.dilemmaStack.slice(1).map((c) => c.id) } : {}),
+        ...(resolve.overcome ? { overcome: resolve.overcome.reason, restUnder: table.dilemmaStack.slice(1).map((c) => c.id) } : {}),
       };
     })(),
   };
 }
 
-// Whether the attempt strip points to Done (#1600): in a bot game's `'face'`, once the last revealed
-// dilemma is resolved, the attempting row holds no unstopped personnel, and the stack still holds cards.
-// Derived from the table, so a reload, an undo and a stop by hand agree. Done keeps its action.
-export function attemptDonePrompt(table: TableState): boolean {
+// The prompt by Done on the attempt strip (#1600), or null: in a bot game's `'face'`, once the last
+// revealed dilemma is resolved, "No one left" when the attempting row holds no unstopped personnel and the
+// stack still holds cards, or "Stack overcome" when that dilemma was overcome over the spend with the rest
+// of the stack (#1760). Derived from the table, so a reload, an undo and a stop by hand agree. Done keeps
+// its action.
+export function attemptDonePromptText(table: TableState): string | null {
   const attempt = table.attempt;
-  if (!attempt || attempt.botDraw === undefined || attempt.phase !== 'face') return false;
-  if (!attempt.revealSnapshot?.resolved || table.dilemmaStack.length === 0) return false;
+  if (!attempt || attempt.botDraw === undefined || attempt.phase !== 'face') return null;
+  if (attempt.revealSnapshot?.resolved && attempt.revealSnapshot.overcome) return 'Stack overcome';
+  if (!attempt.revealSnapshot?.resolved || table.dilemmaStack.length === 0) return null;
   const row = attemptingCards(table, attempt.missionIndex, attempt.shipId) ?? [];
-  return !row.some((c) => c.card?.type === 'personnel' && !c.stopped);
+  return row.some((c) => c.card?.type === 'personnel' && !c.stopped) ? null : 'No one left';
 }
+
+// Whether the attempt strip points to Done (`attemptDonePromptText`).
+export const attemptDonePrompt = (table: TableState): boolean => attemptDonePromptText(table) !== null;
 
 // The table card a fetch takes (#1600): the first card titled `title`, matched as the registry matches
 // a name, in the dilemma pile (Vault of Tomorrow) or beneath any mission slot (Talosian Trial).
@@ -449,14 +465,20 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // and `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps.
 // `?fixture=bot-resolve-becalmed` (#1628) reveals Becalmed, whose roll and check the preview names.
 // `?fixture=bot-resolve-modifier` (#1598) reveals Accelerated Aging, with a Dead Weight right under it.
+// `?fixture=bot-resolve-overcome` (#1760) attempts Stakoron Strait in place of Bilana System, with a spend
+// of 4, and reveals Conflict of Interests, a dual dilemma of cost 4 that the mission raises past it.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
 // The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
-// `next`: a second dilemma it adds, face down right under the revealed one (#1598).
+// `next`: a second dilemma it adds, face down right under the revealed one (#1598). `mission`: the
+// collector's info of the mission that takes the attempted slot's place (#1760). `spend`: the bot's spend
+// in place of N.
 export interface BotRevealFixture {
   title: string;
   collectorsInfo: string;
   next?: { title: string; collectorsInfo: string };
+  mission?: string;
+  spend?: number;
 }
 
 export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
@@ -472,9 +494,12 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
     collectorsInfo: '11P001',
     next: { title: 'Dead Weight', collectorsInfo: '36V005' },
   },
+  // Conflict of Interests, a dual dilemma of cost 4, at Stakoron Strait, which raises it to 5, past a
+  // spend of 4 (#1760).
+  'bot-resolve-overcome': { title: 'Conflict of Interests', collectorsInfo: '26V002', mission: '33V030', spend: 4 },
 };
 
-export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA): {
+export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA, spend?: number): {
   start: Extract<TableAction, { type: 'startAttempt' }>;
   stack: Extract<TableAction, { type: 'move' }>[];
   revealId: string;
@@ -489,7 +514,7 @@ export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTUR
   const rest = table.dilemmaPile.filter((c) => c.id !== labelled.id && c.id !== next?.id);
   const under = [...(next ? [next] : []), ...rest].slice(0, FIXTURE_DILEMMA_STACK - 1);
   return {
-    start: { ...start, botDraw: n, botSpend: n },
+    start: { ...start, botDraw: n, botSpend: spend ?? n },
     stack: [labelled, ...under].map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' })),
     revealId: labelled.id,
   };

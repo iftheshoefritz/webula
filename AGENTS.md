@@ -693,7 +693,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has fifteen fixtures. Each one deals the same table on every load.
+The practice table has sixteen fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -806,6 +806,11 @@ The practice table has fifteen fixtures. Each one deals the same table on every 
   "First skill off for the rest of the attempt"; after the press, with Accelerated Aging moved off the
   stack, a flip of Dead Weight previews a stop, where the crew with its first-listed skills meets the
   check and reads "No effect". It keeps its game under `practiceGame:fixture=bot-resolve-modifier`.
+- `?fixture=bot-resolve-overcome` (#1760) deals the `?fixture=bot-label` table with Stakoron Strait
+  (`33V030`) in place of Bilana System, and starts the bot attempt there with a spend of 4 and Conflict of
+  Interests (`26V002`, dual, cost 4) revealed on top: the mission raises it to 5, past the spend, so its
+  Resolve preview reads "Overcome with the 3 after it: Stakoron Strait raised the cost past the spend". It
+  keeps its game under `practiceGame:fixture=bot-resolve-overcome`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -1114,6 +1119,19 @@ reveal snapshot keeps the attempt's modifiers as its card turned face up (`Revea
 and `revealedPlayOf` seeds the play of the label, the preview, the press and the reveal roll with them
 (`PileAttempt.modifiers`), so a later card reads them and the card that set them does not count them
 twice. The save keeps both; malformed modifiers drop alone.
+
+Four missions change the cost of a dilemma revealed there (#1760, `missionCostOf` in
+`src/lib/dilemmaBot/pile/missionCost.ts`, by whole title): Terlina III makes Unscientific Method cost −2,
+Stakoron II and Stakoron Strait make a dual dilemma cost +1, and Wadi Homeworld makes a dilemma whose title
+begins with "Chula" cost −1, the change first, then Peremptory Plea's discount, then the 0 floor
+(`revealCostOf`). Only `revealedPlayOf` sets it, as `PileAttempt.missionCost`, in a bot game: the label and
+the Resolve count the changed costs of the cards revealed before the top card and of the top card, and the
+bot's search and choice at Start read printed costs. When the top card's changed cost takes the total past
+`botSpend`, its preview reads "Overcome with the 2 after it: Stakoron II raised the cost past the spend"
+(`overcome` of `pileResolveOf`), and Resolve is one `resolveDilemma` with `overcome` and `restUnder`: the
+card and the rest of the stack go under the mission, face up, in stack order, with no effect; the log says
+"Overcome: Stakoron II raised the cost past the spend"; the snapshot keeps `overcome`, and the strip points
+to Done with "Stack overcome" (`attemptDonePromptText`). A lowered cost never ends the stack.
 
 A Resolve that adds a modifier names it (#1598, `modifiersClause` in `pile/resolve.ts`): the preview
 of a modifier-only dilemma reads "First skill off for the rest of the attempt" in place of "No effect",

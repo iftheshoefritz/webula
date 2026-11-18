@@ -251,6 +251,7 @@ const isValidRevealSnapshot = (snapshot: unknown): boolean =>
   Array.isArray(snapshot.personnel) &&
   snapshot.personnel.every((p: unknown) => isObject(p) && typeof p.id === 'string' && typeof p.stopped === 'boolean') &&
   (snapshot.resolved === undefined || snapshot.resolved === true) &&
+  (snapshot.overcome === undefined || snapshot.overcome === true) &&
   // The roll at the reveal (#1594).
   (snapshot.picks === undefined || (Array.isArray(snapshot.picks) && snapshot.picks.every(isIdList)));
 
