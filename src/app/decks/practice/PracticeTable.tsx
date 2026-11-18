@@ -98,6 +98,7 @@ import {
   initialTableState,
   seedInstanceIds,
   tableReducer,
+  FIXTURE_SHIP_SLOT,
 } from './tableReducer';
 import { fromSavedGame, toSavedGame, toSavedHistory } from './savedGame';
 import { savedHistoryKey, writeSavedHistory } from './gameHistory';
@@ -140,7 +141,7 @@ import {
   fixtureBotLabelAttempt,
   BOT_REVEAL_FIXTURES,
   attemptModifiersText,
-  attemptDonePrompt,
+  attemptDonePromptText,
   botLabelOf,
   botResolveOf,
 } from './attempt';
@@ -2523,6 +2524,7 @@ function PracticeDrawContent() {
       ...(pressed.move ? { move: pressed.move } : {}),
       ...(pressed.fetchedId ? { fetchedId: pressed.fetchedId } : {}),
       ...(pressed.restToPile?.length ? { restToPile: pressed.restToPile } : {}),
+      ...(pressed.overcome ? { overcome: pressed.overcome, ...(pressed.restUnder?.length ? { restUnder: pressed.restUnder } : {}) } : {}),
     });
   };
 
@@ -2645,7 +2647,7 @@ function PracticeDrawContent() {
     };
     dispatch(deal);
     const botDealt = botRevealTitle ? tableReducer(initialTableState, deal) : null;
-    const botLabel = botDealt && botRevealTitle ? fixtureBotLabelAttempt(botDealt, botRevealTitle) : null;
+    const botLabel = botDealt && botRevealTitle ? fixtureBotLabelAttempt(botDealt, botRevealTitle, botRevealFixture?.spend) : null;
     if (botDealt && botLabel) {
       const phase: TableAction = { type: 'setAttemptPhase', phase: 'face' };
       dispatch(botLabel.start);
@@ -2733,11 +2735,24 @@ function PracticeDrawContent() {
     const next = botRevealFixture?.next
       ? data.find((row: any) => row.collectorsinfo === collectorsKey(botRevealFixture.next!.collectorsInfo))
       : undefined;
-    return {
+    const dealt: DeckList = {
       ...botDeck,
       ...(labelled ? { [labelled.collectorsinfo]: { count: 1, row: { ...labelled, count: 1, pile: 'dilemmaPile' } } } : {}),
       ...(next ? { [next.collectorsinfo]: { count: 1, row: { ...next, count: 1, pile: 'dilemmaPile' } } } : {}),
     };
+    // The fixture's mission (#1760) takes the place of the attempted slot's, in deck order.
+    const mission = botRevealFixture?.mission
+      ? data.find((row: any) => row.collectorsinfo === collectorsKey(botRevealFixture.mission!))
+      : undefined;
+    if (!mission) return dealt;
+    let slot = 0;
+    return Object.fromEntries(
+      Object.entries(dealt).map(([key, entry]) =>
+        cardPileFor(entry.row) === 'mission' && slot++ === FIXTURE_SHIP_SLOT
+          ? [mission.collectorsinfo, { count: 1, row: { ...mission, count: 1, pile: 'mission' } }]
+          : [key, entry]
+      )
+    );
   };
 
   // Restores the game saved under `gameKey` (#976). Returns false when there is none, or
@@ -4165,7 +4180,7 @@ function PracticeDrawContent() {
                   parked={!attemptLayoutShows}
                   viewFullTableHoldEnabled={viewFullTableHoldEnabled}
                   modifiersText={attemptModifiersText(table)}
-                  donePrompt={attemptDonePrompt(table)}
+                  donePrompt={attemptDonePromptText(table)}
                   attempt={table.attempt}
                   slot={missions[table.attempt.missionIndex]}
                   sizes={attemptSizes}

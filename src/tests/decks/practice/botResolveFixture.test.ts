@@ -6,7 +6,7 @@ import { deckFromTsv, extractDilemmas, extractDrawDeck, extractMissions, mergeDe
 import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
 import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
-import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptDonePrompt, attemptModifiersText, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
+import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptDonePrompt, attemptDonePromptText, attemptModifiersText, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
 import { createCardInstances, findInstanceAnywhere, initialTableState, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
 import { BOT_SKILLS } from '../../../lib/dilemmaBot/requirements';
 import { gameReducer, initialGameState, logEntryText, withShuffleOrders } from '../../../app/decks/practice/gameLog';
@@ -39,14 +39,24 @@ function dealRevealFixture(fixture: string | BotRevealFixture, roll = false): Ta
 }
 
 function dealRevealFixtureWithDeck(fixture: string | BotRevealFixture, roll = false) {
-  const { title, collectorsInfo, next } = typeof fixture === 'string' ? BOT_REVEAL_FIXTURES[fixture] : fixture;
+  const { title, collectorsInfo, next, mission, spend } = typeof fixture === 'string' ? BOT_REVEAL_FIXTURES[fixture] : fixture;
   const botDeck = mergeDeckPiles(deckFromTsv(PRACTICE_DECK_TSV, data), chulaPileDeck(data), ['dilemmaPile']);
   const rowOf = (info: string) => {
     const row = data.find((r) => r.collectorsinfo === collectorsKey(info));
     expect(row).toBeDefined();
     return { [row.collectorsinfo]: { count: 1, row: { ...row, count: 1, pile: 'dilemmaPile' } } };
   };
-  const deck = { ...botDeck, ...rowOf(collectorsInfo), ...(next ? rowOf(next.collectorsInfo) : {}) };
+  const withDilemmas = { ...botDeck, ...rowOf(collectorsInfo), ...(next ? rowOf(next.collectorsInfo) : {}) };
+  // The fixture's mission takes the place of Bilana System, the third (#1760), as the page's deck does.
+  const missionRow = mission ? data.find((r) => r.collectorsinfo === collectorsKey(mission)) : undefined;
+  let slot = 0;
+  const deck = missionRow
+    ? Object.fromEntries(
+        Object.entries(withDilemmas).map(([key, entry]: [string, any]) =>
+          entry.row.type === 'mission' && slot++ === 2 ? [missionRow.collectorsinfo, { count: 1, row: { ...missionRow, count: 1, pile: 'mission' } }] : [key, entry],
+        ),
+      )
+    : withDilemmas;
   const cards = extractDrawDeck(deck);
   const deal: TableAction = {
     type: 'resetWithPiles',
@@ -56,7 +66,7 @@ function dealRevealFixtureWithDeck(fixture: string | BotRevealFixture, roll = fa
     opponent: 'bot',
   };
   let table = tableReducer(initialTableState, deal);
-  const attempt = fixtureBotLabelAttempt(table, title);
+  const attempt = fixtureBotLabelAttempt(table, title, spend);
   if (!attempt) throw new Error('no fixture attempt');
   table = tableReducer(table, attempt.start);
   table = tableReducer(table, { type: 'setAttemptPhase', phase: 'face' });
@@ -576,5 +586,61 @@ describe('pointing to Done (#1600)', () => {
     // Not once the stack is empty, and not outside a bot game.
     expect(attemptDonePrompt({ ...game.table, dilemmaStack: [] })).toBe(false);
     expect(attemptDonePrompt({ ...game.table, attempt: { ...game.table.attempt!, botDraw: undefined } })).toBe(false);
+  });
+});
+
+describe('?fixture=bot-resolve-overcome (#1760)', () => {
+  it('attempts Stakoron Strait with a spend of 4 and reveals Conflict of Interests, raised to 5', () => {
+    const table = dealRevealFixture('bot-resolve-overcome');
+    expect(table.missions[2].mission?.card.originalName).toBe('Stakoron Strait Patrol Shipping Lane');
+    expect(table.attempt?.botSpend).toBe(4);
+    const [top, ...rest] = table.dilemmaStack;
+    expect(top.card.originalName).toContain('Conflict of Interests');
+    expect(rest.length).toBeGreaterThan(0);
+
+    expect(botLabelOf(table)).toBeNull();
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.preview).toBe(`Overcome with the ${rest.length} after it: Stakoron Strait raised the cost past the spend`);
+    expect(r.changes).toEqual([]);
+    expect(r.overcome).toBe('Stakoron Strait raised the cost past the spend');
+    expect(r.restUnder).toEqual(rest.map((c) => c.id));
+  });
+
+  it('moves the dilemma and the rest under the mission in stack order, logs why, points to Done, and undoes in one', () => {
+    const { table, deck } = dealRevealFixtureWithDeck('bot-resolve-overcome');
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    const stack = table.dilemmaStack;
+    expect(attemptDonePrompt(table)).toBe(false);
+    const game = gameReducer(initialGameState(table), {
+      type: 'resolveDilemma',
+      dilemmaId: stack[0].id,
+      dilemma: cardDisplayName(stack[0].card),
+      changes: r.changes,
+      move: r.move,
+      overcome: r.overcome,
+      restUnder: r.restUnder,
+    });
+    expect(game.table.dilemmaStack).toEqual([]);
+    const under = game.table.missions[2].underMission;
+    expect(under.slice(-stack.length).map((c) => [c.id, c.face])).toEqual(stack.map((c) => [c.id, 'up']));
+    const text = logEntryText(game.log[game.log.length - 1]);
+    expect(text).toContain('Overcome: Stakoron Strait raised the cost past the spend');
+    expect(text).toContain(`the ${stack.length - 1} after it go under the mission`);
+    expect(attemptDonePrompt(game.table)).toBe(true);
+    expect(attemptDonePromptText(game.table)).toBe('Stack overcome');
+    const restored = fromSavedGame(JSON.stringify(toSavedGame(game.table, deck, 'builder')), deck)!.table;
+    expect(attemptDonePromptText(restored)).toBe('Stack overcome');
+    const undone = gameReducer(game, { type: 'undo' }).table;
+    expect(undone).toEqual(table);
+    expect(attemptDonePrompt(undone)).toBe(false);
+  });
+
+  it('counts printed costs at Bilana System, so the same stack resolves as before', () => {
+    const table = dealRevealFixture({ ...BOT_REVEAL_FIXTURES['bot-resolve-overcome'], mission: undefined });
+    const r = botResolveOf(table);
+    expect(r).toMatchObject({ resolvable: true, preview: 'No effect', changes: [] });
+    if (r.resolvable) expect(r.overcome).toBeUndefined();
   });
 });

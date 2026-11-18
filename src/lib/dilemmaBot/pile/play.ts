@@ -546,6 +546,7 @@ export class PlayState {
       }
       if (this.reveal(model, fetched)) {
         this.trace?.(`${model.title}: overcome, over the cost the bot may spend`);
+        if (first) this.effects?.({ title: model.title, op: 'overcome' });
         this.unfaced(model);
         continue;
       }

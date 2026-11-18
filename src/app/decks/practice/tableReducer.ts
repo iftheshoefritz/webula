@@ -288,6 +288,9 @@ export interface RevealSnapshot {
   // card read, so a Resolve that changes them does not count again for the card that changed them.
   // Absent: none.
   modifiers?: PileModifiers;
+  // The dilemma was overcome over the spend at its reveal (#1760), with the rest of the stack, by its
+  // Resolve: the strip then points to Done.
+  overcome?: true;
 }
 
 // The effects of a dilemma on the attempting cards (#1587), each one or two table actions:
@@ -441,7 +444,10 @@ export type TableAction =
   // dilemma goes after the personnel changes (#1599), a `move` of `dilemmaId`; absent, it stays.
   // `restToPile`: the rest of the stack, which a dilemma that ends it sends to the bottom of the dilemma
   // pile (#1600). `fetchedId`: the card a fetch puts on top of the stack, face down (#1600). `steps`:
-  // the selection and the checks of a kept roll (#1628), as card ids, for the log (#1629).
+  // the selection and the checks of a kept roll (#1628), as card ids, for the log (#1629). `overcome`:
+  // the mission's cost change took the dilemma past the spend (#1760), "Stakoron II raised the cost past
+  // the spend"; `restUnder`, the rest of the stack, goes beneath the mission after it, face up, in stack
+  // order, and the snapshot records the overcome.
   | {
       type: 'resolveDilemma';
       dilemmaId: string;
@@ -454,6 +460,8 @@ export type TableAction =
       move?: { to: MoveTarget; position?: 'top' | 'bottom' };
       fetchedId?: string;
       restToPile?: string[];
+      overcome?: string;
+      restUnder?: string[];
     }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
@@ -1299,12 +1307,18 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         (s, id) => (s.dilemmaStack.some((c) => c.id === id) ? tableReducer(s, { type: 'move', id, to: 'dilemmaPile', position: 'bottom' }) : s),
         placed
       );
-      const moved = action.fetchedId ? tableReducer(ended, { type: 'move', id: action.fetchedId, to: 'dilemmaStack', position: 'top' }) : ended;
+      const fetched = action.fetchedId ? tableReducer(ended, { type: 'move', id: action.fetchedId, to: 'dilemmaStack', position: 'top' }) : ended;
+      // An overcome over the spend (#1760): the rest of the stack goes beneath the mission after it.
+      const under: MoveTarget = { zone: 'missionPile', missionIndex: attempt.missionIndex, pile: 'underMission' };
+      const moved = (action.overcome ? (action.restUnder ?? []) : []).reduce(
+        (s, id) => (s.dilemmaStack.some((c) => c.id === id) ? tableReducer(s, { type: 'move', id, to: under }) : s),
+        fetched
+      );
       return {
         ...moved,
         attempt: {
           ...moved.attempt!,
-          revealSnapshot: { ...attempt.revealSnapshot!, resolved: true },
+          revealSnapshot: { ...attempt.revealSnapshot!, resolved: true, ...(action.overcome ? { overcome: true as const } : {}) },
           ...(action.modifiers ? { modifiers: action.modifiers } : {}),
         },
       };

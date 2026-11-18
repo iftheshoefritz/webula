@@ -179,6 +179,10 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       // returned to the dilemma pile.
       added?: string;
       restReturned?: number;
+      // The mission's cost change overcame it over the spend (#1760), "Stakoron II raised the cost past
+      // the spend", and how many of the rest went beneath the mission with it.
+      overcome?: string;
+      restUnder?: number;
     }
   // A correction of one charge by the player (#1607): `target` names the charge, `card` its card
   // (null for an unseen card, absent for a draw), `from` and `to` the cost before and after.
@@ -624,10 +628,13 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
           const went = action.move && !after.dilemmaStack.some((c) => c.id === action.dilemmaId) ? wentText(before, action.move.to, action.move.position) : null;
           const added = action.fetchedId && after.dilemmaStack[0]?.id === action.fetchedId ? cardName(after, action.fetchedId) : null;
           const restReturned = (action.restToPile ?? []).filter((id) => after.dilemmaPile.some((c) => c.id === id)).length;
+          const restUnder = action.overcome ? (action.restUnder ?? []).filter((id) => !after.dilemmaStack.some((c) => c.id === id)).length : 0;
           return {
             ...(went ? { went } : {}),
             ...(added ? { added } : {}),
             ...(restReturned ? { restReturned } : {}),
+            ...(action.overcome ? { overcome: action.overcome } : {}),
+            ...(restUnder ? { restUnder } : {}),
           };
         })(),
       };
@@ -1214,7 +1221,9 @@ export function logEntryText(entry: LogEntry): string {
     case 'dilemmaResolved': {
       const ops = entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ');
       const modifiers = typeof entry.modifiers === 'string' ? entry.modifiers : '';
-      const effects = [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
+      // An overcome over the spend (#1760): "Overcome: Stakoron II raised the cost past the spend".
+      const overcome = typeof entry.overcome === 'string' ? `Overcome: ${entry.overcome}` : '';
+      const effects = overcome || [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
       // The steps of a kept roll (#1629): each selection, then each check, before the effects. An old
       // entry has none.
       const steps = [
@@ -1225,6 +1234,7 @@ export function logEntryText(entry: LogEntry): string {
         typeof entry.went === 'string' ? `it ${entry.went}` : '',
         typeof entry.added === 'string' ? `adds ${entry.added} on top of the stack` : '',
         typeof entry.restReturned === 'number' ? 'the rest of the stack returns to the dilemma pile' : '',
+        typeof entry.restUnder === 'number' ? `the ${entry.restUnder} after it ${entry.restUnder === 1 ? 'goes' : 'go'} under the mission` : '',
       ]
         .filter(Boolean)
         .map((part) => `; ${part}`)

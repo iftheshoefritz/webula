@@ -163,6 +163,18 @@ export interface PileAttempt {
    * from it. Only the table's Resolve sets it; the search, the lab and the bot's choice at Start never do.
    */
   modifiers?: PlayModifiers;
+  /**
+   * The attempted mission's change of the cost of a dilemma revealed there (#1760, `missionCostOf`):
+   * Stakoron II raises a dual dilemma by 1. Only the table's label and Resolve set it; the search, the lab
+   * and the bot's choice at Start never do, so the bot chooses its stack at printed costs.
+   */
+  missionCost?: MissionCostChange;
+}
+
+/** A mission's change of the cost of a dilemma revealed there (#1760), named by the mission, "Stakoron II". */
+export interface MissionCostChange {
+  source: string;
+  change: (model: DilemmaModel) => number;
 }
 
 /**
@@ -255,6 +267,8 @@ export type PlayEffect = { title: string; why?: string } & (
   /** The title put on top of the stack, or null when the fetch fetched nothing. */
   | { op: 'addBestOnTop'; added: string | null }
   | { op: 'endStack' }
+  /** Revealed over the cost the bot may spend (#1555, #1760): it and every later dilemma are overcome. */
+  | { op: 'overcome' }
   | { op: 'label'; label: string }
   /**
    * A random selection (#1588): `count` asked, from `pool`, and the `ks` it picked. `order` marks a
@@ -374,12 +388,13 @@ export function stackCostOf(attempt: PileAttempt, stack: ReadonlyArray<DilemmaMo
 
 /**
  * One reveal of the cost arithmetic (#1555), shared by `stackCostOf` and the play so the two cannot
- * drift: what `model` costs when revealed after a title that gave `discount`, down to 0, and the discount
- * it gives the next.
+ * drift: what `model` costs when revealed after a title that gave `discount`, with the attempted
+ * mission's change first (#1760), down to 0, and the discount it gives the next.
  */
 export function revealCostOf(attempt: PileAttempt, model: DilemmaModel, discount: number): { cost: number; discount: number } {
+  const mission = attempt.missionCost ? attempt.missionCost.change(model) : 0;
   return {
-    cost: Math.max(0, costOf(model, attempt) - discount),
+    cost: Math.max(0, costOf(model, attempt) + mission - discount),
     discount: model.discountsNext ? model.discountsNext(attempt) : 0,
   };
 }
