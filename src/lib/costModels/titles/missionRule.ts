@@ -41,6 +41,9 @@ const landingQuadrant = (play: CostPlay, facts: CostFacts): string =>
 
 const isDeltaPersonnel = (play: Pick<CostTurnPlay, 'type' | 'quadrant'>): boolean => isPersonnel(play) && play.quadrant === 'd';
 
+const isVidiianPersonnel = (play: Pick<CostTurnPlay, 'type' | 'affiliation'>): boolean =>
+  isPersonnel(play) && play.affiliation === 'vidiian';
+
 export const MISSION_RULE_MODELS: CostModel[] = [
   keywordEvent('Braslota System Advanced Battle Simulation', 'Braslota System', 'maneuver'),
   keywordEvent('Levinius V Advanced Combat Training', 'Levinius V', 'assault'),
@@ -144,6 +147,18 @@ export const MISSION_RULE_MODELS: CostModel[] = [
       hasKeyword(play, 'dissident') &&
       ['cardassian', 'non-aligned'].includes(play.affiliation ?? '')
         ? { cost: play.printed + 1, reason: 'Dissident played at Cardassia Prime' }
+        : null,
+  },
+  // "While you command fewer than seven personnel, the first [Vid] personnel you play each turn is cost -2."
+  // (#1750) The count is the unstopped personnel of every away team and crew before the play, never the
+  // brig (`CostFacts.commanded`). Its headquarters text is `hqPlayability.ts`'s.
+  {
+    title: 'Vidiia Locus of Infection',
+    label: 'Vidiia',
+    family: 'missionRule',
+    missionCostOfPlay: (play, facts) =>
+      isVidiianPersonnel(play) && facts.commanded.length < 7 && firstOfTurn(isVidiianPersonnel, facts)
+        ? minus(play, 2, `first [Vid] personnel this turn, ${facts.commanded.length} personnel commanded`)
         : null,
   },
 ];
