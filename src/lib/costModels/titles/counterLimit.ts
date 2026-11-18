@@ -6,8 +6,13 @@ import { cardTitleOf } from '../../cardTitle';
 // in the counters list (`turnChoices`), and one that caps the limit caps it (`limitCap`). The rest of each
 // text, the points lost, the card destroyed or taken, stays by hand.
 
-/** Whether the player commands a personnel of title `title`, lowercased. */
-const commands = (title: string, facts: CostFacts): boolean => facts.commanded.some((p) => cardTitleOf(p.name) === title);
+/**
+ * Whether the player commands a personnel of title `title`, lowercased, stopped or not, never in the brig. It
+ * tests that the personnel's own ability is on the table, not an "if you command" condition, so it reads
+ * `missions[].personnel`, which keeps the stopped personnel `commanded` leaves out (#1751).
+ */
+const commands = (title: string, facts: CostFacts): boolean =>
+  (facts.missions ?? []).some((m) => (m.personnel ?? []).some((p) => cardTitleOf(p.name) === title));
 
 /** The number of unique Borg personnel the player commands, each name once. */
 const uniqueBorgOf = (facts: CostFacts): number =>

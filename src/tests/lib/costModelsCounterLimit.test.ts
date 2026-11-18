@@ -97,17 +97,17 @@ describe('the counter limit models, batch 11 (#1704)', () => {
   it("offers Gaila's +4 while she is commanded and Ferenginar is a mission", () => {
     const gaila = personnel('gaila arms dealer', 'Ferengi');
     const ferenginar = mission('Ferenginar Financial Hub', 'h', 'a');
-    expect(turnChoicesOf(facts({ commanded: [gaila], missions: [ferenginar] }))).toEqual([
+    expect(turnChoicesOf(facts({ commanded: [gaila], missions: [{ ...ferenginar, personnel: [gaila] }] }))).toEqual([
       { title: 'Gaila', label: 'Equipment from Ferenginar: +4', limit: 4 },
     ]);
-    expect(turnChoicesOf(facts({ commanded: [gaila], missions: [mission('Earth', 'h', 'a')] }))).toEqual([]);
+    expect(turnChoicesOf(facts({ commanded: [gaila], missions: [{ ...mission('Earth', 'h', 'a'), personnel: [gaila] }] }))).toEqual([]);
     expect(turnChoicesOf(facts({ missions: [ferenginar] }))).toEqual([]);
   });
 
   it('offers Par Lenor one choice per Rule event of the core, at its cost, none at cost 0', () => {
     const parLenor = personnel('par lenor lascivious emissary', 'Ferengi');
     const coreCards = [rule('Rule of Acquisition #144', 3), rule('Rule of Acquisition #6', 0), { title: 'Surprise Party', type: 'event', keywords: [], cost: 2 }];
-    expect(turnChoicesOf(facts({ commanded: [parLenor], coreCards }))).toEqual([
+    expect(turnChoicesOf(facts({ commanded: [parLenor], coreCards, missions: [{ ...empty, personnel: [parLenor] }] }))).toEqual([
       { title: 'Par Lenor', label: 'Destroy Rule of Acquisition #144: +3', limit: 3 },
     ]);
     expect(turnChoicesOf(facts({ coreCards }))).toEqual([]);
