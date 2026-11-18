@@ -6,6 +6,7 @@ import { HAND_AND_DISCARD_MODELS } from './titles/handAndDiscard';
 import { LIMIT_MODELS } from './titles/limit';
 import { MAY_COST_MODELS } from './titles/mayCost';
 import { MISSION_COUNT_MODELS } from './titles/missionCount';
+import { MISSION_RULE_MODELS } from './titles/missionRule';
 import { NAMED_GROUP_MODELS } from './titles/namedGroup';
 import { NEXT_OF_KIND_MODELS } from './titles/nextOfKind';
 import { OPPONENT_COST_MODELS } from './titles/opponentCost';
@@ -36,6 +37,7 @@ const MODELS: CostModel[] = [
   ...STANDING_RULE_MODELS,
   ...TABLE_USE_MODELS,
   ...COUNTER_LIMIT_MODELS,
+  ...MISSION_RULE_MODELS,
 ];
 
 /** The registry of `models`, by title. Two models of one title throw. */
@@ -96,6 +98,26 @@ export function turnChoicesOf(facts: CostFacts, registry: ReadonlyMap<string, Co
       return limit > 0 && Number.isFinite(limit) ? [{ title: costModelName(model), label: c.label, limit }] : [];
     })
   );
+}
+
+/**
+ * The cost changes of the player's missions to the play from the hand of `play` (#1752): each mission
+ * title of the slots, once, asked with its first slot.
+ */
+export function missionCostsOf(
+  play: CostPlay,
+  facts: CostFacts,
+  registry: ReadonlyMap<string, CostModel> = COST_REGISTRY
+): { title: string; cost: ModelCost }[] {
+  const seen = new Set<string>();
+  return (facts.missions ?? []).flatMap((mission, slot) => {
+    const title = mission.name ? cardTitleOf(mission.name) : '';
+    if (!title || seen.has(title)) return [];
+    seen.add(title);
+    const model = registry.get(title);
+    const cost = model?.missionCostOfPlay?.(play, facts, slot);
+    return model && cost ? [{ title: costModelName(model), cost }] : [];
+  });
 }
 
 /**

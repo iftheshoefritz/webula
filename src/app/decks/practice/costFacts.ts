@@ -9,6 +9,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import type { CommandedTraits, CostCoreCard, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
+import { skillWordsOf } from '../../../lib/playCost';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
 const text = (v: unknown): string => String(v ?? '').toLowerCase();
@@ -59,6 +60,7 @@ function costMissionOf(slot: MissionSlot): CostMission {
     regions: regionsOf(text(card?.keywords)),
     personnel: slotPersonnelOf(slot),
     ships: slot.ships.flatMap(costShipOf),
+    ...(slot.mission?.flipped ? { flipped: true } : {}),
   };
 }
 
@@ -82,12 +84,25 @@ const coreCardOf = (c: CardInstance): CostCoreCard => {
   };
 };
 
-/** The traits of a played card that a standing rule tests (#1703). */
-export const turnPlayOf = (card: CardInstance['card'] | null | undefined): CostTurnPlay => ({
+/**
+ * The traits of a played card that a standing rule (#1703) or a mission (#1752) tests: its species, its
+ * skills, and `quadrant`, that of the mission slot it landed at, absent for a play to no slot.
+ */
+export const turnPlayOf = (card: CardInstance['card'] | null | undefined, quadrant?: string): CostTurnPlay => ({
   type: text(card?.type),
   unique: text(card?.unique) === 'y',
   icons: text(card?.icons).match(/\[[a-z0-9]+\]/g) ?? [],
+  species: text(card?.species)
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean),
+  skills: skillWordsOf(card?.skills),
+  ...(quadrant ? { quadrant } : {}),
 });
+
+/** The quadrant of the mission at slot `missionIndex`, lowercased, or undefined. */
+export const slotQuadrantOf = (table: TableState, missionIndex: number | undefined): string | undefined =>
+  missionIndex === undefined ? undefined : text(table.missions[missionIndex]?.mission?.card?.quadrant) || undefined;
 
 // `plays` are the cards played earlier this turn (#1703), from the log.
 export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): CostFacts {

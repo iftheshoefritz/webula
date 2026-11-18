@@ -47,7 +47,7 @@ import { isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/cost
 import { chosenPersonnel, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
-import { costFactsOf, turnPlayOf } from './costFacts';
+import { costFactsOf, slotQuadrantOf, turnPlayOf } from './costFacts';
 
 // A place a card can be, with the names the text needs captured at the time of the action, so a
 // later move of a ship or a mission card does not change an old entry.
@@ -425,7 +425,11 @@ function moveEntry(
           : { used, left: shipRangeOnTable(next, found.instance, !!move.cardText) - (next.rangeUsed?.[move.id] ?? 0) };
       const cost = typeof move.cost === 'number' ? move.cost : null;
       const source = cost !== null && move.costSource ? move.costSource : null;
-      const play = cost !== null ? turnPlayOf(found.instance.card) : null;
+      const landed = cost !== null ? findInstanceAnywhere(next, move.id) : null;
+      const play =
+        cost !== null
+          ? turnPlayOf(found.instance.card, landed ? slotQuadrantOf(next, costDestination(next, landed.zone).missionIndex) : undefined)
+          : null;
       const uses = cost !== null && move.costUses?.length ? move.costUses : null;
       const removedFromGame = removed.has(move.id);
       const group = groups.find(
@@ -799,9 +803,14 @@ const costPlace = (zone: TableZone): CostPlace => {
 };
 
 // Where a card landed, for the cost models (#1702): the mission slot of a ship row or an away team, and
-// for a crew the slot of the ship's row and the ship. The core and a card placed on another give neither.
+// for a crew the slot of the ship's row and the ship. A card placed on a mission card gives that slot as
+// `onMissionIndex` (#1752). The core and a card placed on another card give neither.
 const costDestination = (table: TableState, zone: TableZone): CostDestination => {
   if (typeof zone === 'string') return {};
+  if (zone.zone === 'on') {
+    const onMissionIndex = table.missions.findIndex((slot) => slot.mission?.id === zone.targetId);
+    return onMissionIndex >= 0 ? { onMissionIndex } : {};
+  }
   if (zone.zone === 'shipRow' || zone.zone === 'missionPile') return { missionIndex: zone.missionIndex };
   if (zone.zone === 'crew') {
     const missionIndex = table.missions.findIndex((slot) => slot.ships.some((ship) => ship.id === zone.shipId));
@@ -855,7 +864,8 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
             costDestination(next, landed.zone)
           )
         : null;
-    if (charge?.kind === 'play') plays.push(turnPlayOf(found!.instance.card));
+    if (charge?.kind === 'play')
+      plays.push(turnPlayOf(found!.instance.card, slotQuadrantOf(next, costDestination(next, landed!.zone).missionIndex)));
     const uses = charge?.kind === 'play' && charge.uses?.length ? { costUses: charge.uses } : {};
     const revealIds = charge?.kind === 'play' && charge.reveal?.ids.length ? charge.reveal.ids : [];
     const reveal = revealIds.length ? { costReveal: revealIds } : {};
@@ -953,7 +963,17 @@ const NO_TRAITS: CostTurnPlay = { type: '', unique: false, icons: [] };
 
 const isTurnPlay = (play: unknown): play is CostTurnPlay => {
   const p = play as CostTurnPlay | null | undefined;
-  return !!p && typeof p.type === 'string' && typeof p.unique === 'boolean' && Array.isArray(p.icons) && p.icons.every((i) => typeof i === 'string');
+  const strings = (v: unknown): boolean => v === undefined || (Array.isArray(v) && v.every((i) => typeof i === 'string'));
+  return (
+    !!p &&
+    typeof p.type === 'string' &&
+    typeof p.unique === 'boolean' &&
+    Array.isArray(p.icons) &&
+    p.icons.every((i) => typeof i === 'string') &&
+    strings(p.species) &&
+    strings(p.skills) &&
+    (p.quadrant === undefined || typeof p.quadrant === 'string')
+  );
 };
 
 // The cards played in `turn` (#1703), oldest first, by the traits a standing rule tests: every card a

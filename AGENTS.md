@@ -620,7 +620,7 @@ card prices another card's play with `costOfPlay` (Captain on the Bridge), and t
 source. A standing rule of the core (family `standingRule`, #1703: Disadvantage Into Advantage, Spiteful
 Strategy, Energize) does the same for every play, each copy once; its "first … each turn" reads the
 turn's earlier plays (`turnPlaysOf`, from the `plays` traits of each `LogMove`), and Energize the cards
-placed on it (`CostFacts.corePlaced`). A text that counts what the table does not see, the opponent's
+placed on it (`CostFacts.corePlaced`). A mission of the player's slots (family `missionRule`, #1752: the six keyword-event missions such as Braslota System, Deep Space Station K-7, Kelsid II, Exo III, Parliament, Romulus Patient Stronghold, Quatal Prime, Saturn, and Cardassia Prime Bastion of Resistance while flipped, `CostMission.flipped`) prices a play from the hand through `missionCostOfPlay(play, facts, slot)`, each title once (`missionCostsOf`), stacked after the core's; a play records its species, skills and landing quadrant (`CostTurnPlay`) for "the first … each turn", and a card placed on a mission card lands at `CostPlay.onMissionIndex`. A text that counts what the table does not see, the opponent's
 missions or the cards a play discards (#1695, `titles/opponentCost.ts`: Tacking Into the Wind, Rollins,
 Ptol and others), gives the printed cost and a counted choice (`CountedChoice`: `step`, `max`, and the
 printed `base`, `max` clamped where the cost reaches 0), a stepper `charge-choice-count` with
