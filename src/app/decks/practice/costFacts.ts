@@ -7,7 +7,7 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import type { CommandedTraits, CostCoreCard, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
+import type { CommandedTraits, CostCoreCard, CostEventCard, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { skillWordsOf } from '../../../lib/playCost';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
@@ -104,6 +104,27 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined, quadra
 export const slotQuadrantOf = (table: TableState, missionIndex: number | undefined): string | undefined =>
   missionIndex === undefined ? undefined : text(table.missions[missionIndex]?.mission?.card?.quadrant) || undefined;
 
+const keywordsOf = (c: CardInstance): string[] => [
+  ...new Set(
+    text(c.card?.keywords)
+      .split('.')
+      .map((k) => k.trim())
+      .filter(Boolean)
+  ),
+];
+
+/**
+ * The events the player commands (#1749): those of the core, and those placed on the mission cards and the
+ * ships of every slot. Not the brig, and not an event placed on a card of the core.
+ */
+const eventsOf = (table: TableState): CostEventCard[] =>
+  [
+    ...table.core,
+    ...table.missions.flatMap((s) => [...(s.mission?.placedOn ?? []), ...s.ships.flatMap((ship) => ship.placedOn ?? [])]),
+  ]
+    .filter((c) => text(c.card?.type) === 'event')
+    .map((c) => ({ title: cardTitleOf(cardDisplayName(c.card)), keywords: keywordsOf(c) }));
+
 // `plays` are the cards played earlier this turn (#1703), from the log.
 export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): CostFacts {
   const core = table.core.filter((c) => c.card);
@@ -120,6 +141,7 @@ export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], 
     missions: table.missions.map(costMissionOf),
     pending,
     plays,
+    events: eventsOf(table),
     // The bot's dilemma pile is the opponent's (#1738); in a game with no bot the pile is the player's own.
     ...(table.opponent === 'bot'
       ? { opponentDilemmaPile: table.dilemmaPile.map((c) => ({ id: c.id, dilemmaType: text(c.card?.dilemmatype) })) }

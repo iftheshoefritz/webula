@@ -104,6 +104,18 @@ export interface CostFacts {
    * game with no bot the dilemma pile is the player's own.
    */
   opponentDilemmaPile?: CostPileCard[];
+  /**
+   * The events the player commands (#1749): every event face up on the player's table, those of the core and
+   * those placed on the player's mission cards and ships, never the brig, nor an event placed on a card of
+   * the core. Each with its keywords, lowercased. Absent is none.
+   */
+  events?: CostEventCard[];
+}
+
+/** An event the player commands (#1749): its title (`cardTitleOf`) and its keywords, lowercased. */
+export interface CostEventCard {
+  title: string;
+  keywords: string[];
 }
 
 /** A card of the opponent's dilemma pile (#1738): its instance id and its dilemma type, lowercased. */
