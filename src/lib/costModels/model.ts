@@ -67,8 +67,10 @@ export interface CostShip {
 /** What the models read of the table, as it stands before the move. */
 export interface CostFacts {
   /**
-   * The printed traits of each personnel the player commands: every away team and every crew, never the
-   * brig, with its uniqueness.
+   * The printed traits of each unstopped personnel the player commands: every away team and every crew, never
+   * the brig, with its uniqueness. A stopped personnel is still commanded, but it meets no "if you command",
+   * "while you command" or "for each … you command" condition (#1751). Every personnel, stopped ones too, is
+   * in `missions[].personnel`.
    */
   commanded: CommandedTraits[];
   /** The titles of the cards in the core. */

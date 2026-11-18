@@ -1,6 +1,6 @@
 // What the cost models read of the practice table (#1654), as a plain `CostFacts`: the printed
-// traits and the uniqueness of every personnel the player commands (every away team and every ship's crew, at every
-// mission, never the brig), the titles of the core, the hand by title and type, and each mission slot
+// traits and the uniqueness of every unstopped personnel the player commands (every away team and every ship's crew,
+// at every mission, never the brig; a stopped personnel meets no "you command" condition, #1751), the titles of the core, the hand by title and type, and each mission slot
 // (#1694) with its personnel and ships (#1702), the discard pile, the ships of the ship rows and the
 // score (#1700), and the cards placed on each core card (#1703). The plays of the turn (#1703) and the pending
 // discounts of the turn come from the log (`pendingDiscountsOf` in `gameLog.ts`).
@@ -93,7 +93,8 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined): CostT
 export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): CostFacts {
   const core = table.core.filter((c) => c.card);
   return {
-    commanded: table.missions.flatMap((s) => personnelTraitsOf(slotCards(s))),
+    // A stopped personnel is still commanded, but meets no "if/while/for each … you command" condition (#1751).
+    commanded: table.missions.flatMap((s) => personnelTraitsOf(slotCards(s).filter((c) => !c.stopped))),
     core: core.map((c) => cardTitleOf(cardDisplayName(c.card))),
     coreCards: core.map(coreCardOf),
     corePlaced: core.map((c) => c.placedOn?.length ?? 0),
