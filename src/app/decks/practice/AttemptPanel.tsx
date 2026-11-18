@@ -3,6 +3,8 @@ import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
 import { drawSpend, drawSpendText } from './drawSpend';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
+import { AttemptMissionRules, attemptChangeText } from './attemptMissions';
+import type { AttemptStartExtras } from './tableReducer';
 
 // An empty or invalid field reads as 0.
 const wholeNumber = (text: string): number => {
@@ -53,10 +55,15 @@ function NumberField({
 // bot's Draw and Spend: each shows N until the player edits it, and keeps the player's number after.
 // While the bot chooses its stack (#1299, `choosing`), Start reads "The bot is choosing…" and is
 // disabled; Cancel, Escape and the backdrop still close the popup.
+// A mission that changes the draw and the spend (#1759, `rules`) names its change under the result,
+// and each change the player may take is a toggle, off at first. The result, and a bot game's fields
+// until edited, show the numbers with the changes; `onStart` then gets them as `mission`, with the
+// cards Rigel X draws and the text of each change for the log.
 export function AttemptDialog({
   mission,
   personnel,
   subtract,
+  rules,
   bot = false,
   choosing = false,
   onStart,
@@ -65,9 +72,10 @@ export function AttemptDialog({
   mission: string;
   personnel: number;
   subtract: number;
+  rules?: AttemptMissionRules;
   bot?: boolean;
   choosing?: boolean;
-  onStart: (personnel: number, subtract: number, bot?: { botDraw: number; botSpend: number }) => void;
+  onStart: (personnel: number, subtract: number, bot?: { botDraw: number; botSpend: number }, mission?: AttemptStartExtras) => void;
   onCancel: () => void;
 }) {
   const [personnelText, setPersonnelText] = useState(String(personnel));
@@ -75,17 +83,30 @@ export function AttemptDialog({
   // null until the player edits the field: it then shows N, derived on each render.
   const [drawText, setDrawText] = useState<string | null>(null);
   const [spendText, setSpendText] = useState<string | null>(null);
+  const [taken, setTaken] = useState<string[]>([]);
   useEscapeLayer(onCancel);
 
   const p = wholeNumber(personnelText);
   const s = wholeNumber(subtractText);
   const n = drawSpend(p, s);
-  const shownDraw = drawText ?? String(n);
-  const shownSpend = spendText ?? String(n);
+  const offers = rules?.offers ?? [];
+  const changes = [...(rules?.auto ? [rules.auto] : []), ...offers.filter((o) => taken.includes(o.key))];
+  const changedDraw = Math.max(0, changes.reduce((sum, c) => sum + c.draw, n));
+  const changedSpend = Math.max(0, changes.reduce((sum, c) => sum + c.spend, n));
+  const drawCards = offers.reduce((sum, o) => sum + (taken.includes(o.key) ? (o.drawCards ?? 0) : 0), 0);
+  const shownDraw = drawText ?? String(changedDraw);
+  const shownSpend = spendText ?? String(changedSpend);
   // `wholeNumber` reads empty text as 0, so the check is on the text: the field keeps only digits.
   const botValid = !bot || (shownDraw !== '' && shownSpend !== '');
-  const d = bot ? wholeNumber(shownDraw) : n;
-  const sp = bot ? wholeNumber(shownSpend) : n;
+  const d = bot ? wholeNumber(shownDraw) : changedDraw;
+  const sp = bot ? wholeNumber(shownSpend) : changedSpend;
+  const missionStart: AttemptStartExtras | undefined = changes.length
+    ? {
+        ...(bot ? {} : { draw: d, spend: sp }),
+        ...(drawCards ? { drawCards } : {}),
+        changes: changes.map(attemptChangeText),
+      }
+    : undefined;
   return (
     <>
       <button type="button" className={`fixed inset-0 ${LAYER_MODAL_BACKDROP} bg-black/40`} onClick={onCancel} aria-label="Cancel the attempt" />
@@ -102,6 +123,27 @@ export function AttemptDialog({
         <p data-testid="attempt-result" className="text-center text-base font-semibold text-text-primary">
           {drawSpendText(d, sp)}
         </p>
+        {rules?.auto && (
+          <p data-testid="attempt-mission-change" className="text-center text-sm text-text-secondary">
+            {attemptChangeText(rules.auto)}
+          </p>
+        )}
+        {offers.map((offer) => (
+          <label key={offer.key} className="flex items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              data-testid={`attempt-mission-offer-${offer.key}`}
+              checked={taken.includes(offer.key)}
+              onChange={(event) =>
+                setTaken((keys) => (event.target.checked ? [...keys, offer.key] : keys.filter((k) => k !== offer.key)))
+              }
+              className="h-5 w-5"
+            />
+            <span>
+              {offer.source}: {offer.label}
+            </span>
+          </label>
+        ))}
         {bot && (
           <>
             <NumberField label="Draw" testId="attempt-bot-draw" value={shownDraw} onChange={setDrawText} />
@@ -114,7 +156,12 @@ export function AttemptDialog({
           </button>
           <button
             type="button"
-            onClick={() => (bot ? onStart(p, s, { botDraw: d, botSpend: sp }) : onStart(p, s))}
+            onClick={() => {
+              const numbers = bot ? { botDraw: d, botSpend: sp } : undefined;
+              if (missionStart) onStart(p, s, numbers, missionStart);
+              else if (numbers) onStart(p, s, numbers);
+              else onStart(p, s);
+            }}
             disabled={!botValid || choosing}
             className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="attempt-start"

@@ -30,7 +30,7 @@ const slot: MissionSlot = {
   underMission: [],
 };
 
-const attempt: Attempt = { missionIndex: 0, personnel: 20, subtract: 0, phase: 'choose', drawn: 0 };
+const attempt: Attempt = { missionIndex: 0, personnel: 20, subtract: 0, draw: 20, spend: 20, phase: 'choose', drawn: 0 };
 
 const renderChoice = (space: boolean) => {
   const personnel = { count: 20, space };

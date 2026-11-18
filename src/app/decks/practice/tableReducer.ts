@@ -9,6 +9,7 @@ import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import type { PileSteps } from '../../../lib/dilemmaBot/pile/resolve';
 import { moveSpanTotal, printedRange, printedSpan } from './shipRange';
+import { drawSpend } from './drawSpend';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -232,6 +233,11 @@ export interface Attempt {
   subtract: number;
   phase: AttemptPhase;
   drawn: number;
+  // The opponent's draw and spend (#1759), every attempt's: N (`drawSpend`), the bot's numbers in a
+  // bot game, or N changed by the attempted mission (`attemptMissions.ts`). A save from before #1759
+  // restores them as `botDraw`/`botSpend`, else N.
+  draw: number;
+  spend: number;
   // A bot game's draw and spend (#1291), set by the player in the popup. Absent in a game with a
   // deck's dilemmas, where both are N.
   botDraw?: number;
@@ -260,6 +266,14 @@ export interface Attempt {
   // the page, and every later bot read of the attempt takes it from here, so a change of the setting
   // takes effect at the next attempt. Absent: off, as in a save from before #1665.
   cardText?: true;
+}
+
+// What a start of an attempt carries besides the attempt's fields (#1759).
+export interface AttemptStartExtras {
+  draw?: number;
+  spend?: number;
+  drawCards?: number;
+  changes?: string[];
 }
 
 export interface RevealSnapshot {
@@ -389,7 +403,10 @@ export type TableAction =
   // Starts a mission attempt (#1163). Does nothing while an attempt is in progress, or at a slot
   // with no mission card. The Attempt button's visibility (`canAttempt`) owns every other rule.
   // A new attempt starts in the choice phase with no dilemma drawn (#1189).
-  | ({ type: 'startAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'cardText'>)
+  // `draw` and `spend` default to `botDraw`/`botSpend`, else N. `drawCards` (Rigel X, #1759) draws that
+  // many cards of the draw deck into the hand, free, fewer when it is short, in the same step, and
+  // `changes` names the mission's changes for the log.
+  | ({ type: 'startAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'cardText' | 'draw' | 'spend'> & AttemptStartExtras)
   // Switches the attempt in progress to a phase (#1189). To `'face'` it turns every card of the
   // dilemma stack face down and sends every card of the dilemma hand to the bottom of the dilemma
   // pile, face up, in hand order. To `'choose'` it turns the stack face up and moves no card. Does
@@ -403,7 +420,7 @@ export type TableAction =
   // it put on the bottom of the pile before it drew `drawn`; `pile` is then the pile after both draws.
   // It refuses exactly when `startAttempt` does, and when a drawn id is not in the pile, and a redraw
   // when the bot used the card already or its deck lacks it.
-  | ({ type: 'botAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'botDraw' | 'botSpend' | 'botChoseNone' | 'botStack' | 'botRevealed' | 'revealSnapshot'> & {
+  | ({ type: 'botAttempt' } & AttemptStartExtras & Omit<Attempt, 'phase' | 'drawn' | 'draw' | 'spend' | 'botDraw' | 'botSpend' | 'botChoseNone' | 'botStack' | 'botRevealed' | 'revealSnapshot'> & {
       botDraw: number;
       botSpend: number;
       pile: CardInstance[];
@@ -1192,15 +1209,26 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     case 'startAttempt': {
       if (state.attempt || !state.missions[action.missionIndex]?.mission) return state;
       const { missionIndex, shipId, personnel, subtract, botDraw, botSpend } = action;
+      const n = drawSpend(personnel, subtract);
+      // Rigel X's free draw (#1759), as `drawOpeningHand` draws: it leaves `openingHand` alone.
+      const drawnCards = state.drawDeck.slice(0, Math.max(0, action.drawCards ?? 0));
       // An attempt is an order (#1605): one started in play and draw moves the turn to orders.
       return {
         ...state,
         ...(state.segment === 'playAndDraw' ? { segment: 'orders' as const } : {}),
+        ...(drawnCards.length
+          ? {
+              drawDeck: state.drawDeck.slice(drawnCards.length),
+              hand: [...state.hand, ...drawnCards.map((c) => ({ ...c, face: entryFace(state, 'hand') }))],
+            }
+          : {}),
         attempt: {
           missionIndex,
           ...(shipId ? { shipId } : {}),
           personnel,
           subtract,
+          draw: Math.max(0, action.draw ?? botDraw ?? n),
+          spend: Math.max(0, action.spend ?? botSpend ?? n),
           ...(botDraw !== undefined ? { botDraw } : {}),
           ...(botSpend !== undefined ? { botSpend } : {}),
           phase: 'choose',
@@ -1227,8 +1255,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'botAttempt': {
-      const { missionIndex, shipId, personnel, subtract, botDraw, botSpend, pile, drawn, stack } = action;
-      const started = tableReducer(state, { type: 'startAttempt', missionIndex, shipId, personnel, subtract, botDraw, botSpend });
+      const { missionIndex, shipId, personnel, subtract, botDraw, botSpend, pile, drawn, stack, drawCards } = action;
+      const started = tableReducer(state, { type: 'startAttempt', missionIndex, shipId, personnel, subtract, botDraw, botSpend, drawCards });
       if (started === state) return state;
       const drawnCards = drawn.map((id) => state.dilemmaPile.find((c) => c.id === id));
       if (drawnCards.some((c) => !c) || pile.length + drawn.length !== state.dilemmaPile.length) return state;

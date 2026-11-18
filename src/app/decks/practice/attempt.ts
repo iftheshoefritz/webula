@@ -26,6 +26,7 @@ import { PileTableInput, pileAttemptOf } from '../../../lib/dilemmaBot/pile/tabl
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
 import { ATTRIBUTE_REGISTRY, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
 import { shipRangeOnTable } from './shipRange';
+import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -408,6 +409,14 @@ export function attemptDefaults(
     personnel: unstoppedPersonnel(found.cards),
     subtract: table.missions[found.missionIndex].underMission.length,
   };
+}
+
+// The changes of the attempted mission to the draw and the spend (#1759), read from the cards the
+// panel involves: only its unstopped personnel count.
+export function attemptMissionRulesOf(table: TableState, panel: AttemptPanel): AttemptMissionRules {
+  const found = attemptCards(table, panel);
+  if (!found) return { offers: [] };
+  return attemptMissionRules(table.missions[found.missionIndex].mission?.card, found.cards);
 }
 
 // The attempt of `/decks/practice?fixture=attempt` (#1169): the `startAttempt` that Start in the

@@ -263,6 +263,8 @@ describe('Saved practice game (#976)', () => {
       shipId: dealt.missions[2].ships[0].id,
       personnel: 12,
       subtract: 3,
+      draw: 9,
+      spend: 9,
       phase: 'face',
       drawn: 0,
     });

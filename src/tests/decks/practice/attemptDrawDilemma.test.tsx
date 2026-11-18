@@ -57,7 +57,7 @@ function layout(attempt: Attempt, { canDrawDilemma = true, onDrawDilemma = () =>
 
 const renderLayout = (...args: Parameters<typeof layout>) => render(layout(...args));
 
-const choose = (drawn: number): Attempt => ({ missionIndex: 2, personnel: 12, subtract: 3, phase: 'choose', drawn });
+const choose = (drawn: number): Attempt => ({ missionIndex: 2, personnel: 12, subtract: 3, draw: 9, spend: 9, phase: 'choose', drawn });
 
 describe('AttemptLayout: the Draw dilemma button (#1191)', () => {
   it('shows the button and the count, which follows attempt.drawn, in the dilemma choice', () => {
@@ -67,6 +67,12 @@ describe('AttemptLayout: the Draw dilemma button (#1191)', () => {
     rerender(layout(choose(3)));
     expect(screen.getByTestId('attempt-drawn-count')).toHaveTextContent(/^Drawn 3 of 9$/);
     expect(screen.getByTestId('attempt-drawn-count')).not.toHaveAttribute('data-over');
+  });
+
+  it('reads the attempt\'s stored draw, not N (#1759)', () => {
+    renderLayout({ ...choose(3), draw: 8, spend: 8 });
+    expect(screen.getByTestId('attempt-drawn-count')).toHaveTextContent(/^Drawn 3 of 8$/);
+    expect(screen.getByTestId('attempt-draw-spend')).toHaveTextContent(/^draw\/spend 8$/);
   });
 
   it('shows the count in the warning style past N, and the button still draws', () => {

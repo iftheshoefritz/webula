@@ -37,7 +37,7 @@ const slotWith = (placedOn: CardInstance[]): MissionSlot => ({
   underMission: [],
 });
 
-const attempt = (phase: Attempt['phase']): Attempt => ({ missionIndex: 2, personnel: 12, subtract: 3, phase, drawn: 0 });
+const attempt = (phase: Attempt['phase']): Attempt => ({ missionIndex: 2, personnel: 12, subtract: 3, draw: 9, spend: 9, phase, drawn: 0 });
 
 const renderLayout = (slot: MissionSlot, phase: Attempt['phase'] = 'face', onOpenPlacedOn = jest.fn()) => {
   const placed = (slot.mission?.placedOn?.length ?? 0) > 0;

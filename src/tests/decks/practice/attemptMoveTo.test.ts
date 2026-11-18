@@ -50,7 +50,7 @@ const table = (): TableState => ({
     slot({ mission: mission('m3', 'Angel I', 'p'), ships: [ship('s3', 'Defiant'), ship('s4', 'Voyager')] }),
     slot({ ships: [ship('s6', 'Orphan')] }),
   ],
-  attempt: { missionIndex: 1, shipId: 's1', personnel: 2, subtract: 0, phase: 'face', drawn: 0 },
+  attempt: { missionIndex: 1, shipId: 's1', personnel: 2, subtract: 0, draw: 2, spend: 2, phase: 'face', drawn: 0 },
 });
 
 const destination = (t: TableState, key: string): AttemptMoveDestination => {
@@ -104,7 +104,7 @@ describe('attemptMoveDestinations (#1341)', () => {
   it('lists the ships at an attempted planet mission, and a move there boards the crew (#1370)', () => {
     const t = table();
     t.missions[0] = { ...t.missions[0], ships: [ship('s7', 'Excelsior')] };
-    t.attempt = { missionIndex: 0, personnel: 1, subtract: 0, phase: 'face', drawn: 0 };
+    t.attempt = { missionIndex: 0, personnel: 1, subtract: 0, draw: 1, spend: 1, phase: 'face', drawn: 0 };
     const keys = attemptMoveDestinations(t).map((d) => d.key);
     expect(keys).not.toContain('awayTeam-0');
     expect(keys).toEqual(expect.arrayContaining(['crew-s7', 'crew-s1', 'crew-s5']));

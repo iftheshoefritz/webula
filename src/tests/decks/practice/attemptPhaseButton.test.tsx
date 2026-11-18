@@ -174,7 +174,7 @@ const renderLayout = (attempt: Attempt, onSetPhase: (phase: Attempt['phase']) =>
   );
 };
 
-const attempt = (phase: Attempt['phase']): Attempt => ({ missionIndex: 2, personnel: 12, subtract: 3, phase, drawn: 0 });
+const attempt = (phase: Attempt['phase']): Attempt => ({ missionIndex: 2, personnel: 12, subtract: 3, draw: 9, spend: 9, phase, drawn: 0 });
 
 describe('AttemptLayout: the phase button (#1192)', () => {
   it('shows Face dilemmas in the dilemma choice, which asks for the facing phase', () => {

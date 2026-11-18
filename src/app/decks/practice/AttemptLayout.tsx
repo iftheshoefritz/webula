@@ -55,7 +55,7 @@ import { highlightClassName } from './zoneAccepts';
 import type { AttemptMoveDestination } from './attempt';
 import CountBadge from './CountBadge';
 import type { Attempt, AttemptPhase, CardInstance, MissionPileName, MissionSlot, ShuffleLocation } from './tableReducer';
-import { drawSpend, drawSpendText } from './drawSpend';
+import { drawSpendText } from './drawSpend';
 import {
   MISSION_COLUMN_GAP,
   MissionCard,
@@ -288,8 +288,6 @@ export default function AttemptLayout({
     </div>
   );
 
-  // A bot game's attempt keeps the Draw and Spend the player set (#1291); any other attempt has N.
-  const drawSpendN = drawSpend(attempt.personnel, attempt.subtract);
   // Only a bot game's attempt has the bot's numbers (#1291). The bot draws and chooses at Start
   // (#1299), so its strip has no Draw dilemma, no drawn count and no phase button.
   const botGame = attempt.botDraw !== undefined;
@@ -331,7 +329,7 @@ export default function AttemptLayout({
           {ship && ` with ${cardDisplayName(ship.card)}`}
         </span>
         <span data-testid="attempt-draw-spend" className="whitespace-nowrap text-sm font-bold">
-          {drawSpendText(attempt.botDraw ?? drawSpendN, attempt.botSpend ?? drawSpendN)}
+          {drawSpendText(attempt.draw, attempt.spend)}
         </span>
         {modifiersText && (
           <span data-testid="attempt-modifiers" title={modifiersText} className="max-w-[40%] shrink-0 truncate text-xs text-amber-300">
@@ -593,7 +591,8 @@ export function AttemptDrawDilemma({
   canDraw: boolean;
   onDraw: () => void;
 }) {
-  const n = drawSpend(attempt.personnel, attempt.subtract);
+  // Every attempt keeps its own draw (#1759): N, or N changed by the attempted mission.
+  const n = attempt.draw;
   const over = attempt.drawn > n;
   return (
     <div className="flex shrink-0 flex-row items-center gap-1">
