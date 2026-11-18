@@ -50,6 +50,16 @@ export const MISSION_COUNT_MODELS: CostModel[] = [
   plusTwoPerPlanet('Mortimer Harren Reclusive Genius', 'Mortimer Harren'),
   plusTwoPerPlanet('Tal Celes Imprecise Analyst', 'Tal Celes'),
   plusTwoPerPlanet('William Telfer Misguided Hypochondriac', 'William Telfer'),
+  {
+    // "When you play this personnel, if you command three or more Region: Demilitarized Zone missions, he is
+    // cost -1." (#1749)
+    title: 'Hogan',
+    family: 'ownCost',
+    playCost: (play, facts) => {
+      const n = countOf(facts, inRegion('demilitarized zone'));
+      return n >= 3 ? { cost: play.printed - 1, reason: `you command ${n} Demilitarized Zone missions` } : null;
+    },
+  },
   // "When you play this personnel, if you command four space missions, he is cost -3." Four or more.
   {
     title: 'Tom Paris Competitive Pilot',

@@ -33,6 +33,8 @@ const model = (title: string, label: string, ...skills: string[]): CostModel => 
 export const COMPLETED_MISSION_MODELS: CostModel[] = [
   model('Nador Curious Commander', 'Nador', 'Officer', 'Treachery'),
   model('Data Lucasian Chair', 'Data', 'Diplomacy', 'Leadership'),
+  // "…if you command a completed mission requiring Anthropology or Treachery, he is cost -4." (#1749)
+  model('Tristan Adams Deranged Psychiatrist', 'Tristan Adams', 'Anthropology', 'Treachery'),
   model('A. G. Robinson Prototype Captain', 'A. G. Robinson', 'Astrometrics', 'Navigation'),
   model('Gorkon Visionary Chancellor', 'Gorkon', 'Diplomacy', 'Leadership'),
   model('Kathryn Janeway Regretful Leader', 'Kathryn Janeway', 'Engineer', 'Science'),

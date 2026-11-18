@@ -23,6 +23,23 @@ export function ifCommand(min: number, test: Test, off: number, what: string): (
   };
 }
 
+/** The events the player commands that hold `keyword`, or every event with none (#1749). */
+const eventCount = (facts: CostFacts, keyword?: string): number =>
+  (facts.events ?? []).filter((e) => !keyword || e.keywords.includes(keyword)).length;
+
+/** "If you command a [Pa] card" (#1749): an unstopped personnel or a ship with the icon. */
+const commandsIcon = (facts: CostFacts, icon: string): boolean =>
+  facts.commanded.some((p) => p.icons.includes(icon)) ||
+  (facts.missions ?? []).some((m) => (m.ships ?? []).some((s) => s.icons.includes(icon)));
+
+/** "Cost −1 for each <keyword> event you command" (#1749). */
+const forEachEvent =
+  (keyword: string, what: string) =>
+  (play: { printed: number }, facts: CostFacts): ModelCost | null => {
+    const n = eventCount(facts, keyword);
+    return n > 0 ? { cost: play.printed - n, reason: `you command ${n} ${what} ${n === 1 ? 'event' : 'events'}` } : null;
+  };
+
 /** "Cost −1 for each <what> you command", at most −`limit`. */
 function forEach(test: Test, what: string, limit = Infinity): (play: { printed: number }, facts: CostFacts) => ModelCost | null {
   return (play, facts) => {
@@ -85,4 +102,43 @@ export const COMMANDED_MODELS: CostModel[] = [
   { title: "Rekar Tool of the Tal'Shiar", label: 'Rekar', family: 'ownCost', playCost: ifCommand(1, has('intelligence'), 1, 'an Intelligence personnel') },
   // "When you play this personnel, if you command an Officer personnel, this personnel is cost -1."
   { title: "T'Pol Not a Slave", label: "T'Pol", family: 'ownCost', playCost: ifCommand(1, has('officer'), 1, 'an Officer personnel') },
+  // "When you play this personnel, if you command an Anthropology personnel, he is cost -2." (#1749)
+  { title: 'Bareil Antos Petty Thief', label: 'Bareil Antos', family: 'ownCost', playCost: ifCommand(1, has('anthropology'), 2, 'an Anthropology personnel') },
+  // "When you play this personnel, if you command a Vorta, this personnel is cost -1."
+  { title: 'Deyos Ruthless Administrator', label: 'Deyos', family: 'ownCost', playCost: ifCommand(1, species('vorta'), 1, 'a Vorta') },
+  // "When you play this personnel, if you command an Acquisition personnel, he is cost -3." His counter
+  // grant, "While you command four cards that have a cost of four or more…", is not modelled here.
+  { title: 'Gint The First Grand Nagus', label: 'Gint', family: 'ownCost', playCost: ifCommand(1, has('acquisition'), 3, 'an Acquisition personnel') },
+  // "When you play this personnel, if you command an Honor personnel, she is cost -1."
+  { title: 'Grilka Glorious Lady', label: 'Grilka', family: 'ownCost', playCost: ifCommand(1, has('honor'), 1, 'an Honor personnel') },
+  // "When you play this personnel, if you command three events, he is cost -1."
+  {
+    title: 'Gowron Celebrated Leader',
+    label: 'Gowron',
+    family: 'ownCost',
+    playCost: (play, facts) => {
+      const n = eventCount(facts);
+      return n >= 3 ? { cost: play.printed - 1, reason: `you command ${n} events` } : null;
+    },
+  },
+  // "When you play this personnel, if you command a [Pa] card, she is cost -1."
+  {
+    title: 'Tasha Yar Requesting a Transfer',
+    label: 'Tasha Yar',
+    family: 'ownCost',
+    playCost: (play, facts) => (commandsIcon(facts, '[pa]') ? { cost: play.printed - 1, reason: 'you command a [Pa] card' } : null),
+  },
+  // "When you play this personnel, for each Assault event you command, he is cost -1."
+  { title: 'Jorem', family: 'ownCost', playCost: forEachEvent('assault', 'Assault') },
+  // "When you play this personnel, for each Maneuver event you command, he is cost -1."
+  { title: 'Mullen', family: 'ownCost', playCost: forEachEvent('maneuver', 'Maneuver') },
+  // "When you play this personnel, for each Punishment event you command, he is cost -1."
+  { title: 'Nerot', family: 'ownCost', playCost: forEachEvent('punishment', 'Punishment') },
+  // "When you play this ship, for each Alpha Jem'Hadar you command, this ship is cost -1."
+  {
+    title: "Subek'somac Alpha Attack Ship",
+    label: "Subek'somac",
+    family: 'ownCost',
+    playCost: forEach(both(keyword('alpha'), species("jem'hadar")), "Alpha Jem'Hadar"),
+  },
 ];
