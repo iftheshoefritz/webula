@@ -151,10 +151,10 @@ describe('the attempt strip in a bot game (#1291)', () => {
         onSetPhase={noop}
       />
     );
-  const base: Attempt = { missionIndex: 2, personnel: 12, subtract: 3, phase: 'choose', drawn: 0 };
+  const base: Attempt = { missionIndex: 2, personnel: 12, subtract: 3, draw: 9, spend: 9, phase: 'choose', drawn: 0 };
 
   it('shows the bot numbers', () => {
-    renderStrip({ ...base, botDraw: 9, botSpend: 6 });
+    renderStrip({ ...base, draw: 9, spend: 6, botDraw: 9, botSpend: 6 });
     expect(screen.getByTestId('attempt-draw-spend')).toHaveTextContent(/^draw 9, spend 6$/);
   });
 

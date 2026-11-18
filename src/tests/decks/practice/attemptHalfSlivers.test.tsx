@@ -76,7 +76,7 @@ describe('the slivers above the attempted mission on a desktop (#1504)', () => {
       missionScale: 1,
       choice: { ...computeAttemptChoiceLayout(1440, 280, desktop, 0, 1, face, true), missionScale: 1 },
     };
-    const attempt: Attempt = { missionIndex: 2, personnel: 12, subtract: 3, phase, drawn: 0 };
+    const attempt: Attempt = { missionIndex: 2, personnel: 12, subtract: 3, draw: 9, spend: 9, phase, drawn: 0 };
     render(
       <AttemptLayout
         attempt={attempt}

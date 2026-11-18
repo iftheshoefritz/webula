@@ -21,6 +21,7 @@ import {
 } from './tableReducer';
 import { GameState, isLogEntry, LogEntry, RedoStep } from './gameLog';
 import { revealPicksOf } from './attempt';
+import { drawSpend } from './drawSpend';
 import { rebuildSavedHistory, savedHistoryJson } from './gameHistory';
 
 export const SAVED_GAME_VERSION = 2;
@@ -217,7 +218,7 @@ const isIdList = (value: unknown): boolean => Array.isArray(value) && value.ever
 const isValidAttempt = (table: TableState): boolean => {
   const attempt: unknown = table.attempt;
   if (!isObject(attempt)) return false;
-  const { missionIndex, shipId, personnel, subtract, phase, drawn, botDraw, botSpend, botChoseNone, botStack, botRevealed, cardText } = attempt;
+  const { missionIndex, shipId, personnel, subtract, phase, drawn, draw, spend, botDraw, botSpend, botChoseNone, botStack, botRevealed, cardText } = attempt;
   return (
     Number.isInteger(missionIndex) &&
     !!table.missions[missionIndex]?.mission &&
@@ -227,6 +228,9 @@ const isValidAttempt = (table: TableState): boolean => {
     // A save from before #1189 has no `phase` and no `drawn`.
     (phase === undefined || phase === 'choose' || phase === 'face') &&
     (drawn === undefined || isCount(drawn)) &&
+    // Every attempt's draw and spend (#1759); a save from before has neither.
+    (draw === undefined || isCount(draw)) &&
+    (spend === undefined || isCount(spend)) &&
     // A bot game's draw and spend (#1291).
     (botDraw === undefined || isCount(botDraw)) &&
     (botSpend === undefined || isCount(botSpend)) &&
@@ -291,8 +295,13 @@ function repairTable(table: TableState): TableState {
   // An attempt (#1163) loads only when its numbers are sound and its slot still holds a mission card.
   if (!isValidAttempt(table)) delete table.attempt;
   // An attempt saved before #1189 opened in the layout of facing dilemmas, so it restores in that
-  // phase, with no dilemma drawn.
-  else table.attempt = { ...table.attempt!, phase: table.attempt!.phase ?? 'face', drawn: table.attempt!.drawn ?? 0 };
+  // phase, with no dilemma drawn. One from before #1759 has no draw and spend: they are the bot's
+  // numbers in a bot game, else N.
+  else {
+    const a = table.attempt!;
+    const n = drawSpend(a.personnel, a.subtract);
+    table.attempt = { ...a, phase: a.phase ?? 'face', drawn: a.drawn ?? 0, draw: a.draw ?? a.botDraw ?? n, spend: a.spend ?? a.botSpend ?? n };
+  }
   // A malformed reveal snapshot (#1587) drops alone, and the attempt stays.
   if (table.attempt && table.attempt.revealSnapshot !== undefined && !isValidRevealSnapshot(table.attempt.revealSnapshot)) {
     delete table.attempt.revealSnapshot;

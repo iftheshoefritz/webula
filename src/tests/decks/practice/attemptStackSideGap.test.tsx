@@ -21,7 +21,7 @@ const slot: MissionSlot = {
   underMission: [],
 };
 
-const attempt: Attempt = { missionIndex: 0, personnel: 20, subtract: 0, phase: 'choose', drawn: 0 };
+const attempt: Attempt = { missionIndex: 0, personnel: 20, subtract: 0, draw: 20, spend: 20, phase: 'choose', drawn: 0 };
 
 describe('the space outside the ends of the dilemma choice stack (#1220)', () => {
   it.each([false, true])('wraps the stack in a margin on both sides (space mission: %s)', (space) => {
