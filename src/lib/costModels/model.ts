@@ -9,9 +9,10 @@ import type { PartnerTraits } from '../dilemmaBot/gains';
  * The shape of the text a model reads. `'ownCost'`: a card that changes its own cost. `'limit'`: a card
  * that adds to the counters the player may spend this turn (#1655). `'pendingDiscount'`: a card whose
  * play makes a later card of this turn cheaper (#1656). `'standingRule'`: a card of the core whose text prices
- * the play of another card while it stands there (#1703).
+ * the play of another card while it stands there (#1703). `'missionRule'`: a mission of the player's whose text prices
+ * the play of another card (#1752).
  */
-export type CostFamily = 'ownCost' | 'limit' | 'pendingDiscount' | 'standingRule';
+export type CostFamily = 'ownCost' | 'limit' | 'pendingDiscount' | 'standingRule' | 'missionRule';
 
 /** A card of the hand, as a model reads it: its instance id, its title (`cardTitleOf`) and its type, lowercased. */
 export interface CostHandCard {
@@ -54,6 +55,8 @@ export interface CostMission {
   personnel?: CommandedTraits[];
   /** The ships of the slot's ship row (#1702). Absent is none. */
   ships?: CostShip[];
+  /** Whether the mission shows its back face (#1752). Absent is its front. */
+  flipped?: boolean;
 }
 
 /** A ship of a mission slot (#1702): its instance id, its title (`cardTitleOf`), and its affiliation and icons, lowercased. */
@@ -128,6 +131,13 @@ export interface CostTurnPlay {
   type: string;
   unique: boolean;
   icons: string[];
+  /**
+   * Its species and its skills, lowercased, and the quadrant of the mission slot it landed at, lowercased
+   * (#1752). Absent in a play the log recorded before #1752, which passes no test that reads them.
+   */
+  species?: string[];
+  skills?: string[];
+  quadrant?: string;
 }
 
 /**
@@ -148,6 +158,12 @@ export interface CostPlay {
   icons?: string[];
   keywords?: string[];
   species?: string[];
+  /** Its title (`cardTitleOf`), its skills, lowercased words, and its ship class, lowercased (#1752). */
+  title?: string;
+  skills?: string[];
+  shipClass?: string;
+  /** The mission slot whose mission card the card is placed on (#1752), apart from `missionIndex`. */
+  onMissionIndex?: number;
 }
 
 /** The charge of the play that made a pending discount (#1656), as a `ChargeTarget` of the log names it. */
@@ -333,6 +349,12 @@ export interface CostModel {
    * on the Bridge makes a Commander aboard his ship cost −1. Null when the text changes nothing.
    */
   costOfPlay?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
+  /**
+   * The cost of the play from the hand of another card, while this mission is in the player's slot
+   * `slot` (#1752): Romulus Patient Stronghold makes a D'deridex-class ship cost −1. Asked once per title,
+   * for its first slot. Null when the text changes nothing.
+   */
+  missionCostOfPlay?: (play: CostPlay, facts: CostFacts, slot: number) => ModelCost | null;
   /**
    * The uses of the copies of this card on the table for the play from the hand of another card (#1713):
    * Delivery Boy in the core may be destroyed to make a Q or Temporal event cost −3. One per copy that

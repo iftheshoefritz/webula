@@ -9,8 +9,9 @@
 // ask it too.
 
 import { cardDisplayName } from './cardCount';
+import { cardTitleOf } from './cardTitle';
 import { CostFacts, CostPlay, CostReveal, CostSource, CostUse, CountedChoice, PendingDiscount } from './costModels/model';
-import { coreCostsOf, costModelName, costModelOf, costUsesOf } from './costModels/registry';
+import { coreCostsOf, costModelName, costModelOf, costUsesOf, missionCostsOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
 export type CostSegment = 'playAndDraw' | 'orders' | 'discard';
@@ -62,8 +63,9 @@ export const removesItselfFromGame = (card: { type?: unknown; gametext?: unknown
   String(card?.type ?? '').toLowerCase() === 'event' &&
   /(?:^|[.!?)]\s*)remove this event from the game/i.test(String(card?.gametext ?? ''));
 
-// Where a played card landed (#1702): the mission slot, and the ship whose crew it boards.
-export type CostDestination = Pick<CostPlay, 'missionIndex' | 'shipId'>;
+// Where a played card landed (#1702): the mission slot, and the ship whose crew it boards, or the slot
+// whose mission card it is placed on (#1752).
+export type CostDestination = Pick<CostPlay, 'missionIndex' | 'shipId' | 'onMissionIndex'>;
 
 // The printed cost of a card, the `Cost` column; an empty or missing cost is 0.
 export const printedCost = (card: { cost?: unknown } | null | undefined): number => Number(card?.cost) || 0;
@@ -87,6 +89,14 @@ const listOf = (value: unknown, separator: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+// The skills of a card row as lowercased words, the counts dropped: "2 Honor Programming" gives "honor"
+// and "programming" (#1752).
+export const skillWordsOf = (value: unknown): string[] =>
+  String(value ?? '')
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean);
+
 // The card of a charge, as `moveCharge` reads it.
 type ChargedCard =
   | {
@@ -99,6 +109,8 @@ type ChargedCard =
       keywords?: unknown;
       species?: unknown;
       unique?: unknown;
+      skills?: unknown;
+      class?: unknown;
     }
   | null
   | undefined;
@@ -114,6 +126,9 @@ const costPlayOf = (card: ChargedCard, id: string | undefined, destination: Cost
   icons: String(card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [],
   keywords: listOf(card?.keywords, '.'),
   species: listOf(card?.species, '/'),
+  title: card ? cardTitleOf(String(cardDisplayName(card) ?? '')) : '',
+  skills: skillWordsOf(card?.skills),
+  shipClass: String(card?.class ?? '').toLowerCase().replace(/[\u2018\u2019]/g, "'").trim(),
 });
 
 // The charge of a move of `card` from `from` to `to`, the place it landed, or null. With `facts`, a
@@ -161,11 +176,12 @@ function baseCharge(
   const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
   const suggested = price && facts ? price(play, facts) : null;
   // Cost changes stack (#1699, #1702): the card's own model, then each card of the core that prices its
-  // play from the hand, then a pending discount, every change summed. The charge keeps one source, whose
+  // play from the hand, then each mission of the player's that does (#1752), then a pending discount, every change summed. The charge keeps one source, whose
   // title joins the names of the models and whose reason joins their reasons.
   const parts = [
     ...(model && suggested ? [{ title: costModelName(model), cost: suggested }] : []),
     ...(from === 'hand' && facts ? coreCostsOf(play, facts) : []),
+    ...(from === 'hand' && facts ? missionCostsOf(play, facts) : []),
   ];
   if (parts.length > 0) {
     const off = discount?.amount ?? 0;

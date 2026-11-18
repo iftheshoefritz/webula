@@ -1296,6 +1296,44 @@ describe('the place a card is played in the cost models (#1702)', () => {
   });
 });
 
+describe('the missions that price a play, in the log (#1752)', () => {
+  const kelsid = { ...instance('m1', 'Kelsid II Establish Settlement', 'up', 'mission', { quadrant: 'D' }) };
+  const quatal = instance('m2', 'Quatal Prime Quiet Mining Colony', 'up', 'mission', { quadrant: 'A', keywords: 'Region: Demilitarized Zone.' });
+  const settlerA = instance('p1', 'A Settler', 'up', 'personnel', { cost: '3', species: 'Human', skills: '2 Diplomacy' });
+  const settlerB = instance('p2', 'Another Settler', 'up', 'personnel', { cost: '3' });
+  const event = instance('e1', 'An Invented Event', 'up', 'event', { cost: '2' });
+  const start = () =>
+    table({
+      hand: [settlerA, settlerB, event],
+      missions: slots([
+        { mission: kelsid, completed: true },
+        { mission: quatal, completed: false },
+      ]),
+    });
+  const play = (state: GameState, ...actions: GameAction[]) =>
+    actions.reduce((s, a) => gameReducer(s, withShuffleOrders(s.table, a, s.log)), state);
+  const toAway = (id: string, missionIndex: number): GameAction => ({ type: 'move', id, to: { zone: 'missionPile', missionIndex, pile: 'awayTeam' } });
+
+  it('records the species, the skills and the landing quadrant of a play, and Kelsid II discounts only the first at the [DQ] mission', () => {
+    const state = play(initialGameState(start()), toAway('p1', 0), toAway('p2', 0));
+    expect(turnPlaysOf(state.log, 1)[0]).toEqual({ type: 'personnel', unique: false, icons: [], species: ['human'], skills: ['diplomacy'], quadrant: 'd' });
+    expect(turnCharges(state.log, 1).map((c) => c.cost)).toEqual([2, 3]);
+    expect(turnCharges(state.log, 1)[0].source).toEqual({ title: 'Kelsid II', reason: 'first personnel at a [DQ] mission this turn' });
+    // A personnel at the other mission does not use up the first.
+    const elsewhere = play(initialGameState(start()), toAway('p2', 1), toAway('p1', 0));
+    expect(turnCharges(elsewhere.log, 1).map((c) => c.cost)).toEqual([3, 2]);
+  });
+
+  it('reads an event placed on a mission card as played on a mission', () => {
+    const state = play(initialGameState(start()), { type: 'move', id: 'e1', to: { zone: 'on', targetId: 'm2' } });
+    // Kelsid II is not in the Demilitarized Zone, so Quatal Prime gives nothing.
+    expect(turnCharges(state.log, 1)[0]).toEqual(expect.objectContaining({ cost: 2 }));
+    const allDmz = { ...start(), missions: start().missions.map((s, i) => (i === 0 ? { ...s, mission: null } : s)) };
+    const both = play(initialGameState(allDmz), { type: 'move', id: 'e1', to: { zone: 'on', targetId: 'm2' } });
+    expect(turnCharges(both.log, 1)[0]).toEqual(expect.objectContaining({ cost: 1, source: expect.objectContaining({ title: 'Quatal Prime' }) }));
+  });
+});
+
 describe('the standing rules of the core in the log (#1703)', () => {
   const rule = instance('k1', 'Disadvantage Into Advantage', 'up', 'event', { cost: '1' });
   const picard = instance('p1', 'Jean-Luc Picard', 'up', 'personnel', { cost: '3', unique: 'Y', icons: '[Cmd][TNG]' });
@@ -1311,11 +1349,13 @@ describe('the standing rules of the core in the log (#1703)', () => {
   it('records the traits of each play, and reads the turn\'s plays from the log', () => {
     const state = play(initialGameState(start()), toAway('p3'), toAway('p1'));
     expect(state.log[0]).toEqual(
-      expect.objectContaining({ moves: [expect.objectContaining({ plays: [{ type: 'personnel', unique: false, icons: ['[stf]'] }] })] })
+      expect.objectContaining({
+        moves: [expect.objectContaining({ plays: [{ type: 'personnel', unique: false, icons: ['[stf]'], species: [], skills: [] }] })],
+      })
     );
     expect(turnPlaysOf(state.log, 1)).toEqual([
-      { type: 'personnel', unique: false, icons: ['[stf]'] },
-      { type: 'personnel', unique: true, icons: ['[cmd]', '[tng]'] },
+      { type: 'personnel', unique: false, icons: ['[stf]'], species: [], skills: [] },
+      { type: 'personnel', unique: true, icons: ['[cmd]', '[tng]'], species: [], skills: [] },
     ]);
     expect(turnPlaysOf(state.log, 2)).toEqual([]);
   });
