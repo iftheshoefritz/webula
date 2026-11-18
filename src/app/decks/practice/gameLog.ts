@@ -1019,7 +1019,8 @@ const isTurnPlay = (play: unknown): play is CostTurnPlay => {
     p.icons.every((i) => typeof i === 'string') &&
     strings(p.species) &&
     strings(p.skills) &&
-    (p.quadrant === undefined || typeof p.quadrant === 'string')
+    (p.quadrant === undefined || typeof p.quadrant === 'string') &&
+    (p.affiliation === undefined || typeof p.affiliation === 'string')
   );
 };
 

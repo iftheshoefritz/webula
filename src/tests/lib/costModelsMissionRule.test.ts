@@ -1,6 +1,8 @@
 import { costModelOf, missionCostsOf } from '../../lib/costModels/registry';
 import { CommandedTraits, CostFacts, CostMission, CostTurnPlay } from '../../lib/costModels/model';
 import { CostDestination, moveCharge } from '../../lib/playCost';
+import { costFactsOf } from '../../app/decks/practice/costFacts';
+import { CardInstance, initialTableState, MISSION_SLOTS, MissionSlot, TableState } from '../../app/decks/practice/tableReducer';
 
 // The missions that price the play of another card (#1752), with invented cards.
 
@@ -207,5 +209,56 @@ describe('the missions that price a play (#1752)', () => {
     expect(charge(dissident('Bajoran'), bastion(true)).cost).toBe(2);
     expect(charge(dissident('Cardassian'), bastion(false)).cost).toBe(2);
     expect(charge(dissident('Cardassian'), bastion(true), 'awayTeam', { missionIndex: 1 }).cost).toBe(2);
+  });
+});
+
+describe('Vidiia Locus of Infection (#1750)', () => {
+  const vidiia = mission('Vidiia Locus of Infection', { type: 'h' });
+  const vid = card('personnel', 3, { affiliation: 'Vidiian' });
+  const commanding = (n: number): CommandedTraits[] => Array.from({ length: n }, () => person('vidiian'));
+
+  it('makes the first [Vid] personnel of the turn cost −2 while the player commands fewer than seven', () => {
+    expect(charge(vid, facts([vidiia], { commanded: commanding(6) }))).toEqual({
+      kind: 'play',
+      cost: 1,
+      source: { title: 'Vidiia', reason: 'first [Vid] personnel this turn, 6 personnel commanded' },
+    });
+    expect(charge(card('personnel', 1, { affiliation: 'Vidiian' }), facts([vidiia])).cost).toBe(0);
+  });
+
+  it('gives nothing at seven or more, without Vidiia, to another affiliation, or after a [Vid] personnel this turn', () => {
+    expect(charge(vid, facts([vidiia], { commanded: commanding(7) })).cost).toBe(3);
+    expect(charge(vid, facts([mission('Another Invented Mission')])).cost).toBe(3);
+    expect(charge(card('personnel', 3, { affiliation: 'Klingon' }), facts([vidiia])).cost).toBe(3);
+    expect(charge(vid, facts([vidiia], { plays: [played('personnel', { affiliation: 'vidiian' })] })).cost).toBe(3);
+    // Another affiliation's play, or one recorded before #1750 with no affiliation, does not use it up.
+    expect(charge(vid, facts([vidiia], { plays: [played('personnel', { affiliation: 'klingon' }), played('personnel')] })).cost).toBe(1);
+  });
+
+  it('counts the unstopped personnel of the away teams and crews before the play, never the brig', () => {
+    const personnel = (n: number, stopped = false): CardInstance[] =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `p${stopped ? 's' : ''}${i}`,
+        card: { name: 'an invented personnel', originalName: 'An Invented Personnel', type: 'personnel', affiliation: 'Vidiian' },
+        face: 'up',
+        stopped,
+      }) as CardInstance);
+    const table = (awayTeam: CardInstance[], brig: CardInstance[] = []): TableState => ({
+      ...initialTableState,
+      brig,
+      missions: Array.from({ length: MISSION_SLOTS }, (_, i): MissionSlot => ({
+        mission:
+          i === 0
+            ? ({ id: 'm0', card: { name: 'vidiia locus of infection', originalName: 'Vidiia Locus of Infection', type: 'mission', missiontype: 'H' }, face: 'up' } as CardInstance)
+            : null,
+        ships: [],
+        awayTeam: i === 0 ? awayTeam : [],
+        underMission: [],
+      })),
+    });
+    // 8 personnel, 2 of them stopped: 6 for the test.
+    expect(charge(vid, costFactsOf(table([...personnel(6), ...personnel(2, true)])))).toMatchObject({ cost: 1 });
+    expect(charge(vid, costFactsOf(table(personnel(7)))).cost).toBe(3);
+    expect(charge(vid, costFactsOf(table(personnel(6), personnel(5)))).cost).toBe(1);
   });
 });

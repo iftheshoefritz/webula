@@ -150,6 +150,8 @@ export interface CostTurnPlay {
   species?: string[];
   skills?: string[];
   quadrant?: string;
+  /** Its affiliation, lowercased (#1750). Absent in a play the log recorded before #1750. */
+  affiliation?: string;
 }
 
 /**

@@ -97,6 +97,7 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined, quadra
     .map((s) => s.trim())
     .filter(Boolean),
   skills: skillWordsOf(card?.skills),
+  ...(text(card?.affiliation) ? { affiliation: text(card?.affiliation) } : {}),
   ...(quadrant ? { quadrant } : {}),
 });
 
