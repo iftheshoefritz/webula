@@ -83,6 +83,10 @@ export interface MissionSlot {
   // The player marked the mission complete (#991). Absent or false means not complete, so a slot
   // built before this field, or loaded from a save made before it, reads as not complete.
   completed?: boolean;
+  // The ids of the personnel involved in the last attempt at this mission (#1757): the unstopped
+  // personnel of the attempting row when the attempt ended. A later attempt here replaces them. Absent
+  // is none, as in a save from before #1757.
+  involved?: string[];
 }
 
 // A ship row is one of MISSION_SLOTS possible move destinations, not a single top-level zone
@@ -1333,6 +1337,13 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const ended = moved.length
         ? { ...withCardsAt(state, under, [...cardsAt(state, under), ...moved]), dilemmaStack: [] }
         : { ...state };
+      // The unstopped personnel of the row are the ones involved (#1757), for the effects of completing
+      // the mission.
+      const { missionIndex, shipId } = state.attempt;
+      const involved = (attemptingCards(state, missionIndex, shipId) ?? [])
+        .filter((c) => c.card?.type === 'personnel' && !c.stopped)
+        .map((c) => c.id);
+      ended.missions = ended.missions.map((slot, i) => (i === missionIndex ? { ...slot, involved } : slot));
       delete ended.attempt;
       return ended;
     }

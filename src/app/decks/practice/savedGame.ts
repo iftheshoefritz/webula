@@ -41,6 +41,8 @@ export type SavedMissionSlot = {
   underMission: SavedCardInstance[];
   // Absent in a save made before #991, which loads as not complete.
   completed?: boolean;
+  // The personnel involved in the last attempt here (#1757). Absent before #1757.
+  involved?: string[];
 };
 
 export type SavedTable = Omit<TableState, Zone | 'missions'> &
@@ -293,6 +295,13 @@ const restoredLog = (log: unknown): LogEntry[] => (Array.isArray(log) && log.eve
 // The repairs of a restored table, the current one and each one of its histories (#1401). `table`
 // is a new object, and the repairs change it in place.
 function repairTable(table: TableState): TableState {
+  // A malformed record of the personnel involved in a mission's last attempt (#1757) drops alone.
+  table.missions = table.missions.map((slot) => {
+    if (slot.involved === undefined || (Array.isArray(slot.involved) && slot.involved.every((id) => typeof id === 'string'))) return slot;
+    const repaired = { ...slot };
+    delete repaired.involved;
+    return repaired;
+  });
   // An attempt (#1163) loads only when its numbers are sound and its slot still holds a mission card.
   if (!isValidAttempt(table)) delete table.attempt;
   // An attempt saved before #1189 opened in the layout of facing dilemmas, so it restores in that

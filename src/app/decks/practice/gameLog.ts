@@ -91,6 +91,13 @@ export interface LogMove {
   removedFromGame?: true;
 }
 
+// What the effect of a completion did (#1757).
+export interface CompletionLog {
+  moves?: LogMove[];
+  shuffled?: LogPlace;
+  flipped?: true;
+}
+
 export interface LogRange {
   used: number;
   left: number;
@@ -113,7 +120,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   | { kind: 'reorder'; zone: ReorderZone }
   | { kind: 'stopped'; cards: string[]; stopped: boolean }
   | { kind: 'removedFromGame'; cards: string[]; removedFromGame: boolean }
-  | { kind: 'missionCompleted'; mission: string; completed: boolean }
+  // A completion with its effect on the player's cards (#1757) names what the effect did: its moves, the
+  // shuffle after them, and the flip of the mission. Absent for a plain completion.
+  | { kind: 'missionCompleted'; mission: string; completed: boolean; effect?: CompletionLog }
   | { kind: 'nextTurn' }
   // "Draw 7" drew the opening hand (#1736), `count` cards, at no cost.
   | { kind: 'openingHand'; count: number }
@@ -659,6 +668,39 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
   }
 }
 
+// A batch that completes a mission and then applies its effect (#1757): its first action marks a mission
+// complete, and more follow. Null for every other batch.
+const completionOf = (actions: TableAction[]): Extract<TableAction, { type: 'setMissionCompleted' }> | null => {
+  const first = actions[0];
+  return actions.length > 1 && first?.type === 'setMissionCompleted' && first.completed ? first : null;
+};
+
+// The entry of a completion and its effect (#1757): the `missionCompleted` entry, with what the effect did
+// once the completion applied. An effect that changed nothing leaves the plain entry.
+function completionEntry(
+  before: TableState,
+  completion: Extract<TableAction, { type: 'setMissionCompleted' }>,
+  rest: TableAction[],
+  after: TableState
+): EntryBody | null {
+  const done = tableReducer(before, completion);
+  const plain = singleEntry(before, completion, done);
+  if (!plain || plain.kind !== 'missionCompleted') return plain;
+  const moves = rest.filter((a): a is Extract<TableAction, { type: 'move' }> => a.type === 'move');
+  const logMoves = moves.length ? moveEntry(done, moves, false) : [];
+  const afterMoves = moves.reduce(tableReducer, done);
+  const shuffle = rest.find((a): a is Extract<TableAction, { type: 'shuffle' }> => a.type === 'shuffle');
+  const shuffled = shuffle && cardsAt(afterMoves, shuffle.location).length >= 2 ? logPlace(afterMoves, shuffle.location) : undefined;
+  const flip = rest.find((a): a is Extract<TableAction, { type: 'flipMission' }> => a.type === 'flipMission');
+  const flipped = flip ? !!after.missions[completion.missionIndex]?.mission?.flipped : false;
+  const effect: CompletionLog = {
+    ...(logMoves.length ? { moves: logMoves } : {}),
+    ...(shuffled ? { shuffled } : {}),
+    ...(flipped ? { flipped: true as const } : {}),
+  };
+  return Object.keys(effect).length ? { ...plain, effect } : plain;
+}
+
 // The entry one player action makes, or null when it changed nothing the log records. `after` is
 // the table once every action of the batch applied. The entry belongs to the turn after the
 // action, so the entry of `nextTurn` heads the group of the new turn.
@@ -668,7 +710,10 @@ export function logEntryFor(
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
-  if (action.type === 'batch') {
+  const completion = action.type === 'batch' ? completionOf(action.actions) : null;
+  if (completion) {
+    body = completionEntry(before, completion, action.type === 'batch' ? action.actions.slice(1) : [], after);
+  } else if (action.type === 'batch') {
     const moves = action.actions.filter((a): a is Extract<TableAction, { type: 'move' }> => a.type === 'move');
     const flips = action.actions.filter((a): a is Extract<TableAction, { type: 'flip' }> => a.type === 'flip');
     if (moves.length) {
@@ -912,9 +957,11 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
       return action;
     }
     const turnFacts = turnFactsOf(log, table.turn);
+    // The moves of a completion's effect (#1757) are no plays: they take no charge.
+    const effect = !!completionOf(action.actions);
     let state = table;
     const actions = action.actions.flatMap((a) => {
-      const chosen = withOrderAndCharge(state, a, turnFacts, cardText);
+      const chosen = effect && a.type === 'move' ? [a] : withOrderAndCharge(state, a, turnFacts, cardText);
       state = chosen.reduce(tableReducer, state);
       return chosen;
     });
@@ -1214,8 +1261,18 @@ export function logEntryText(entry: LogEntry): string {
       return `${entry.stopped ? 'Stopped' : 'Unstopped'} ${cardsText(entry.cards)}`;
     case 'removedFromGame':
       return `${entry.removedFromGame ? 'Removed' : 'Returned'} ${cardsText(entry.cards)} ${entry.removedFromGame ? 'from' : 'to'} the game`;
-    case 'missionCompleted':
-      return `Marked ${entry.mission} ${entry.completed ? 'complete' : 'not complete'}`;
+    case 'missionCompleted': {
+      const marked = `Marked ${entry.mission} ${entry.completed ? 'complete' : 'not complete'}`;
+      const effect = entry.effect;
+      if (!effect) return marked;
+      const moves = (effect.moves ?? []).map(moveText).map((m, i, all) => (i > 0 && all[i - 1].verb === m.verb ? m.text : `${m.verb} ${m.text}`));
+      const parts = [
+        ...(moves.length ? [moves.join('; ')] : []),
+        ...(effect.shuffled ? [`shuffled ${placeText(effect.shuffled)}`] : []),
+        ...(effect.flipped ? ['flipped it to its back'] : []),
+      ];
+      return parts.length ? `${marked}, and ${parts.join(', then ')}` : marked;
+    }
     case 'nextTurn':
       return `Started turn ${entry.turn}`;
     case 'openingHand':
