@@ -13,6 +13,7 @@ import { OPPONENT_COST_MODELS } from './titles/opponentCost';
 import { OWN_COST_MODELS } from './titles/ownCost';
 import { OWN_COST_PLACE_MODELS } from './titles/ownCostPlace';
 import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
+import { PERSONNEL_RULE_MODELS } from './titles/personnelRule';
 import { STANDING_RULE_MODELS } from './titles/standingRule';
 import { TABLE_USE_MODELS } from './titles/tableUse';
 import { cardTitleOf } from '../cardTitle';
@@ -38,6 +39,7 @@ const MODELS: CostModel[] = [
   ...TABLE_USE_MODELS,
   ...COUNTER_LIMIT_MODELS,
   ...MISSION_RULE_MODELS,
+  ...PERSONNEL_RULE_MODELS,
 ];
 
 /** The registry of `models`, by title. Two models of one title throw. */
@@ -118,6 +120,28 @@ export function missionCostsOf(
     const cost = model?.missionCostOfPlay?.(play, facts, slot);
     return model && cost ? [{ title: costModelName(model), cost }] : [];
   });
+}
+
+/**
+ * The cost changes of the player's unstopped personnel to the play from the hand of `play` (#1756): each
+ * title of an unstopped personnel of the away teams and crews, never the brig, once, in the order of the slots.
+ */
+export function personnelCostsOf(
+  play: CostPlay,
+  facts: CostFacts,
+  registry: ReadonlyMap<string, CostModel> = COST_REGISTRY
+): { title: string; cost: ModelCost }[] {
+  const seen = new Set<string>();
+  return (facts.missions ?? []).flatMap((mission) =>
+    (mission.personnel ?? []).flatMap((p) => {
+      const title = p.title && !p.stopped ? cardTitleOf(p.title) : '';
+      if (!title || seen.has(title)) return [];
+      seen.add(title);
+      const model = registry.get(title);
+      const cost = model?.personnelCostOfPlay?.(play, facts);
+      return model && cost ? [{ title: costModelName(model), cost }] : [];
+    })
+  );
 }
 
 /**

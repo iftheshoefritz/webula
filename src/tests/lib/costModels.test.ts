@@ -15,7 +15,7 @@ describe('the cost registry (#1654)', () => {
   it('holds one model per title, each with its family', () => {
     for (const [title, model] of COST_REGISTRY) {
       expect(model.title).toBe(title);
-      expect(['ownCost', 'limit', 'pendingDiscount', 'standingRule', 'missionRule']).toContain(model.family);
+      expect(['ownCost', 'limit', 'pendingDiscount', 'standingRule', 'missionRule', 'personnelRule']).toContain(model.family);
     }
     expect([...COST_REGISTRY.keys()]).toEqual(expect.arrayContaining(['Borg Nanoprobes', 'Goran']));
   });
