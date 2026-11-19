@@ -247,6 +247,26 @@ export const PRACTICE_COMPLETION_TSV = `${PRACTICE_DECK_TSV.split('\n')
 // whose text lets the player spend counters, and Korrd and Caithlin Dar for Nimbus III's download.
 // Robert Tomlinson, a [TOS] personnel of cost 1, joins the end of the hand (`PRACTICE_MISSIONS_HAND`), for
 // Earth's draw.
+// The deck of `?fixture=kmtar` (#1762): the practice deck with five missions in place of its own, each
+// non-headquarters one requiring Diplomacy, in slot order Tarod IX (the planet of the away team), Korma,
+// Tirapet Expanse (the space mission of the crewed ship), Volan III and Qo'noS, a headquarters, K'mtar at the
+// end of the hand, so his play offers the download of up to two events, and three events in the draw deck.
+export const PRACTICE_KMTAR_TSV = `${PRACTICE_DECK_TSV.split('\n')
+  .slice(0, -5)
+  .join('\n')}
+1\tThese Are The Voyages
+1\tAt What Cost?
+1\tFerengi Tradition
+1\tAlexander Rozhenko K'mtar
+1\tTarod IX Investigate Massacre
+1\tKorma Security Briefing
+1\tTirapet Expanse Peaceful Contact
+1\tVolan III Investigate Maquis Activity
+1\tQo'noS Heart of the Empire`;
+
+// The card of `PRACTICE_KMTAR_TSV` that joins the end of the hand.
+export const PRACTICE_KMTAR_HAND = "Alexander Rozhenko K'mtar";
+
 export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)
   .join('\n')}
