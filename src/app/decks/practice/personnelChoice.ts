@@ -79,3 +79,25 @@ export function personnelChoiceSummary(chosen: PersonnelCandidate[]): string {
   const n = personnelChoiceDelta(chosen);
   return `${chosen.length} personnel, ${n} ${n === 1 ? 'affiliation' : 'affiliations'}: +${n}`;
 }
+
+// Whether `card` is a personnel of `affiliation` (lowercased), by inclusion, so a card of several
+// affiliations counts for each.
+const personnelOf = (card: CardInstance['card'] | undefined, affiliation: string): boolean =>
+  card?.type === 'personnel' && String(card.affiliation ?? '').toLowerCase().includes(affiliation);
+
+export interface ExchangeCandidates {
+  hand: CardInstance[];
+  groups: PersonnelCandidateGroup[];
+}
+
+// The two sides of Vidiian Organ Bank's exchange (#1765): the personnel of `affiliation` in the hand, and
+// those the player commands, unstopped (a stopped personnel cannot be replaced), never the brig, by place.
+// The reducer and the panel both ask it, so they never disagree.
+export function exchangeCandidatesOf(table: TableState, affiliation: string): ExchangeCandidates {
+  return {
+    hand: table.hand.filter((c) => personnelOf(c.card, affiliation)),
+    groups: personnelCandidateGroups(table)
+      .map((g) => ({ ...g, cards: g.cards.filter((c) => personnelOf(c.card.card, affiliation)) }))
+      .filter((g) => g.cards.length > 0),
+  };
+}

@@ -129,7 +129,7 @@ import { nimbusSpendOf } from './missionSpends';
 import { PersonnelChoicePanel } from './PersonnelChoicePanel';
 import { CompletionEffectPanel } from './CompletionEffectPanel';
 import { completionBatch, completionEffectOf, flipActions } from './completionEffects';
-import { downloadCopyOf, personnelCandidateGroups } from './personnelChoice';
+import { downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups } from './personnelChoice';
 import { nameableDilemmaTitles, preventionOf } from './dilemmaPrevention';
 import { DilemmaNamePicker } from './DilemmaNamePicker';
 import useLocalStorage from '../../../hooks/useLocalStorage';
@@ -2464,7 +2464,14 @@ function PracticeDrawContent() {
                 available: (id) => downloadCopyOf(table, id) !== null,
                 onDownload: (personnelId) => dispatch({ type: 'resolveDownload', personnelId }),
               }
-            : undefined;
+            : resolveModel?.kind === 'exchange' && resolveStepName === 'exchange'
+              ? {
+                  step: 'exchange',
+                  // Vidiian Organ Bank (#1765): a [Vid] personnel of the hand and an unstopped one on the table.
+                  ...exchangeCandidatesOf(table, resolveModel.affiliation),
+                  onExchange: (handId, tableId) => dispatch({ type: 'resolveExchange', handId, tableId }),
+                }
+              : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
