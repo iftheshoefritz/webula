@@ -54,6 +54,8 @@ import {
   PRACTICE_ATTRIBUTES_CORE,
   PRACTICE_ATTRIBUTES_TSV,
   PRACTICE_COMPLETION_TSV,
+  PRACTICE_MISSIONS_HAND,
+  PRACTICE_MISSIONS_TSV,
   PRACTICE_BOT_COSTS_TSV,
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
@@ -121,6 +123,9 @@ import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
 import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList, type UseHandlers } from './TurnCounters';
+import { MissionSpendProvider, type MissionSpendOffer } from './MissionSpendContext';
+import { MissionSpendPicker } from './MissionSpendPicker';
+import { nimbusSpendOf } from './missionSpends';
 import { PersonnelChoicePanel } from './PersonnelChoicePanel';
 import { CompletionEffectPanel } from './CompletionEffectPanel';
 import { completionBatch, completionEffectOf, flipActions } from './completionEffects';
@@ -152,6 +157,7 @@ import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import {
   actionCharged,
+  earthSpendOf,
   ChargeTarget,
   costUseAvailable,
   entryCharges,
@@ -2070,6 +2076,9 @@ function PracticeDrawContent() {
   // `?fixture=completion` (#1757) deals the piles table with the five missions whose completion acts on the
   // player's cards, and Population 9 Billion - All Borg in the draw deck.
   const isCompletionFixture = fixture === 'completion';
+  // `?fixture=missions` (#1754) deals the piles table with Earth, Lush and Beautiful Home and Nimbus III,
+  // Staff Backwater Embassy, a [TOS] personnel at the end of the hand, and Korrd and Caithlin Dar.
+  const isMissionsFixture = fixture === 'missions';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2089,7 +2098,14 @@ function PracticeDrawContent() {
   const isBotCostsFixture = fixture === 'bot-costs';
   const isBotFixture = fixture === 'bot' || isBotCostsFixture || botRevealFixture !== null;
   const isFixture =
-    fixture === '1' || isPilesFixture || isCostsFixture || isAttributesFixture || isCompletionFixture || isAttemptFixture || isBotFixture;
+    fixture === '1' ||
+    isPilesFixture ||
+    isCostsFixture ||
+    isAttributesFixture ||
+    isCompletionFixture ||
+    isMissionsFixture ||
+    isAttemptFixture ||
+    isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
   // `?reset=1` deals a new game instead of the saved one, and the new game replaces the save.
   // Browser checks use it with `?fixture=1` to start from the same table every time.
@@ -2124,6 +2140,8 @@ function PracticeDrawContent() {
   // The picker of a choice of personnel (#1712): the charge that offered it and the model's title. It
   // is page state, and the chip's timer does not close it: it stays open until Confirm or Cancel.
   const [personnelChoice, setPersonnelChoice] = useState<{ target: ChargeTarget; source: string } | null>(null);
+  // The picker of Nimbus III's download (#1754), open with the slot it spends at.
+  const [nimbusPickerSlot, setNimbusPickerSlot] = useState<number | null>(null);
   // `play` marks the panel a play opened on the cards it revealed (#1738).
   const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; end: 'top' | 'bottom'; ids: string[]; play?: true } | null>(
     null
@@ -2635,7 +2653,9 @@ function PracticeDrawContent() {
           ? attributesFixtureExtras()
           : isBotCostsFixture
             ? botCostsFixtureExtras()
-            : null
+            : isMissionsFixture
+              ? missionsFixtureExtras()
+              : null
       : null;
     const extraKeys = new Set(
       extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand].map((c: any) => c.collectorsinfo) : []
@@ -2735,6 +2755,13 @@ function PracticeDrawContent() {
     const core = (row: any) => row.originalName === PRACTICE_ATTRIBUTES_CORE;
     return { hand: [] as any[], crew: rows.filter((r) => !core(r)), core: rows.filter(core), lateHand: [] as any[] };
   };
+  // The card `?fixture=missions` adds to the end of the hand (#1754): Robert Tomlinson, a [TOS] personnel.
+  const missionsFixtureExtras = () => ({
+    hand: [] as any[],
+    crew: [] as any[],
+    core: [] as any[],
+    lateHand: extractDrawDeck(deckFromTsv(PRACTICE_MISSIONS_TSV, data)).filter((r: any) => r.originalName === PRACTICE_MISSIONS_HAND),
+  });
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
   const botCostsFixtureExtras = () => ({
     hand: [] as any[],
@@ -2744,6 +2771,7 @@ function PracticeDrawContent() {
   });
   const fixtureDeck = (): DeckList => {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
+    if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
@@ -2827,7 +2855,13 @@ function PracticeDrawContent() {
       if (loading || data.length === 0) return;
       dealDeck(
         fixtureDeck(),
-        isPilesFixture || isCostsFixture || isAttributesFixture || isCompletionFixture || isAttemptFixture || isBotFixture,
+        isPilesFixture ||
+          isCostsFixture ||
+          isAttributesFixture ||
+          isCompletionFixture ||
+          isMissionsFixture ||
+          isAttemptFixture ||
+          isBotFixture,
         attemptFixturePhase,
         isBotFixture ? 'bot' : undefined,
         botRevealFixture?.title ?? null
@@ -3151,6 +3185,30 @@ function PracticeDrawContent() {
       }
     }
   }
+
+  // The spends of counters the missions allow (#1754), in both counter modes: Earth's draw after a play of
+  // a [TOS] card there, and Nimbus III's download. The mission card shows each as a button.
+  const earthOffer = earthSpendOf(game);
+  const nimbusOffer = nimbusSpendOf(table);
+  const spendAtEarth = () => {
+    if (earthOffer) dispatch({ type: 'missionSpend', spend: 'earth', slot: earthOffer.slot });
+  };
+  const missionSpendOffers = new Map<number, MissionSpendOffer>();
+  if (earthOffer) {
+    missionSpendOffers.set(earthOffer.slot, {
+      label: `${cardDisplayName(missions[earthOffer.slot].mission!.card)}: spend 1 counter to draw 2 cards`,
+      short: 'Spend 1: draw 2',
+      onPress: spendAtEarth,
+    });
+  }
+  if (nimbusOffer) {
+    missionSpendOffers.set(nimbusOffer.slot, {
+      label: `${cardDisplayName(missions[nimbusOffer.slot].mission!.card)}: spend 3 counters to download Caithlin Dar, Korrd or St. John Talbot`,
+      short: 'Spend 3: download',
+      onPress: () => setNimbusPickerSlot(nimbusOffer.slot),
+    });
+  }
+  const nimbusPicker = nimbusPickerSlot !== null && nimbusOffer?.slot === nimbusPickerSlot ? nimbusOffer : null;
 
   const toggleCardSelection = (id: string) => {
     setSelectedCardIds((ids) => (ids.includes(id) ? ids.filter((cardId) => cardId !== id) : [...ids, id]));
@@ -4054,6 +4112,11 @@ function PracticeDrawContent() {
                 setChargeChip((chip) => (chip ? { ...chip } : chip));
               },
             }}
+            missionSpend={
+              chargeChip && earthOffer?.entries.includes(chargeChip.entry)
+                ? { label: missionSpendOffers.get(earthOffer.slot)!.label, onSpend: spendAtEarth }
+                : undefined
+            }
           />
         )}
         {turnCountersOn && countersListOpen && currentCounters && table.segment === 'playAndDraw' && (
@@ -4088,6 +4151,17 @@ function PracticeDrawContent() {
               setCompletionPanel(null);
             }}
             onClose={() => setCompletionPanel(null)}
+          />
+        )}
+        {nimbusPicker && (
+          <MissionSpendPicker
+            title={cardDisplayName(missions[nimbusPicker.slot].mission!.card)}
+            choices={nimbusPicker.candidates}
+            onChoose={(id) => {
+              dispatch({ type: 'missionSpend', spend: 'nimbus', slot: nimbusPicker.slot, id });
+              setNimbusPickerSlot(null);
+            }}
+            onClose={() => setNimbusPickerSlot(null)}
           />
         )}
         {personnelChoice && (
@@ -4208,6 +4282,7 @@ function PracticeDrawContent() {
             <PlaceOnHoldProvider value={placeOnHold}>
             <RangeUsedProvider value={rangeUsedInfo}>
             <TableCardUseProvider value={tableCardUses}>
+            <MissionSpendProvider value={missionSpendOffers}>
             {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
                 row clears the home indicator, the table clears the notch, and the background stays
                 full-bleed under both. The scale hooks read the bottom padding from the computed
@@ -4778,6 +4853,7 @@ function PracticeDrawContent() {
             {table.resolving && resolvingCollapsed && (
               <ResolvingMini instance={table.resolving} onOpen={() => setResolvingCollapsed(false)} />
             )}
+            </MissionSpendProvider>
             </TableCardUseProvider>
             </RangeUsedProvider>
             </PlaceOnHoldProvider>

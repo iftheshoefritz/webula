@@ -228,12 +228,15 @@ export function ChargeChip({
   onRaiseLimit,
   onChoosePersonnel,
   uses,
+  missionSpend,
 }: {
   charges: LogCharge[];
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
   uses?: UseHandlers;
+  // Earth's offer after the play the chip shows (#1754), "Spend 1: draw 2".
+  missionSpend?: { label: string; onSpend: () => void };
 }) {
   return (
     <div
@@ -252,6 +255,17 @@ export function ChargeChip({
           uses={uses}
         />
       ))}
+      {missionSpend && (
+        <button
+          type="button"
+          data-testid="charge-mission-spend"
+          onClick={missionSpend.onSpend}
+          aria-label={missionSpend.label}
+          className="btn-icon h-7 w-auto self-start px-2 text-xs"
+        >
+          Spend 1: draw 2
+        </button>
+      )}
     </div>
   );
 }
