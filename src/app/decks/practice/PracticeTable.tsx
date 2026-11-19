@@ -122,7 +122,7 @@ import MissionRow, {
 import CardPreview from './CardPreview';
 import DecklistPanel from './DecklistPanel';
 import GameLogPanel from './GameLogPanel';
-import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList, type UseHandlers } from './TurnCounters';
+import { CHARGE_CHIP_MS, ChargeChip, TurnCounterButton, TurnCountersList, type DeckDiscardHandlers, type UseHandlers } from './TurnCounters';
 import { MissionSpendProvider, type MissionSpendOffer } from './MissionSpendContext';
 import { MissionSpendPicker } from './MissionSpendPicker';
 import { nimbusSpendOf } from './missionSpends';
@@ -3180,6 +3180,11 @@ function PracticeDrawContent() {
     onUse: (target, id) => dispatch({ type: 'useCard', target, id }),
     available: (use) => costUseAvailable(table, use),
   };
+  // A choice that discards the top of the draw deck (#1744), Type III Galor's, from the chip or the list.
+  const deckDiscardHandlers: DeckDiscardHandlers = {
+    onDiscard: (target, source) => dispatch({ type: 'discardForCharge', target, source }),
+    deckCount: table.drawDeck.length,
+  };
   // The cards that offer a use for a charge of this turn's play and draw (#1713), each for the latest
   // charge it can still serve, so its badge takes that one.
   const tableCardUses = new Map<string, TableCardUse>();
@@ -4125,6 +4130,13 @@ function PracticeDrawContent() {
                 setChargeChip((chip) => (chip ? { ...chip } : chip));
               },
             }}
+            deckDiscard={{
+              ...deckDiscardHandlers,
+              onDiscard: (target, source) => {
+                deckDiscardHandlers.onDiscard(target, source);
+                setChargeChip((chip) => (chip ? { ...chip } : chip));
+              },
+            }}
             missionSpend={
               chargeChip && earthOffer?.entries.includes(chargeChip.entry)
                 ? { label: missionSpendOffers.get(earthOffer.slot)!.label, onSpend: spendAtEarth }
@@ -4147,6 +4159,7 @@ function PracticeDrawContent() {
               setCountersListOpen(false);
             }}
             uses={cardUseHandlers}
+            deckDiscard={deckDiscardHandlers}
             onAdjustLimit={(delta) => dispatch({ type: 'adjustCounterLimit', delta })}
             onTurnChoice={(delta, source) => dispatch({ type: 'adjustCounterLimit', delta, source })}
             pending={pendingDiscountsOf(game.log, turn)}

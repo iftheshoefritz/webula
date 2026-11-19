@@ -43,7 +43,7 @@ import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { resolveModelOf } from '../../../lib/resolveModels';
-import { isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
+import { choiceDiscardTop, isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { chosenPersonnel, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, firstTurnGrantsOf, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
@@ -225,6 +225,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       used?: LogUsedCard;
       // The dilemma title a `nameDilemma` choice named (#1761): "Tristan Adams" names "Wavefront".
       named?: string;
+      // The cards a `discardTop` choice discarded from the top of the draw deck (#1744), top first.
+      discarded?: string[];
     }
   // A change of the turn's limit of counters by the player (#1607), and the limit it left.
   // `source` names the model whose choice raised the limit (#1655), "Tricia Jenkins", and `target` the
@@ -311,6 +313,9 @@ export type GameAction =
   // A use of the card `id` on the table for the play at `target` (#1713), Delivery Boy's: the cost change
   // and the card's own part, a destroy or a stop, in one entry that one undo takes back.
   | { type: 'useCard'; target: ChargeTarget; id: string }
+  // A `discardTop` choice of the play at `target` (#1744), Type III Galor's: the top cards of the draw deck
+  // go to the discard pile and the cost changes, in one entry that one undo takes back.
+  | { type: 'discardForCharge'; target: ChargeTarget; source: string }
   // A Cancel of the resolving event (#1728): it goes back to the end of the hand, and its play's charge
   // is refunded, in one entry that one undo takes back.
   | { type: 'cancelResolving' }
@@ -736,7 +741,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'missionSpend' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'missionSpend' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -830,6 +835,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   }
   if (action.type === 'choosePersonnel') return choosePersonnelState(state, action);
   if (action.type === 'useCard') return cardUseState(state, action);
+  if (action.type === 'discardForCharge') return discardForChargeState(state, action);
   if (action.type === 'cancelResolving') return cancelResolvingState(state);
   if (action.type === 'resolveDraw') return resolveDrawState(state, action);
   if (action.type === 'resolveBottom') return resolveBottomState(state, action);
@@ -917,7 +923,8 @@ const turnFactsOf = (log: LogEntry[], turn: number): TurnFacts => ({
 
 // A play whose charge reveals cards of the opponent's dilemma pile (#1738) comes back with a move of each
 // of them to the bottom of that pile, in pile order, so the play, the reveal and the moves are one batch,
-// one entry and one undo.
+// one entry and one undo. A play whose charge discards the top of the draw deck (#1744) comes back the same
+// way with a move of each of those cards to the discard pile, top first.
 function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts): TableAction[] {
   const { pending, plays } = turnFacts;
   if (action.type === 'drawCard' && action.cost === undefined) {
@@ -944,8 +951,12 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
       plays.push(turnPlayOf(found!.instance.card, slotQuadrantOf(next, costDestination(next, landed!.zone).missionIndex)));
     const uses = charge?.kind === 'play' && charge.uses?.length ? { costUses: charge.uses } : {};
     const revealIds = charge?.kind === 'play' && charge.reveal?.ids.length ? charge.reveal.ids : [];
-    const reveal = revealIds.length ? { costReveal: revealIds } : {};
-    const toBottom: TableAction[] = revealIds.map((id) => ({ type: 'move', id, to: 'dilemmaPile', position: 'bottom' }));
+    const discardIds = charge?.kind === 'play' && charge.discard?.ids.length ? charge.discard.ids : [];
+    const reveal = { ...(revealIds.length ? { costReveal: revealIds } : {}), ...(discardIds.length ? { costDiscard: discardIds } : {}) };
+    const toBottom: TableAction[] = [
+      ...revealIds.map((id): TableAction => ({ type: 'move', id, to: 'dilemmaPile', position: 'bottom' })),
+      ...discardIds.map((id): TableAction => ({ type: 'move', id, to: 'discard' })),
+    ];
     if (charge?.kind === 'play' && charge.source) {
       const discount = charge.source.discount;
       const usedDiscount = discount ? pending.findIndex((d) => sameTarget(d.origin, discount)) : -1;
@@ -977,6 +988,7 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'dismissDiscount' ||
     action.type === 'choosePersonnel' ||
     action.type === 'useCard' ||
+    action.type === 'discardForCharge' ||
     action.type === 'cancelResolving' ||
     action.type === 'resolveDraw' ||
     action.type === 'resolveBottom'
@@ -1378,6 +1390,13 @@ export function logEntryText(entry: LogEntry): string {
       // " (Tacking Into the Wind, completed missions of the opponent: 2)" for a counted choice (#1695).
       const what = typeof entry.counted === 'string' && entry.counted ? `, ${entry.counted.toLowerCase()}` : '';
       const counted = source && isIndex(entry.count) ? `${what}: ${entry.count}` : '';
+      // "Discarded A, B and C from the top of the draw deck: charged Type III Galor 4 counters (was 6)" (#1744).
+      const discarded = Array.isArray(entry.discarded) ? entry.discarded.filter((n) => typeof n === 'string') : [];
+      if (discarded.length) {
+        return `Discarded ${cardsText(discarded)} from the top of the draw deck: charged ${entry.card ?? 'a card'} ${countersText(entry.to)} (was ${entry.from})${
+          source ? ` (${source})` : ''
+        }`;
+      }
       // ", named Wavefront" for a choice that names a dilemma (#1761).
       const named = typeof entry.named === 'string' && entry.named ? `, named ${entry.named}` : '';
       return `Charged ${entry.draw ? 'a draw' : (entry.card ?? 'a card')} ${countersText(entry.to)} (was ${entry.from})${
@@ -1945,6 +1964,24 @@ function cardUseState(state: GameState, action: { target: ChargeTarget; id: stri
     turn: state.table.turn,
     segment: state.table.segment,
   };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// A `discardTop` choice (#1744): the play's charge must offer it, under `source`, and not have taken it, and
+// the draw deck must hold as many cards as it discards. The top cards go to the discard pile, top first, and
+// the cost becomes the choice's, in one `chargeCorrected` entry that names them, whose undo snapshot is the
+// table before the discard.
+function discardForChargeState(state: GameState, action: { target: ChargeTarget; source: string }): GameState {
+  const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
+  const choice = charge?.source?.choice;
+  const n = choiceDiscardTop(choice);
+  if (!charge || charge.choiceTaken || charge.source?.title !== action.source || !n || choice?.cost === undefined) return state;
+  const top = state.table.drawDeck.slice(0, n);
+  if (top.length < n) return state;
+  const correction = chargeCorrectionEntry(state, { target: action.target, cost: choice.cost, source: action.source });
+  if (!correction) return state;
+  const table = top.reduce((t, c) => tableReducer(t, { type: 'move', id: c.id, to: 'discard' }), state.table);
+  const entry = { ...correction, discarded: top.map((c) => cardName(state.table, c.id)) } as LogEntry;
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 

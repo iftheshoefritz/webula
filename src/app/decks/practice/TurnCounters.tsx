@@ -1,6 +1,6 @@
 import React from 'react';
 import { LAYER_CHARGE_CHIP, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
-import { countedCost, isCountedChoice, isPersonnelChoice, type CostUse, type PendingDiscount } from '../../../lib/costModels/model';
+import { choiceDiscardTop, countedCost, isCountedChoice, isPersonnelChoice, type CostUse, type PendingDiscount } from '../../../lib/costModels/model';
 import { pendingDiscountText } from '../../../lib/costModels/registry';
 import { useEscapeLayer } from './useEscapeLayer';
 import { ChargeTarget, LogCharge, TurnCounters } from './gameLog';
@@ -39,6 +39,13 @@ type OnNameDilemma = (target: ChargeTarget, source: string, cost: number) => voi
 export interface UseHandlers {
   onUse: (target: ChargeTarget, id: string) => void;
   available: (use: CostUse) => boolean;
+}
+
+// A choice that discards the top of the draw deck (#1744), Type III Galor's: the charge and the model's
+// title, and the cards the draw deck holds, which disable the choice while it holds fewer than it discards.
+export interface DeckDiscardHandlers {
+  onDiscard: (target: ChargeTarget, source: string) => void;
+  deckCount: number;
 }
 
 // The smallest cap on the limit (#1704), when it holds the limit below what it would be, or at it.
@@ -83,6 +90,7 @@ function ChargeRow({
   onChoosePersonnel,
   onNameDilemma,
   uses,
+  deckDiscard,
 }: {
   charge: LogCharge;
   onCorrect: OnCorrect;
@@ -90,10 +98,13 @@ function ChargeRow({
   onChoosePersonnel?: OnChoosePersonnel;
   onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
+  deckDiscard?: DeckDiscardHandlers;
 }) {
   const label = chargeLabel(charge);
   const { source } = charge;
   const choice = source?.choice;
+  const discardTop = choiceDiscardTop(choice);
+  const deckShort = !charge.choiceTaken && discardTop > 0 && (deckDiscard?.deckCount ?? 0) < discardTop;
   return (
     <div data-testid="charge-row" className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
@@ -185,7 +196,9 @@ function ChargeRow({
             data-testid="charge-choice"
             data-taken={charge.choiceTaken ? 'true' : undefined}
             onClick={() =>
-              isPersonnelChoice(choice)
+              discardTop > 0
+                ? deckDiscard?.onDiscard(charge.target, source.title)
+                : isPersonnelChoice(choice)
                 ? onChoosePersonnel?.(charge.target, source.title)
                 : 'nameDilemma' in choice && choice.nameDilemma && choice.cost !== undefined
                   ? onNameDilemma?.(charge.target, source.title, choice.cost)
@@ -193,8 +206,8 @@ function ChargeRow({
                   ? onRaiseLimit(charge.target, choice.limit, source.title)
                   : choice.cost !== undefined && onCorrect(charge.target, choice.cost, source.title)
             }
-            disabled={charge.choiceTaken}
-            aria-label={`${label}: ${choice.label}${charge.choiceTaken ? ', taken' : ''}`}
+            disabled={charge.choiceTaken || deckShort}
+            aria-label={`${label}: ${choice.label}${charge.choiceTaken ? ', taken' : deckShort ? ', not available' : ''}`}
             className="btn-icon h-7 w-auto self-start px-2 text-xs disabled:cursor-default disabled:opacity-60"
           >
             {choice.label}
@@ -235,6 +248,7 @@ export function ChargeChip({
   onChoosePersonnel,
   onNameDilemma,
   uses,
+  deckDiscard,
   missionSpend,
 }: {
   charges: LogCharge[];
@@ -243,6 +257,7 @@ export function ChargeChip({
   onChoosePersonnel?: OnChoosePersonnel;
   onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
+  deckDiscard?: DeckDiscardHandlers;
   // Earth's offer after the play the chip shows (#1754), "Spend 1: draw 2".
   missionSpend?: { label: string; onSpend: () => void };
 }) {
@@ -262,6 +277,7 @@ export function ChargeChip({
           onChoosePersonnel={onChoosePersonnel}
           onNameDilemma={onNameDilemma}
           uses={uses}
+          deckDiscard={deckDiscard}
         />
       ))}
       {missionSpend && (
@@ -290,6 +306,7 @@ export function TurnCountersList({
   onChoosePersonnel,
   onNameDilemma,
   uses,
+  deckDiscard,
   onAdjustLimit,
   onTurnChoice,
   pending = [],
@@ -303,6 +320,7 @@ export function TurnCountersList({
   onChoosePersonnel?: OnChoosePersonnel;
   onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
+  deckDiscard?: DeckDiscardHandlers;
   onAdjustLimit: (delta: number) => void;
   onTurnChoice?: (delta: number, source: string) => void;
   pending?: PendingDiscount[];
@@ -384,6 +402,7 @@ export function TurnCountersList({
                 onChoosePersonnel={onChoosePersonnel}
                 onNameDilemma={onNameDilemma}
                 uses={uses}
+                deckDiscard={deckDiscard}
               />
             ))
           )}

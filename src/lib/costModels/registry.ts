@@ -2,6 +2,7 @@ import { CostFacts, CostModel, CostPlay, CostUse, DiscountOrigin, LimitCap, Limi
 import { COMMANDED_MODELS } from './titles/commanded';
 import { COUNTER_LIMIT_MODELS } from './titles/counterLimit';
 import { COMPLETED_MISSION_MODELS } from './titles/completedMission';
+import { DECK_DISCARD_MODELS } from './titles/deckDiscard';
 import { HAND_AND_DISCARD_MODELS } from './titles/handAndDiscard';
 import { LIMIT_MODELS } from './titles/limit';
 import { MAY_COST_MODELS } from './titles/mayCost';
@@ -30,6 +31,7 @@ const MODELS: CostModel[] = [
   ...PENDING_DISCOUNT_MODELS,
   ...NEXT_OF_KIND_MODELS,
   ...OPPONENT_COST_MODELS,
+  ...DECK_DISCARD_MODELS,
   ...MISSION_COUNT_MODELS,
   ...MAY_COST_MODELS,
   ...HAND_AND_DISCARD_MODELS,

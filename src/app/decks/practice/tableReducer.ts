@@ -341,6 +341,8 @@ export type TableAction =
   // `costUses` are the uses the cards on the table offer for the play (#1713), for the log.
   // `costReveal` are the cards of the opponent's dilemma pile the play reveals (#1738), which the moves
   // after it in the same batch put on the bottom of that pile; the page opens the reveal panel on them.
+  // `costDiscard` are the cards of the draw deck the play discards from its top (#1744), which the moves
+  // after it in the same batch put in the discard pile.
   // `cardText` is the setting "Apply card text to attributes" (#1668), which the page stamps on the
   // move (`withShuffleOrders`): absent is off, and the range models do not apply.
   | {
@@ -352,6 +354,7 @@ export type TableAction =
       costSource?: CostSource;
       costUses?: CostUse[];
       costReveal?: string[];
+      costDiscard?: string[];
       cardText?: boolean;
     }
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,
