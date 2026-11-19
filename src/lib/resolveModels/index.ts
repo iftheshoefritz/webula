@@ -44,7 +44,15 @@ export interface DownloadCopyModel {
   draw: number;
 }
 
-export type ResolveModel = DrawThenBottomModel | DiscardDrawModel | DownloadCopyModel;
+/** "Exchange a [Vid] personnel in hand with a [Vid] personnel you command and own." (#1765) */
+export interface ExchangeModel {
+  kind: 'exchange';
+  title: string;
+  /** The affiliation, lowercased, both personnel of the exchange must have ("vidiian"). */
+  affiliation: string;
+}
+
+export type ResolveModel = DrawThenBottomModel | DiscardDrawModel | DownloadCopyModel | ExchangeModel;
 
 /** The cards a `'discardDraw'` model draws, by whether the player commands a completed mission. */
 export const discardDrawCount = (model: DiscardDrawModel, anyCompleted: boolean): number =>
@@ -72,6 +80,7 @@ export const RESOLVE_MODELS: ResolveModel[] = [
   // "Download a copy of a personnel you command. If that personnel is an [AU] personnel, draw a card.
   // Destroy this event." A copy is a card of the same title; the brig is not commanded.
   { kind: 'downloadCopy', title: 'Second Edition', drawIfIcon: '[au]', draw: 1 },
+  { kind: 'exchange', title: 'Vidiian Organ Bank', affiliation: 'vidiian' },
 ];
 
 const BY_TITLE = new Map(RESOLVE_MODELS.map((m) => [m.title.toLowerCase(), m]));

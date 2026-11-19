@@ -49,7 +49,8 @@ export type ResolveStep =
   | { step: 'draw'; groups: PersonnelCandidateGroup[]; fixed?: number; onDraw: (personnelId?: string) => void }
   | { step: 'bottom'; count: number; hand: CardInstance[]; onPlace: (ids: string[]) => void }
   | { step: 'discardDraw'; draw: number; hand: CardInstance[]; onDiscardDraw: (id: string) => void }
-  | { step: 'download'; groups: PersonnelCandidateGroup[]; available: (id: string) => boolean; onDownload: (personnelId: string) => void };
+  | { step: 'download'; groups: PersonnelCandidateGroup[]; available: (id: string) => boolean; onDownload: (personnelId: string) => void }
+  | { step: 'exchange'; hand: CardInstance[]; groups: PersonnelCandidateGroup[]; onExchange: (handId: string, tableId: string) => void };
 
 // The small card of View table, the size of a pile card at scale 1.
 export const RESOLVING_MINI_WIDTH = 56; // px
@@ -342,6 +343,72 @@ function DownloadStep({ step }: { step: Extract<ResolveStep, { step: 'download' 
   );
 }
 
+// The step of Vidiian Organ Bank (#1765): one [Vid] personnel of the hand, as a row of cards, and one
+// unstopped [Vid] personnel on the table, by place; a tap picks, another tap moves the pick. With either side
+// empty the step says which and shows no button: Resolved → Discard or Cancel ends it.
+function ExchangeStep({ step }: { step: Extract<ResolveStep, { step: 'exchange' }> }) {
+  const [handPick, setHandPick] = useState<string | null>(null);
+  const [tablePick, setTablePick] = useState<string | null>(null);
+  const handChosen = step.hand.some((c) => c.id === handPick) ? handPick : null;
+  const tableChosen = step.groups.some((g) => g.cards.some((c) => c.id === tablePick)) ? tablePick : null;
+  const empty =
+    step.hand.length === 0
+      ? 'No [Vid] personnel in your hand: nothing to exchange.'
+      : step.groups.length === 0
+        ? 'No unstopped [Vid] personnel you command: nothing to exchange.'
+        : null;
+  return (
+    <div data-testid="resolve-step-exchange" className="flex min-h-0 min-w-0 flex-col gap-2">
+      {empty !== null ? (
+        <p data-testid="resolve-exchange-empty" className="text-sm text-text-primary">
+          {empty}
+        </p>
+      ) : (
+        <>
+          <p className="text-sm text-text-primary">Exchange a [Vid] personnel of your hand with one you command</p>
+          <div data-testid="resolve-hand" className="flex min-w-0 shrink-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
+            {step.hand.map((c) => (
+              <HandOption
+                key={c.id}
+                instance={c}
+                order={c.id === handChosen ? 0 : null}
+                badge={false}
+                pickedLabel="to put on the table"
+                onToggle={() => setHandPick((id) => (id === c.id ? null : c.id))}
+              />
+            ))}
+          </div>
+          <div className="flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain pr-1">
+            {step.groups.map((group) => (
+              <div key={group.key} className="flex flex-col gap-1">
+                <h3 className="text-[11px] text-text-muted">{group.label}</h3>
+                {group.cards.map((c) => (
+                  <PersonnelOption
+                    key={c.id}
+                    candidate={c}
+                    selected={c.id === tableChosen}
+                    onSelect={() => setTablePick((id) => (id === c.id ? null : c.id))}
+                    note="to the hand"
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            data-testid="resolve-exchange"
+            className="btn-primary w-full whitespace-nowrap text-sm"
+            disabled={handChosen === null || tableChosen === null}
+            onClick={() => handChosen && tableChosen && step.onExchange(handChosen, tableChosen)}
+          >
+            Exchange
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // The step of a "discard a card from hand to draw" event (#1745): the hand as a row, a tap picks one card
 // (another tap moves the pick), and one button discards it and draws. An empty hand shows a note and no
 // button: the discard is the cost of the draw, so the player ends with Resolved → Discard or Cancel.
@@ -450,6 +517,8 @@ export function ResolvingPanel({
               <DiscardDrawStep key={`discard-draw-${instance.id}`} step={step} />
             ) : step.step === 'download' ? (
               <DownloadStep key={`download-${instance.id}`} step={step} />
+            ) : step.step === 'exchange' ? (
+              <ExchangeStep key={`exchange-${instance.id}`} step={step} />
             ) : (
               <BottomStep key={`bottom-${instance.id}`} step={step} />
             )}

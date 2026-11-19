@@ -44,7 +44,7 @@ import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
-import { cardHasIcon, chosenPersonnel, downloadCopyOf, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
+import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, firstTurnGrantsOf, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, slotQuadrantOf, turnPlayOf } from './costFacts';
@@ -260,6 +260,7 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // The one step of Second Edition (#1746): a copy of `personnel` downloaded from the draw deck, the deck
   // shuffled, `count` cards drawn free (1 for an [AU] personnel), and the event to the discard pile.
   | { kind: 'resolveDownloaded'; event: string; personnel: string; count: number }
+  | { kind: 'resolveExchanged'; event: string; fromHand: string; fromTable: string }
   // A spend of counters a mission's text allows (#1754): Earth's "spend a counter to draw two cards",
   // `drew` cards drawn, or Nimbus III's "spend three counters to download …", `downloaded` the card that
   // went into its away team. `cost` is the charge, which the chip and the list correct as any other.
@@ -337,6 +338,7 @@ export type GameAction =
   // hand, the shuffle of the draw deck in `order`, which `withShuffleOrders` chooses, the draw, and the event
   // to the discard pile, in one entry.
   | { type: 'resolveDownload'; personnelId: string; order?: string[] }
+  | { type: 'resolveExchange'; handId: string; tableId: string }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -754,7 +756,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'missionSpend' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -854,6 +856,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'resolveBottom') return resolveBottomState(state, action);
   if (action.type === 'resolveDiscardDraw') return resolveDiscardDrawState(state, action);
   if (action.type === 'resolveDownload') return resolveDownloadState(state, action);
+  if (action.type === 'resolveExchange') return resolveExchangeState(state, action);
   if (action.type === 'missionSpend') return missionSpendState(state, action);
   if (action.type === 'restore') {
     return {
@@ -1007,7 +1010,8 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'cancelResolving' ||
     action.type === 'resolveDraw' ||
     action.type === 'resolveBottom' ||
-    action.type === 'resolveDiscardDraw'
+    action.type === 'resolveDiscardDraw' ||
+    action.type === 'resolveExchange'
   ) {
     return action;
   }
@@ -1291,6 +1295,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   resolveBottom: true,
   resolveDiscardDraw: true,
   resolveDownloaded: true,
+  resolveExchanged: true,
   missionSpend: true,
 };
 
@@ -1471,6 +1476,14 @@ export function logEntryText(entry: LogEntry): string {
       const personnel = typeof entry.personnel === 'string' && entry.personnel ? entry.personnel : 'a personnel';
       const drew = n > 0 ? `, drew ${n} ${n === 1 ? 'card' : 'cards'}` : '';
       return `Downloaded ${personnel} (${event}), shuffled the draw deck${drew}, and ${event} went to the discard pile`;
+    }
+    case 'resolveExchanged': {
+      // "Exchanged Danara Pel for Motura, and Vidiian Organ Bank went to the discard pile" (#1765): the hand's
+      // personnel first, the table's second.
+      const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
+      const fromHand = typeof entry.fromHand === 'string' && entry.fromHand ? entry.fromHand : 'a personnel';
+      const fromTable = typeof entry.fromTable === 'string' && entry.fromTable ? entry.fromTable : 'a personnel';
+      return `Exchanged ${fromHand} for ${fromTable}, and ${event} went to the discard pile`;
     }
     case 'missionSpend': {
       // "Spent 1 counter at Earth Lush and Beautiful Home, and drew 2 cards".
@@ -2080,7 +2093,7 @@ function cancelResolvingState(state: GameState): GameState {
 // agree: `'bottom'` once a `resolveDrew` entry of this event follows the latest move of a card into the
 // resolving zone, `'draw'` before it. A "discard a card from hand to draw" event (#1745) has one step,
 // `'discardDraw'`, whose action ends the resolution. Null when nothing resolves or the event has no model.
-export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'draw' | 'bottom' | 'discardDraw' | 'download' | null {
+export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'draw' | 'bottom' | 'discardDraw' | 'download' | 'exchange' | null {
   const event = state.table.resolving;
   if (!event) return null;
   const name = cardName(state.table, event.id);
@@ -2088,6 +2101,7 @@ export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'd
   if (!model) return null;
   if (model.kind === 'discardDraw') return 'discardDraw';
   if (model.kind === 'downloadCopy') return 'download';
+  if (model.kind === 'exchange') return 'exchange';
   for (let i = state.log.length - 1; i >= 0; i--) {
     const entry = state.log[i];
     if (entry.kind === 'resolveDrew') return entry.event === name ? 'bottom' : 'draw';
@@ -2218,6 +2232,37 @@ function resolveDownloadState(state: GameState, action: { personnelId: string; o
     event: name,
     personnel: cardName(state.table, action.personnelId),
     count,
+    turn: table.turn,
+    segment: table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The one step of Vidiian Organ Bank (#1765): `handId` must be a personnel of the model's affiliation in the
+// hand and `tableId` one the player commands, unstopped, never the brig (`exchangeCandidatesOf`). The table's
+// goes to the hand, the hand's to the end of the away team or crew the other left (a card from the hand is
+// never stopped), and the event to the discard pile, in one entry. No move is charged.
+function resolveExchangeState(state: GameState, action: { handId: string; tableId: string }): GameState {
+  const event = state.table.resolving;
+  if (!event || resolveStepOf(state) !== 'exchange') return state;
+  const name = cardName(state.table, event.id);
+  const model = resolveModelOf(name);
+  if (!model || model.kind !== 'exchange') return state;
+  const { hand, groups } = exchangeCandidatesOf(state.table, model.affiliation);
+  const group = groups.find((g) => g.cards.some((c) => c.id === action.tableId));
+  if (!group || !hand.some((c) => c.id === action.handId)) return state;
+  const to: MoveTarget = group.key.startsWith('crew-')
+    ? { zone: 'crew', shipId: group.key.slice('crew-'.length) }
+    : { zone: 'missionPile', missionIndex: Number(group.key.slice('awayTeam-'.length)), pile: 'awayTeam' };
+  const left = tableReducer(state.table, { type: 'move', id: action.tableId, to: 'hand' });
+  const joined = tableReducer(left, { type: 'move', id: action.handId, to });
+  const table = tableReducer(joined, { type: 'move', id: event.id, to: 'discard' });
+  if (left === state.table || joined === left || table === joined) return state;
+  const entry: LogEntry = {
+    kind: 'resolveExchanged',
+    event: name,
+    fromHand: cardName(state.table, action.handId),
+    fromTable: cardName(state.table, action.tableId),
     turn: table.turn,
     segment: table.segment,
   };
