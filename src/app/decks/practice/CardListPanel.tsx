@@ -100,6 +100,8 @@ import { safeAreaMargins } from './useSafeAreaInsets';
 import { ScrollIndicator } from './ScrollIndicator';
 import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
 import { TableCardUseBadge } from './TableCardUseContext';
+import PanelCloseButton from './PanelCloseButton';
+import { useFinePointer } from './useFinePointer';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -764,6 +766,7 @@ export default function CardListPanel({
   useEscapeLayer(() => {
     if (!hidden) onClose();
   });
+  const finePointer = useFinePointer();
   const startBoxOnGrid = (event: React.PointerEvent) => {
     if (event.target instanceof Element && event.target.closest('button')) return;
     boxSelect.onPointerDown(event);
@@ -943,8 +946,15 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName}>
+        {/* #1780: the top line, as wide as the column, holds the controls, centred and wrapping, and
+            the X at its right end, so the X covers no card and no control. A spacer as wide as the X
+            on the left keeps the controls centred. The line stays outside the scrolling grid
+            (`shrink-0`), so the X never scrolls away, and a panel with no controls holds the X alone. */}
+        <div data-testid="panel-top-line" className="shrink-0 self-stretch flex flex-row items-start gap-2">
+        <div aria-hidden="true" className={`shrink-0 ${finePointer ? 'w-8' : 'w-11'}`} />
+        <div className="grow min-w-0 flex flex-row justify-center">
         {(onAttempt || onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showSelectAllButton || showFlipButton || showDiscardButton || showRemoveFromGameButton || onShuffle) && (
-          <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
+          <div data-testid="panel-controls" className="min-w-0 flex flex-row flex-wrap justify-center items-start gap-2">
             {/* The reveal panel's own controls (#1070, #1078). Both reveal buttons show even with no
                 card in the panel, so an empty panel always has a way to reveal. */}
             {onReveal && (
@@ -1077,6 +1087,9 @@ export default function CardListPanel({
             )}
           </div>
         )}
+        </div>
+        <PanelCloseButton onClose={onClose} />
+        </div>
         {/* #894: a panel with a host puts the grid and the host side by side in one row. The row
             is the child of the panel that shrinks (`min-h-0`), and the grid stretches to its
             height and scrolls, so the host beside it keeps its own size. `min-w-0` lets the grid

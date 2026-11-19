@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
+import PanelCloseButton from './PanelCloseButton';
 import ControlClip from './ControlClip';
 import { CONTROL_ROWS, clipFiles, controlsBySection, type ControlColumn, type ControlRow } from './controls';
 import { useFinePointer } from './useFinePointer';
@@ -37,6 +38,7 @@ export default function ControlsPanel({ onClose, rows = CONTROL_ROWS }: { onClos
       >
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-text-primary">Controls</h2>
+          <div className="flex items-center gap-2">
           <div role="group" aria-label="Show the controls for" className="flex overflow-hidden rounded-md border border-white/10">
             {COLUMNS.map(({ column: value, label }) => (
               <button
@@ -51,6 +53,8 @@ export default function ControlsPanel({ onClose, rows = CONTROL_ROWS }: { onClos
                 {label}
               </button>
             ))}
+          </div>
+          <PanelCloseButton onClose={onClose} />
           </div>
         </div>
         <div className="overflow-y-auto">

@@ -61,7 +61,7 @@ describe('Practice table: the card list panel has a border in the raised shade (
   it('keeps the border off the backdrop behind the grid', () => {
     renderPanel('core');
 
-    const backdrop = screen.getByRole('button', { name: /close/i });
+    const backdrop = screen.getByRole('button', { name: /^close (?!panel)/i });
     expect(backdrop.className).not.toContain('border-bg-raised');
   });
 });
