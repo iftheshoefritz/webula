@@ -158,6 +158,29 @@ export function moveCharge(
   return uses.length ? { ...charge, uses } : charge;
 }
 
+// The N of the card's Recall (#1764): "Recall: N." in its `Keywords`, else its model's `recall` for these
+// facts, else null. `hasRecall` says whether the card can have one at all.
+const recallKeywordOf = (card: ChargedCard): number | null => {
+  const match = /\brecall:\s*(\d+)/i.exec(String(card?.keywords ?? ''));
+  return match ? Number(match[1]) : null;
+};
+const recallModelOf = (card: ChargedCard) => {
+  const name = card ? String(cardDisplayName(card) ?? '') : '';
+  return name ? costModelOf(name)?.recall : undefined;
+};
+export const hasRecall = (card: ChargedCard): boolean => recallKeywordOf(card) !== null || !!recallModelOf(card);
+export function recallOf(card: ChargedCard, facts: CostFacts): number | null {
+  return recallKeywordOf(card) ?? recallModelOf(card)?.(facts) ?? null;
+}
+
+// Whether a move of `card` from `from` to `to` is a Recall play the table refuses (#1764): from the discard
+// pile into the resolving zone, of a card that can have Recall but has none on this table (Vidiian Organ
+// Bank with fewer than two completed missions). The page drops such a move. A card marked removed from the
+// game is never refused, since it never plays.
+export function recallRefused(from: CostPlace, to: CostPlace, card: ChargedCard, facts: CostFacts): boolean {
+  return from === 'discard' && to === 'resolving' && hasRecall(card) && recallOf(card, facts) === null;
+}
+
 function baseCharge(
   segment: CostSegment,
   from: CostPlace,
@@ -183,6 +206,17 @@ function baseCharge(
         ? facts?.pending?.find((d) => d.fromDrawDeck && d.applies(play))
         : undefined;
   if (from === 'drawDeck' && !discount) return null;
+  // A Recall play (#1764): from the discard pile into the resolving zone only, at the printed cost + N. A
+  // Recall card moved from the discard pile anywhere else is no play.
+  if (from === 'discard' && hasRecall(card)) {
+    const n = to === 'resolving' && facts ? recallOf(card, facts) : null;
+    if (n === null) return null;
+    return {
+      kind: 'play',
+      cost: Math.max(0, printed + n),
+      source: { title: cardTitleOf(name), reason: `Recall ${n}, played from your discard pile` },
+    };
+  }
   const asHand = from === 'hand' || from === 'drawDeck';
   const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
   const suggested = price && facts ? price(play, facts) : null;

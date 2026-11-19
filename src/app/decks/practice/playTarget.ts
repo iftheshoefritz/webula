@@ -4,7 +4,7 @@
 // the higher of the bottom row's top and the closed hand fan's top, so a drag to the core that wanders
 // up a little stays a drag to the core. Below the line every drop works as before, uncharged.
 
-import { resolvesOnPlay } from '../../../lib/playCost';
+import { hasRecall, resolvesOnPlay } from '../../../lib/playCost';
 import type { CardInstance, TableState } from './tableReducer';
 
 // The droppable's id: the zone it plays into.
@@ -15,25 +15,30 @@ export const PLAY_TARGET_MARGIN = 16;
 
 // Whether this drag may show the target, apart from where the pointer is: the setting is on, the turn
 // is in play and draw, no attempt is in progress, nothing is resolving, and the drag carries one card
-// from the hand that resolves on play. A group drag (#677) never shows it: the zone holds one card.
+// from the hand that resolves on play. A group drag (#677) never shows it: the zone holds one card. A card
+// from the discard pile (#1764) shows it when it can have Recall and is not marked removed from the game,
+// whatever its Recall on this table, so a refused play is refused on the target and does not fall through to
+// the card under it.
 export function playTargetEligible({
   resolveEvents,
   table,
   group,
   fromHand,
+  fromDiscard = false,
 }: {
   resolveEvents: boolean;
   table: Pick<TableState, 'segment' | 'attempt' | 'resolving'>;
   group: readonly CardInstance[];
   fromHand: boolean;
+  fromDiscard?: boolean;
 }): boolean {
   return (
     resolveEvents &&
     table.segment === 'playAndDraw' &&
     !table.attempt &&
     !table.resolving &&
-    fromHand &&
     group.length === 1 &&
+    (fromHand || (fromDiscard && hasRecall(group[0].card) && !group[0].removedFromGame)) &&
     resolvesOnPlay(group[0].card)
   );
 }

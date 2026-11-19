@@ -575,7 +575,7 @@ sentence "Remove this event from the game." (`removesItselfFromGame` in `playCos
 sentence start in any case, #1730), **Resolved → Remove from game** (`resolving-remove-from-game`) shows
 first: one `batch` (`resolvedRemoveFromGameAction`), that `move` and then `setRemovedFromGame`, which
 leaves the card at the end of the discard pile marked as the discard pile panel's Remove from game marks
-it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Cancel**
+it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Recall** (#1764): an event with "Recall: N." in its `Keywords` (Miracle Working, Second Edition, Planned Provocation, Profound Discovery), or Vidiian Organ Bank while the player has two completed missions (its `recall` in `titles/recall.ts`), plays from the discard pile: a drag of it out of the discard pile panel shows the Play target (`playTargetEligible` with `fromDiscard`, never for a card marked removed from the game), and the move into the resolving zone is a play at its cost + N, "Played Miracle Working (cost 2, Miracle Working: Recall 1, played from your discard pile)" (`recallOf` in `playCost.ts`); a move of it from the discard pile anywhere else is no play. Vidiian Organ Bank with fewer than two completed missions is refused on the Play target (`recallRefused`): no move and no entry. While a recalled event resolves (`resolvingRecalled`, from the log), the panel shows Resolved → Remove from game and no Resolved → Discard, the last step of its resolve model leaves it removed from the game ("…, and Miracle Working was removed from the game", the entry's `removed`), and Cancel puts it back at the end of the discard pile, "Cancelled playing Miracle Working, and it went back to the discard pile" (`returnedTo`). **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -700,7 +700,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twenty-one fixtures. Each one deals the same table on every load.
+The practice table has twenty-two fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -737,6 +737,11 @@ The practice table has twenty-one fixtures. Each one deals the same table on eve
   These Are The Voyages already moved from the hand into the resolving zone, charged 1 and logged "Played
   These Are The Voyages (cost 1)", so the page opens on the resolving panel. It keeps its game under
   `practiceGame:fixture=resolving`.
+- `?fixture=recall` (#1764) deals the `?fixture=costs` table, the same cards and the same ids, with Miracle
+  Working and a second Vidiian Organ Bank in the discard pile (`PRACTICE_RECALL_TSV`, `extraDiscard` of
+  `resetWithPiles`), with the last ids. Open the discard pile's panel and drag one up to the Play target:
+  Miracle Working plays at cost 2; Vidiian Organ Bank is refused until two missions are complete
+  (`mission-toggle-<i>`), then plays at cost 1. It keeps its game under `practiceGame:fixture=recall`.
 - `?fixture=attributes` (#1666) deals the `?fixture=piles` table, the same cards and the same ids, with
   2 more (`PRACTICE_ATTRIBUTES_TSV`): Kira Nerys Reformed Collaborator, a [TN] personnel, joins the end of
   the crew of the ship at Bilana System, and Dark Dissension the end of the core (`extraCore` of

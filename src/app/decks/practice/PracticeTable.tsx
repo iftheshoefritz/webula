@@ -25,8 +25,9 @@ import {
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
 import { PLAY_TARGET_ID, playTargetEligible, playTargetLine } from './playTarget';
+import { costFactsOf } from './costFacts';
 import { PlayTarget } from './PlayTarget';
-import { removesItselfFromGame, resolvesOnPlay } from '../../../lib/playCost';
+import { recallRefused, removesItselfFromGame, resolvesOnPlay } from '../../../lib/playCost';
 import { useEscapeLayer } from './useEscapeLayer';
 import { FaLayerGroup, FaMobileAlt, FaForward, FaTimes } from 'react-icons/fa';
 import {
@@ -59,6 +60,7 @@ import {
   PRACTICE_DISSIDENT_DRAW_TOP,
   PRACTICE_DISSIDENT_HAND,
   PRACTICE_DISSIDENT_TSV,
+  PRACTICE_RECALL_TSV,
   PRACTICE_KMTAR_TSV,
   PRACTICE_MISSIONS_HAND,
   PRACTICE_MISSIONS_TSV,
@@ -184,6 +186,7 @@ import {
   withShuffleOrders,
   actionReveal,
   resolveStepOf,
+  resolvingRecalled,
 } from './gameLog';
 import {
   CardHoldProvider,
@@ -1043,7 +1046,13 @@ function computeMoveTargetForInstance(
   if (!over) return null;
 
   // The Play target (#1729) plays an event that resolves at once into the resolving zone.
-  if (over.id === PLAY_TARGET_ID) return resolvesOnPlay(instance.card) ? 'resolving' : null;
+  // A Recall play the table refuses (#1764), Vidiian Organ Bank with fewer than two completed missions,
+  // makes no move: the card stays in the discard pile.
+  if (over.id === PLAY_TARGET_ID) {
+    if (!resolvesOnPlay(instance.card)) return null;
+    const fromDiscard = table.discard.some((c) => c.id === instance.id) && !instance.removedFromGame;
+    return fromDiscard && recallRefused('discard', 'resolving', instance.card, costFactsOf(table)) ? null : 'resolving';
+  }
 
   if (FLAT_DROP_ZONES.includes(String(over.id) as Zone)) {
     if (over.id === 'dilemmaStack' && instance.card.type !== 'dilemma') return null;
@@ -2079,7 +2088,10 @@ function PracticeDrawContent() {
   // Nanoprobes, Goran and the cards of the later models in the hand, and a Borg in the ship's crew.
   // `?fixture=resolving` (#1728) deals the costs table with These Are The Voyages already resolving.
   const isResolvingFixture = fixture === 'resolving';
-  const isCostsFixture = fixture === 'costs' || isResolvingFixture;
+  // `?fixture=recall` (#1764) deals the costs table with Miracle Working and Vidiian Organ Bank in the
+  // discard pile.
+  const isRecallFixture = fixture === 'recall';
+  const isCostsFixture = fixture === 'costs' || isResolvingFixture || isRecallFixture;
   // `?fixture=attributes` (#1666) deals the piles table with a [TN] personnel in the ship's crew and
   // Dark Dissension in the core, for the arrows of the attribute bands.
   const isAttributesFixture = fixture === 'attributes';
@@ -2715,7 +2727,7 @@ function PracticeDrawContent() {
   ) => {
     // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal,
     // or those of `?fixture=attributes` (#1666), dealt to the crew and the core.
-    const extras: { hand: any[]; crew: any[]; core: any[]; lateHand: any[]; drawTop?: any[] } | null = fixturePiles
+    const extras: { hand: any[]; crew: any[]; core: any[]; lateHand: any[]; drawTop?: any[]; discard?: any[] } | null = fixturePiles
       ? isCostsFixture
         ? costsFixtureExtras()
         : isAttributesFixture
@@ -2731,7 +2743,7 @@ function PracticeDrawContent() {
                   : null
       : null;
     const extraKeys = new Set(
-      extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand, ...(extras.drawTop ?? [])].map((c: any) => c.collectorsinfo) : []
+      extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand, ...(extras.drawTop ?? []), ...(extras.discard ?? [])].map((c: any) => c.collectorsinfo) : []
     );
     const cards = extractDrawDeck(deck).filter((c: any) => !extraKeys.has(c.collectorsinfo));
     // The extra cards' instances, made after the deal's own, so the ids of every other card are those of
@@ -2746,6 +2758,8 @@ function PracticeDrawContent() {
         extraCrew: crew,
         ...(core.length ? { extraCore: core } : {}),
         ...(extras.drawTop?.length ? { extraDrawTop: createCardInstances(extras.drawTop) } : {}),
+        // Last of all (#1764), so every other card keeps the id of the costs deal.
+        ...(extras.discard?.length ? { extraDiscard: createCardInstances(extras.discard) } : {}),
       };
     };
     const deal: TableAction = {
@@ -2821,6 +2835,7 @@ function PracticeDrawContent() {
       core: rows.filter(core),
       // The hand's last cards (#1727), in the order of `PRACTICE_COSTS_LATE_HAND`.
       lateHand: PRACTICE_COSTS_LATE_HAND.flatMap((name) => rows.filter((r) => r.originalName === name)),
+      ...(isRecallFixture ? { discard: extractDrawDeck(deckFromTsv(PRACTICE_RECALL_TSV, data)) } : {}),
     };
   };
   // The cards `?fixture=attributes` adds (#1666), split into the crew's and the core's.
@@ -2868,6 +2883,7 @@ function PracticeDrawContent() {
     if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
     if (isKmtarFixture) return deckFromTsv(PRACTICE_KMTAR_TSV, data);
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
+    if (isRecallFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data), ...deckFromTsv('1\tMiracle Working', data) };
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
@@ -3621,6 +3637,10 @@ function PracticeDrawContent() {
     );
   };
 
+  // Whether the resolving event was recalled from the discard pile (#1764): its panel then removes it from
+  // the game and offers no Resolved → Discard.
+  const resolvingIsRecalled = resolvingRecalled(game);
+
   // Whether this drag may show the Play target (#1729), wherever the pointer is.
   const playEligible =
     draggingInstance !== null &&
@@ -3629,6 +3649,7 @@ function PracticeDrawContent() {
       table,
       group: draggingGroup,
       fromHand: hand.some((c) => c.id === draggingInstance.id),
+      fromDiscard: table.discard.some((c) => c.id === draggingInstance.id),
     });
 
   // The pointer is the press point plus the drag's delta. The line is the higher of the bottom row's
@@ -4991,9 +5012,11 @@ function PracticeDrawContent() {
                 instance={table.resolving}
                 hidden={draggingInstance !== null}
                 escapeActive={!gameMenuOpen}
-                onDiscard={() => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })}
+                onDiscard={
+                  resolvingIsRecalled ? undefined : () => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })
+                }
                 onRemoveFromGame={
-                  removesItselfFromGame(table.resolving.card)
+                  removesItselfFromGame(table.resolving.card) || resolvingIsRecalled
                     ? () => table.resolving && dispatch(resolvedRemoveFromGameAction(table.resolving.id))
                     : undefined
                 }

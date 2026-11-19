@@ -469,7 +469,8 @@ export function ResolvingPanel({
   hidden: boolean;
   // Whether Escape reaches the panel: not while the game menu splash covers it.
   escapeActive: boolean;
-  onDiscard: () => void;
+  // Absent for a recalled event (#1764), which ends removed from the game.
+  onDiscard?: () => void;
   // Shown only for an event that removes itself from the game (`removesItselfFromGame`).
   onRemoveFromGame?: () => void;
   onCancel: () => void;
@@ -536,9 +537,11 @@ export function ResolvingPanel({
               Resolved → Remove from game
             </button>
           )}
-          <button type="button" data-testid="resolving-discard" className={button} onClick={onDiscard}>
-            Resolved → Discard
-          </button>
+          {onDiscard && (
+            <button type="button" data-testid="resolving-discard" className={button} onClick={onDiscard}>
+              Resolved → Discard
+            </button>
+          )}
           {step?.step !== 'bottom' && (
             <button type="button" data-testid="resolving-cancel" className={secondary} onClick={onCancel}>
               Cancel

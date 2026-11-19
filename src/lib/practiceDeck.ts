@@ -253,6 +253,10 @@ export const PRACTICE_COMPLETION_TSV = `${PRACTICE_DECK_TSV.split('\n')
 export const PRACTICE_DISSIDENT_TSV = `1\tThe New Resistance
 1\tLeeta Rebel Supporter
 1\tDamar Cardassian Liberator`;
+// The cards `?fixture=recall` (#1764) deals into the discard pile of the `?fixture=costs` table: Miracle
+// Working, an event with Recall: 1, and a second Vidiian Organ Bank, whose Recall needs two completed missions.
+export const PRACTICE_RECALL_TSV = `1\tMiracle Working
+1\tVidiian Organ Bank`;
 export const PRACTICE_DISSIDENT_CORE = 'The New Resistance';
 export const PRACTICE_DISSIDENT_HAND = 'Leeta Rebel Supporter';
 export const PRACTICE_DISSIDENT_DRAW_TOP = 'Damar Cardassian Liberator';
