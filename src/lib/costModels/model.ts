@@ -424,6 +424,12 @@ export interface CostModel {
    */
   discardPlayCost?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
   /**
+   * The N of a Recall the card's game text grants (#1764): "While you command two completed missions, this
+   * event gains Recall: 1." Null while it has none, so its play from the discard pile is refused. A card whose
+   * `Keywords` hold "Recall: N." needs no model (`recallOf` in `playCost.ts`).
+   */
+  recall?: (facts: CostFacts) => number | null;
+  /**
    * The cost of the play from the hand of another card, while this card is in the core (#1702): Captain
    * on the Bridge makes a Commander aboard his ship cost −1. Null when the text changes nothing.
    */

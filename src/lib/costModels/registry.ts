@@ -15,6 +15,7 @@ import { OWN_COST_MODELS } from './titles/ownCost';
 import { OWN_COST_PLACE_MODELS } from './titles/ownCostPlace';
 import { PENDING_DISCOUNT_MODELS } from './titles/pendingDiscount';
 import { PERSONNEL_RULE_MODELS } from './titles/personnelRule';
+import { RECALL_MODELS } from './titles/recall';
 import { STANDING_RULE_MODELS } from './titles/standingRule';
 import { TABLE_USE_MODELS } from './titles/tableUse';
 import { cardTitleOf } from '../cardTitle';
@@ -39,6 +40,7 @@ const MODELS: CostModel[] = [
   ...OWN_COST_PLACE_MODELS,
   ...STANDING_RULE_MODELS,
   ...TABLE_USE_MODELS,
+  ...RECALL_MODELS,
   ...COUNTER_LIMIT_MODELS,
   ...MISSION_RULE_MODELS,
   ...PERSONNEL_RULE_MODELS,

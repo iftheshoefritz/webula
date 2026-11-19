@@ -251,20 +251,22 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // A Cancel of the resolving event (#1728): the event went back to the hand, and `target` names the
   // charge of its play, absent for a move into the resolving zone that charged nothing. The effective
   // log reads that play as no play from then on.
-  | { kind: 'playCancelled'; card: string; target?: ChargeTarget }
+  // A recalled event (#1764) went back to the discard pile instead: `returnedTo` is `'discard'`.
+  | { kind: 'playCancelled'; card: string; target?: ChargeTarget; returnedTo?: 'discard' }
   // The free draw of the resolving event's text (#1739): `count` cards drawn, and the personnel whose
   // printed cost set it, for These Are The Voyages. No counter is charged.
   | { kind: 'resolveDrew'; event: string; count: number; personnel?: string; personnelCost?: number }
   // The last step of the resolving event's text (#1739): `count` cards of the hand went to the bottom of
   // the draw deck, and the event to the discard pile.
-  | { kind: 'resolveBottom'; event: string; count: number }
+  // A recalled event (#1764) was removed from the game instead (`removed`), here and in the three below.
+  | { kind: 'resolveBottom'; event: string; count: number; removed?: true }
   // The one step of a "discard a card from hand to draw" event (#1745): `discarded` went from the hand to the
   // discard pile, `count` cards were drawn free, and the event went to the discard pile.
-  | { kind: 'resolveDiscardDraw'; event: string; discarded: string; count: number }
+  | { kind: 'resolveDiscardDraw'; event: string; discarded: string; count: number; removed?: true }
   // The one step of Second Edition (#1746): a copy of `personnel` downloaded from the draw deck, the deck
   // shuffled, `count` cards drawn free (1 for an [AU] personnel), and the event to the discard pile.
-  | { kind: 'resolveDownloaded'; event: string; personnel: string; count: number }
-  | { kind: 'resolveExchanged'; event: string; fromHand: string; fromTable: string }
+  | { kind: 'resolveDownloaded'; event: string; personnel: string; count: number; removed?: true }
+  | { kind: 'resolveExchanged'; event: string; fromHand: string; fromTable: string; removed?: true }
   // A spend of counters a mission's text allows (#1754): Earth's "spend a counter to draw two cards",
   // `drew` cards drawn, or Nimbus III's "spend three counters to download …", `downloaded` the card that
   // went into its away team. `cost` is the charge, which the chip and the list correct as any other.
@@ -328,8 +330,8 @@ export type GameAction =
   // A `discardTop` choice of the play at `target` (#1744), Type III Galor's: the top cards of the draw deck
   // go to the discard pile and the cost changes, in one entry that one undo takes back.
   | { type: 'discardForCharge'; target: ChargeTarget; source: string }
-  // A Cancel of the resolving event (#1728): it goes back to the end of the hand, and its play's charge
-  // is refunded, in one entry that one undo takes back.
+  // A Cancel of the resolving event (#1728): it goes back to the end of the hand (a recalled event, #1764,
+  // to the discard pile), and its play's charge is refunded, in one entry that one undo takes back.
   | { type: 'cancelResolving' }
   // The steps of the resolving event's resolve model (#1739), each one entry that one undo takes back:
   // the free draw, by the printed cost of the personnel `personnelId` or by the model's fixed number, and
@@ -959,8 +961,10 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
     const found = findInstanceAnywhere(table, action.id);
     const next = found ? tableReducer(table, action) : table;
     const landed = next !== table ? findInstanceAnywhere(next, action.id) : null;
+    // A card marked removed from the game (#1730) never plays from the discard pile (#1764).
+    const removed = found?.instance.removedFromGame === true && costPlace(found.zone) === 'discard';
     const charge =
-      found && landed
+      found && landed && !removed
         ? moveCharge(
             table.segment,
             costPlace(found.zone),
@@ -1493,7 +1497,9 @@ export function logEntryText(entry: LogEntry): string {
     case 'discountDismissed':
       return `Dismissed the discount of ${typeof entry.source === 'string' && entry.source ? entry.source : 'a card'}`;
     case 'playCancelled':
-      return `Cancelled playing ${typeof entry.card === 'string' && entry.card ? entry.card : 'a card'}`;
+      return `Cancelled playing ${typeof entry.card === 'string' && entry.card ? entry.card : 'a card'}${
+        entry.returnedTo === 'discard' ? ', and it went back to the discard pile' : ''
+      }`;
     case 'resolveDrew': {
       // "Drew 4 cards (These Are The Voyages, Data cost 4)" (#1739).
       const n = isIndex(entry.count) ? entry.count : 0;
@@ -1509,15 +1515,15 @@ export function logEntryText(entry: LogEntry): string {
       const n = isIndex(entry.count) ? entry.count : 0;
       const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
       return n > 0
-        ? `Put ${n} ${n === 1 ? 'card' : 'cards'} on the bottom of the draw deck, and ${event} went to the discard pile`
-        : `${event} went to the discard pile`;
+        ? `Put ${n} ${n === 1 ? 'card' : 'cards'} on the bottom of the draw deck, and ${event} ${eventWent(entry)}`
+        : `${event} ${eventWent(entry)}`;
     }
     case 'resolveDiscardDraw': {
       // "Discarded Tricorder, drew 2 cards, and Days of Atonement went to the discard pile" (#1745).
       const n = isIndex(entry.count) ? entry.count : 0;
       const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
       const discarded = typeof entry.discarded === 'string' && entry.discarded ? entry.discarded : 'a card';
-      return `Discarded ${discarded}, drew ${n} ${n === 1 ? 'card' : 'cards'}, and ${event} went to the discard pile`;
+      return `Discarded ${discarded}, drew ${n} ${n === 1 ? 'card' : 'cards'}, and ${event} ${eventWent(entry)}`;
     }
     case 'resolveDownloaded': {
       // "Downloaded Data (Second Edition), shuffled the draw deck, drew 1 card, and Second Edition went to the
@@ -1526,7 +1532,7 @@ export function logEntryText(entry: LogEntry): string {
       const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
       const personnel = typeof entry.personnel === 'string' && entry.personnel ? entry.personnel : 'a personnel';
       const drew = n > 0 ? `, drew ${n} ${n === 1 ? 'card' : 'cards'}` : '';
-      return `Downloaded ${personnel} (${event}), shuffled the draw deck${drew}, and ${event} went to the discard pile`;
+      return `Downloaded ${personnel} (${event}), shuffled the draw deck${drew}, and ${event} ${eventWent(entry)}`;
     }
     case 'resolveExchanged': {
       // "Exchanged Danara Pel for Motura, and Vidiian Organ Bank went to the discard pile" (#1765): the hand's
@@ -1534,7 +1540,7 @@ export function logEntryText(entry: LogEntry): string {
       const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
       const fromHand = typeof entry.fromHand === 'string' && entry.fromHand ? entry.fromHand : 'a personnel';
       const fromTable = typeof entry.fromTable === 'string' && entry.fromTable ? entry.fromTable : 'a personnel';
-      return `Exchanged ${fromHand} for ${fromTable}, and ${event} went to the discard pile`;
+      return `Exchanged ${fromHand} for ${fromTable}, and ${event} ${eventWent(entry)}`;
     }
     case 'missionSpend': {
       // "Spent 1 counter at Earth Lush and Beautiful Home, and drew 2 cards".
@@ -2170,6 +2176,11 @@ function discountDismissedEntry(state: GameState, action: { target: ChargeTarget
 // in the effective log. The zone holds one card and a move is the one way in, and undo drops the later
 // entries, so that move is this card's. Null when that move charged nothing, outside play and draw.
 function resolvingPlayOf(log: LogEntry[], name: string): ChargeTarget | null {
+  return resolvingMoveOf(log, name)?.target ?? null;
+}
+
+// The last move into the resolving zone in the effective log (#1764), with its charge, or null with none.
+function resolvingMoveOf(log: LogEntry[], name: string): { target: ChargeTarget | null; fromDiscard: boolean } | null {
   const effective = effectiveLog(log);
   for (let i = effective.length - 1; i >= 0; i--) {
     const entry = effective[i];
@@ -2179,18 +2190,40 @@ function resolvingPlayOf(log: LogEntry[], name: string): ChargeTarget | null {
       if (move.to.kind !== 'resolving') continue;
       const c = move.cards.lastIndexOf(name);
       const cost = c >= 0 ? moveCosts(move)?.[c] : null;
-      return typeof cost === 'number' ? { entry: i, move: m, card: c } : null;
+      return { target: typeof cost === 'number' ? { entry: i, move: m, card: c } : null, fromDiscard: move.from.kind === 'discard' };
     }
   }
   return null;
 }
+
+// Whether the resolving event was recalled (#1764): the play that moved it in, the last move into the
+// resolving zone in the effective log, came from the discard pile and was charged. A Recall play is the one
+// charged move from the discard pile into the zone, so an undo, a redo and a reload agree.
+export function resolvingRecalled(state: { table: TableState; log: LogEntry[] }): boolean {
+  const event = state.table.resolving;
+  if (!event) return false;
+  const move = resolvingMoveOf(state.log, cardName(state.table, event.id));
+  return !!move?.fromDiscard && move.target !== null;
+}
+
+// The end of a resolve model's last step: the event goes to the discard pile, and a recalled one (#1764) is
+// then removed from the game there, as Resolved → Remove from game leaves it.
+function finishResolving(table: TableState, id: string, recalled: boolean): TableState {
+  const discarded = tableReducer(table, { type: 'move', id, to: 'discard' });
+  return recalled && discarded !== table ? tableReducer(discarded, { type: 'setRemovedFromGame', ids: [id], removedFromGame: true }) : discarded;
+}
+
+const eventWent = (entry: { removed?: unknown }): string =>
+  entry.removed === true ? 'was removed from the game' : 'went to the discard pile';
 
 // A Cancel of the resolving event (#1728): it goes to the end of the hand, uncharged, and the entry names
 // its play's charge, which the effective log then reads as no play. Nothing resolving changes nothing.
 function cancelResolvingState(state: GameState): GameState {
   const event = state.table.resolving;
   if (!event) return state;
-  const table = tableReducer(state.table, { type: 'move', id: event.id, to: 'hand' });
+  // A recalled event (#1764) goes back to the end of the discard pile, not marked removed.
+  const recalled = resolvingRecalled(state);
+  const table = tableReducer(state.table, { type: 'move', id: event.id, to: recalled ? 'discard' : 'hand' });
   if (table === state.table) return state;
   const card = cardName(state.table, event.id);
   const target = resolvingPlayOf(state.log, card);
@@ -2198,6 +2231,7 @@ function cancelResolvingState(state: GameState): GameState {
     kind: 'playCancelled',
     card,
     ...(target ? { target } : {}),
+    ...(recalled ? { returnedTo: 'discard' as const } : {}),
     turn: table.turn,
     segment: table.segment,
   };
@@ -2280,9 +2314,10 @@ function resolveBottomState(state: GameState, action: { ids: string[] }): GameSt
   const n = Math.min(model.bottomFromHand, state.table.hand.length);
   if (ids.length !== n || !ids.every((id) => state.table.hand.some((c) => c.id === id))) return state;
   const placed = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), state.table);
-  const table = tableReducer(placed, { type: 'move', id: event.id, to: 'discard' });
+  const recalled = resolvingRecalled(state);
+  const table = finishResolving(placed, event.id, recalled);
   if (table === placed) return state;
-  const entry: LogEntry = { kind: 'resolveBottom', event: name, count: n, turn: table.turn, segment: table.segment };
+  const entry: LogEntry = { kind: 'resolveBottom', event: name, count: n, ...(recalled ? { removed: true as const } : {}), turn: table.turn, segment: table.segment };
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
@@ -2306,12 +2341,14 @@ function resolveDiscardDrawState(state: GameState, action: { id: string }): Game
     table = next;
     count++;
   }
-  table = tableReducer(table, { type: 'move', id: event.id, to: 'discard' });
+  const recalled = resolvingRecalled(state);
+  table = finishResolving(table, event.id, recalled);
   const entry: LogEntry = {
     kind: 'resolveDiscardDraw',
     event: name,
     discarded: cardName(state.table, action.id),
     count,
+    ...(recalled ? { removed: true as const } : {}),
     turn: table.turn,
     segment: table.segment,
   };
@@ -2341,12 +2378,14 @@ function resolveDownloadState(state: GameState, action: { personnelId: string; o
     table = next;
     count++;
   }
-  table = tableReducer(table, { type: 'move', id: event.id, to: 'discard' });
+  const recalled = resolvingRecalled(state);
+  table = finishResolving(table, event.id, recalled);
   const entry: LogEntry = {
     kind: 'resolveDownloaded',
     event: name,
     personnel: cardName(state.table, action.personnelId),
     count,
+    ...(recalled ? { removed: true as const } : {}),
     turn: table.turn,
     segment: table.segment,
   };
@@ -2371,13 +2410,15 @@ function resolveExchangeState(state: GameState, action: { handId: string; tableI
     : { zone: 'missionPile', missionIndex: Number(group.key.slice('awayTeam-'.length)), pile: 'awayTeam' };
   const left = tableReducer(state.table, { type: 'move', id: action.tableId, to: 'hand' });
   const joined = tableReducer(left, { type: 'move', id: action.handId, to });
-  const table = tableReducer(joined, { type: 'move', id: event.id, to: 'discard' });
+  const recalled = resolvingRecalled(state);
+  const table = finishResolving(joined, event.id, recalled);
   if (left === state.table || joined === left || table === joined) return state;
   const entry: LogEntry = {
     kind: 'resolveExchanged',
     event: name,
     fromHand: cardName(state.table, action.handId),
     fromTable: cardName(state.table, action.tableId),
+    ...(recalled ? { removed: true as const } : {}),
     turn: table.turn,
     segment: table.segment,
   };

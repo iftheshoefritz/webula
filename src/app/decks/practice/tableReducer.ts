@@ -490,7 +490,7 @@ export type TableAction =
   // every time. `extraHand` and `extraCrew` (#1654, `?fixture=costs`) join the hand after its own
   // cards and the crewed ship's crew after its personnel, and `extraCore` (#1666,
   // `?fixture=attributes`) the core after its events. `extraDrawTop` (#1763, `?fixture=dissident`) goes on
-  // top of the draw deck.
+  // top of the draw deck, and `extraDiscard` (#1764, `?fixture=recall`) into the discard pile.
   | {
       type: 'resetWithPiles';
       cards: CardInstance[];
@@ -502,6 +502,7 @@ export type TableAction =
       extraCrew?: CardInstance[];
       extraCore?: CardInstance[];
       extraDrawTop?: CardInstance[];
+      extraDiscard?: CardInstance[];
     };
 
 export const FIXTURE_HAND = 7;
@@ -1448,6 +1449,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         missions,
         brig: brig.map((c) => ({ ...c, face: ZONE_FACE.brig })),
         core: [...core, ...(action.extraCore ?? [])].map((c) => ({ ...c, face: ZONE_FACE.core })),
+        ...(action.extraDiscard?.length ? { discard: action.extraDiscard.map((c) => ({ ...c, face: ZONE_FACE.discard })) } : {}),
       };
     }
 
