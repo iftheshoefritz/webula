@@ -46,7 +46,7 @@ import { resolveModelOf } from '../../../lib/resolveModels';
 import { isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { chosenPersonnel, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
-import { cappedLimit, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
+import { cappedLimit, firstTurnGrantsOf, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, slotQuadrantOf, turnPlayOf } from './costFacts';
 import {
   EARTH_SPEND_COST,
@@ -135,7 +135,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   | { kind: 'missionCompleted'; mission: string; completed: boolean; effect?: CompletionLog }
   | { kind: 'nextTurn' }
   // "Draw 7" drew the opening hand (#1736), `count` cards, at no cost.
-  | { kind: 'openingHand'; count: number }
+  // `grants`: the grants of the cost models to the first turn's limit (#1755, Ledos), decided at the tap
+  // and kept here, so a later change to the table leaves them, and an undo of the tap takes them back.
+  | { kind: 'openingHand'; count: number; grants?: LimitGrant[] }
   // The next-turn button moved the turn to another segment of the same turn (#1605).
   | { kind: 'segment'; to: TurnSegment }
   | { kind: 'score'; delta: number; score: number }
@@ -680,8 +682,11 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
     // The turn waits while an event resolves (#1727): a held button makes no entry.
     case 'nextTurn':
       return after === before ? null : { kind: 'nextTurn' };
-    case 'drawOpeningHand':
-      return after === before ? null : { kind: 'openingHand', count: after.hand.length - before.hand.length };
+    case 'drawOpeningHand': {
+      if (after === before) return null;
+      const grants = firstTurnGrantsOf(costFactsOf(before, []));
+      return { kind: 'openingHand', count: after.hand.length - before.hand.length, ...(grants.length ? { grants } : {}) };
+    }
     case 'advanceSegment':
       if (after === before) return null;
       return after.turn !== before.turn ? { kind: 'nextTurn' } : { kind: 'segment', to: after.segment };
@@ -1308,7 +1313,9 @@ export function logEntryText(entry: LogEntry): string {
     case 'nextTurn':
       return `Started turn ${entry.turn}`;
     case 'openingHand':
-      return `Drew the opening hand (${entry.count} ${entry.count === 1 ? 'card' : 'cards'})`;
+      return `Drew the opening hand (${entry.count} ${entry.count === 1 ? 'card' : 'cards'})${
+        Array.isArray(entry.grants) && entry.grants.length ? `; ${entry.grants.map((g) => `${g.title} +${g.amount} counters this turn`).join(', ')}` : ''
+      }`;
     case 'segment':
       return `Went to ${entry.to === 'discard' ? 'discard' : 'orders'}`;
     case 'score':
@@ -1722,12 +1729,21 @@ export const turnCharges = (log: LogEntry[], turn: number): LogCharge[] =>
 // The limit of counters of `turn` before any cap: 7, the `grants` of the cost models (#1655), and the
 // turn's changes, never below 0. A new turn starts at 7 and its grants. The grants read the table as it
 // stands now, so they belong to the current turn, the one the counter shows.
+// The grants the log keeps for `turn` (#1755): those of its opening hand, decided at the Draw 7 tap. A
+// malformed grant of an old save is left out.
+export const loggedGrantsOf = (log: LogEntry[], turn: number): LimitGrant[] =>
+  log.flatMap((e) =>
+    e.kind === 'openingHand' && e.turn === turn && Array.isArray(e.grants)
+      ? e.grants.filter((g) => !!g && typeof g.title === 'string' && typeof g.reason === 'string' && typeof g.amount === 'number' && Number.isFinite(g.amount))
+      : []
+  );
+
 export const uncappedTurnCounterLimit = (log: LogEntry[], turn: number, grants: LimitGrant[] = []): number =>
   Math.max(
     0,
     log.reduce(
       (limit, e) => (e.kind === 'counterLimit' && e.turn === turn && typeof e.delta === 'number' ? limit + e.delta : limit),
-      grants.reduce((sum, g) => sum + g.amount, TURN_COUNTER_LIMIT)
+      [...grants, ...loggedGrantsOf(log, turn)].reduce((sum, g) => sum + g.amount, TURN_COUNTER_LIMIT)
     )
   );
 
@@ -1788,7 +1804,7 @@ export const turnCounters = (
   return {
     spent: turnCharges(log, turn).reduce((sum, c) => sum + c.cost, 0),
     limit: cappedLimit(uncapped, caps),
-    grants,
+    grants: [...grants, ...loggedGrantsOf(log, turn)],
     ...(caps.length ? { caps, uncapped } : {}),
     ...(choices.length ? { choices: choices.map((c) => ({ ...c, taken: turnChoiceTaken(log, turn, c.title) })) } : {}),
   };
