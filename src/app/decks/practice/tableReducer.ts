@@ -466,6 +466,9 @@ export type TableAction =
       restToPile?: string[];
       overcome?: string;
       restUnder?: string[];
+      // The card that prevented and overcame the dilemma (#1761), for the log: the action has no
+      // changes and its move goes beneath the mission.
+      prevented?: string;
     }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the

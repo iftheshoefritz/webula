@@ -30,11 +30,31 @@ const model = (title: string, label: string, ...skills: string[]): CostModel => 
   playCost: ifCompletedRequiring(...skills),
 });
 
+/** Tristan Adams's choice (#1761): "You may play this personnel at cost +2 to name a dilemma." */
+export const NAME_DILEMMA_LABEL = '+2: name a dilemma';
+
+// Tristan Adams (#1761): the −4 above when it applies, and always the choice to play him at cost +2 to
+// name a dilemma, from the cost the play has.
+function tristanAdams(base: CostModel): CostModel {
+  return {
+    ...base,
+    playCost: (play, facts) => {
+      const own = base.playCost!(play, facts);
+      const cost = own?.cost ?? play.printed;
+      return {
+        cost,
+        reason: own?.reason ?? 'you may name a dilemma',
+        choice: { label: NAME_DILEMMA_LABEL, cost: cost + 2, nameDilemma: true },
+      };
+    },
+  };
+}
+
 export const COMPLETED_MISSION_MODELS: CostModel[] = [
   model('Nador Curious Commander', 'Nador', 'Officer', 'Treachery'),
   model('Data Lucasian Chair', 'Data', 'Diplomacy', 'Leadership'),
   // "…if you command a completed mission requiring Anthropology or Treachery, he is cost -4." (#1749)
-  model('Tristan Adams Deranged Psychiatrist', 'Tristan Adams', 'Anthropology', 'Treachery'),
+  tristanAdams(model('Tristan Adams Deranged Psychiatrist', 'Tristan Adams', 'Anthropology', 'Treachery')),
   model('A. G. Robinson Prototype Captain', 'A. G. Robinson', 'Astrometrics', 'Navigation'),
   model('Gorkon Visionary Chancellor', 'Gorkon', 'Diplomacy', 'Leadership'),
   model('Kathryn Janeway Regretful Leader', 'Kathryn Janeway', 'Engineer', 'Science'),

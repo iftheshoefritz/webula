@@ -693,7 +693,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has eighteen fixtures. Each one deals the same table on every load.
+The practice table has nineteen fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -821,6 +821,11 @@ The practice table has eighteen fixtures. Each one deals the same table on every
   Interests (`26V002`, dual, cost 4) revealed on top: the mission raises it to 5, past the spend, so its
   Resolve preview reads "Overcome with the 3 after it: Stakoron Strait raised the cost past the spend". It
   keeps its game under `practiceGame:fixture=bot-resolve-overcome`.
+- `?fixture=bot-resolve-prevent` (#1761) deals the `?fixture=bot-label` table with Sigma Iotia II Assess
+  Contamination (`23V027`) in place of Moab IV, slot 0, and starts the bot attempt there with its away team
+  of 20 (`BotRevealFixture.awayTeamSlot`), Well-Prepared Defenses (cost 2, no skill) revealed on top, so its
+  Resolve preview reads "Prevented and overcome (Sigma Iotia II)" and no label shows. It keeps its game
+  under `practiceGame:fixture=bot-resolve-prevent`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -1142,6 +1147,25 @@ bot's search and choice at Start read printed costs. When the top card's changed
 card and the rest of the stack go under the mission, face up, in stack order, with no effect; the log says
 "Overcome: Stakoron II raised the cost past the spend"; the snapshot keeps `overcome`, and the strip points
 to Done with "Stack overcome" (`attemptDonePromptText`). A lowered cost never ends the stack.
+
+Two cards prevent and overcome a dilemma in a bot game (#1761, `preventionOf` in `dilemmaPrevention.ts`,
+from the table and the log): Sigma Iotia II Assess Contamination, the attempted mission, prevents the first
+dilemma revealed in the attempt that costs 1 or more (printed) and does not require a skill, once a turn
+(a `dilemmaResolved` entry with `prevented` this turn at the mission uses it); and Tristan Adams Deranged
+Psychiatrist prevents each dilemma of a title his play's choice named this turn, when he was unstopped
+among the attempting personnel at the reveal (the reveal snapshot). "Requires a skill" is
+`dilemmaRequiresSkill` (`src/lib/dilemmaBot/pile/requiresSkill.ts`): the model's seeded play reading a
+skill (`PlayContext.skillRead`, which `PlayState.skill` and a check of a branch that names a skill call)
+where the registry holds the title, and a skill named in the game text otherwise. `botResolveOf` takes the
+preventing card: the preview reads "Prevented and overcome (Sigma Iotia II)", the bot's label and the
+row's marks hide, and Resolve is one `resolveDilemma` with `prevented`, no changes and a move beneath the
+mission, logged "Resolved Well-Prepared Defenses: prevented and overcome (Sigma Iotia II); it goes under
+…". Tristan Adams's play offers "+2: name a dilemma" (a cost choice with `nameDilemma`, with or without
+his −4), which opens a picker, `dilemma-name-picker` (`dilemma-name-search`, `dilemma-name-choice` with
+`data-dilemma-title`, `dilemma-name-cancel`), of the bot's dilemma titles in a bot game and every
+dilemma title otherwise (`nameableDilemmaTitles`); a choice is one `correctCharge` with `named`, a
+`chargeCorrected` entry "(Tristan Adams, named Wavefront)", read back by `namedDilemmasOf`. A game by hand
+changes nothing at the reveal.
 
 A Resolve that adds a modifier names it (#1598, `modifiersClause` in `pile/resolve.ts`): the preview
 of a modifier-only dilemma reads "First skill off for the rest of the attempt" in place of "No effect",

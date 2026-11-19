@@ -31,6 +31,8 @@ type OnRaiseLimit = (target: ChargeTarget, delta: number, source: string) => voi
 
 // A choice of personnel (#1712): the charge that offered it and the model's title. The page opens the picker.
 type OnChoosePersonnel = (target: ChargeTarget, source: string) => void;
+// A choice that names a dilemma (#1761): the page asks for the title, then sets `cost` with it.
+type OnNameDilemma = (target: ChargeTarget, source: string, cost: number) => void;
 
 // A use of a card on the table for a play (#1713): the charge, and the instance id of the card. With it,
 // whether that card still stands where the use needs it.
@@ -79,12 +81,14 @@ function ChargeRow({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  onNameDilemma,
   uses,
 }: {
   charge: LogCharge;
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
 }) {
   const label = chargeLabel(charge);
@@ -183,7 +187,9 @@ function ChargeRow({
             onClick={() =>
               isPersonnelChoice(choice)
                 ? onChoosePersonnel?.(charge.target, source.title)
-                : choice.limit !== undefined
+                : 'nameDilemma' in choice && choice.nameDilemma && choice.cost !== undefined
+                  ? onNameDilemma?.(charge.target, source.title, choice.cost)
+                  : choice.limit !== undefined
                   ? onRaiseLimit(charge.target, choice.limit, source.title)
                   : choice.cost !== undefined && onCorrect(charge.target, choice.cost, source.title)
             }
@@ -227,6 +233,7 @@ export function ChargeChip({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  onNameDilemma,
   uses,
   missionSpend,
 }: {
@@ -234,6 +241,7 @@ export function ChargeChip({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
   // Earth's offer after the play the chip shows (#1754), "Spend 1: draw 2".
   missionSpend?: { label: string; onSpend: () => void };
@@ -252,6 +260,7 @@ export function ChargeChip({
           onCorrect={onCorrect}
           onRaiseLimit={onRaiseLimit}
           onChoosePersonnel={onChoosePersonnel}
+          onNameDilemma={onNameDilemma}
           uses={uses}
         />
       ))}
@@ -279,6 +288,7 @@ export function TurnCountersList({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  onNameDilemma,
   uses,
   onAdjustLimit,
   onTurnChoice,
@@ -291,6 +301,7 @@ export function TurnCountersList({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
   onAdjustLimit: (delta: number) => void;
   onTurnChoice?: (delta: number, source: string) => void;
@@ -371,6 +382,7 @@ export function TurnCountersList({
                 onCorrect={onCorrect}
                 onRaiseLimit={onRaiseLimit}
                 onChoosePersonnel={onChoosePersonnel}
+                onNameDilemma={onNameDilemma}
                 uses={uses}
               />
             ))

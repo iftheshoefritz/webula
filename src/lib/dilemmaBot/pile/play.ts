@@ -110,6 +110,10 @@ export class PlayState {
   private readonly partnered: LivePartnerProfile[] | null;
   /** A personnel left the unstopped group since the dilemma profiles were last settled. */
   private dirty = false;
+  /** Called on each skill the dilemma's own play reads (#1761); absent outside `modelRequiresSkill`. */
+  private readonly skillRead?: () => void;
+  /** Set while a check sums whole profiles, whose skill reads `passes` judges by its branches (#1761). */
+  private summing = false;
   /** Buffers the requirement checks reuse, so a play allocates no array per check. */
   private readonly skillSums = new Array<number>(BOT_SKILLS.length).fill(0);
   private readonly attrSums = [0, 0, 0];
@@ -128,6 +132,7 @@ export class PlayState {
     this.effects = context.effects;
     this.picks = context.picks;
     this.chooses = context.chooses;
+    this.skillRead = context.skillRead;
     this.reportModifiers = context.modifiers;
     this.alive = new Uint8Array(this.group.length).fill(1);
     this.present = new Uint8Array(this.group.length).fill(1);
@@ -204,6 +209,7 @@ export class PlayState {
 
   /** The level of skill `i` of personnel `k` while facing a dilemma. */
   skill(k: number, i: number): number {
+    if (this.skillRead && !this.summing) this.skillRead();
     if (this.blockedSkills.has(i)) return 0;
     const p = this.group[k];
     if (this.firstSkillOff && p.firstSkill === i) return 0;
@@ -233,6 +239,7 @@ export class PlayState {
 
   /** A dilemma's check of summed profiles: Pattern Loss raises it, and Overwhelmed stops the personnel of `pool` who pass it. */
   private passes(branches: RequirementBranch[], skills: number[], attrs: number[], pool: () => number[]): boolean {
+    if (this.skillRead && branches.some((b) => b.skills.some((n) => n > 0))) this.skillRead();
     const checked =
       this.patternLoss && branches.some((b) => b.skills[TRANSPORTERS] > 0)
         ? branches.map((b) => ({ ...b, skills: b.skills.map((n) => (n > 0 ? n + 1 : 0)) }))
@@ -275,7 +282,9 @@ export class PlayState {
 
   private addProfile(k: number, skills: number[], attrs: number[], printedSkills: boolean) {
     const printed = this.group[k].printed.skills;
+    this.summing = true;
     for (let i = 0; i < skills.length; i++) skills[i] += printedSkills ? Math.min(printed[i], this.skill(k, i)) : this.skill(k, i);
+    this.summing = false;
     for (let a = 0; a < 3; a++) attrs[a] += this.attr(k, a as Attr);
   }
 
@@ -736,10 +745,10 @@ export function playPileStack(
   rand: Rand,
   trace?: (line: string) => void,
   notInStack = 0,
-  options: Pick<PlayContext, 'effects' | 'picks' | 'chooses' | 'modifiers'> = {},
+  options: Pick<PlayContext, 'effects' | 'picks' | 'chooses' | 'modifiers' | 'skillRead'> = {},
 ): PileResult {
   const state = new PlayState(
-    { attempt, rand, trace, effects: options.effects, picks: options.picks, chooses: options.chooses, modifiers: options.modifiers },
+    { attempt, rand, trace, effects: options.effects, picks: options.picks, chooses: options.chooses, modifiers: options.modifiers, skillRead: options.skillRead },
     notInStack,
   );
   state.queue = stack.slice();

@@ -99,6 +99,11 @@ function revealedPlayOf(table: TableState, snapshot: RevealSnapshot | undefined 
 // The bot's label on the revealed top card of the dilemma stack (#1519), or null. It reads the group of
 // the attempt's reveal snapshot when the snapshot is for the top card (#1588), so the label and the
 // Resolve read the same personnel.
+// The pile attempt of the revealed top card (#1761), for `dilemmaRequiresSkill`, or null with no top card.
+export function revealedPileAttemptOf(table: TableState) {
+  return revealedPlayOf(table)?.attempt ?? null;
+}
+
 export function botLabelOf(table: TableState): string | null {
   const play = revealedPlayOf(table);
   return play && pileLabelOf(play.top.card, play.attempt, { revealed: play.revealed, rest: play.rest });
@@ -148,6 +153,9 @@ export type BotResolve =
       // for beneath the mission, and the reason, "Stakoron II raised the cost past the spend".
       restUnder?: string[];
       overcome?: string;
+      // The card that prevented and overcame the dilemma (#1761), "Sigma Iotia II" or "Tristan Adams":
+      // no effect, and it goes beneath the mission.
+      prevented?: string;
     };
 
 // Where the resolved dilemma goes, in table terms (#1599).
@@ -180,9 +188,16 @@ export function botResolveOf(
   table: TableState,
   snapshot: RevealSnapshot | undefined = table.attempt?.revealSnapshot,
   selected: ReadonlyArray<string> = [],
+  prevented: string | null = null,
 ): BotResolve {
   const play = snapshot && revealedPlayOf(table, snapshot);
   if (!snapshot || !play || play.top.id !== snapshot.dilemmaId) return { resolvable: false, reason: 'the snapshot is not for the revealed dilemma' };
+  // A dilemma prevented and overcome (#1761, `preventionOf`): no effect, whatever its model, and it goes
+  // beneath the mission.
+  if (prevented) {
+    const move = resolveMoveOf(table, 'under');
+    return { resolvable: true, preview: `Prevented and overcome (${prevented})`, changes: [], notes: [], prevented, ...(move ? { move } : {}) };
+  }
   const row = table.attempt ? attemptingCards(table, table.attempt.missionIndex, table.attempt.shipId) : null;
   const rowPersonnel = new Set((row ?? []).filter((c) => c.card?.type === 'personnel').map((c) => c.id));
   const resolve = pileResolveOf(play.top.card, play.attempt, {
@@ -438,7 +453,11 @@ export function attemptMissionRulesOf(table: TableState, panel: AttemptPanel): A
 // The attempt of `/decks/practice?fixture=attempt` (#1169): the `startAttempt` that Start in the
 // popup would dispatch, with its default numbers, for the crew of the ship the piles deal puts at
 // Bilana System. `table` is the table `resetWithPiles` dealt. Null when that deal has no ship there.
-export function fixtureAttempt(table: TableState): Extract<TableAction, { type: 'startAttempt' }> | null {
+export function fixtureAttempt(table: TableState, awayTeamSlot?: number): Extract<TableAction, { type: 'startAttempt' }> | null {
+  if (awayTeamSlot !== undefined) {
+    const defaults = attemptDefaults(table, { kind: 'awayTeam', missionIndex: awayTeamSlot });
+    return defaults ? { type: 'startAttempt', ...defaults } : null;
+  }
   const ship = table.missions[FIXTURE_SHIP_SLOT]?.ships[0];
   if (!ship) return null;
   const defaults = attemptDefaults(table, { kind: 'crew', shipId: ship.id });
@@ -467,6 +486,8 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // `?fixture=bot-resolve-modifier` (#1598) reveals Accelerated Aging, with a Dead Weight right under it.
 // `?fixture=bot-resolve-overcome` (#1760) attempts Stakoron Strait in place of Bilana System, with a spend
 // of 4, and reveals Conflict of Interests, a dual dilemma of cost 4 that the mission raises past it.
+// `?fixture=bot-resolve-prevent` (#1761) attempts Sigma Iotia II in place of Bilana System and reveals
+// Well-Prepared Defenses, which the mission prevents and overcomes.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
 // The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
@@ -479,6 +500,8 @@ export interface BotRevealFixture {
   next?: { title: string; collectorsInfo: string };
   mission?: string;
   spend?: number;
+  /** The slot attempted with its away team in place of Bilana System's crewed ship (#1761). */
+  awayTeamSlot?: number;
 }
 
 export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
@@ -497,14 +520,16 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   // Conflict of Interests, a dual dilemma of cost 4, at Stakoron Strait, which raises it to 5, past a
   // spend of 4 (#1760).
   'bot-resolve-overcome': { title: 'Conflict of Interests', collectorsInfo: '26V002', mission: '33V030', spend: 4 },
+  // Well-Prepared Defenses, cost 2 and no skill, at Sigma Iotia II, which prevents and overcomes it (#1761).
+  'bot-resolve-prevent': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017', mission: '23V027', awayTeamSlot: 0 },
 };
 
-export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA, spend?: number): {
+export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA, spend?: number, awayTeamSlot?: number): {
   start: Extract<TableAction, { type: 'startAttempt' }>;
   stack: Extract<TableAction, { type: 'move' }>[];
   revealId: string;
 } | null {
-  const start = fixtureAttempt(table);
+  const start = fixtureAttempt(table, awayTeamSlot);
   const labelled = table.dilemmaPile.find((c) => c.card?.originalName?.includes(title));
   if (!start || !labelled) return null;
   const n = Math.max(0, start.personnel - start.subtract);
