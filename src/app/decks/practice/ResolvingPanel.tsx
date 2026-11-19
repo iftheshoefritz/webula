@@ -42,12 +42,14 @@ const STEP_THUMB_WIDTH = 52; // px
  * A step of the resolving event's resolve model (#1739), which the page derives from the log
  * (`resolveStepOf`). `'draw'`: the free draw, of the printed cost of a personnel of `groups`, or of the
  * model's `fixed` number with no choice. `'bottom'`: `count` cards of `hand` to the bottom of the draw deck.
- * `'discardDraw'` (#1745): one card of `hand` discarded to draw `draw` cards free.
+ * `'discardDraw'` (#1745): one card of `hand` discarded to draw `draw` cards free. `'download'` (#1746): a
+ * personnel of `groups` whose copy (`available`) the draw deck holds, downloaded.
  */
 export type ResolveStep =
   | { step: 'draw'; groups: PersonnelCandidateGroup[]; fixed?: number; onDraw: (personnelId?: string) => void }
   | { step: 'bottom'; count: number; hand: CardInstance[]; onPlace: (ids: string[]) => void }
-  | { step: 'discardDraw'; draw: number; hand: CardInstance[]; onDiscardDraw: (id: string) => void };
+  | { step: 'discardDraw'; draw: number; hand: CardInstance[]; onDiscardDraw: (id: string) => void }
+  | { step: 'download'; groups: PersonnelCandidateGroup[]; available: (id: string) => boolean; onDownload: (personnelId: string) => void };
 
 // The small card of View table, the size of a pile card at scale 1.
 export const RESOLVING_MINI_WIDTH = 56; // px
@@ -100,8 +102,21 @@ function ResolvingCard({
   );
 }
 
-// A personnel of the draw step: a toggle with its name and printed cost, and a hold that previews it.
-function PersonnelOption({ candidate, selected, onSelect }: { candidate: PersonnelCandidate; selected: boolean; onSelect: () => void }) {
+// A personnel of the draw step: a toggle with its name and printed cost, and a hold that previews it. The
+// download step (#1746) shows `note` in place of the cost, and disables a personnel with no copy to download.
+function PersonnelOption({
+  candidate,
+  selected,
+  onSelect,
+  note,
+  disabled = false,
+}: {
+  candidate: PersonnelCandidate;
+  selected: boolean;
+  onSelect: () => void;
+  note?: string;
+  disabled?: boolean;
+}) {
   const hold = useCardHold(candidate.id);
   const cost = printedCost(candidate.card.card);
   return (
@@ -109,11 +124,13 @@ function PersonnelOption({ candidate, selected, onSelect }: { candidate: Personn
       type="button"
       data-testid="resolve-personnel"
       data-card-choice={candidate.id}
+      data-available={disabled ? 'false' : undefined}
       aria-pressed={selected}
+      disabled={disabled}
       onClick={onSelect}
       {...hold}
       style={NO_CALLOUT_STYLE}
-      className={`flex min-h-9 items-center gap-2 rounded border px-2 text-left text-sm ${
+      className={`flex min-h-9 items-center gap-2 rounded border px-2 text-left text-sm disabled:cursor-default disabled:opacity-50 ${
         selected ? 'border-blue-400 bg-blue-500/20 text-text-primary' : 'border-white/10 text-text-primary'
       }`}
     >
@@ -121,7 +138,7 @@ function PersonnelOption({ candidate, selected, onSelect }: { candidate: Personn
         {candidate.name}
         {candidate.card.stopped ? <span className="text-text-muted"> (stopped)</span> : null}
       </span>
-      <span className="shrink-0 text-xs text-text-muted">cost {cost}</span>
+      <span className="shrink-0 text-xs text-text-muted">{note ?? `cost ${cost}`}</span>
     </button>
   );
 }
@@ -276,6 +293,55 @@ function BottomStep({ step }: { step: Extract<ResolveStep, { step: 'bottom' }> }
   );
 }
 
+// The step of Second Edition (#1746): the personnel the player commands by place, those with a copy in the
+// draw deck to choose from and the others disabled, and Download. With none available the step says so, and
+// the player ends with Resolved → Discard or Cancel.
+function DownloadStep({ step }: { step: Extract<ResolveStep, { step: 'download' }> }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const candidates = step.groups.flatMap((g) => g.cards);
+  const chosen = selected !== null && candidates.some((c) => c.id === selected) && step.available(selected) ? selected : null;
+  const anyAvailable = candidates.some((c) => step.available(c.id));
+  return (
+    <div data-testid="resolve-step-download" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">Choose one of your personnel: download a copy from the draw deck</p>
+      <div className="flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain pr-1">
+        {!anyAvailable && (
+          <p data-testid="resolve-download-none" className="text-xs text-text-muted">
+            No personnel you command has a copy in the draw deck.
+          </p>
+        )}
+        {step.groups.map((group) => (
+          <div key={group.key} className="flex flex-col gap-1">
+            <h3 className="text-[11px] text-text-muted">{group.label}</h3>
+            {group.cards.map((c) => {
+              const available = step.available(c.id);
+              return (
+                <PersonnelOption
+                  key={c.id}
+                  candidate={c}
+                  selected={c.id === chosen}
+                  onSelect={() => setSelected(c.id)}
+                  disabled={!available}
+                  note={available ? 'copy in deck' : 'no copy in the draw deck'}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        data-testid="resolve-download"
+        className="btn-primary w-full whitespace-nowrap text-sm"
+        disabled={chosen === null}
+        onClick={() => chosen && step.onDownload(chosen)}
+      >
+        Download
+      </button>
+    </div>
+  );
+}
+
 // The step of a "discard a card from hand to draw" event (#1745): the hand as a row, a tap picks one card
 // (another tap moves the pick), and one button discards it and draws. An empty hand shows a note and no
 // button: the discard is the cost of the draw, so the player ends with Resolved → Discard or Cancel.
@@ -382,6 +448,8 @@ export function ResolvingPanel({
               <DrawStep key={`draw-${instance.id}`} step={step} />
             ) : step.step === 'discardDraw' ? (
               <DiscardDrawStep key={`discard-draw-${instance.id}`} step={step} />
+            ) : step.step === 'download' ? (
+              <DownloadStep key={`download-${instance.id}`} step={step} />
             ) : (
               <BottomStep key={`bottom-${instance.id}`} step={step} />
             )}

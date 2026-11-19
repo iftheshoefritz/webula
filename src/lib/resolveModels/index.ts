@@ -5,6 +5,8 @@
 //   then a number of cards of the hand to put on the bottom of the draw deck, in the player's order.
 // - `'discardDraw'` (#1745): one step, a card of the hand discarded to draw a number of cards free. With an
 //   empty hand nothing is discarded and nothing is drawn: the discard is the cost of the draw.
+// - `'downloadCopy'` (#1746): one step, a copy (a card of the same title) of a personnel the player commands
+//   downloaded from the draw deck, the deck shuffled, and a draw when that personnel has an icon.
 // An event with no model resolves by hand, as before.
 //
 // It imports no React and no reducer.
@@ -33,7 +35,16 @@ export interface DiscardDrawModel {
   drawWithoutCompleted?: number;
 }
 
-export type ResolveModel = DrawThenBottomModel | DiscardDrawModel;
+/** "Download a copy of a personnel you command. If that personnel is an [AU] personnel, draw a card." (#1746) */
+export interface DownloadCopyModel {
+  kind: 'downloadCopy';
+  title: string;
+  /** The icon, lowercased ("[au]"), that makes the resolution draw `draw` cards after the download. */
+  drawIfIcon: string;
+  draw: number;
+}
+
+export type ResolveModel = DrawThenBottomModel | DiscardDrawModel | DownloadCopyModel;
 
 /** The cards a `'discardDraw'` model draws, by whether the player commands a completed mission. */
 export const discardDrawCount = (model: DiscardDrawModel, anyCompleted: boolean): number =>
@@ -58,6 +69,9 @@ export const RESOLVE_MODELS: ResolveModel[] = [
   // "To play this event, you must command a Medical Vidiian. Discard a card from hand to draw two cards (or
   // draw three cards if you do not command a completed mission). Destroy this event."
   { kind: 'discardDraw', title: 'Downfallen Civilization', draw: 2, drawWithoutCompleted: 3 },
+  // "Download a copy of a personnel you command. If that personnel is an [AU] personnel, draw a card.
+  // Destroy this event." A copy is a card of the same title; the brig is not commanded.
+  { kind: 'downloadCopy', title: 'Second Edition', drawIfIcon: '[au]', draw: 1 },
 ];
 
 const BY_TITLE = new Map(RESOLVE_MODELS.map((m) => [m.title.toLowerCase(), m]));

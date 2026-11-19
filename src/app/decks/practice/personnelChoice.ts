@@ -4,6 +4,7 @@
 // mission order and ship-row order, as `attemptMoveDestinations` orders them.
 
 import { cardDisplayName } from '../../../lib/cardCount';
+import { cardTitleOf } from '../../../lib/cardTitle';
 import { differentAffiliations } from '../../../lib/costModels/model';
 import type { CardInstance, TableState } from './tableReducer';
 
@@ -47,6 +48,22 @@ export function personnelCandidateGroups(table: TableState, { includeStopped = f
   });
   return groups;
 }
+
+// The copy in the draw deck of the personnel `personnelId` (#1746, Second Edition): the top-most card of the
+// same title (`cardTitleOf`), when the personnel is one the player commands, stopped or not, never the brig.
+// Null otherwise. The reducer and the panel both ask it, so they never disagree.
+export function downloadCopyOf(table: TableState, personnelId: string): CardInstance | null {
+  const personnel = personnelCandidateGroups(table, { includeStopped: true })
+    .flatMap((g) => g.cards)
+    .find((c) => c.id === personnelId);
+  if (!personnel) return null;
+  const title = cardTitleOf(cardDisplayName(personnel.card.card)).toLowerCase();
+  return table.drawDeck.find((c) => c.card && cardTitleOf(cardDisplayName(c.card)).toLowerCase() === title) ?? null;
+}
+
+// Whether a card has the icon `icon`, lowercased ("[au]"), in its icons.
+export const cardHasIcon = (card: CardInstance['card'] | undefined, icon: string): boolean =>
+  String(card?.icons ?? '').toLowerCase().includes(icon);
 
 // The chosen personnel that are still candidates, in `ids` order, so a stale or stopped id is dropped.
 export function chosenPersonnel(table: TableState, ids: string[]): PersonnelCandidate[] {

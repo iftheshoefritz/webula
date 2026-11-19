@@ -129,7 +129,7 @@ import { nimbusSpendOf } from './missionSpends';
 import { PersonnelChoicePanel } from './PersonnelChoicePanel';
 import { CompletionEffectPanel } from './CompletionEffectPanel';
 import { completionBatch, completionEffectOf, flipActions } from './completionEffects';
-import { personnelCandidateGroups } from './personnelChoice';
+import { downloadCopyOf, personnelCandidateGroups } from './personnelChoice';
 import { nameableDilemmaTitles, preventionOf } from './dilemmaPrevention';
 import { DilemmaNamePicker } from './DilemmaNamePicker';
 import useLocalStorage from '../../../hooks/useLocalStorage';
@@ -2456,7 +2456,15 @@ function PracticeDrawContent() {
               hand: table.hand,
               onDiscardDraw: (id) => dispatch({ type: 'resolveDiscardDraw', id }),
             }
-          : undefined;
+          : resolveModel?.kind === 'downloadCopy' && resolveStepName === 'download'
+            ? {
+                step: 'download',
+                groups: personnelCandidateGroups(table, { includeStopped: true }),
+                // Second Edition (#1746): the personnel with a copy in the draw deck.
+                available: (id) => downloadCopyOf(table, id) !== null,
+                onDownload: (personnelId) => dispatch({ type: 'resolveDownload', personnelId }),
+              }
+            : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
