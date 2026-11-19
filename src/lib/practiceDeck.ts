@@ -247,6 +247,16 @@ export const PRACTICE_COMPLETION_TSV = `${PRACTICE_DECK_TSV.split('\n')
 // whose text lets the player spend counters, and Korrd and Caithlin Dar for Nimbus III's download.
 // Robert Tomlinson, a [TOS] personnel of cost 1, joins the end of the hand (`PRACTICE_MISSIONS_HAND`), for
 // Earth's draw.
+// The cards `?fixture=dissident` (#1763) adds to the `?fixture=piles` table: The New Resistance at the end of
+// the core, Leeta Rebel Supporter, a Dissident personnel, at the end of the hand, and Damar Cardassian
+// Liberator, a Dissident personnel of cost 4, on top of the draw deck.
+export const PRACTICE_DISSIDENT_TSV = `1\tThe New Resistance
+1\tLeeta Rebel Supporter
+1\tDamar Cardassian Liberator`;
+export const PRACTICE_DISSIDENT_CORE = 'The New Resistance';
+export const PRACTICE_DISSIDENT_HAND = 'Leeta Rebel Supporter';
+export const PRACTICE_DISSIDENT_DRAW_TOP = 'Damar Cardassian Liberator';
+
 // The deck of `?fixture=kmtar` (#1762): the practice deck with five missions in place of its own, each
 // non-headquarters one requiring Diplomacy, in slot order Tarod IX (the planet of the away team), Korma,
 // Tirapet Expanse (the space mission of the crewed ship), Volan III and Qo'noS, a headquarters, K'mtar at the

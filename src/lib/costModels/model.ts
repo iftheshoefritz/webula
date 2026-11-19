@@ -214,6 +214,11 @@ export interface PendingDiscount {
   amount: number;
   origin: DiscountOrigin;
   applies: (play: CostPlay) => boolean;
+  /**
+   * Whether the discount is for a play from the draw deck (#1763, the card The New Resistance revealed): the
+   * one play from the draw deck the table charges. Such a discount never applies to a play from the hand.
+   */
+  fromDrawDeck?: true;
 }
 
 /**
@@ -373,7 +378,10 @@ export interface CostReveal {
  * What a use of a card on the table does to that card (#1713): `'destroy'` moves it from the core to the
  * discard pile, `'stop'` stops a personnel the player commands. A later use adds a tag.
  */
-export type CostUseEffect = 'destroy' | 'stop';
+// `'revealTop'` (#1763, The New Resistance): reveal the top card of the draw deck, which takes no counters
+// off the play; a revealed card the text allows then plays from the draw deck through a pending discount
+// with `fromDrawDeck`.
+export type CostUseEffect = 'destroy' | 'stop' | 'revealTop';
 
 /**
  * A use a card on the table offers for one play (#1713): the instance id of the card, the model's name,
@@ -398,7 +406,7 @@ export const isCostUse = (use: unknown): use is CostUse => {
     typeof u.label === 'string' &&
     typeof u.amount === 'number' &&
     Number.isFinite(u.amount) &&
-    (u.effect === 'destroy' || u.effect === 'stop')
+    (u.effect === 'destroy' || u.effect === 'stop' || u.effect === 'revealTop')
   );
 };
 

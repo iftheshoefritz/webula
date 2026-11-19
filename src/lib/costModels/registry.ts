@@ -174,7 +174,7 @@ export function coreCostsOf(
   });
 }
 
-const USE_VERBS = { destroy: 'Destroy', stop: 'Stop' } as const;
+const USE_VERBS = { destroy: 'Destroy', stop: 'Stop', revealTop: 'Reveal the top card' } as const;
 
 /**
  * The uses the cards on the table offer for the play from the hand of another card (#1713): those of
@@ -184,9 +184,12 @@ export function costUsesOf(play: CostPlay, facts: CostFacts, registry: ReadonlyM
   return [...registry.values()].flatMap((model) =>
     (model.usesForPlay?.(play, facts) ?? []).flatMap((use) => {
       const amount = Math.round(use.amount);
-      if (!(amount > 0) || !Number.isFinite(amount) || use.id === play.id) return [];
+      const reveal = use.effect === 'revealTop';
+      // A reveal (#1763) takes no counters off; every other use takes some.
+      if (!(reveal ? amount === 0 : amount > 0) || use.id === play.id) return [];
       const title = costModelName(model);
-      return [{ id: use.id, title, label: `${USE_VERBS[use.effect]} ${title}: −${amount}`, amount, effect: use.effect }];
+      const label = reveal ? `${USE_VERBS[use.effect]} (${title})` : `${USE_VERBS[use.effect]} ${title}: −${amount}`;
+      return [{ id: use.id, title, label, amount, effect: use.effect }];
     })
   );
 }
