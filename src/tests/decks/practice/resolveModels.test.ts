@@ -57,7 +57,7 @@ const spent = (state: GameState) => turnCounters(state.log, state.table.turn).sp
 
 describe('the resolve models (#1739)', () => {
   it('holds These Are The Voyages and Miracle Working by title', () => {
-    expect(resolveModelOf('These Are The Voyages')).toMatchObject({ draw: { kind: 'personnelCost' }, bottomFromHand: 3 });
+    expect(resolveModelOf('These Are The Voyages')).toMatchObject({ kind: 'drawThenBottom', draw: { kind: 'personnelCost' }, bottomFromHand: 3 });
     expect(resolveModelOf('Miracle Working')).toMatchObject({ draw: { kind: 'fixed', count: 4 }, bottomFromHand: 3 });
     expect(resolveModelOf('At What Cost?')).toBeUndefined();
   });
