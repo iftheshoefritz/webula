@@ -130,6 +130,8 @@ import { PersonnelChoicePanel } from './PersonnelChoicePanel';
 import { CompletionEffectPanel } from './CompletionEffectPanel';
 import { completionBatch, completionEffectOf, flipActions } from './completionEffects';
 import { personnelCandidateGroups } from './personnelChoice';
+import { nameableDilemmaTitles, preventionOf } from './dilemmaPrevention';
+import { DilemmaNamePicker } from './DilemmaNamePicker';
 import useLocalStorage from '../../../hooks/useLocalStorage';
 import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
@@ -2140,6 +2142,9 @@ function PracticeDrawContent() {
   // The picker of a choice of personnel (#1712): the charge that offered it and the model's title. It
   // is page state, and the chip's timer does not close it: it stays open until Confirm or Cancel.
   const [personnelChoice, setPersonnelChoice] = useState<{ target: ChargeTarget; source: string } | null>(null);
+  // Tristan Adams's "+2: name a dilemma" (#1761): the charge, the model and the cost the choice sets,
+  // while the picker of a title is open.
+  const [dilemmaNaming, setDilemmaNaming] = useState<{ target: ChargeTarget; source: string; cost: number } | null>(null);
   // The picker of Nimbus III's download (#1754), open with the slot it spends at.
   const [nimbusPickerSlot, setNimbusPickerSlot] = useState<number | null>(null);
   // `play` marks the panel a play opened on the cards it revealed (#1738).
@@ -2532,9 +2537,12 @@ function PracticeDrawContent() {
   // snapshot turns resolved. No Resolve, no preview and no button: the player resolves by hand.
   // Issue #1593: where the player chooses, the row selection is the choice, so the Resolve follows it too,
   // and stays pending, its button disabled, until the choice is made. A selection triggers nothing else.
+  // Issue #1761: Sigma Iotia II or Tristan Adams may prevent and overcome the revealed card, from the
+  // table and the log, and the Resolve then has no effect.
+  const prevented = useMemo(() => (botLabelCardId ? preventionOf(table, game.log) : null), [botLabelCardId, table, game.log]);
   const botResolve = useMemo(
-    () => (botLabelCardId ? botResolveOf(table, undefined, selectedCardIds) : null),
-    [botLabelCardId, table, selectedCardIds],
+    () => (botLabelCardId ? botResolveOf(table, undefined, selectedCardIds, prevented) : null),
+    [botLabelCardId, table, selectedCardIds, prevented],
   );
   const botResolvePreview = botResolve?.resolvable ? botResolve.preview : null;
   const botResolvePending = !!(botResolve?.resolvable && botResolve.pending);
@@ -2543,16 +2551,16 @@ function PracticeDrawContent() {
   // reveal kept, and those who met its check. Gone once it is resolved or the next card is on top.
   const botRowMarks = useMemo((): BotRowMarks | null => {
     const snapshot = table.attempt?.revealSnapshot;
-    if (!botLabelCardId || !snapshot || snapshot.dilemmaId !== botLabelCardId || snapshot.resolved || !snapshot.picks?.length) return null;
+    if (!botLabelCardId || !snapshot || snapshot.dilemmaId !== botLabelCardId || snapshot.resolved || !snapshot.picks?.length || prevented) return null;
     const checks = botResolve?.resolvable ? (botResolve.steps?.checks ?? []) : [];
     return {
       selected: [...new Set(snapshot.picks.flat())],
       met: [...new Set(checks.filter((c) => !c.subject).flatMap((c) => c.met))],
     };
-  }, [botLabelCardId, table.attempt?.revealSnapshot, botResolve]);
+  }, [botLabelCardId, table.attempt?.revealSnapshot, botResolve, prevented]);
   const resolveRevealedDilemma = () => {
     const top = dilemmaStack[0];
-    const pressed = botResolveOf(table, undefined, selectedCardIds);
+    const pressed = botResolveOf(table, undefined, selectedCardIds, preventionOf(table, game.log));
     if (!top || !pressed.resolvable || pressed.pending) return;
     dispatch({
       type: 'resolveDilemma',
@@ -2567,6 +2575,7 @@ function PracticeDrawContent() {
       ...(pressed.fetchedId ? { fetchedId: pressed.fetchedId } : {}),
       ...(pressed.restToPile?.length ? { restToPile: pressed.restToPile } : {}),
       ...(pressed.overcome ? { overcome: pressed.overcome, ...(pressed.restUnder?.length ? { restUnder: pressed.restUnder } : {}) } : {}),
+      ...(pressed.prevented ? { prevented: pressed.prevented } : {}),
     });
   };
 
@@ -2691,7 +2700,7 @@ function PracticeDrawContent() {
     };
     dispatch(deal);
     const botDealt = botRevealTitle ? tableReducer(initialTableState, deal) : null;
-    const botLabel = botDealt && botRevealTitle ? fixtureBotLabelAttempt(botDealt, botRevealTitle, botRevealFixture?.spend) : null;
+    const botLabel = botDealt && botRevealTitle ? fixtureBotLabelAttempt(botDealt, botRevealTitle, botRevealFixture?.spend, botRevealFixture?.awayTeamSlot) : null;
     if (botDealt && botLabel) {
       const phase: TableAction = { type: 'setAttemptPhase', phase: 'face' };
       dispatch(botLabel.start);
@@ -2801,7 +2810,7 @@ function PracticeDrawContent() {
     let slot = 0;
     return Object.fromEntries(
       Object.entries(dealt).map(([key, entry]) =>
-        cardPileFor(entry.row) === 'mission' && slot++ === FIXTURE_SHIP_SLOT
+        cardPileFor(entry.row) === 'mission' && slot++ === (botRevealFixture?.awayTeamSlot ?? FIXTURE_SHIP_SLOT)
           ? [mission.collectorsinfo, { count: 1, row: { ...mission, count: 1, pile: 'mission' } }]
           : [key, entry]
       )
@@ -4105,6 +4114,10 @@ function PracticeDrawContent() {
               setPersonnelChoice({ target, source });
               setChargeChip(null);
             }}
+            onNameDilemma={(target, source, cost) => {
+              setDilemmaNaming({ target, source, cost });
+              setChargeChip(null);
+            }}
             uses={{
               ...cardUseHandlers,
               onUse: (target, id) => {
@@ -4127,6 +4140,10 @@ function PracticeDrawContent() {
             onRaiseLimit={raiseLimit}
             onChoosePersonnel={(target, source) => {
               setPersonnelChoice({ target, source });
+              setCountersListOpen(false);
+            }}
+            onNameDilemma={(target, source, cost) => {
+              setDilemmaNaming({ target, source, cost });
               setCountersListOpen(false);
             }}
             uses={cardUseHandlers}
@@ -4162,6 +4179,17 @@ function PracticeDrawContent() {
               setNimbusPickerSlot(null);
             }}
             onClose={() => setNimbusPickerSlot(null)}
+          />
+        )}
+        {dilemmaNaming && (
+          <DilemmaNamePicker
+            title={dilemmaNaming.source}
+            titles={nameableDilemmaTitles(table, data)}
+            onChoose={(named) => {
+              dispatch({ type: 'correctCharge', target: dilemmaNaming.target, cost: dilemmaNaming.cost, source: dilemmaNaming.source, named });
+              setDilemmaNaming(null);
+            }}
+            onClose={() => setDilemmaNaming(null)}
           />
         )}
         {personnelChoice && (
@@ -4344,7 +4372,7 @@ function PracticeDrawContent() {
                       width={attemptSizes.stackWidth}
                       height={attemptSizes.stackHeight}
                       cardWidth={attemptSizes.stackCardWidth}
-                      botLabel={botLabelText}
+                      botLabel={prevented ? null : botLabelText}
                       onDismissBotLabel={() => {
                         if (botLabel) setDismissedBotLabels((ids) => new Set(ids).add(botLabel.id));
                       }}

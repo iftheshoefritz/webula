@@ -202,6 +202,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       // the spend", and how many of the rest went beneath the mission with it.
       overcome?: string;
       restUnder?: number;
+      // The card that prevented and overcame it (#1761), "Sigma Iotia II".
+      prevented?: string;
     }
   // A correction of one charge by the player (#1607): `target` names the charge, `card` its card
   // (null for an unseen card, absent for a draw), `from` and `to` the cost before and after.
@@ -219,6 +221,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       count?: number;
       counted?: string;
       used?: LogUsedCard;
+      // The dilemma title a `nameDilemma` choice named (#1761): "Tristan Adams" names "Wavefront".
+      named?: string;
     }
   // A change of the turn's limit of counters by the player (#1607), and the limit it left.
   // `source` names the model whose choice raised the limit (#1655), "Tricia Jenkins", and `target` the
@@ -293,7 +297,8 @@ export type GameAction =
   // log, so `gameReducer` handles them and `tableReducer` never sees them.
   // `source` names the model whose choice sets the cost (#1654), and `count` the count of its counted
   // choice (#1695).
-  | { type: 'correctCharge'; target: ChargeTarget; cost: number; source?: string; count?: number }
+  // `named`: the dilemma title a `nameDilemma` choice names (#1761), Tristan Adams's.
+  | { type: 'correctCharge'; target: ChargeTarget; cost: number; source?: string; count?: number; named?: string }
   // `source` and `target` name the model whose choice changes the limit and its play's charge (#1655).
   | { type: 'adjustCounterLimit'; delta: number; source?: string; target?: ChargeTarget }
   // A dismiss of the pending discount the play at `target` made (#1656), a log entry like a correction.
@@ -667,6 +672,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
             ...(restReturned ? { restReturned } : {}),
             ...(action.overcome ? { overcome: action.overcome } : {}),
             ...(restUnder ? { restUnder } : {}),
+            ...(action.prevented ? { prevented: action.prevented } : {}),
           };
         })(),
       };
@@ -1326,7 +1332,9 @@ export function logEntryText(entry: LogEntry): string {
       const modifiers = typeof entry.modifiers === 'string' ? entry.modifiers : '';
       // An overcome over the spend (#1760): "Overcome: Stakoron II raised the cost past the spend".
       const overcome = typeof entry.overcome === 'string' ? `Overcome: ${entry.overcome}` : '';
-      const effects = overcome || [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
+      // Prevented and overcome (#1761): "prevented and overcome (Sigma Iotia II)".
+      const prevented = typeof entry.prevented === 'string' ? `prevented and overcome (${entry.prevented})` : '';
+      const effects = prevented || overcome || [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
       // The steps of a kept roll (#1629): each selection, then each check, before the effects. An old
       // entry has none.
       const steps = [
@@ -1363,8 +1371,10 @@ export function logEntryText(entry: LogEntry): string {
       // " (Tacking Into the Wind, completed missions of the opponent: 2)" for a counted choice (#1695).
       const what = typeof entry.counted === 'string' && entry.counted ? `, ${entry.counted.toLowerCase()}` : '';
       const counted = source && isIndex(entry.count) ? `${what}: ${entry.count}` : '';
+      // ", named Wavefront" for a choice that names a dilemma (#1761).
+      const named = typeof entry.named === 'string' && entry.named ? `, named ${entry.named}` : '';
       return `Charged ${entry.draw ? 'a draw' : (entry.card ?? 'a card')} ${countersText(entry.to)} (was ${entry.from})${
-        source ? ` (${source}${counted})` : ''
+        source ? ` (${source}${counted}${named})` : ''
       }`;
     }
     case 'counterLimit': {
@@ -1791,7 +1801,7 @@ const sameTarget = (a: ChargeTarget, b: ChargeTarget): boolean => a.entry === b.
 // A counted choice's correction (#1695) names its count, and makes an entry when only the count changes.
 function chargeCorrectionEntry(
   state: GameState,
-  action: { target: ChargeTarget; cost: number; source?: string; count?: number }
+  action: { target: ChargeTarget; cost: number; source?: string; count?: number; named?: string }
 ): LogEntry | null {
   const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
   if (!charge) return null;
@@ -1811,6 +1821,10 @@ function chargeCorrectionEntry(
       : null;
   // A choice not taken yet makes its entry even when the uses already took the cost to where it leads (#1713).
   const takesChoice = !!action.source && action.source === charge.source?.title && !!choice && !isCountedChoice(choice) && !charge.choiceTaken;
+  // A choice that names a dilemma (#1761) takes a title, and makes no entry without one.
+  const nameDilemma = takesChoice && !!choice && 'nameDilemma' in choice && choice.nameDilemma === true;
+  const named = nameDilemma && typeof action.named === 'string' ? action.named.trim() : '';
+  if (nameDilemma && !named) return null;
   if (to === charge.cost && !takesChoice && (!counted || counted.count === (charge.choiceCount ?? 0))) return null;
   return {
     kind: 'chargeCorrected',
@@ -1820,6 +1834,7 @@ function chargeCorrectionEntry(
     to,
     ...(action.source ? { source: action.source } : {}),
     ...(counted ?? {}),
+    ...(named ? { named } : {}),
     turn: state.table.turn,
     segment: state.table.segment,
   };

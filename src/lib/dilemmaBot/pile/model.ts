@@ -314,6 +314,11 @@ export interface PlayContext {
    * a Resolve keeps on the table. A fork never reports. The search and the label never set it.
    */
   modifiers?: (modifiers: PlayModifiers) => void;
+  /**
+   * Called on each skill the play reads in a check of its own (#1761): a skill of a personnel, or a branch
+   * of a requirement that names a skill. `modelRequiresSkill` sets it; every other play leaves it absent.
+   */
+  skillRead?: () => void;
 }
 
 /** A title of the registry. */

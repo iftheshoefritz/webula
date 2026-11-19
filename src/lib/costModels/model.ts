@@ -205,10 +205,12 @@ export interface PendingDiscount {
  * A "may" the chip offers beside the printed cost: its label and the cost it sets, or the counters it
  * adds to the turn's limit (#1655), or a count (#1695): the label of what is counted, the counters each
  * one takes off, the largest count, and the printed cost it counts from (`moveCharge` fills `base`). A
- * count `n` sets the cost to `max(0, base − step·n)`.
+ * count `n` sets the cost to `max(0, base − step·n)`. A cost choice with `nameDilemma` (#1761, Tristan
+ * Adams's "+2: name a dilemma") asks for a dilemma title before it sets the cost, and the correction keeps
+ * the title.
  */
 export type CostChoice =
-  | { label: string; cost: number; limit?: undefined; step?: undefined; personnel?: undefined }
+  | { label: string; cost: number; limit?: undefined; step?: undefined; personnel?: undefined; nameDilemma?: true }
   | { label: string; limit: number; cost?: undefined; step?: undefined; personnel?: undefined }
   | CountedChoice
   | PersonnelChoice;
