@@ -627,7 +627,7 @@ printed `base`, `max` clamped where the cost reaches 0), a stepper `charge-choic
 `charge-choice-minus` and `charge-choice-plus`, each a `correctCharge` with the cost of the next count
 and its `count`; `LogCharge.choiceCount` reads the last count back from the log. The chip and the list name the source, `charge-source`, and the log
 text reads "(cost 3, Borg Nanoprobes: you command a Borg)". The limit is 7, plus the grants of the models
-(#1655, `limitGrantsOf`, read from the table as it stands: Surprise Party +1 while it is in the core),
+(#1655, `limitGrantsOf`, read from the table as it stands: Surprise Party +1 while it is in the core), plus on turn 1 the grants decided at the Draw 7 tap (#1755, `firstTurnGrant` of a model, `firstTurnGrantsOf`: Ledos +5 while the player has fewer than two headquarters missions and no skill is named in two missions' requirements, `missionsShareSkill`), which the `openingHand` entry keeps as `grants` (`loggedGrantsOf`), so a later change to the table leaves them and an undo of the tap takes them back,
 plus the `counterLimit` changes; Tricia Jenkins's "Raise the limit: +5" is a `charge-choice` that
 dispatches `adjustCounterLimit` with its `source`. Common Purpose's "Stop personnel…" (#1712, a
 `PersonnelChoice` of `model.ts`) opens a picker, `data-testid="personnel-choice"`

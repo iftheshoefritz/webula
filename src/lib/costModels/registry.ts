@@ -67,8 +67,20 @@ export const costModelName = (model: CostModel): string => model.label ?? model.
  * model that grants a counter or more, in the order of the registry.
  */
 export function limitGrantsOf(facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): LimitGrant[] {
+  return grantsOf(registry, (model) => model.limitGrant?.(facts));
+}
+
+/** The grants of the models to the first turn's limit at its start (#1755), one per model that grants, in registry order. */
+export function firstTurnGrantsOf(facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): LimitGrant[] {
+  return grantsOf(registry, (model) => model.firstTurnGrant?.(facts));
+}
+
+function grantsOf(
+  registry: ReadonlyMap<string, CostModel>,
+  grantOf: (model: CostModel) => { amount: number; reason: string } | null | undefined
+): LimitGrant[] {
   return [...registry.values()].flatMap((model) => {
-    const grant = model.limitGrant?.(facts);
+    const grant = grantOf(model);
     const amount = grant ? Math.round(grant.amount) : 0;
     return grant && amount > 0 && Number.isFinite(amount) ? [{ title: costModelName(model), amount, reason: grant.reason }] : [];
   });

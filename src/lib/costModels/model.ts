@@ -386,6 +386,11 @@ export interface CostModel {
   usesForPlay?: (play: CostPlay, facts: CostFacts) => { id: string; amount: number; effect: CostUseEffect }[];
   /** The counters the card adds to the turn's limit while the table stands as `facts` say, or null (#1655). */
   limitGrant?: (facts: CostFacts) => { amount: number; reason: string } | null;
+  /**
+   * The counters the card adds to the limit of the first turn, decided once at the start of that turn, the
+   * Draw 7 tap, from the table as it stands then, or null (#1755, Ledos). The log keeps the answer.
+   */
+  firstTurnGrant?: (facts: CostFacts) => { amount: number; reason: string } | null;
   /** The most counters the turn's limit may reach while the table stands as `facts` say, or null (#1704). */
   limitCap?: (facts: CostFacts) => { amount: number; reason: string } | null;
   /** The choices of the turn that raise its limit while the table stands as `facts` say (#1704), one taken a turn. */

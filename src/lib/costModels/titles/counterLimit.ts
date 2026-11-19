@@ -1,5 +1,7 @@
-import { CostFacts, CostModel } from '../model';
+import { CostFacts, CostMission, CostModel } from '../model';
 import { cardTitleOf } from '../../cardTitle';
+import { SKILLS } from '../../missionRequirements';
+import { missionRequires } from './completedMission';
 
 // The cards that change the counters the player may spend this turn, batch 11 (#1704). A "may" is a
 // choice, as Tricia Jenkins's is; a text that acts at the start of the turn offers a choice of the turn
@@ -18,7 +20,29 @@ const commands = (title: string, facts: CostFacts): boolean =>
 const uniqueBorgOf = (facts: CostFacts): number =>
   new Set(facts.commanded.filter((p) => p.unique && p.species.includes('borg')).map((p) => cardTitleOf(p.name))).size;
 
+/**
+ * Whether a skill is named in the requirements of two different missions (#1755), on either side of an
+ * "or", as `missionRequires` reads it: "Honor or Law" and "Law" share Law. Attributes are no skills.
+ */
+export const missionsShareSkill = (missions: CostMission[]): boolean =>
+  SKILLS.some((skill) => missions.filter((m) => missionRequires(m, skill)).length >= 2);
+
 export const COUNTER_LIMIT_MODELS: CostModel[] = [
+  // Ledos (#1755): "At the start of your first turn, if you command fewer than two headquarters missions and
+  // none of your missions require the same skill, spend an additional 5 counters that turn." Decided once,
+  // at the Draw 7 tap, and kept on the opening hand's log entry.
+  {
+    title: 'Ledos Preserve Isolated Culture',
+    label: 'Ledos',
+    family: 'limit',
+    firstTurnGrant: (facts) => {
+      const missions = (facts.missions ?? []).filter((m) => m.name);
+      if (!missions.some((m) => cardTitleOf(m.name) === 'Ledos Preserve Isolated Culture')) return null;
+      if (missions.filter((m) => m.type === 'h').length >= 2) return null;
+      if (missionsShareSkill(missions)) return null;
+      return { amount: 5, reason: 'fewer than two headquarters, and no two missions require the same skill' };
+    },
+  },
   // "Plays in your core. Each player cannot spend more than seven counters during their Play and Draw Cards
   // segments." While it is in the core, the turn's limit is never above 7, whatever the grants and raises.
   {
