@@ -43,7 +43,7 @@ import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
-import { choiceDiscardTop, isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
+import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, firstTurnGrantsOf, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
@@ -244,6 +244,7 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // The player dismissed a pending discount (#1656): `target` names the charge of the play that made
   // it, `source` the model's name, "Sarish Rez".
   | { kind: 'discountDismissed'; target: ChargeTarget; source: string }
+  | { kind: 'eventsDownloaded'; target: ChargeTarget; source: string; cards: { id: string; name: string }[] }
   // A Cancel of the resolving event (#1728): the event went back to the hand, and `target` names the
   // charge of its play, absent for a move into the resolving zone that charged nothing. The effective
   // log reads that play as no play from then on.
@@ -317,6 +318,7 @@ export type GameAction =
   // A choice of personnel of the play at `target` (#1712), Common Purpose's: stop the chosen personnel
   // and raise the turn's limit by their different affiliations, in one entry that one undo takes back.
   | { type: 'choosePersonnel'; ids: string[]; source: string; target: ChargeTarget }
+  | { type: 'downloadForCharge'; ids: string[]; source: string; target: ChargeTarget; order?: string[] }
   // A use of the card `id` on the table for the play at `target` (#1713), Delivery Boy's: the cost change
   // and the card's own part, a destroy or a stop, in one entry that one undo takes back.
   | { type: 'useCard'; target: ChargeTarget; id: string }
@@ -756,7 +758,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -849,6 +851,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
   }
   if (action.type === 'choosePersonnel') return choosePersonnelState(state, action);
+  if (action.type === 'downloadForCharge') return downloadForChargeState(state, action);
   if (action.type === 'useCard') return cardUseState(state, action);
   if (action.type === 'discardForCharge') return discardForChargeState(state, action);
   if (action.type === 'cancelResolving') return cancelResolvingState(state);
@@ -1015,6 +1018,10 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
   ) {
     return action;
   }
+  if (action.type === 'downloadForCharge') {
+    if (action.order) return action;
+    return { ...action, order: shuffledIds(table.drawDeck.filter((c) => !action.ids.includes(c.id))) };
+  }
   if (action.type === 'resolveDownload') {
     if (action.order) return action;
     const copy = downloadCopyOf(table, action.personnelId);
@@ -1067,6 +1074,21 @@ export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscou
     if (entry.turn !== turn) return;
     if (entry.kind === 'discountDismissed') {
       if (entry.target) close(entry.target);
+      return;
+    }
+    if (entry.kind === 'eventsDownloaded') {
+      // K'mtar (#1762): one discount per downloaded card, for the play of that card alone. Its origin is the
+      // entry and the card's place in it, which no charge has, since the entry charges nothing.
+      const discount = downloadDiscountOf(log, entry);
+      downloadedCards(entry).forEach((card, c) =>
+        open.push({
+          title: entry.source,
+          label: `downloaded ${card.name}`,
+          amount: discount,
+          origin: { entry: i, card: c },
+          applies: (play) => play.id === card.id,
+        })
+      );
       return;
     }
     for (const charge of withChoicesTaken(log, chargesOf(entry, i))) {
@@ -1290,6 +1312,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   chargeCorrected: true,
   counterLimit: true,
   discountDismissed: true,
+  eventsDownloaded: true,
   playCancelled: true,
   resolveDrew: true,
   resolveBottom: true,
@@ -1438,6 +1461,12 @@ export function logEntryText(entry: LogEntry): string {
       if (!stopped.length) return `S${text}`;
       const n = isIndex(entry.affiliations) ? entry.affiliations : null;
       return `Stopped ${stopped.join(', ')}${n !== null ? ` (${n} ${n === 1 ? 'affiliation' : 'affiliations'})` : ''}: s${text}`;
+    }
+    case 'eventsDownloaded': {
+      // "Downloaded Ferengi Tradition and At What Cost? (K'mtar), then shuffled the draw deck" (#1762).
+      const names = downloadedCards(entry).map((c) => c.name);
+      const source = typeof entry.source === 'string' && entry.source ? ` (${entry.source})` : '';
+      return `Downloaded ${names.length ? cardsText(names) : 'no card'}${source}, then shuffled the draw deck`;
     }
     case 'discountDismissed':
       return `Dismissed the discount of ${typeof entry.source === 'string' && entry.source ? entry.source : 'a card'}`;
@@ -1736,7 +1765,7 @@ function withChoicesTaken(log: LogEntry[], charges: LogCharge[]): LogCharge[] {
       !!charge.source?.choice &&
       log.some(
         (e) =>
-          (e.kind === 'chargeCorrected' || e.kind === 'counterLimit') &&
+          (e.kind === 'chargeCorrected' || e.kind === 'counterLimit' || e.kind === 'eventsDownloaded') &&
           !(e.kind === 'chargeCorrected' && e.used) &&
           e.source === charge.source!.title &&
           !!e.target &&
@@ -1980,6 +2009,45 @@ function choosePersonnelState(state: GameState, action: { ids: string[]; source:
   };
   const entry = { ...limit, stopped: chosen.map((c) => c.name), affiliations } as LogEntry;
   const table = tableReducer(state.table, { type: 'setStopped', ids: chosen.map((c) => c.id), stopped: true });
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The cards of an `eventsDownloaded` entry (#1762), the malformed ones dropped.
+const downloadedCards = (entry: { cards?: unknown }): { id: string; name: string }[] =>
+  Array.isArray(entry.cards)
+    ? entry.cards.filter((c): c is { id: string; name: string } => !!c && typeof c.id === 'string' && typeof c.name === 'string')
+    : [];
+
+// The counters each card of an `eventsDownloaded` entry takes off its own play: the discount of the choice
+// of the charge it took, or 0 when that charge is gone or offers no download.
+function downloadDiscountOf(log: LogEntry[], entry: { target?: ChargeTarget }): number {
+  if (!entry.target || !isIndex(entry.target.entry)) return 0;
+  const charge = entryCharges(log, entry.target.entry).find((c) => sameTarget(c.target, entry.target!));
+  return isDownloadChoice(charge?.source?.choice) ? charge.source.choice.discount : 0;
+}
+
+// A download of the play's charge (#1762, K'mtar): the charge must offer a download choice, under `source`,
+// not taken. The ids must be 1 to the choice's most different cards of its type in the draw deck. They go to
+// the hand, the draw deck shuffles in the carried `order` (a missing or stale one leaves it as it is), and
+// one `eventsDownloaded` entry records them by id, for the discount each leaves (`pendingDiscountsOf`).
+function downloadForChargeState(state: GameState, action: { ids: string[]; source: string; target: ChargeTarget; order?: string[] }): GameState {
+  const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
+  const choice = charge?.source?.choice;
+  if (!charge || charge.choiceTaken || charge.source?.title !== action.source || !isDownloadChoice(choice)) return state;
+  const ids = [...new Set(action.ids)];
+  if (ids.length !== action.ids.length || ids.length < 1 || ids.length > choice.max) return state;
+  const cards = ids.map((id) => state.table.drawDeck.find((c) => c.id === id));
+  if (!cards.every((c) => c?.card?.type === choice.download)) return state;
+  let table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'hand' }), state.table);
+  table = tableReducer(table, { type: 'shuffle', location: 'drawDeck', order: action.order ?? table.drawDeck.map((c) => c.id) });
+  const entry: LogEntry = {
+    kind: 'eventsDownloaded',
+    target: charge.target,
+    source: action.source,
+    cards: ids.map((id) => ({ id, name: cardName(state.table, id) })),
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 

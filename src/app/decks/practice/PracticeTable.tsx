@@ -54,6 +54,8 @@ import {
   PRACTICE_ATTRIBUTES_CORE,
   PRACTICE_ATTRIBUTES_TSV,
   PRACTICE_COMPLETION_TSV,
+  PRACTICE_KMTAR_HAND,
+  PRACTICE_KMTAR_TSV,
   PRACTICE_MISSIONS_HAND,
   PRACTICE_MISSIONS_TSV,
   PRACTICE_BOT_COSTS_TSV,
@@ -127,6 +129,8 @@ import { MissionSpendProvider, type MissionSpendOffer } from './MissionSpendCont
 import { MissionSpendPicker } from './MissionSpendPicker';
 import { nimbusSpendOf } from './missionSpends';
 import { PersonnelChoicePanel } from './PersonnelChoicePanel';
+import { isDownloadChoice } from '../../../lib/costModels/model';
+import { DownloadChoicePanel } from './DownloadChoicePanel';
 import { CompletionEffectPanel } from './CompletionEffectPanel';
 import { completionBatch, completionEffectOf, flipActions } from './completionEffects';
 import { downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups } from './personnelChoice';
@@ -2081,6 +2085,9 @@ function PracticeDrawContent() {
   // `?fixture=missions` (#1754) deals the piles table with Earth, Lush and Beautiful Home and Nimbus III,
   // Staff Backwater Embassy, a [TOS] personnel at the end of the hand, and Korrd and Caithlin Dar.
   const isMissionsFixture = fixture === 'missions';
+  // `?fixture=kmtar` (#1762) deals the piles table with five missions whose non-headquarters ones require
+  // Diplomacy, and K'mtar at the end of the hand.
+  const isKmtarFixture = fixture === 'kmtar';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2106,6 +2113,7 @@ function PracticeDrawContent() {
     isAttributesFixture ||
     isCompletionFixture ||
     isMissionsFixture ||
+    isKmtarFixture ||
     isAttemptFixture ||
     isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -2142,6 +2150,8 @@ function PracticeDrawContent() {
   // The picker of a choice of personnel (#1712): the charge that offered it and the model's title. It
   // is page state, and the chip's timer does not close it: it stays open until Confirm or Cancel.
   const [personnelChoice, setPersonnelChoice] = useState<{ target: ChargeTarget; source: string } | null>(null);
+  // The charge whose download choice (#1762, K'mtar) the picker is for.
+  const [downloadChoice, setDownloadChoice] = useState<{ target: ChargeTarget; source: string } | null>(null);
   // Tristan Adams's "+2: name a dilemma" (#1761): the charge, the model and the cost the choice sets,
   // while the picker of a title is open.
   const [dilemmaNaming, setDilemmaNaming] = useState<{ target: ChargeTarget; source: string; cost: number } | null>(null);
@@ -2431,6 +2441,16 @@ function PracticeDrawContent() {
   }
   // The step of the resolving event's resolve model (#1739), derived from the log, so an undo and a reload
   // agree: These Are The Voyages and Miracle Working draw free, then put cards of the hand on the bottom.
+  // The download choice the picker is for (#1762), read from the log, so an undo that takes the play away
+  // closes the picker.
+  const downloadChoiceOffer = (() => {
+    if (!downloadChoice) return null;
+    const charge = entryCharges(game.log, downloadChoice.target.entry).find(
+      (c) => c.target.move === downloadChoice.target.move && c.target.card === downloadChoice.target.card
+    );
+    const choice = charge?.source?.choice;
+    return charge && !charge.choiceTaken && charge.source?.title === downloadChoice.source && isDownloadChoice(choice) ? choice : null;
+  })();
   const resolveStepName = resolveStepOf(game);
   const resolveModel = table.resolving ? resolveModelOf(cardDisplayName(table.resolving.card)) : undefined;
   const resolvingStep: ResolveStep | undefined =
@@ -2687,7 +2707,9 @@ function PracticeDrawContent() {
             ? botCostsFixtureExtras()
             : isMissionsFixture
               ? missionsFixtureExtras()
-              : null
+              : isKmtarFixture
+                ? kmtarFixtureExtras()
+                : null
       : null;
     const extraKeys = new Set(
       extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand].map((c: any) => c.collectorsinfo) : []
@@ -2794,6 +2816,13 @@ function PracticeDrawContent() {
     core: [] as any[],
     lateHand: extractDrawDeck(deckFromTsv(PRACTICE_MISSIONS_TSV, data)).filter((r: any) => r.originalName === PRACTICE_MISSIONS_HAND),
   });
+  // The card `?fixture=kmtar` adds to the end of the hand (#1762): K'mtar.
+  const kmtarFixtureExtras = () => ({
+    hand: [] as any[],
+    crew: [] as any[],
+    core: [] as any[],
+    lateHand: extractDrawDeck(deckFromTsv(PRACTICE_KMTAR_TSV, data)).filter((r: any) => r.originalName === PRACTICE_KMTAR_HAND),
+  });
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
   const botCostsFixtureExtras = () => ({
     hand: [] as any[],
@@ -2804,6 +2833,7 @@ function PracticeDrawContent() {
   const fixtureDeck = (): DeckList => {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
     if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
+    if (isKmtarFixture) return deckFromTsv(PRACTICE_KMTAR_TSV, data);
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
@@ -2892,6 +2922,7 @@ function PracticeDrawContent() {
           isAttributesFixture ||
           isCompletionFixture ||
           isMissionsFixture ||
+          isKmtarFixture ||
           isAttemptFixture ||
           isBotFixture,
         attemptFixturePhase,
@@ -4142,6 +4173,10 @@ function PracticeDrawContent() {
               setPersonnelChoice({ target, source });
               setChargeChip(null);
             }}
+            onChooseDownload={(target, source) => {
+              setDownloadChoice({ target, source });
+              setChargeChip(null);
+            }}
             onNameDilemma={(target, source, cost) => {
               setDilemmaNaming({ target, source, cost });
               setChargeChip(null);
@@ -4175,6 +4210,10 @@ function PracticeDrawContent() {
             onRaiseLimit={raiseLimit}
             onChoosePersonnel={(target, source) => {
               setPersonnelChoice({ target, source });
+              setCountersListOpen(false);
+            }}
+            onChooseDownload={(target, source) => {
+              setDownloadChoice({ target, source });
               setCountersListOpen(false);
             }}
             onNameDilemma={(target, source, cost) => {
@@ -4237,6 +4276,20 @@ function PracticeDrawContent() {
               setPersonnelChoice(null);
             }}
             onClose={() => setPersonnelChoice(null)}
+          />
+        )}
+        {downloadChoiceOffer && downloadChoice && (
+          <DownloadChoicePanel
+            title={downloadChoice.source}
+            label={downloadChoiceOffer.label}
+            cards={table.drawDeck.filter((c) => c.card?.type === downloadChoiceOffer.download)}
+            max={downloadChoiceOffer.max}
+            discount={downloadChoiceOffer.discount}
+            onConfirm={(ids) => {
+              dispatch({ type: 'downloadForCharge', ids, ...downloadChoice });
+              setDownloadChoice(null);
+            }}
+            onClose={() => setDownloadChoice(null)}
           />
         )}
         {attemptDefaultsOpen && (

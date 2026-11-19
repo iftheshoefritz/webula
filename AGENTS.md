@@ -648,7 +648,14 @@ two Delivery Boys −6. A choice of the played card's model sets its cost less t
 the two stack in either order. A pending discount (#1656, `pendingDiscountsOf`, from the log) waits for
 the next play of the turn that passes its test: Sarish Rez makes the next [Fed][DS9] personnel cost −2,
 and the list shows it, `pending-discount`, with a Dismiss (`pending-discount-dismiss`) that dispatches
-`dismissDiscount`, one log entry; the turn ends it. `COST_BACKLOG=1 yarn test costModelBacklog` prints
+`dismissDiscount`, one log entry; the turn ends it. K'mtar (#1762), while each non-headquarters mission of
+the player requires Diplomacy (`missionRequires`; an empty slot is no mission), offers "Download up to 2
+events…", a `DownloadChoice` of `model.ts` that opens a picker, `download-choice` (`DownloadChoicePanel.tsx`:
+the events of the draw deck, `download-choice-card`, at most 2 on, `download-choice-confirm` and
+`download-choice-cancel`); the confirm dispatches `downloadForCharge`, which takes them into the hand and
+shuffles the draw deck in the order the page chose, in one `eventsDownloaded` entry, one undo, that takes the
+choice. Each card it names leaves a pending discount of −3 for the play of that card alone, origin the entry
+and the card's place in it, dismissed one by one. `COST_BACKLOG=1 yarn test costModelBacklog` prints
 the titles whose text changes a cost or grants counters and that have no model yet, by the number of
 shipped decks that play them, most played first (#1692); its detection, `changesCost`, lives in `src/lib/costModels/coverage.ts`. With Counters on, the game menu's Settings show under Counters how many of the dealt deck's cost-affecting titles, of the `Deck:` section and each title once, have a model, `data-testid="cost-model-coverage"` ("Cost models: 12 of 15 titles", "Cost models: all 6 titles", nothing for a deck with none, #1697), and a tap lists the titles with none, `cost-model-coverage-missing`; the table marks no card. The counter's label names the grants, "Counters 0 of 8
 (Surprise Party +1)", and the list the parts, `turn-counters-limit-parts`, "7 + 1 Surprise Party". A charge shows its chip, `charge-chip`,
@@ -693,7 +700,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has nineteen fixtures. Each one deals the same table on every load.
+The practice table has twenty fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -746,6 +753,11 @@ The practice table has nineteen fixtures. Each one deals the same table on every
   Metron Arena and Curnab Sector (`PRACTICE_MISSIONS_TSV`), Korrd and Caithlin Dar in the draw deck, and
   Robert Tomlinson, a [TOS] personnel, at the end of the hand, so a play of him at Earth offers Earth's
   spend. It keeps its game under `practiceGame:fixture=missions`.
+- `?fixture=kmtar` (#1762) deals the `?fixture=piles` table with five missions whose non-headquarters ones
+  require Diplomacy (`PRACTICE_KMTAR_TSV`): Tarod IX (slot 0, the away team of 20), Korma, Tirapet Expanse
+  (slot 2, the crewed ship), Volan III and Qo'noS, a headquarters; These Are The Voyages, At What Cost? and
+  Ferengi Tradition in the draw deck, and K'mtar at the end of the hand, so a play of him offers the download.
+  The three events shift the ids after them. It keeps its game under `practiceGame:fixture=kmtar`.
 - `?fixture=attempt` (#1169) deals the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
   defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so

@@ -1,6 +1,6 @@
 import React from 'react';
 import { LAYER_CHARGE_CHIP, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
-import { choiceDiscardTop, countedCost, isCountedChoice, isPersonnelChoice, type CostUse, type PendingDiscount } from '../../../lib/costModels/model';
+import { choiceDiscardTop, countedCost, isCountedChoice, isDownloadChoice, isPersonnelChoice, type CostUse, type PendingDiscount } from '../../../lib/costModels/model';
 import { pendingDiscountText } from '../../../lib/costModels/registry';
 import { useEscapeLayer } from './useEscapeLayer';
 import { ChargeTarget, LogCharge, TurnCounters } from './gameLog';
@@ -88,6 +88,7 @@ function ChargeRow({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  onChooseDownload,
   onNameDilemma,
   uses,
   deckDiscard,
@@ -96,6 +97,8 @@ function ChargeRow({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  /** Opens the picker of a download choice (#1762, K'mtar). */
+  onChooseDownload?: OnChoosePersonnel;
   onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
   deckDiscard?: DeckDiscardHandlers;
@@ -200,6 +203,8 @@ function ChargeRow({
                 ? deckDiscard?.onDiscard(charge.target, source.title)
                 : isPersonnelChoice(choice)
                 ? onChoosePersonnel?.(charge.target, source.title)
+                : isDownloadChoice(choice)
+                ? onChooseDownload?.(charge.target, source.title)
                 : 'nameDilemma' in choice && choice.nameDilemma && choice.cost !== undefined
                   ? onNameDilemma?.(charge.target, source.title, choice.cost)
                   : choice.limit !== undefined
@@ -246,6 +251,7 @@ export function ChargeChip({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  onChooseDownload,
   onNameDilemma,
   uses,
   deckDiscard,
@@ -255,6 +261,8 @@ export function ChargeChip({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  /** Opens the picker of a download choice (#1762, K'mtar). */
+  onChooseDownload?: OnChoosePersonnel;
   onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
   deckDiscard?: DeckDiscardHandlers;
@@ -275,6 +283,7 @@ export function ChargeChip({
           onCorrect={onCorrect}
           onRaiseLimit={onRaiseLimit}
           onChoosePersonnel={onChoosePersonnel}
+          onChooseDownload={onChooseDownload}
           onNameDilemma={onNameDilemma}
           uses={uses}
           deckDiscard={deckDiscard}
@@ -304,6 +313,7 @@ export function TurnCountersList({
   onCorrect,
   onRaiseLimit,
   onChoosePersonnel,
+  onChooseDownload,
   onNameDilemma,
   uses,
   deckDiscard,
@@ -318,6 +328,8 @@ export function TurnCountersList({
   onCorrect: OnCorrect;
   onRaiseLimit: OnRaiseLimit;
   onChoosePersonnel?: OnChoosePersonnel;
+  /** Opens the picker of a download choice (#1762, K'mtar). */
+  onChooseDownload?: OnChoosePersonnel;
   onNameDilemma?: OnNameDilemma;
   uses?: UseHandlers;
   deckDiscard?: DeckDiscardHandlers;
@@ -400,6 +412,7 @@ export function TurnCountersList({
                 onCorrect={onCorrect}
                 onRaiseLimit={onRaiseLimit}
                 onChoosePersonnel={onChoosePersonnel}
+                onChooseDownload={onChooseDownload}
                 onNameDilemma={onNameDilemma}
                 uses={uses}
                 deckDiscard={deckDiscard}

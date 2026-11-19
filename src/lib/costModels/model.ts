@@ -229,7 +229,35 @@ export type CostChoice =
   | { label: string; cost: number; limit?: undefined; step?: undefined; personnel?: undefined; nameDilemma?: true; discardTop?: number }
   | { label: string; limit: number; cost?: undefined; step?: undefined; personnel?: undefined }
   | CountedChoice
-  | PersonnelChoice;
+  | PersonnelChoice
+  | DownloadChoice;
+
+/**
+ * A download from the draw deck (#1762, K'mtar's "you may download up to two events, then play each of them at
+ * cost -3"): the label, the type of card, the most cards, and the counters each card's own later play takes
+ * off. Only data, since the log saves it.
+ */
+export interface DownloadChoice {
+  label: string;
+  download: 'event';
+  max: number;
+  discount: number;
+  cost?: undefined;
+  limit?: undefined;
+  step?: undefined;
+  personnel?: undefined;
+}
+
+/** Whether `choice` is a well-formed download choice, so a malformed save reads as no choice. */
+export const isDownloadChoice = (choice: unknown): choice is DownloadChoice => {
+  const c = choice as DownloadChoice | null | undefined;
+  return (
+    !!c &&
+    typeof c.label === 'string' &&
+    c.download === 'event' &&
+    [c.max, c.discount].every((n) => typeof n === 'number' && Number.isInteger(n) && n > 0)
+  );
+};
 
 /**
  * A choice of personnel from the table (#1712): the label, and what the choice does with them. Only data,
