@@ -916,7 +916,11 @@ bash scripts/practice_drag.sh card-8 brig
 
 The popup that lists the cards of one place is the `CardListPanel`. Its grid carries
 `data-testid="card-list-panel-<location>"`, where the location is a value of `PanelLocation`
-(#856). The draw deck is the zone `drawDeck` (#838), so its panel is
+(#856). Every card list panel, the game log, the decklist, the Controls panel and the home screen help
+carry an X at their top right, `data-testid="panel-close"` (`PanelCloseButton.tsx`, #1780), named
+"Close panel"; a tap closes the panel as a tap on its backdrop does. In a card list panel it sits at
+the right end of the line of `panel-controls` (`panel-top-line`), outside the scrolling grid, and
+hides with the panel during a drag. The draw deck is the zone `drawDeck` (#838), so its panel is
 `card-list-panel-drawDeck`.
 
 The draw deck and the dilemma pile each have three buttons, Shuffle, Download and an eye, stacked

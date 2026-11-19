@@ -1,6 +1,7 @@
 import React from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
+import PanelCloseButton from './PanelCloseButton';
 import { runsOnIos } from './useFullscreen';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
@@ -48,7 +49,10 @@ export default function HomeScreenHelp({ onClose }: { onClose: () => void }) {
         className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
         style={{ maxHeight: safeModalMaxHeight(85), width: safeModalWidth('24rem') }}
       >
-        <h2 className="text-sm font-semibold text-text-primary">Play without the browser bars</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-text-primary">Play without the browser bars</h2>
+          <PanelCloseButton onClose={onClose} />
+        </div>
         <p className="mt-1 text-sm text-text-secondary">
           This browser cannot show the table fullscreen. Add Webula to your home screen to play it as an app.
         </p>

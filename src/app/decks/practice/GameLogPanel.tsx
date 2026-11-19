@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
+import PanelCloseButton from './PanelCloseButton';
 import { effectiveLog, EMPTY_LOG_TEXT, gameLogText, LogEntry, logByTurn, logEntryText, segmentTotalText, TURN_SEGMENT_HEADINGS } from './gameLog';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
 
@@ -63,9 +64,12 @@ export default function GameLogPanel({ log, onClose }: { log: LogEntry[]; onClos
       >
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-text-primary">Game log</h2>
-          <button type="button" onClick={copy} className="btn-primary">
-            {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={copy} className="btn-primary">
+              {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy'}
+            </button>
+            <PanelCloseButton onClose={onClose} />
+          </div>
         </div>
         <div ref={scrollRef} onScroll={onScroll} data-testid="game-log-scroll" className="overflow-y-auto">
           {log.length === 0 ? (

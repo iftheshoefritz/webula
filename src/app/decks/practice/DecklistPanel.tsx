@@ -2,6 +2,7 @@ import React from 'react';
 import { DeckList } from '../../../types';
 import { LAYER_CARD_PREVIEW, LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
+import PanelCloseButton from './PanelCloseButton';
 import DeckListItem from '../../../components/DeckListItem';
 import { cardImageUrl } from '../../../lib/cardImageUrl';
 import { cardPileFor, DeckPile } from '../deckBuilderUtils';
@@ -48,9 +49,15 @@ export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClo
       <div
         role="dialog"
         aria-label="Decklist"
-        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
+        className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex -translate-x-1/2 -translate-y-1/2 flex-col rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
         style={{ maxHeight: safeModalMaxHeight(85), width: safeModalWidth('24rem') }}
       >
+        {/* The X sits on a line of its own outside the scrolling list, so it never scrolls away
+            (#1780). The line has no heading (#898): the dialog keeps its name through aria-label. */}
+        <div className="mb-2 flex justify-end">
+          <PanelCloseButton onClose={onClose} />
+        </div>
+        <div data-testid="decklist-scroll" className="overflow-y-auto">
         {PILES.map(({ pile, title }) => {
           const entries = byPile[pile];
           const total = entries.reduce((sum, e) => sum + e.count, 0);
@@ -79,6 +86,7 @@ export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClo
             </section>
           );
         })}
+        </div>
       </div>
     </>
   );
