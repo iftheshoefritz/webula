@@ -179,7 +179,8 @@ export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tAt What Cost?
 1\tFerengi Tradition
 1\tAlliance Galor
-1\tType III Galor`;
+1\tType III Galor
+1\tDays of Atonement`;
 
 // The name of the card of `PRACTICE_COSTS_TSV` that goes into the crew.
 export const PRACTICE_COSTS_CREW = 'Annexation Drone';
@@ -191,8 +192,16 @@ export const PRACTICE_COSTS_CORE = 'Delivery Boy';
 // two events that resolve when played. Their ids come after every other card's, so the cards of the
 // fixture before #1727 keep theirs. Ferengi Tradition (#1730), an event that removes itself from the game,
 // comes after them, so the two before it keep theirs too. Alliance Galor and Type III Galor (#1744), two
-// ships that discard the top of the draw deck, come last, so every card before them keeps its id.
-export const PRACTICE_COSTS_LATE_HAND = ['These Are The Voyages', 'At What Cost?', 'Ferengi Tradition', 'Alliance Galor', 'Type III Galor'];
+// ships that discard the top of the draw deck, come next, and Days of Atonement (#1745), an event that
+// discards a card from hand to draw two, last, so every card before each keeps its id.
+export const PRACTICE_COSTS_LATE_HAND = [
+  'These Are The Voyages',
+  'At What Cost?',
+  'Ferengi Tradition',
+  'Alliance Galor',
+  'Type III Galor',
+  'Days of Atonement',
+];
 // The event `?fixture=resolving` (#1728) deals already resolving, played from that hand.
 export const RESOLVING_FIXTURE_EVENT = PRACTICE_COSTS_LATE_HAND[0];
 

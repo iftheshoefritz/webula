@@ -590,7 +590,7 @@ cards (These Are The Voyages, Data cost 4)". The bottom step (`resolve-step-bott
 the hand, or the whole hand when it holds fewer (`resolve-hand-card`), in an order the player sets
 (`resolve-order`, up and down); **Place on bottom** (`resolve-place-bottom`) dispatches `resolveBottom`,
 which puts them on the bottom of the draw deck in that order and the event in the discard pile, in one
-`resolveBottom` entry. Cancel hides at the bottom step. Each step is one undo. **View
+`resolveBottom` entry. Cancel hides at the bottom step. Each step is one undo. Four events discard a card from hand to draw (#1745, the model kind `'discardDraw'`: Days of Atonement, Order of the Bat'leth, That's the Last Time, Downfallen Civilization, whose conditions of play are not checked): one step, `resolve-step-discard-draw`, where the player picks one card of the hand (`resolve-hand-card`, a second tap moves the pick) and **Discard and draw N** (`resolve-discard-draw`) dispatches `resolveDiscardDraw`, which discards it, draws N free (2; Downfallen Civilization 3 while no mission slot is completed, `discardDrawCount`), as many as the draw deck holds, and moves the event to the discard pile, in one `resolveDiscardDraw` entry, "Discarded Tricorder, drew 2 cards, and Days of Atonement went to the discard pile". With an empty hand the step shows `resolve-hand-empty` and no button: the discard is the cost of the draw, so the player ends with Resolved → Discard or Cancel. **View
 table** (`resolving-view-table`) and Escape collapse the panel to a small card at the right side
 (`resolving-mini`, `LAYER_RESOLVING_MINI`), which a tap opens again, a hold previews and a drag moves. The
 view is page state: a new resolving card, an undo that brings it back and a reload open the panel. While
@@ -723,7 +723,8 @@ The practice table has nineteen fixtures. Each one deals the same table on every
   Cost? (cost 0), two events that resolve when played, end the hand (#1727), with ids after every other
   card's, so the cards of the fixture before them keep theirs (`PRACTICE_COSTS_LATE_HAND`), and after
   them Ferengi Tradition (#1730), an event that removes itself from the game, then Alliance Galor and Type III
-  Galor (#1744), two ships that discard the top of the draw deck, with the last ids. The draw deck
+  Galor (#1744), two ships that discard the top of the draw deck, then Days of Atonement (#1745), an event that
+  discards a card from hand to draw two, with the last ids. The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
 - `?fixture=resolving` (#1728) deals the `?fixture=costs` table, the same cards and the same ids, with
   These Are The Voyages already moved from the hand into the resolving zone, charged 1 and logged "Played

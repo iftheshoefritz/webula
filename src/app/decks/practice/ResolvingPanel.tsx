@@ -42,10 +42,12 @@ const STEP_THUMB_WIDTH = 52; // px
  * A step of the resolving event's resolve model (#1739), which the page derives from the log
  * (`resolveStepOf`). `'draw'`: the free draw, of the printed cost of a personnel of `groups`, or of the
  * model's `fixed` number with no choice. `'bottom'`: `count` cards of `hand` to the bottom of the draw deck.
+ * `'discardDraw'` (#1745): one card of `hand` discarded to draw `draw` cards free.
  */
 export type ResolveStep =
   | { step: 'draw'; groups: PersonnelCandidateGroup[]; fixed?: number; onDraw: (personnelId?: string) => void }
-  | { step: 'bottom'; count: number; hand: CardInstance[]; onPlace: (ids: string[]) => void };
+  | { step: 'bottom'; count: number; hand: CardInstance[]; onPlace: (ids: string[]) => void }
+  | { step: 'discardDraw'; draw: number; hand: CardInstance[]; onDiscardDraw: (id: string) => void };
 
 // The small card of View table, the size of a pile card at scale 1.
 export const RESOLVING_MINI_WIDTH = 56; // px
@@ -124,9 +126,21 @@ function PersonnelOption({ candidate, selected, onSelect }: { candidate: Personn
   );
 }
 
-// A card of the bottom step's hand row: a toggle, its place in the chosen order as a badge, and a hold
-// that previews it.
-function HandOption({ instance, order, onToggle }: { instance: CardInstance; order: number | null; onToggle: () => void }) {
+// A card of a step's hand row: a toggle, its place in the chosen order as a badge (the bottom step's), and a
+// hold that previews it. `badge` false shows the pick by its border alone (#1745).
+function HandOption({
+  instance,
+  order,
+  onToggle,
+  pickedLabel,
+  badge = true,
+}: {
+  instance: CardInstance;
+  order: number | null;
+  onToggle: () => void;
+  pickedLabel?: string;
+  badge?: boolean;
+}) {
   const hold = useCardHold(instance.id);
   const name = cardDisplayName(instance.card);
   return (
@@ -135,7 +149,7 @@ function HandOption({ instance, order, onToggle }: { instance: CardInstance; ord
       data-testid="resolve-hand-card"
       data-card-choice={instance.id}
       aria-pressed={order !== null}
-      aria-label={order !== null ? `${name}, ${order + 1} of the cards to put on the bottom` : name}
+      aria-label={order !== null ? `${name}, ${pickedLabel ?? `${order + 1} of the cards to put on the bottom`}` : name}
       onClick={onToggle}
       {...hold}
       style={NO_CALLOUT_STYLE}
@@ -149,7 +163,7 @@ function HandOption({ instance, order, onToggle }: { instance: CardInstance; ord
         className="rounded"
         style={{ ...NO_CALLOUT_STYLE, width: STEP_THUMB_WIDTH, height: Math.round((STEP_THUMB_WIDTH * CARD_IMAGE_HEIGHT) / CARD_IMAGE_WIDTH) }}
       />
-      {order !== null && (
+      {order !== null && badge && (
         <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[11px] font-semibold text-white">
           {order + 1}
         </span>
@@ -262,6 +276,51 @@ function BottomStep({ step }: { step: Extract<ResolveStep, { step: 'bottom' }> }
   );
 }
 
+// The step of a "discard a card from hand to draw" event (#1745): the hand as a row, a tap picks one card
+// (another tap moves the pick), and one button discards it and draws. An empty hand shows a note and no
+// button: the discard is the cost of the draw, so the player ends with Resolved → Discard or Cancel.
+function DiscardDrawStep({ step }: { step: Extract<ResolveStep, { step: 'discardDraw' }> }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const chosen = step.hand.some((c) => c.id === picked) ? picked : null;
+  const what = step.draw === 1 ? 'card' : 'cards';
+  return (
+    <div data-testid="resolve-step-discard-draw" className="flex min-h-0 min-w-0 flex-col gap-2">
+      {step.hand.length === 0 ? (
+        <p data-testid="resolve-hand-empty" className="text-sm text-text-primary">
+          Your hand is empty: no card to discard, so no draw.
+        </p>
+      ) : (
+        <>
+          <p className="text-sm text-text-primary">
+            Discard 1 card of your hand to draw {step.draw} {what}
+          </p>
+          <div data-testid="resolve-hand" className="flex min-w-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
+            {step.hand.map((c) => (
+              <HandOption
+                key={c.id}
+                instance={c}
+                order={c.id === chosen ? 0 : null}
+                badge={false}
+                pickedLabel="to discard"
+                onToggle={() => setPicked((id) => (id === c.id ? null : c.id))}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            data-testid="resolve-discard-draw"
+            className="btn-primary w-full whitespace-nowrap text-sm"
+            disabled={chosen === null}
+            onClick={() => chosen && step.onDiscardDraw(chosen)}
+          >
+            Discard and draw {step.draw}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ResolvingPanel({
   instance,
   hidden,
@@ -321,6 +380,8 @@ export function ResolvingPanel({
           <div className="flex min-h-0 w-64 max-w-[38vw] flex-col self-stretch" style={{ maxHeight: PANEL_CARD_HEIGHT }}>
             {step.step === 'draw' ? (
               <DrawStep key={`draw-${instance.id}`} step={step} />
+            ) : step.step === 'discardDraw' ? (
+              <DiscardDrawStep key={`discard-draw-${instance.id}`} step={step} />
             ) : (
               <BottomStep key={`bottom-${instance.id}`} step={step} />
             )}

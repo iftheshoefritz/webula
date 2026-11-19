@@ -225,7 +225,7 @@ import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
-import { resolveModelOf } from '../../../lib/resolveModels';
+import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import {
   DILEMMA_STACK_CHOICE_END_LABELS,
   DILEMMA_STACK_ROW_END,
@@ -2434,21 +2434,29 @@ function PracticeDrawContent() {
   const resolveStepName = resolveStepOf(game);
   const resolveModel = table.resolving ? resolveModelOf(cardDisplayName(table.resolving.card)) : undefined;
   const resolvingStep: ResolveStep | undefined =
-    resolveModel && resolveStepName === 'draw'
+    resolveModel?.kind === 'drawThenBottom' && resolveStepName === 'draw'
       ? {
           step: 'draw',
           groups: resolveModel.draw.kind === 'personnelCost' ? personnelCandidateGroups(table, { includeStopped: true }) : [],
           ...(resolveModel.draw.kind === 'fixed' ? { fixed: resolveModel.draw.count } : {}),
           onDraw: (personnelId) => dispatch({ type: 'resolveDraw', ...(personnelId ? { personnelId } : {}) }),
         }
-      : resolveModel && resolveStepName === 'bottom'
+      : resolveModel?.kind === 'drawThenBottom' && resolveStepName === 'bottom'
         ? {
             step: 'bottom',
             count: Math.min(resolveModel.bottomFromHand, table.hand.length),
             hand: table.hand,
             onPlace: (ids) => dispatch({ type: 'resolveBottom', ids }),
           }
-        : undefined;
+        : resolveModel?.kind === 'discardDraw' && resolveStepName === 'discardDraw'
+          ? {
+              step: 'discardDraw',
+              // Downfallen Civilization draws 3 while no mission slot is completed (#1745).
+              draw: discardDrawCount(resolveModel, table.missions.some((s) => s.completed === true)),
+              hand: table.hand,
+              onDiscardDraw: (id) => dispatch({ type: 'resolveDiscardDraw', id }),
+            }
+          : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document

@@ -42,7 +42,7 @@ import { drawSpend, drawSpendText } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
-import { resolveModelOf } from '../../../lib/resolveModels';
+import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { chosenPersonnel, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
@@ -254,6 +254,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // The last step of the resolving event's text (#1739): `count` cards of the hand went to the bottom of
   // the draw deck, and the event to the discard pile.
   | { kind: 'resolveBottom'; event: string; count: number }
+  // The one step of a "discard a card from hand to draw" event (#1745): `discarded` went from the hand to the
+  // discard pile, `count` cards were drawn free, and the event went to the discard pile.
+  | { kind: 'resolveDiscardDraw'; event: string; discarded: string; count: number }
   // A spend of counters a mission's text allows (#1754): Earth's "spend a counter to draw two cards",
   // `drew` cards drawn, or Nimbus III's "spend three counters to download …", `downloaded` the card that
   // went into its away team. `cost` is the charge, which the chip and the list correct as any other.
@@ -324,6 +327,9 @@ export type GameAction =
   // then the hand cards `ids` to the bottom of the draw deck, in that order, and the event to the discard pile.
   | { type: 'resolveDraw'; personnelId?: string }
   | { type: 'resolveBottom'; ids: string[] }
+  // The one step of a "discard a card from hand to draw" event (#1745): the hand card `id` is discarded, the
+  // model's cards are drawn free, and the event goes to the discard pile, in one entry.
+  | { type: 'resolveDiscardDraw'; id: string }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -741,7 +747,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'missionSpend' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'missionSpend' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -839,6 +845,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'cancelResolving') return cancelResolvingState(state);
   if (action.type === 'resolveDraw') return resolveDrawState(state, action);
   if (action.type === 'resolveBottom') return resolveBottomState(state, action);
+  if (action.type === 'resolveDiscardDraw') return resolveDiscardDrawState(state, action);
   if (action.type === 'missionSpend') return missionSpendState(state, action);
   if (action.type === 'restore') {
     return {
@@ -991,7 +998,8 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'discardForCharge' ||
     action.type === 'cancelResolving' ||
     action.type === 'resolveDraw' ||
-    action.type === 'resolveBottom'
+    action.type === 'resolveBottom' ||
+    action.type === 'resolveDiscardDraw'
   ) {
     return action;
   }
@@ -1268,6 +1276,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   playCancelled: true,
   resolveDrew: true,
   resolveBottom: true,
+  resolveDiscardDraw: true,
   missionSpend: true,
 };
 
@@ -1432,6 +1441,13 @@ export function logEntryText(entry: LogEntry): string {
       return n > 0
         ? `Put ${n} ${n === 1 ? 'card' : 'cards'} on the bottom of the draw deck, and ${event} went to the discard pile`
         : `${event} went to the discard pile`;
+    }
+    case 'resolveDiscardDraw': {
+      // "Discarded Tricorder, drew 2 cards, and Days of Atonement went to the discard pile" (#1745).
+      const n = isIndex(entry.count) ? entry.count : 0;
+      const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
+      const discarded = typeof entry.discarded === 'string' && entry.discarded ? entry.discarded : 'a card';
+      return `Discarded ${discarded}, drew ${n} ${n === 1 ? 'card' : 'cards'}, and ${event} went to the discard pile`;
     }
     case 'missionSpend': {
       // "Spent 1 counter at Earth Lush and Beautiful Home, and drew 2 cards".
@@ -2039,12 +2055,15 @@ function cancelResolvingState(state: GameState): GameState {
 
 // The step of the resolving event's resolve model (#1739), derived from the log so an undo and a reload
 // agree: `'bottom'` once a `resolveDrew` entry of this event follows the latest move of a card into the
-// resolving zone, `'draw'` before it. Null when nothing resolves or the event has no model.
-export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'draw' | 'bottom' | null {
+// resolving zone, `'draw'` before it. A "discard a card from hand to draw" event (#1745) has one step,
+// `'discardDraw'`, whose action ends the resolution. Null when nothing resolves or the event has no model.
+export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'draw' | 'bottom' | 'discardDraw' | null {
   const event = state.table.resolving;
   if (!event) return null;
   const name = cardName(state.table, event.id);
-  if (!resolveModelOf(name)) return null;
+  const model = resolveModelOf(name);
+  if (!model) return null;
+  if (model.kind === 'discardDraw') return 'discardDraw';
   for (let i = state.log.length - 1; i >= 0; i--) {
     const entry = state.log[i];
     if (entry.kind === 'resolveDrew') return entry.event === name ? 'bottom' : 'draw';
@@ -2063,7 +2082,7 @@ function resolveDrawState(state: GameState, action: { personnelId?: string }): G
   if (!event || resolveStepOf(state) !== 'draw') return state;
   const name = cardName(state.table, event.id);
   const model = resolveModelOf(name);
-  if (!model) return state;
+  if (!model || model.kind !== 'drawThenBottom') return state;
   let wanted: number;
   let personnel: { personnel: string; personnelCost: number } | null = null;
   if (model.draw.kind === 'fixed') {
@@ -2103,7 +2122,7 @@ function resolveBottomState(state: GameState, action: { ids: string[] }): GameSt
   if (!event || resolveStepOf(state) !== 'bottom') return state;
   const name = cardName(state.table, event.id);
   const model = resolveModelOf(name);
-  if (!model) return state;
+  if (!model || model.kind !== 'drawThenBottom') return state;
   const ids = [...new Set(action.ids)];
   const n = Math.min(model.bottomFromHand, state.table.hand.length);
   if (ids.length !== n || !ids.every((id) => state.table.hand.some((c) => c.id === id))) return state;
@@ -2111,6 +2130,38 @@ function resolveBottomState(state: GameState, action: { ids: string[] }): GameSt
   const table = tableReducer(placed, { type: 'move', id: event.id, to: 'discard' });
   if (table === placed) return state;
   const entry: LogEntry = { kind: 'resolveBottom', event: name, count: n, turn: table.turn, segment: table.segment };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The one step of a "discard a card from hand to draw" event (#1745): `id` must be a card of the hand, so an
+// empty hand never passes (the discard is the cost of the draw). The card goes to the discard pile, the
+// model's cards are drawn free (Downfallen Civilization's 3 while no mission slot is completed), as many as
+// the draw deck holds, and the event goes to the discard pile ("Destroy this event"), in one entry.
+function resolveDiscardDrawState(state: GameState, action: { id: string }): GameState {
+  const event = state.table.resolving;
+  if (!event || resolveStepOf(state) !== 'discardDraw') return state;
+  const name = cardName(state.table, event.id);
+  const model = resolveModelOf(name);
+  if (!model || model.kind !== 'discardDraw' || !state.table.hand.some((c) => c.id === action.id)) return state;
+  const wanted = discardDrawCount(model, state.table.missions.some((s) => s.completed === true));
+  let table = tableReducer(state.table, { type: 'move', id: action.id, to: 'discard' });
+  if (table === state.table) return state;
+  let count = 0;
+  while (count < wanted) {
+    const next = tableReducer(table, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+    if (next === table) break;
+    table = next;
+    count++;
+  }
+  table = tableReducer(table, { type: 'move', id: event.id, to: 'discard' });
+  const entry: LogEntry = {
+    kind: 'resolveDiscardDraw',
+    event: name,
+    discarded: cardName(state.table, action.id),
+    count,
+    turn: table.turn,
+    segment: table.segment,
+  };
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
