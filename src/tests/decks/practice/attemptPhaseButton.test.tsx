@@ -163,6 +163,7 @@ const renderLayout = (attempt: Attempt, onSetPhase: (phase: Attempt['phase']) =>
       onSetMissionCompleted={noop}
       selectedIds={[]}
       onToggleSelect={noop}
+      onSelectIds={noop}
       onSetStopped={noop}
       onShuffle={noop}
       moveDestinations={[]}

@@ -38,6 +38,7 @@ describe('AttemptPersonnelRow grid (#1205)', () => {
         bandHeight={bandHeight}
         selectedIds={['card-1']}
         onToggleSelect={() => {}}
+        onSelectIds={() => {}}
         onSetStopped={() => {}}
         onShuffle={() => {}}
         moveDestinations={[]}

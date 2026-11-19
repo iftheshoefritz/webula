@@ -142,6 +142,7 @@ describe('the attempt strip in a bot game (#1291)', () => {
         onSetMissionCompleted={noop}
         selectedIds={[]}
         onToggleSelect={noop}
+        onSelectIds={noop}
         onSetStopped={noop}
         onShuffle={noop}
         moveDestinations={[]}

@@ -30,3 +30,17 @@ export function stopButtons(cards: CardInstance[], selectedIds: string[]): StopB
     allPersonnelStopped: personnel.length > 0 && unstoppedPersonnel.length === 0,
   };
 }
+
+// Select all (#1781), shared the same way: the crew panel, the away team panel and the attempting row
+// select every card they list, the equipment too, in place of the selection. Once every card is
+// selected the button reads Select none and clears the whole selection.
+export interface SelectAllButton {
+  allSelected: boolean;
+  // The selection a tap leaves.
+  nextSelection: string[];
+}
+
+export function selectAllButton(cards: CardInstance[], selectedIds: string[]): SelectAllButton {
+  const allSelected = cards.length > 0 && cards.every((instance) => selectedIds.includes(instance.id));
+  return { allSelected, nextSelection: allSelected ? [] : cards.map((instance) => instance.id) };
+}

@@ -199,6 +199,7 @@ describe('the range left in the crew panel (#1636)', () => {
           onClose={() => {}}
           selectedIds={[]}
           onToggleSelect={() => {}}
+          onSelectIds={() => {}}
           cardWidth={108}
           cardHeight={150}
         />
@@ -245,6 +246,7 @@ describe('the range left on a ship of the attempt layout (#1636)', () => {
           onSetMissionCompleted={noop}
           selectedIds={[]}
           onToggleSelect={noop}
+          onSelectIds={noop}
           onSetStopped={noop}
           onShuffle={noop}
           moveDestinations={[]}

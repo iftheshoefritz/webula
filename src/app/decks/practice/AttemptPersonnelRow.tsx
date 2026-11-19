@@ -44,7 +44,7 @@ import { SHIP_ROW_GAP } from './MissionRow';
 import { useDraggedCardType } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState } from './zoneAccepts';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
-import { stopButtons } from './stopRules';
+import { selectAllButton, stopButtons } from './stopRules';
 import { ShuffleIcon, panelScrollClassName, useScrollsVertically } from './CardListPanel';
 import { ScrollIndicator } from './ScrollIndicator';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
@@ -100,6 +100,7 @@ export default function AttemptPersonnelRow({
   selectedIds,
   botMarks = null,
   onToggleSelect,
+  onSelectIds,
   onSetStopped,
   onShuffle,
   moveDestinations,
@@ -132,6 +133,8 @@ export default function AttemptPersonnelRow({
   // player's choice (#1593).
   botMarks?: BotRowMarks | null;
   onToggleSelect: (id: string) => void;
+  // Replaces the whole selection, for Select all (#1781).
+  onSelectIds: (ids: string[]) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // Shuffles the stored order of the place the row shows.
   onShuffle: () => void;
@@ -152,6 +155,7 @@ export default function AttemptPersonnelRow({
   // The list is open for one selection of the row: any change of the selection closes it.
   const selectedInRow = cards.filter((instance) => selectedIds.includes(instance.id)).map((instance) => instance.id);
   const selectionKey = selectedInRow.join(' ');
+  const { allSelected, nextSelection } = selectAllButton(cards, selectedIds);
   const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
   const moveMenuOpen = selectedInRow.length > 0 && moveMenuFor === selectionKey;
   useEscapeLayer(() => setMoveMenuFor(null), moveMenuOpen);
@@ -190,6 +194,16 @@ export default function AttemptPersonnelRow({
             className={buttonClassName}
           >
             {allPersonnelStopped ? 'Unstop all' : 'Stop all'}
+          </button>
+        )}
+        {cards.length > 0 && (
+          <button
+            type="button"
+            data-testid="attempt-row-select-all"
+            onClick={() => onSelectIds(nextSelection)}
+            className={buttonClassName}
+          >
+            {allSelected ? 'Select none' : 'Select all'}
           </button>
         )}
         {cards.length > 0 && (

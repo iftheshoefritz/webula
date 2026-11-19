@@ -57,6 +57,7 @@ const renderChoice = (space: boolean) => {
       onSetMissionCompleted={noop}
       selectedIds={[]}
       onToggleSelect={noop}
+      onSelectIds={noop}
       onSetStopped={noop}
       onShuffle={noop}
       moveDestinations={[]}
