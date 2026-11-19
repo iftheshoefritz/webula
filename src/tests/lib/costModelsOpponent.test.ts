@@ -12,7 +12,6 @@ const charge = (name: string, type: string, cost: number) => moveCharge('playAnd
 // Title, label, type, printed cost, step, the clamped max, and the count's label.
 const COUNTED: [string, string, string, number, number, number, string][] = [
   ['Tacking Into the Wind', 'Tacking Into the Wind', 'event', 4, 2, 2, 'Completed missions of the opponent'],
-  ['Alliance Galor', 'Alliance Galor', 'ship', 5, 1, 3, 'Humans discarded'],
   ['Rollins Trusted Subordinate', 'Rollins', 'personnel', 3, 1, 3, 'Cards the opponent drew'],
   ['Julian Bashir Rebel Captain', 'Julian Bashir', 'personnel', 6, 3, 2, 'Headquarters of the opponent'],
   ['Aaron Conor Born Leader', 'Aaron Conor', 'personnel', 3, 1, 3, 'Headquarters of the opponent'],

@@ -39,9 +39,10 @@ export type CostPlace =
 // What a move charged: a play of a card at its cost, with the source of a cost the table suggested,
 // or a draw at 1. `uses` are the uses the cards on the table offer for the play (#1713), which do not
 // change its cost until the player takes one. `reveal` are the cards of the opponent's dilemma pile the
-// play reveals (#1738), which go to the bottom of that pile.
+// play reveals (#1738), which go to the bottom of that pile. `discard` are the cards of the player's draw deck
+// the play discards from its top (#1744), which go to the discard pile.
 export type Charge =
-  | { kind: 'play'; cost: number; source?: CostSource; uses?: CostUse[]; reveal?: CostReveal }
+  | { kind: 'play'; cost: number; source?: CostSource; uses?: CostUse[]; reveal?: CostReveal; discard?: CostReveal }
   | { kind: 'draw'; cost: 1 };
 
 // The places on the table a card is played to: a ship row, a ship's crew, a mission's away team,
@@ -203,9 +204,12 @@ function baseCharge(
     const reason = discount ? `${named}, and ${discount.title}: ${discountReason(discount)}` : named;
     // Only the card's own model reveals, on its play from the hand (#1738).
     const reveal = from === 'hand' && model && suggested?.reveal?.ids.length ? suggested.reveal : undefined;
+    // And only the card's own model discards the top of the draw deck, on its play from the hand (#1744).
+    const discard = from === 'hand' && model && suggested?.discard?.ids.length ? suggested.discard : undefined;
     return {
       kind: 'play',
       ...(reveal ? { reveal } : {}),
+      ...(discard ? { discard } : {}),
       cost: Math.max(0, printed + total),
       source: {
         title: parts.map((p) => p.title).join(', '),

@@ -111,6 +111,21 @@ export interface CostFacts {
    * the core. Each with its keywords, lowercased. Absent is none.
    */
   events?: CostEventCard[];
+  /**
+   * The top cards of the player's own draw deck, top first, at most `DECK_TOP_FACTS` (#1744), each with its
+   * instance id, its type and its species, lowercased. The player's deck in every game. Absent is empty.
+   */
+  drawDeckTop?: CostDeckCard[];
+}
+
+/** The most cards of the draw deck's top that `CostFacts.drawDeckTop` holds (#1744). */
+export const DECK_TOP_FACTS = 3;
+
+/** A card of the top of the player's draw deck (#1744): its instance id, its type and its species, lowercased. */
+export interface CostDeckCard {
+  id: string;
+  type: string;
+  species: string[];
 }
 
 /** An event the player commands (#1749): its title (`cardTitleOf`) and its keywords, lowercased. */
@@ -207,10 +222,11 @@ export interface PendingDiscount {
  * one takes off, the largest count, and the printed cost it counts from (`moveCharge` fills `base`). A
  * count `n` sets the cost to `max(0, base − step·n)`. A cost choice with `nameDilemma` (#1761, Tristan
  * Adams's "+2: name a dilemma") asks for a dilemma title before it sets the cost, and the correction keeps
- * the title.
+ * the title. A cost choice with `discardTop` (#1744, Type III Galor's "Discard the top 3: −2") discards that
+ * many cards from the top of the draw deck as it sets the cost, in one entry.
  */
 export type CostChoice =
-  | { label: string; cost: number; limit?: undefined; step?: undefined; personnel?: undefined; nameDilemma?: true }
+  | { label: string; cost: number; limit?: undefined; step?: undefined; personnel?: undefined; nameDilemma?: true; discardTop?: number }
   | { label: string; limit: number; cost?: undefined; step?: undefined; personnel?: undefined }
   | CountedChoice
   | PersonnelChoice;
@@ -304,7 +320,17 @@ export interface ModelCost {
   choice?: CostChoice;
   /** The cards of the opponent's dilemma pile the play reveals (#1738), which then go to its bottom. */
   reveal?: CostReveal;
+  /** The cards of the player's draw deck the play discards from its top (#1744, Alliance Galor), top first. */
+  discard?: CostReveal;
 }
+
+/** The number of cards a choice discards from the top of the draw deck (#1744), or 0 for any other choice. */
+export const choiceDiscardTop = (choice: unknown): number => {
+  const c = choice as { cost?: unknown; discardTop?: unknown } | null | undefined;
+  return !!c && typeof c.cost === 'number' && typeof c.discardTop === 'number' && Number.isInteger(c.discardTop) && c.discardTop > 0
+    ? c.discardTop
+    : 0;
+};
 
 /**
  * The cards a play reveals from the top of the opponent's dilemma pile (#1738), by instance id, top first.

@@ -625,7 +625,7 @@ missions or the cards a play discards (#1695, `titles/opponentCost.ts`: Tacking 
 Ptol and others), gives the printed cost and a counted choice (`CountedChoice`: `step`, `max`, and the
 printed `base`, `max` clamped where the cost reaches 0), a stepper `charge-choice-count` with
 `charge-choice-minus` and `charge-choice-plus`, each a `correctCharge` with the cost of the next count
-and its `count`; `LogCharge.choiceCount` reads the last count back from the log. The chip and the list name the source, `charge-source`, and the log
+and its `count`; `LogCharge.choiceCount` reads the last count back from the log. Two ships discard the top of the player's own draw deck (#1744, `titles/deckDiscard.ts`, `CostFacts.drawDeckTop`, the top 3, in every game): a play of Alliance Galor moves the top 3 (fewer when the deck is short) to the discard pile in the play's `batch` (`ModelCost.discard`, the move's `costDiscard`), and costs 5 less the Human personnel among them, one entry and one undo; Type III Galor, while the draw deck holds 3 or more, offers "Discard the top 3: −2" (a cost choice with `discardTop`), a `discardForCharge` that discards the top 3 and lowers the charge in one `chargeCorrected` entry with `discarded`, one undo for both, refused and disabled once the deck holds fewer than 3. The chip and the list name the source, `charge-source`, and the log
 text reads "(cost 3, Borg Nanoprobes: you command a Borg)". The limit is 7, plus the grants of the models
 (#1655, `limitGrantsOf`, read from the table as it stands: Surprise Party +1 while it is in the core), plus on turn 1 the grants decided at the Draw 7 tap (#1755, `firstTurnGrant` of a model, `firstTurnGrantsOf`: Ledos +5 while the player has fewer than two headquarters missions and no skill is named in two missions' requirements, `missionsShareSkill`), which the `openingHand` entry keeps as `grants` (`loggedGrantsOf`), so a later change to the table leaves them and an undo of the tap takes them back,
 plus the `counterLimit` changes; Tricia Jenkins's "Raise the limit: +5" is a `charge-choice` that
@@ -722,7 +722,8 @@ The practice table has nineteen fixtures. Each one deals the same table on every
   of Machinations offers "Destroy Delivery Boy: −3" (#1713). These Are The Voyages (cost 1) and At What
   Cost? (cost 0), two events that resolve when played, end the hand (#1727), with ids after every other
   card's, so the cards of the fixture before them keep theirs (`PRACTICE_COSTS_LATE_HAND`), and after
-  them Ferengi Tradition (#1730), an event that removes itself from the game, with the last id. The draw deck
+  them Ferengi Tradition (#1730), an event that removes itself from the game, then Alliance Galor and Type III
+  Galor (#1744), two ships that discard the top of the draw deck, with the last ids. The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
 - `?fixture=resolving` (#1728) deals the `?fixture=costs` table, the same cards and the same ids, with
   These Are The Voyages already moved from the hand into the resolving zone, charged 1 and logged "Played

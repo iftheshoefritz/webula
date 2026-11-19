@@ -7,6 +7,7 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
+import { DECK_TOP_FACTS } from '../../../lib/costModels/model';
 import type { CommandedTraits, CostCoreCard, CostEventCard, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { skillWordsOf } from '../../../lib/playCost';
@@ -84,6 +85,12 @@ const coreCardOf = (c: CardInstance): CostCoreCard => {
   };
 };
 
+const speciesOf = (card: CardInstance['card'] | null | undefined): string[] =>
+  text(card?.species)
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
 /**
  * The traits of a played card that a standing rule (#1703) or a mission (#1752) tests: its species, its
  * skills, and `quadrant`, that of the mission slot it landed at, absent for a play to no slot.
@@ -92,10 +99,7 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined, quadra
   type: text(card?.type),
   unique: text(card?.unique) === 'y',
   icons: text(card?.icons).match(/\[[a-z0-9]+\]/g) ?? [],
-  species: text(card?.species)
-    .split('/')
-    .map((s) => s.trim())
-    .filter(Boolean),
+  species: speciesOf(card),
   skills: skillWordsOf(card?.skills),
   ...(text(card?.affiliation) ? { affiliation: text(card?.affiliation) } : {}),
   ...(quadrant ? { quadrant } : {}),
@@ -143,6 +147,7 @@ export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], 
     pending,
     plays,
     events: eventsOf(table),
+    drawDeckTop: table.drawDeck.slice(0, DECK_TOP_FACTS).map((c) => ({ id: c.id, type: text(c.card?.type), species: speciesOf(c.card) })),
     // The bot's dilemma pile is the opponent's (#1738); in a game with no bot the pile is the player's own.
     ...(table.opponent === 'bot'
       ? { opponentDilemmaPile: table.dilemmaPile.map((c) => ({ id: c.id, dilemmaType: text(c.card?.dilemmatype) })) }

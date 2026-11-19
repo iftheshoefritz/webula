@@ -1,7 +1,8 @@
 import { CostModel, ModelCost } from '../model';
 
 // The cards whose cost depends on the opponent, or on cards the table does not see (#1695). The table
-// models no opponent, and the discard, the draws and the reveal these texts name come after the play.
+// models no opponent, and the draws and the reveal these texts name come after the play. Alliance Galor's
+// discard reads the player's own draw deck, so it lives in `deckDiscard.ts` (#1744).
 // So each gives the printed cost and a choice, and never guesses: a count where the text counts, one
 // choice where it does not. Ptol in a bot game is the exception (#1738): the bot's dilemma pile is on
 // the table, so the play reveals its top four and counts them.
@@ -35,13 +36,6 @@ export const OPPONENT_COST_MODELS: CostModel[] = [
     title: 'Tacking Into the Wind',
     family: 'ownCost',
     playCost: forEachChosen(2, 5, 'Completed missions of the opponent', `${MINUS}2 for each completed mission the opponent commands`),
-  },
-  // "When you play this ship, discard the top three cards of your deck. This ship is cost -1 for each
-  // Human discarded this way." The discard comes after the play, so the table reads no card of the deck.
-  {
-    title: 'Alliance Galor',
-    family: 'ownCost',
-    playCost: forEachChosen(1, 3, 'Humans discarded', `${MINUS}1 for each Human of the top three cards discarded`),
   },
   // "When you play this personnel, your opponent may draw up to three cards. This personnel is cost -1
   // for each card drawn this way."
