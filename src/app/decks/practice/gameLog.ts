@@ -44,7 +44,7 @@ import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isPersonnelChoice } from '../../../lib/costModels/model';
-import { chosenPersonnel, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
+import { cardHasIcon, chosenPersonnel, downloadCopyOf, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, firstTurnGrantsOf, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, slotQuadrantOf, turnPlayOf } from './costFacts';
@@ -257,6 +257,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // The one step of a "discard a card from hand to draw" event (#1745): `discarded` went from the hand to the
   // discard pile, `count` cards were drawn free, and the event went to the discard pile.
   | { kind: 'resolveDiscardDraw'; event: string; discarded: string; count: number }
+  // The one step of Second Edition (#1746): a copy of `personnel` downloaded from the draw deck, the deck
+  // shuffled, `count` cards drawn free (1 for an [AU] personnel), and the event to the discard pile.
+  | { kind: 'resolveDownloaded'; event: string; personnel: string; count: number }
   // A spend of counters a mission's text allows (#1754): Earth's "spend a counter to draw two cards",
   // `drew` cards drawn, or Nimbus III's "spend three counters to download …", `downloaded` the card that
   // went into its away team. `cost` is the charge, which the chip and the list correct as any other.
@@ -330,6 +333,10 @@ export type GameAction =
   // The one step of a "discard a card from hand to draw" event (#1745): the hand card `id` is discarded, the
   // model's cards are drawn free, and the event goes to the discard pile, in one entry.
   | { type: 'resolveDiscardDraw'; id: string }
+  // The one step of Second Edition (#1746): a copy of the personnel `personnelId` from the draw deck to the
+  // hand, the shuffle of the draw deck in `order`, which `withShuffleOrders` chooses, the draw, and the event
+  // to the discard pile, in one entry.
+  | { type: 'resolveDownload'; personnelId: string; order?: string[] }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -747,7 +754,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'missionSpend' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'missionSpend' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -846,6 +853,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'resolveDraw') return resolveDrawState(state, action);
   if (action.type === 'resolveBottom') return resolveBottomState(state, action);
   if (action.type === 'resolveDiscardDraw') return resolveDiscardDrawState(state, action);
+  if (action.type === 'resolveDownload') return resolveDownloadState(state, action);
   if (action.type === 'missionSpend') return missionSpendState(state, action);
   if (action.type === 'restore') {
     return {
@@ -1002,6 +1010,11 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'resolveDiscardDraw'
   ) {
     return action;
+  }
+  if (action.type === 'resolveDownload') {
+    if (action.order) return action;
+    const copy = downloadCopyOf(table, action.personnelId);
+    return copy ? { ...action, order: shuffledIds(table.drawDeck.filter((c) => c.id !== copy.id)) } : action;
   }
   if (action.type === 'missionSpend') {
     if (action.spend !== 'nimbus' || action.order) return action;
@@ -1277,6 +1290,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   resolveDrew: true,
   resolveBottom: true,
   resolveDiscardDraw: true,
+  resolveDownloaded: true,
   missionSpend: true,
 };
 
@@ -1448,6 +1462,15 @@ export function logEntryText(entry: LogEntry): string {
       const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
       const discarded = typeof entry.discarded === 'string' && entry.discarded ? entry.discarded : 'a card';
       return `Discarded ${discarded}, drew ${n} ${n === 1 ? 'card' : 'cards'}, and ${event} went to the discard pile`;
+    }
+    case 'resolveDownloaded': {
+      // "Downloaded Data (Second Edition), shuffled the draw deck, drew 1 card, and Second Edition went to the
+      // discard pile" (#1746), with no draw clause for a personnel that is not [AU].
+      const n = isIndex(entry.count) ? entry.count : 0;
+      const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
+      const personnel = typeof entry.personnel === 'string' && entry.personnel ? entry.personnel : 'a personnel';
+      const drew = n > 0 ? `, drew ${n} ${n === 1 ? 'card' : 'cards'}` : '';
+      return `Downloaded ${personnel} (${event}), shuffled the draw deck${drew}, and ${event} went to the discard pile`;
     }
     case 'missionSpend': {
       // "Spent 1 counter at Earth Lush and Beautiful Home, and drew 2 cards".
@@ -2057,13 +2080,14 @@ function cancelResolvingState(state: GameState): GameState {
 // agree: `'bottom'` once a `resolveDrew` entry of this event follows the latest move of a card into the
 // resolving zone, `'draw'` before it. A "discard a card from hand to draw" event (#1745) has one step,
 // `'discardDraw'`, whose action ends the resolution. Null when nothing resolves or the event has no model.
-export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'draw' | 'bottom' | 'discardDraw' | null {
+export function resolveStepOf(state: { table: TableState; log: LogEntry[] }): 'draw' | 'bottom' | 'discardDraw' | 'download' | null {
   const event = state.table.resolving;
   if (!event) return null;
   const name = cardName(state.table, event.id);
   const model = resolveModelOf(name);
   if (!model) return null;
   if (model.kind === 'discardDraw') return 'discardDraw';
+  if (model.kind === 'downloadCopy') return 'download';
   for (let i = state.log.length - 1; i >= 0; i--) {
     const entry = state.log[i];
     if (entry.kind === 'resolveDrew') return entry.event === name ? 'bottom' : 'draw';
@@ -2158,6 +2182,41 @@ function resolveDiscardDrawState(state: GameState, action: { id: string }): Game
     kind: 'resolveDiscardDraw',
     event: name,
     discarded: cardName(state.table, action.id),
+    count,
+    turn: table.turn,
+    segment: table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The one step of Second Edition (#1746): the personnel must be one the player commands with a copy in the
+// draw deck (`downloadCopyOf`). The copy goes to the hand, the draw deck shuffles in the carried `order` (a
+// missing or stale order leaves it as it is, so the reducer calls no random function), an [AU] personnel
+// draws its card free, as many as the deck holds, and the event goes to the discard pile, in one entry.
+function resolveDownloadState(state: GameState, action: { personnelId: string; order?: string[] }): GameState {
+  const event = state.table.resolving;
+  if (!event || resolveStepOf(state) !== 'download') return state;
+  const name = cardName(state.table, event.id);
+  const model = resolveModelOf(name);
+  const copy = downloadCopyOf(state.table, action.personnelId);
+  if (!model || model.kind !== 'downloadCopy' || !copy) return state;
+  const personnel = findInstanceAnywhere(state.table, action.personnelId)?.instance;
+  let table = tableReducer(state.table, { type: 'move', id: copy.id, to: 'hand' });
+  if (table === state.table) return state;
+  table = tableReducer(table, { type: 'shuffle', location: 'drawDeck', ...(action.order ? { order: action.order } : { order: table.drawDeck.map((c) => c.id) }) });
+  const wanted = cardHasIcon(personnel?.card, model.drawIfIcon) ? model.draw : 0;
+  let count = 0;
+  while (count < wanted) {
+    const next = tableReducer(table, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+    if (next === table) break;
+    table = next;
+    count++;
+  }
+  table = tableReducer(table, { type: 'move', id: event.id, to: 'discard' });
+  const entry: LogEntry = {
+    kind: 'resolveDownloaded',
+    event: name,
+    personnel: cardName(state.table, action.personnelId),
     count,
     turn: table.turn,
     segment: table.segment,

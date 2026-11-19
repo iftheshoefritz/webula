@@ -180,7 +180,8 @@ export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tFerengi Tradition
 1\tAlliance Galor
 1\tType III Galor
-1\tDays of Atonement`;
+1\tDays of Atonement
+1\tSecond Edition`;
 
 // The name of the card of `PRACTICE_COSTS_TSV` that goes into the crew.
 export const PRACTICE_COSTS_CREW = 'Annexation Drone';
@@ -193,7 +194,8 @@ export const PRACTICE_COSTS_CORE = 'Delivery Boy';
 // fixture before #1727 keep theirs. Ferengi Tradition (#1730), an event that removes itself from the game,
 // comes after them, so the two before it keep theirs too. Alliance Galor and Type III Galor (#1744), two
 // ships that discard the top of the draw deck, come next, and Days of Atonement (#1745), an event that
-// discards a card from hand to draw two, last, so every card before each keeps its id.
+// discards a card from hand to draw two, then Second Edition (#1746), which downloads a copy of a commanded
+// personnel (Marris and Simmons have copies in the draw deck), last, so every card before each keeps its id.
 export const PRACTICE_COSTS_LATE_HAND = [
   'These Are The Voyages',
   'At What Cost?',
@@ -201,6 +203,7 @@ export const PRACTICE_COSTS_LATE_HAND = [
   'Alliance Galor',
   'Type III Galor',
   'Days of Atonement',
+  'Second Edition',
 ];
 // The event `?fixture=resolving` (#1728) deals already resolving, played from that hand.
 export const RESOLVING_FIXTURE_EVENT = PRACTICE_COSTS_LATE_HAND[0];
