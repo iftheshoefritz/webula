@@ -108,6 +108,7 @@ describe('the cost model backlog', () => {
     expect(titles).toContain('A History of Collusion');
     // Modelled by #1762.
     expect(titles).not.toContain("Alexander Rozhenko K'mtar");
+    expect(titles).not.toContain('The New Resistance');
     expect(titles).not.toContain('Tacking Into the Wind');
     for (const t of COST_REGISTRY.keys()) expect(titles).not.toContain(t);
     if (process.env.COST_BACKLOG) {

@@ -55,6 +55,10 @@ import {
   PRACTICE_ATTRIBUTES_TSV,
   PRACTICE_COMPLETION_TSV,
   PRACTICE_KMTAR_HAND,
+  PRACTICE_DISSIDENT_CORE,
+  PRACTICE_DISSIDENT_DRAW_TOP,
+  PRACTICE_DISSIDENT_HAND,
+  PRACTICE_DISSIDENT_TSV,
   PRACTICE_KMTAR_TSV,
   PRACTICE_MISSIONS_HAND,
   PRACTICE_MISSIONS_TSV,
@@ -2088,6 +2092,9 @@ function PracticeDrawContent() {
   // `?fixture=kmtar` (#1762) deals the piles table with five missions whose non-headquarters ones require
   // Diplomacy, and K'mtar at the end of the hand.
   const isKmtarFixture = fixture === 'kmtar';
+  // `?fixture=dissident` (#1763) deals the piles table with The New Resistance in the core, a Dissident at the
+  // end of the hand and another on top of the draw deck.
+  const isDissidentFixture = fixture === 'dissident';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2114,6 +2121,7 @@ function PracticeDrawContent() {
     isCompletionFixture ||
     isMissionsFixture ||
     isKmtarFixture ||
+    isDissidentFixture ||
     isAttemptFixture ||
     isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -2161,6 +2169,11 @@ function PracticeDrawContent() {
   const [openReveal, setOpenReveal] = useState<{ pile: DownloadPile; end: 'top' | 'bottom'; ids: string[]; play?: true } | null>(
     null
   );
+  // Whether the use of `id` on the charge at `target` is a reveal of the top of the draw deck (#1763).
+  const revealTopUse = (target: ChargeTarget, id: string): boolean =>
+    entryCharges(game.log, target.entry)
+      .find((c) => c.target.move === target.move && c.target.card === target.card)
+      ?.uses?.some((u) => u.id === id && u.effect === 'revealTop' && !u.used) ?? false;
   const dispatch = (action: GameAction) => {
     const chosen = withShuffleOrders(table, action, game.log, cardTextOn);
     if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
@@ -2169,7 +2182,11 @@ function PracticeDrawContent() {
     // pile, on the cards it put there, where the player orders them. The panel draws over every other
     // one. An undo or a new game closes that panel, since the cards are no longer at the bottom.
     const revealed = actionReveal(chosen);
+    // The New Resistance's reveal (#1763) opens the draw deck's reveal panel on its top card, from which the
+    // player drags a revealed Dissident to the table.
+    const deckTop = action.type === 'useCard' && revealTopUse(action.target, action.id) ? table.drawDeck[0] : undefined;
     if (revealed.length) setOpenReveal({ pile: 'dilemmaPile', end: 'bottom', ids: revealed, play: true });
+    else if (deckTop) setOpenReveal({ pile: 'drawDeck', end: 'top', ids: [deckTop.id], play: true });
     else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) {
       setOpenReveal((reveal) => (reveal?.play ? null : reveal));
     }
@@ -2698,7 +2715,7 @@ function PracticeDrawContent() {
   ) => {
     // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal,
     // or those of `?fixture=attributes` (#1666), dealt to the crew and the core.
-    const extras = fixturePiles
+    const extras: { hand: any[]; crew: any[]; core: any[]; lateHand: any[]; drawTop?: any[] } | null = fixturePiles
       ? isCostsFixture
         ? costsFixtureExtras()
         : isAttributesFixture
@@ -2709,10 +2726,12 @@ function PracticeDrawContent() {
               ? missionsFixtureExtras()
               : isKmtarFixture
                 ? kmtarFixtureExtras()
-                : null
+                : isDissidentFixture
+                  ? dissidentFixtureExtras()
+                  : null
       : null;
     const extraKeys = new Set(
-      extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand].map((c: any) => c.collectorsinfo) : []
+      extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand, ...(extras.drawTop ?? [])].map((c: any) => c.collectorsinfo) : []
     );
     const cards = extractDrawDeck(deck).filter((c: any) => !extraKeys.has(c.collectorsinfo));
     // The extra cards' instances, made after the deal's own, so the ids of every other card are those of
@@ -2726,6 +2745,7 @@ function PracticeDrawContent() {
         extraHand: [...hand, ...createCardInstances(extras.lateHand)],
         extraCrew: crew,
         ...(core.length ? { extraCore: core } : {}),
+        ...(extras.drawTop?.length ? { extraDrawTop: createCardInstances(extras.drawTop) } : {}),
       };
     };
     const deal: TableAction = {
@@ -2823,6 +2843,19 @@ function PracticeDrawContent() {
     core: [] as any[],
     lateHand: extractDrawDeck(deckFromTsv(PRACTICE_KMTAR_TSV, data)).filter((r: any) => r.originalName === PRACTICE_KMTAR_HAND),
   });
+  // The cards `?fixture=dissident` adds (#1763): The New Resistance to the core, Leeta to the end of the hand,
+  // and Damar on top of the draw deck.
+  const dissidentFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_DISSIDENT_TSV, data));
+    const named = (name: string) => rows.filter((r: any) => r.originalName === name);
+    return {
+      hand: [] as any[],
+      crew: [] as any[],
+      core: named(PRACTICE_DISSIDENT_CORE),
+      lateHand: named(PRACTICE_DISSIDENT_HAND),
+      drawTop: named(PRACTICE_DISSIDENT_DRAW_TOP),
+    };
+  };
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
   const botCostsFixtureExtras = () => ({
     hand: [] as any[],
@@ -2837,6 +2870,7 @@ function PracticeDrawContent() {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
+    if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = {
       ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
@@ -2923,6 +2957,7 @@ function PracticeDrawContent() {
           isCompletionFixture ||
           isMissionsFixture ||
           isKmtarFixture ||
+          isDissidentFixture ||
           isAttemptFixture ||
           isBotFixture,
         attemptFixturePhase,

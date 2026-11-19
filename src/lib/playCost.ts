@@ -117,7 +117,7 @@ type ChargedCard =
   | undefined;
 
 // The play a model prices: the card's traits, its instance id and where it landed.
-const costPlayOf = (card: ChargedCard, id: string | undefined, destination: CostDestination): CostPlay => ({
+export const costPlayOf = (card: ChargedCard, id: string | undefined, destination: CostDestination = {}): CostPlay => ({
   id,
   ...destination,
   type: String(card?.type ?? '').toLowerCase(),
@@ -152,7 +152,8 @@ export function moveCharge(
   destination: CostDestination = {}
 ): Charge | null {
   const charge = baseCharge(segment, from, to, card, facts, id, destination);
-  if (charge?.kind !== 'play' || from !== 'hand' || !facts) return charge;
+  // A play from the draw deck (#1763) is a play like one from the hand: the cards on the table offer their uses.
+  if (charge?.kind !== 'play' || (from !== 'hand' && from !== 'drawDeck') || !facts) return charge;
   const uses = costUsesOf(costPlayOf(card, id, destination), facts);
   return uses.length ? { ...charge, uses } : charge;
 }
@@ -166,14 +167,23 @@ function baseCharge(
   id?: string,
   destination: CostDestination = {}
 ): Charge | null {
-  if (segment !== 'playAndDraw' || (from !== 'hand' && from !== 'discard') || !PLAY_PLACES.has(to)) return null;
+  if (segment !== 'playAndDraw' || !['hand', 'discard', 'drawDeck'].includes(from) || !PLAY_PLACES.has(to)) return null;
   const type = String(card?.type ?? '').toLowerCase();
   if (type === 'dilemma') return null;
   const printed = printedCost(card);
   const name = card ? String(cardDisplayName(card) ?? '') : '';
   const model = facts && name ? costModelOf(name) : undefined;
   const play = costPlayOf(card, id, destination);
-  const discount = from === 'hand' ? facts?.pending?.find((d) => d.applies(play)) : undefined;
+  // The one play from the draw deck the table charges (#1763): the card a pending discount `fromDrawDeck`
+  // names. Every other move out of the draw deck is no play. Such a play prices as one from the hand.
+  const discount =
+    from === 'hand'
+      ? facts?.pending?.find((d) => !d.fromDrawDeck && d.applies(play))
+      : from === 'drawDeck'
+        ? facts?.pending?.find((d) => d.fromDrawDeck && d.applies(play))
+        : undefined;
+  if (from === 'drawDeck' && !discount) return null;
+  const asHand = from === 'hand' || from === 'drawDeck';
   const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
   const suggested = price && facts ? price(play, facts) : null;
   // Cost changes stack (#1699, #1702): the card's own model, then each card of the core that prices its
@@ -182,9 +192,9 @@ function baseCharge(
   // title joins the names of the models and whose reason joins their reasons.
   const parts = [
     ...(model && suggested ? [{ title: costModelName(model), cost: suggested }] : []),
-    ...(from === 'hand' && facts ? coreCostsOf(play, facts) : []),
-    ...(from === 'hand' && facts ? missionCostsOf(play, facts) : []),
-    ...(from === 'hand' && facts ? personnelCostsOf(play, facts) : []),
+    ...(asHand && facts ? coreCostsOf(play, facts) : []),
+    ...(asHand && facts ? missionCostsOf(play, facts) : []),
+    ...(asHand && facts ? personnelCostsOf(play, facts) : []),
   ];
   if (parts.length > 0) {
     const off = discount?.amount ?? 0;

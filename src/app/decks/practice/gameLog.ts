@@ -41,7 +41,7 @@ import {
 import { drawSpend, drawSpendText } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
-import { CostDestination, CostPlace, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
+import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
@@ -227,6 +227,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       named?: string;
       // The cards a `discardTop` choice discarded from the top of the draw deck (#1744), top first.
       discarded?: string[];
+      // The top card of the draw deck a `revealTop` use revealed (#1763), and whether it is a Dissident
+      // personnel, decided at the reveal, so the play from the draw deck it allows reads from the log alone.
+      revealed?: { id: string; name: string; dissident: boolean };
     }
   // A change of the turn's limit of counters by the player (#1607), and the limit it left.
   // `source` names the model whose choice raised the limit (#1655), "Tricia Jenkins", and `target` the
@@ -1076,6 +1079,21 @@ export function pendingDiscountsOf(log: LogEntry[], turn: number): PendingDiscou
       if (entry.target) close(entry.target);
       return;
     }
+    if (entry.kind === 'chargeCorrected' && isRevealedCard(entry.revealed)) {
+      // The New Resistance (#1763): a revealed Dissident personnel plays from the draw deck at −3, once.
+      const revealed = entry.revealed;
+      if (revealed.dissident) {
+        open.push({
+          title: typeof entry.source === 'string' && entry.source ? entry.source : 'a card',
+          label: `revealed ${revealed.name}`,
+          amount: 3,
+          origin: { entry: i },
+          applies: (play) => play.id === revealed.id,
+          fromDrawDeck: true,
+        });
+      }
+      return;
+    }
     if (entry.kind === 'eventsDownloaded') {
       // K'mtar (#1762): one discount per downloaded card, for the play of that card alone. Its origin is the
       // entry and the card's place in it, which no charge has, since the entry charges nothing.
@@ -1434,6 +1452,10 @@ export function logEntryText(entry: LogEntry): string {
     }
     case 'chargeCorrected': {
       const source = typeof entry.source === 'string' && entry.source ? entry.source : '';
+      // "Revealed Hogue (The New Resistance): a Dissident" (#1763).
+      if (isRevealedCard(entry.revealed)) {
+        return `Revealed ${entry.revealed.name}${source ? ` (${source})` : ''}: ${entry.revealed.dissident ? 'a Dissident' : 'not a Dissident'}`;
+      }
       // "Destroyed Delivery Boy: charged Machinations 0 counters (was 2)" (#1713).
       if (isUsedCard(entry.used)) {
         return `${USED_VERBS[entry.used.effect]} ${entry.used.name}: charged ${entry.card ?? 'a card'} ${countersText(entry.to)} (was ${entry.from})`;
@@ -1526,7 +1548,12 @@ export function logEntryText(entry: LogEntry): string {
   }
 }
 
-const USED_VERBS: Record<CostUseEffect, string> = { destroy: 'Destroyed', stop: 'Stopped' };
+const USED_VERBS: Record<CostUseEffect, string> = { destroy: 'Destroyed', stop: 'Stopped', revealTop: 'Revealed' };
+
+const isRevealedCard = (revealed: unknown): revealed is { id: string; name: string; dissident: boolean } => {
+  const r = revealed as { id?: unknown; name?: unknown; dissident?: unknown } | null | undefined;
+  return !!r && typeof r.id === 'string' && typeof r.name === 'string' && typeof r.dissident === 'boolean';
+};
 
 const isUsedCard = (used: unknown): used is LogUsedCard => {
   const u = used as LogUsedCard | null | undefined;
@@ -2055,6 +2082,7 @@ function downloadForChargeState(state: GameState, action: { ids: string[]; sourc
 // for a stop unstopped in an away team or a crew, never the brig.
 export function costUseAvailable(table: TableState, use: Pick<CostUse, 'id' | 'effect'>): boolean {
   if (use.effect === 'destroy') return table.core.some((c) => c.id === use.id);
+  if (use.effect === 'revealTop') return table.core.some((c) => c.id === use.id) && table.drawDeck.length > 0;
   return table.missions.some((slot) =>
     [...slot.awayTeam, ...slot.ships.flatMap((ship) => ship.crew ?? [])].some((c) => c.id === use.id && c.card?.type === 'personnel' && !c.stopped)
   );
@@ -2068,6 +2096,25 @@ function cardUseState(state: GameState, action: { target: ChargeTarget; id: stri
   const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
   const use = charge?.uses?.find((u) => u.id === action.id);
   if (!charge || !use || use.used || !costUseAvailable(state.table, use)) return state;
+  if (use.effect === 'revealTop') {
+    // The New Resistance (#1763): the top card of the draw deck is revealed, and no card moves; the entry
+    // records it and whether it is a Dissident personnel, which lets it play from the draw deck at −3.
+    const top = state.table.drawDeck[0];
+    const play = costPlayOf(top.card, top.id);
+    const entry: LogEntry = {
+      kind: 'chargeCorrected',
+      target: charge.target,
+      card: charge.card,
+      from: charge.cost,
+      to: charge.cost,
+      source: use.title,
+      used: { id: use.id, name: cardName(state.table, use.id), effect: use.effect },
+      revealed: { id: top.id, name: cardName(state.table, top.id), dissident: play.type === 'personnel' && (play.keywords ?? []).includes('dissident') },
+      turn: state.table.turn,
+      segment: state.table.segment,
+    };
+    return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+  }
   const table = tableReducer(
     state.table,
     use.effect === 'destroy' ? { type: 'move', id: use.id, to: 'discard' } : { type: 'setStopped', ids: [use.id], stopped: true }

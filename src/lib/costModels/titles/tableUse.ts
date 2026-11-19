@@ -11,9 +11,27 @@ const unstoppedAtDestination = (title: string, play: CostPlay, facts: CostFacts)
     ? []
     : (facts.missions?.[play.missionIndex]?.personnel ?? []).filter((p) => p.title === title && !p.stopped && !!p.id);
 
+// The first card of the core titled `title`: one offer per play, however many copies are there.
+const firstInCore = (title: string, facts: CostFacts): string[] => {
+  const card = (facts.coreCards ?? []).find((c) => c.title === title && !!c.id);
+  return card?.id ? [card.id] : [];
+};
+
 const isStarfleet = (affiliation: string): boolean => affiliation.includes('starfleet') || affiliation.includes('[sf]');
 
 export const TABLE_USE_MODELS: CostModel[] = [
+  // "Plays in your core. When you play a Dissident personnel, you may reveal the top card of your deck. If it
+  // is a Dissident, you may play him or her at cost -3." (#1763) A play of a Dissident personnel offers a
+  // reveal of the top card while the draw deck has one; a revealed Dissident personnel then plays from the
+  // draw deck at −3 (`pendingDiscountsOf`), the one play from the draw deck the table charges.
+  {
+    title: 'The New Resistance',
+    family: 'standingRule',
+    usesForPlay: (play, facts) =>
+      play.type === 'personnel' && (play.keywords ?? []).includes('dissident') && (facts.drawDeckTop ?? []).length > 0
+        ? firstInCore('The New Resistance', facts).map((id) => ({ id, amount: 0, effect: 'revealTop' as const }))
+        : [],
+  },
   // "Plays in your core. When you are about to play a Q event or a Temporal event, you may destroy this
   // event to play that event at cost -3."
   {
