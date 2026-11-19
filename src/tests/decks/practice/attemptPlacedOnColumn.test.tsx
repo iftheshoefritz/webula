@@ -64,6 +64,7 @@ const renderLayout = (slot: MissionSlot, phase: Attempt['phase'] = 'face', onOpe
       onSetMissionCompleted={noop}
       selectedIds={[]}
       onToggleSelect={noop}
+      onSelectIds={noop}
       onSetStopped={noop}
       onShuffle={noop}
       moveDestinations={[]}

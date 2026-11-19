@@ -95,7 +95,7 @@ import { artCropHeight, CARD_IMAGE_HEIGHT, CARD_IMAGE_WIDTH, PANEL_TOP_INSET, vi
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { PANEL_SCROLLS_ATTRIBUTE } from './panelGesture';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
-import { stopButtons } from './stopRules';
+import { selectAllButton, stopButtons } from './stopRules';
 import { safeAreaMargins } from './useSafeAreaInsets';
 import { ScrollIndicator } from './ScrollIndicator';
 import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
@@ -813,6 +813,10 @@ export default function CardListPanel({
     allPersonnelStopped
       ? onSetStopped?.(stoppedPersonnel.map((instance) => instance.id), false)
       : onSetStopped?.(unstoppedPersonnel.map((instance) => instance.id), true);
+  // #1781: the same two panels get "Select all", which selects every card of the panel, the
+  // equipment too, in place of the selection. Once every card is selected it reads "Select none".
+  const showSelectAllButton = onSelectIds !== undefined && (location === 'crew' || location === 'awayTeam');
+  const { allSelected, nextSelection } = selectAllButton(cards, selectedIds);
   const selectedInPanel = cards.filter((instance) => selectedIds.includes(instance.id));
   const showFlipButton = onFlip !== undefined && selectedInPanel.length > 0;
   const handleFlipTap = () => onFlip?.(selectedInPanel.map((instance) => instance.id));
@@ -939,7 +943,7 @@ export default function CardListPanel({
         }}
       >
       <div className={layoutClassName}>
-        {(onAttempt || onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showFlipButton || showDiscardButton || showRemoveFromGameButton || onShuffle) && (
+        {(onAttempt || onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showSelectAllButton || showFlipButton || showDiscardButton || showRemoveFromGameButton || onShuffle) && (
           <div data-testid="panel-controls" className="shrink-0 flex flex-row flex-wrap justify-center items-start gap-2">
             {/* The reveal panel's own controls (#1070, #1078). Both reveal buttons show even with no
                 card in the panel, so an empty panel always has a way to reveal. */}
@@ -1017,6 +1021,17 @@ export default function CardListPanel({
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {allPersonnelStopped ? 'Unstop all' : 'Stop all'}
+              </button>
+            )}
+            {showSelectAllButton && (
+              <button
+                type="button"
+                data-testid="panel-select-all"
+                onClick={() => onSelectIds?.(nextSelection)}
+                disabled={cards.length === 0}
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {allSelected ? 'Select none' : 'Select all'}
               </button>
             )}
             {showFlipButton && (

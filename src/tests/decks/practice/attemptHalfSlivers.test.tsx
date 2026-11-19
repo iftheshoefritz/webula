@@ -97,6 +97,7 @@ describe('the slivers above the attempted mission on a desktop (#1504)', () => {
         onSetMissionCompleted={noop}
         selectedIds={[]}
         onToggleSelect={noop}
+        onSelectIds={noop}
         onSetStopped={noop}
         onShuffle={noop}
         moveDestinations={[]}

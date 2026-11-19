@@ -4467,6 +4467,7 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   botMarks={botRowMarks}
                   onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
                   onSetStopped={setStoppedForSelection}
                   onShuffle={(location) => dispatch({ type: 'shuffle', location })}
                   moveDestinations={attemptMoveDestinations(table)}

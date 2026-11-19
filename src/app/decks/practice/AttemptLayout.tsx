@@ -112,6 +112,7 @@ export default function AttemptLayout({
   selectedIds,
   botMarks = null,
   onToggleSelect,
+  onSelectIds,
   onSetStopped,
   onShuffle,
   moveDestinations,
@@ -155,6 +156,7 @@ export default function AttemptLayout({
   // The marks of the revealed dilemma's random selection on the row (#1629).
   botMarks?: BotRowMarks | null;
   onToggleSelect: (id: string) => void;
+  onSelectIds: (ids: string[]) => void;
   onSetStopped: (ids: string[], stopped: boolean) => void;
   // The row's Shuffle (#1179): the crew of the attempting ship, or the away team of the mission.
   onShuffle: (location: ShuffleLocation) => void;
@@ -422,6 +424,7 @@ export default function AttemptLayout({
                     selectedIds={selectedIds}
                     botMarks={botMarks}
                     onToggleSelect={onToggleSelect}
+                    onSelectIds={onSelectIds}
                     onSetStopped={onSetStopped}
                     onShuffle={() => onShuffle({ zone: 'crew', shipId: ship.id })}
                     moveDestinations={moveDestinations}
@@ -448,6 +451,7 @@ export default function AttemptLayout({
                 selectedIds={selectedIds}
                 botMarks={botMarks}
                 onToggleSelect={onToggleSelect}
+                onSelectIds={onSelectIds}
                 onSetStopped={onSetStopped}
                 onShuffle={() => onShuffle({ zone: 'missionPile', missionIndex, pile: 'awayTeam' })}
                 moveDestinations={moveDestinations}
