@@ -527,6 +527,36 @@ minimum screen, on a phone and at agent-browser's 800×600 it is 1, a pile card 
 on a desktop it is 1.25, and at 1920×1080 about 1.69. The sizes of the row are functions of it in
 `flatRowWidths.ts` (`pileCardSize`, `flatCardWidth`, `flatRowWidths`).
 
+The table draws in 3D (`table3d.ts`), after the board of a digital card game such as MTG Arena. The
+game menu's Settings hold "3D table: On/Off" (`game-menu-table-3d`), a setting of the device under
+`practice-3d-table`, on by default, and it turns all four parts on and off:
+
+- The board of missions and ships and the bottom row lean away from the player as one table
+  (`TablePlane`, `data-testid="tilted-board"` and `"tilted-bottom-row"`): each takes
+  `perspective(1200px) rotateX(18deg)` about the same hinge on screen, the middle of the bottom
+  edge of the bottom row (`planeTiltStyle`), so the two lie in one plane. The hands, the corner
+  buttons and the turn and score column stay flat in front, since the hands are `position: fixed`
+  and a transformed ancestor would re-anchor them. One playmat, `data-testid="board-mat"`, runs in
+  that plane from above the slivers of the dilemmas under the missions to below the bottom row. Each
+  tilted element sits inside its part's measured box (`setMissionRows`, `setBottomRow`), never on it,
+  so `useShipRows` and `computeTableScale` measure what they did before and the sizes of the table do
+  not change. dnd-kit measures each droppable's projected box, and the browser hit-tests the tilted
+  cards as drawn, so drops and taps land where the card shows. The attempt layout does not tilt.
+- The game layer takes the class `table-3d`: felt, a soft spotlight and a vignette (`globals.css`).
+- Every table card (`table-card-art` of `TableCardImage`) casts a shadow on the table.
+- The draw deck, the dilemma pile and the discard pile draw real cards of the game under the top
+  card (`pileDepth.ts`), `data-testid="pile-depth"` with `data-depth` (the pile's height in px:
+  0.2 px a card past the first, at most 10, times the bottom-row scale) and `data-layers`, at most 10
+  `<img>`s (`pileLayers`), each lower, further right, darker and a little askew than the one above,
+  the same on every render. A face-down pile shows `cardback.jpg`, and the discard pile the faces of
+  its own cards under the top one. A pale hairline under each card (`PILE_CARD_EDGE`) tells the black
+  borders apart, and the bottom card casts the pile's shadow. The layers sit behind the art with no
+  pointer events, so no pile's size, drop halves or drag change.
+  A pile stands on the table: its bottom card sits on the bottom row's baseline, level with the
+  bottoms of the core and brig cards, and its contents (`data-testid="pile-lift"`: the layers, the
+  top card, its drop halves, its drag and its count) rise by the pile's height (`usePileLift`), so a
+  tall pile's top shows above the single cards of the row. The pile's box keeps its place.
+
 The card sizes in `MissionRow.tsx` and `TableCard.tsx` are still the sizes at scale 1, and scale 1
 is still a 320 px tall table. At 667×375 the table draws at a scale of 375/320, about 1.17. A
 layout that must fit the minimum screen must fit it at that scale.
