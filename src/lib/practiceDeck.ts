@@ -281,6 +281,23 @@ export const PRACTICE_KMTAR_TSV = `${PRACTICE_DECK_TSV.split('\n')
 // The card of `PRACTICE_KMTAR_TSV` that joins the end of the hand.
 export const PRACTICE_KMTAR_HAND = "Alexander Rozhenko K'mtar";
 
+// The deck of `?fixture=tain` (#1800): the practice deck with five missions in place of its own, each
+// non-headquarters one requiring Intelligence, in slot order Celtris III (the planet of the away team), Farius
+// Prime, Argus Array (the space mission of the crewed ship), Sector 21396 and Cardassia Prime, a headquarters,
+// and Enabran Tain "Retired" Spymaster at the end of the hand, so his play opens his "when you play" effect.
+export const PRACTICE_TAIN_TSV = `${PRACTICE_DECK_TSV.split('\n')
+  .slice(0, -5)
+  .join('\n')}
+1\tEnabran Tain "Retired" Spymaster
+1\tCeltris III Construct Elaborate Trap
+1\tFarius Prime Approach Criminal Organization
+1\tArgus Array Redirect Subspace Telescope
+1\tSector 21396 Commandeer Prototype
+1\tCardassia Prime Hardscrabble World`;
+
+// The card of `PRACTICE_TAIN_TSV` that joins the end of the hand.
+export const PRACTICE_TAIN_HAND = 'Enabran Tain "Retired" Spymaster';
+
 export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)
   .join('\n')}

@@ -8,6 +8,11 @@
 // drop target. It follows the card list panel's `hidden` convention: during a drag it stays mounted, with
 // no visibility and no pointer events, so every target on the table can be reached.
 //
+// Its subject is the card whose play text is resolving: the event of `TableState.resolving`, or else the
+// personnel or ship whose "when you play" effect is pending (#1800, `pendingPlayEffectOf`). A played card
+// stands on the table, so its card here previews on a hold and does not drag, and the panel shows the effect's
+// text, its condition, and Done and Skip in place of Resolved → Discard, Remove from game and Cancel.
+//
 // The backdrop and the panel sit below the charge chip (`LAYER_RESOLVING_PANEL`), so the chip of the
 // play and its choices stay reachable, and below the game menu splash, which covers them.
 
@@ -50,7 +55,22 @@ export type ResolveStep =
   | { step: 'bottom'; count: number; hand: CardInstance[]; onPlace: (ids: string[]) => void }
   | { step: 'discardDraw'; draw: number; hand: CardInstance[]; onDiscardDraw: (id: string) => void }
   | { step: 'download'; groups: PersonnelCandidateGroup[]; available: (id: string) => boolean; onDownload: (personnelId: string) => void }
-  | { step: 'exchange'; hand: CardInstance[]; groups: PersonnelCandidateGroup[]; onExchange: (handId: string, tableId: string) => void };
+  | { step: 'exchange'; hand: CardInstance[]; groups: PersonnelCandidateGroup[]; onExchange: (handId: string, tableId: string) => void }
+  // The "may draw up to N" step of a played card (#1800): a stepper from 0 to `max`, at most what the deck holds.
+  | { step: 'drawUpTo'; max: number; deck: number; onDraw: (count: number) => void }
+  // The "discard N cards from hand" step of a played card (#1800): `count` cards of `hand`.
+  | { step: 'discardFromHand'; count: number; hand: CardInstance[]; onDiscard: (ids: string[]) => void };
+
+/** The played card of a pending "when you play" effect (#1800), the panel's other subject. */
+export interface PlayedSubject {
+  // The effect's text, "You may draw up to seven cards, then discard two cards from hand."
+  text: string;
+  // "Condition met: …", or null for a model with no condition.
+  condition: string | null;
+  // Whether a step was taken already: Done then ends the effect, and before it Skip does.
+  started: boolean;
+  onEnd: () => void;
+}
 
 // The small card of View table, the size of a pile card at scale 1.
 export const RESOLVING_MINI_WIDTH = 56; // px
@@ -100,6 +120,36 @@ function ResolvingCard({
       </button>
       <LandedRing nonce={landedNonce} />
     </div>
+  );
+}
+
+// The played card of a "when you play" effect (#1800): it stands on the table, so here it previews on a hold
+// and a tap, and never drags. No `data-card-id`: the table's card carries it.
+function PlayedCard({ instance, onTap, imageStyle, testId }: { instance: CardInstance; onTap?: () => void; imageStyle: React.CSSProperties; testId: string }) {
+  const hold = useCardHold(instance.id);
+  const name = cardDisplayName(instance.card);
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      data-played-card={instance.id}
+      onClick={onTap}
+      {...hold}
+      className="block shrink-0 rounded-md focus:outline-hidden"
+      style={NO_CALLOUT_STYLE}
+      aria-label={onTap ? `Show ${name}` : name}
+    >
+      <img
+        draggable={false}
+        src={cardImageUrl(instance.card)}
+        onError={showCardMissing}
+        width={CARD_IMAGE_WIDTH}
+        height={CARD_IMAGE_HEIGHT}
+        alt={name}
+        className="rounded-md shadow-md"
+        style={{ ...NO_CALLOUT_STYLE, ...imageStyle }}
+      />
+    </button>
   );
 }
 
@@ -454,6 +504,74 @@ function DiscardDrawStep({ step }: { step: Extract<ResolveStep, { step: 'discard
   );
 }
 
+// The "may draw up to N" step of a played card (#1800): a stepper from 0 to the most the deck allows, and
+// Draw N. Its count is its own state, so a new subject, which remounts it, starts at the most.
+function DrawUpToStep({ step }: { step: Extract<ResolveStep, { step: 'drawUpTo' }> }) {
+  const most = Math.min(step.max, step.deck);
+  const [count, setCount] = useState(most);
+  const n = Math.max(0, Math.min(count, most));
+  return (
+    <div data-testid="resolve-step-draw-up-to" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">
+        Draw up to {step.max} cards{step.deck < step.max ? ` (the draw deck holds ${step.deck})` : ''}
+      </p>
+      <div className="flex items-center justify-center gap-2">
+        <button type="button" data-testid="resolve-draw-minus" aria-label="One fewer" className="btn-icon-sm" disabled={n <= 0} onClick={() => setCount(n - 1)}>
+          −
+        </button>
+        <span data-testid="resolve-draw-count" className="w-6 text-center text-lg font-semibold text-text-primary">
+          {n}
+        </span>
+        <button type="button" data-testid="resolve-draw-plus" aria-label="One more" className="btn-icon-sm" disabled={n >= most} onClick={() => setCount(n + 1)}>
+          +
+        </button>
+      </div>
+      <button type="button" data-testid="resolve-draw" className="btn-primary w-full whitespace-nowrap text-sm" onClick={() => step.onDraw(n)}>
+        Draw {n}
+      </button>
+    </div>
+  );
+}
+
+// The "discard N cards from hand" step of a played card (#1800): the hand as a row, a tap picks a card up to
+// `count`, and Discard once exactly `count` are picked. An empty hand discards nothing.
+function DiscardFromHandStep({ step }: { step: Extract<ResolveStep, { step: 'discardFromHand' }> }) {
+  const [order, setOrder] = useState<string[]>([]);
+  const inHand = new Set(step.hand.map((c) => c.id));
+  const picked = order.filter((id) => inHand.has(id));
+  const toggle = (id: string) =>
+    setOrder((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : ids.filter((i) => inHand.has(i)).length < step.count ? [...ids, id] : ids));
+  const what = step.count === 1 ? 'card' : 'cards';
+  return (
+    <div data-testid="resolve-step-discard" className="flex min-h-0 min-w-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">
+        {step.count === 0 ? 'Your hand is empty: nothing to discard.' : `Discard ${step.count} ${what} from your hand`}
+      </p>
+      <div data-testid="resolve-hand" className="flex min-w-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
+        {step.hand.map((c) => (
+          <HandOption
+            key={c.id}
+            instance={c}
+            order={picked.includes(c.id) ? picked.indexOf(c.id) : null}
+            badge={false}
+            pickedLabel="to discard"
+            onToggle={() => toggle(c.id)}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        data-testid="resolve-discard"
+        className="btn-primary w-full whitespace-nowrap text-sm"
+        disabled={picked.length !== step.count}
+        onClick={() => step.onDiscard(picked)}
+      >
+        Discard {step.count}
+      </button>
+    </div>
+  );
+}
+
 export function ResolvingPanel({
   instance,
   hidden,
@@ -463,6 +581,7 @@ export function ResolvingPanel({
   onCancel,
   onViewTable,
   step,
+  played,
 }: {
   instance: CardInstance;
   // During a drag: mounted, with no visibility and no pointer events.
@@ -473,11 +592,14 @@ export function ResolvingPanel({
   onDiscard?: () => void;
   // Shown only for an event that removes itself from the game (`removesItselfFromGame`).
   onRemoveFromGame?: () => void;
-  onCancel: () => void;
+  // Absent for a played card (#1800), which has no Cancel: Skip and undo cover it.
+  onCancel?: () => void;
   onViewTable: () => void;
   // The step of the event's resolve model (#1739), or none for an event the player resolves by hand.
   // Cancel shows only before the draw: once it drew, Cancel would leave the free draws in the hand.
   step?: ResolveStep;
+  // The played card of a pending "when you play" effect (#1800), in place of a resolving event.
+  played?: PlayedSubject;
 }) {
   // Escape collapses the panel to the small card, and never discards the event; during a drag it does
   // nothing, as a card list panel's does.
@@ -501,18 +623,42 @@ export function ResolvingPanel({
         className={`relative flex flex-row items-center gap-3 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-3`}
         style={safeAreaMargins('top', 'right', 'bottom', 'left')}
       >
-        <ResolvingCard
-          instance={instance}
-          testId="resolving-card"
-          imageStyle={{
-            height: step ? STEP_CARD_HEIGHT : PANEL_CARD_HEIGHT,
-            width: 'auto',
-            aspectRatio: `${CARD_IMAGE_WIDTH} / ${CARD_IMAGE_HEIGHT}`,
-          }}
-        />
-        {step && (
-          <div className="flex min-h-0 w-64 max-w-[38vw] flex-col self-stretch" style={{ maxHeight: PANEL_CARD_HEIGHT }}>
-            {step.step === 'draw' ? (
+        {played ? (
+          <PlayedCard
+            instance={instance}
+            testId="resolving-card"
+            imageStyle={{ height: STEP_CARD_HEIGHT, width: 'auto', aspectRatio: `${CARD_IMAGE_WIDTH} / ${CARD_IMAGE_HEIGHT}` }}
+          />
+        ) : (
+          <ResolvingCard
+            instance={instance}
+            testId="resolving-card"
+            imageStyle={{
+              height: step ? STEP_CARD_HEIGHT : PANEL_CARD_HEIGHT,
+              width: 'auto',
+              aspectRatio: `${CARD_IMAGE_WIDTH} / ${CARD_IMAGE_HEIGHT}`,
+            }}
+          />
+        )}
+        {(step || played) && (
+          <div className="flex min-h-0 w-64 max-w-[38vw] flex-col gap-2 self-stretch" style={{ maxHeight: PANEL_CARD_HEIGHT }}>
+            {played && (
+              <>
+                <p data-testid="resolve-play-text" className="text-xs text-text-secondary">
+                  {played.text}
+                </p>
+                {played.condition && (
+                  <p data-testid="resolve-condition" className="text-xs text-text-muted">
+                    {played.condition}
+                  </p>
+                )}
+              </>
+            )}
+            {!step ? null : step.step === 'drawUpTo' ? (
+              <DrawUpToStep key={`draw-up-to-${instance.id}`} step={step} />
+            ) : step.step === 'discardFromHand' ? (
+              <DiscardFromHandStep key={`discard-${instance.id}`} step={step} />
+            ) : step.step === 'draw' ? (
               <DrawStep key={`draw-${instance.id}`} step={step} />
             ) : step.step === 'discardDraw' ? (
               <DiscardDrawStep key={`discard-draw-${instance.id}`} step={step} />
@@ -527,6 +673,16 @@ export function ResolvingPanel({
         )}
         <div className="flex w-32 flex-col gap-2">
           <p className="text-xs text-text-muted">Resolving</p>
+          {played && (
+            <button
+              type="button"
+              data-testid={played.started ? 'resolving-done' : 'resolving-skip'}
+              className={played.started ? button : secondary}
+              onClick={played.onEnd}
+            >
+              {played.started ? 'Done' : 'Skip'}
+            </button>
+          )}
           {onRemoveFromGame && (
             <button
               type="button"
@@ -542,7 +698,7 @@ export function ResolvingPanel({
               Resolved → Discard
             </button>
           )}
-          {step?.step !== 'bottom' && (
+          {onCancel && step?.step !== 'bottom' && (
             <button type="button" data-testid="resolving-cancel" className={secondary} onClick={onCancel}>
               Cancel
             </button>
@@ -558,19 +714,24 @@ export function ResolvingPanel({
 
 // The small card of View table, at the right side of the screen, above the table: a tap brings the panel
 // back, a hold previews the event, and it drags out like the panel's card.
-export function ResolvingMini({ instance, onOpen }: { instance: CardInstance; onOpen: () => void }) {
+// A played card (#1800) does not drag: it stands on the table.
+export function ResolvingMini({ instance, onOpen, played = false }: { instance: CardInstance; onOpen: () => void; played?: boolean }) {
   return (
     <div
       className={`fixed ${LAYER_RESOLVING_MINI} flex flex-col items-center gap-0.5 rounded-md bg-black/60 p-1`}
       style={{ right: 8, top: '30%', ...safeAreaMargins('right') }}
     >
       <span className="text-[9px] uppercase tracking-wide leading-3 text-text-secondary">Resolving</span>
-      <ResolvingCard
-        instance={instance}
-        testId="resolving-mini"
-        onTap={onOpen}
-        imageStyle={{ width: RESOLVING_MINI_WIDTH, height: MINI_HEIGHT }}
-      />
+      {played ? (
+        <PlayedCard instance={instance} testId="resolving-mini" onTap={onOpen} imageStyle={{ width: RESOLVING_MINI_WIDTH, height: MINI_HEIGHT }} />
+      ) : (
+        <ResolvingCard
+          instance={instance}
+          testId="resolving-mini"
+          onTap={onOpen}
+          imageStyle={{ width: RESOLVING_MINI_WIDTH, height: MINI_HEIGHT }}
+        />
+      )}
     </div>
   );
 }
