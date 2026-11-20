@@ -19,6 +19,7 @@
 import { cardDisplayName } from '../../../lib/cardCount';
 import {
   applyResolveChange,
+  CardInstance,
   cardsAt,
   drawReshuffles,
   shuffledIds,
@@ -43,6 +44,18 @@ import { shipRangeOnTable } from './shipRange';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
+import {
+  discardCount,
+  drawUpToCount,
+  PlayConditionState,
+  PlayConditionStatus,
+  PlayModel,
+  playConditionOf,
+  playModelOf,
+  PlayStepName,
+  PlayStepSpec,
+  playStepsOf,
+} from '../../../lib/playModels';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
@@ -99,6 +112,24 @@ export interface LogMove {
   // The cards of the move that the same action removed from the game (#1730): the resolving event that
   // Resolved → Remove from game sends to the discard pile, marked. Absent for every other move.
   removedFromGame?: true;
+  // The record of each played card's "when you play" effect (#1800), in the order of `cards`, null for a card
+  // with none. Each step of the effect amends the play's own entry, so the play and its effect are one entry
+  // and one undo. Absent when no card of the move has a record.
+  effects?: (PlayEffectRecord | null)[];
+}
+
+// One step of a "when you play" effect (#1800): the cards it drew, the names of the cards it discarded, or
+// the step skipped.
+export type PlayEffectStepRecord =
+  | { step: 'draw'; count: number }
+  | { step: 'discard'; cards: string[] }
+  | { step: PlayStepName; skipped: true };
+
+// What a played card's "when you play" effect did so far (#1800): whether its condition held when the first
+// step ran, and its steps in order. The effect is done once every step of its model is here.
+export interface PlayEffectRecord {
+  condition?: PlayConditionStatus;
+  steps: PlayEffectStepRecord[];
 }
 
 // What the effect of a completion did (#1757).
@@ -271,6 +302,10 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // `drew` cards drawn, or Nimbus III's "spend three counters to download …", `downloaded` the card that
   // went into its away team. `cost` is the charge, which the chip and the list correct as any other.
   | { kind: 'missionSpend'; mission: string; spend: MissionSpendKind; cost: number; drew?: number; downloaded?: string }
+  // Steps of a "when you play" effect (#1800) that could not amend the play's entry, because a correction of a
+  // charge came after it: the play at `target`, its card, and the steps of this entry. Its undo takes back
+  // those steps only.
+  | { kind: 'playEffect'; target: ChargeTarget; card: string; effect: PlayEffectRecord }
 );
 
 // The card on the table a use acted on (#1713).
@@ -346,6 +381,11 @@ export type GameAction =
   // to the discard pile, in one entry.
   | { type: 'resolveDownload'; personnelId: string; order?: string[] }
   | { type: 'resolveExchange'; handId: string; tableId: string }
+  // The steps of the pending "when you play" effect (#1800), each amending the play's entry: the draw of up to
+  // `count` cards free, the discard of the hand cards `ids`, and a skip of every step left (Skip and Done).
+  | { type: 'playEffectDraw'; count: number }
+  | { type: 'playEffectDiscard'; ids: string[] }
+  | { type: 'playEffectSkip' }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -763,7 +803,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' } | { type: 'playEffectDraw' } | { type: 'playEffectDiscard' } | { type: 'playEffectSkip' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -866,6 +906,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'resolveDownload') return resolveDownloadState(state, action);
   if (action.type === 'resolveExchange') return resolveExchangeState(state, action);
   if (action.type === 'missionSpend') return missionSpendState(state, action);
+  if (action.type === 'playEffectDraw') return playEffectDrawState(state, action);
+  if (action.type === 'playEffectDiscard') return playEffectDiscardState(state, action);
+  if (action.type === 'playEffectSkip') return playEffectSkipState(state);
+  // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event.
+  if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && pendingPlayEffectOf(state)) return state;
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),
@@ -1021,7 +1066,10 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'resolveDraw' ||
     action.type === 'resolveBottom' ||
     action.type === 'resolveDiscardDraw' ||
-    action.type === 'resolveExchange'
+    action.type === 'resolveExchange' ||
+    action.type === 'playEffectDraw' ||
+    action.type === 'playEffectDiscard' ||
+    action.type === 'playEffectSkip'
   ) {
     return action;
   }
@@ -1264,7 +1312,7 @@ const playedPlaceText = (place: LogPlace): string => {
 const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text: string } => {
   const costs = moveCosts(move);
   if (costs && costs.every((c) => c !== null)) {
-    return { verb: 'played', text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}` };
+    return { verb: 'played', text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}${movedEffectsText(move)}` };
   }
   if (move.from.kind === 'resolving' && move.to.kind === 'discard' && move.removedFromGame) {
     return { verb: 'resolved', text: `${cardsText(move.cards)}, and removed it from the game` };
@@ -1274,7 +1322,7 @@ const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text:
   }
   return {
     verb: 'moved',
-    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}${move.removedFromGame ? ', and removed from the game' : ''}`,
+    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}${move.removedFromGame ? ', and removed from the game' : ''}${movedEffectsText(move)}`,
   };
 };
 
@@ -1342,6 +1390,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   resolveDownloaded: true,
   resolveExchanged: true,
   missionSpend: true,
+  playEffect: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1550,6 +1599,11 @@ export function logEntryText(entry: LogEntry): string {
         return `${spent}, and drew ${n} ${n === 1 ? 'card' : 'cards'}`;
       }
       return `${spent}, and downloaded ${entry.downloaded ?? 'a card'} into its away team`;
+    }
+    case 'playEffect': {
+      // "Enabran Tain: discarded Tricorder and Phaser" (#1800).
+      const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
+      return `${card}: ${isPlayEffectRecord(entry.effect) ? playEffectText(entry.effect) : 'no effect'}`;
     }
   }
 }
@@ -2513,4 +2567,211 @@ function missionSpendState(
     };
   }
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+const PLAY_STEP_NAMES: ReadonlySet<string> = new Set<PlayStepName>(['draw', 'discard']);
+
+const isPlayEffectStep = (step: unknown): step is PlayEffectStepRecord => {
+  const s = step as { step?: unknown; count?: unknown; cards?: unknown; skipped?: unknown } | null | undefined;
+  if (!s || typeof s.step !== 'string' || !PLAY_STEP_NAMES.has(s.step)) return false;
+  if (s.skipped === true) return true;
+  if (s.step === 'draw') return isIndex(s.count);
+  return Array.isArray(s.cards) && s.cards.every((c) => typeof c === 'string');
+};
+
+// A record of a "when you play" effect (#1800) is read only when it is well formed: a malformed one of a saved
+// log is dropped, and its move kept.
+export const isPlayEffectRecord = (record: unknown): record is PlayEffectRecord => {
+  const r = record as { condition?: unknown; steps?: unknown } | null | undefined;
+  return (
+    !!r &&
+    Array.isArray(r.steps) &&
+    r.steps.every(isPlayEffectStep) &&
+    (r.condition === undefined || r.condition === 'met' || r.condition === 'notMet' || r.condition === 'unchecked')
+  );
+};
+
+// The record of each card of a move (#1800), null for a card with none or a malformed one.
+const moveEffects = (move: LogMove): (PlayEffectRecord | null)[] => {
+  const effects = Array.isArray(move.effects) && move.effects.length === move.cards.length ? move.effects : [];
+  return move.cards.map((_, i) => (isPlayEffectRecord(effects[i]) ? effects[i]! : null));
+};
+
+const cardsCountText = (n: number): string => `${n} ${n === 1 ? 'card' : 'cards'}`;
+
+// "drew 7 cards, then discarded Tricorder and Phaser", "skipped its play text", "drew 3 cards, then skipped the
+// discard", with " (condition not met)" when its condition did not hold (#1800).
+export function playEffectText(record: PlayEffectRecord): string {
+  const taken = record.steps.filter((s) => !('skipped' in s));
+  const skipped = record.steps.filter((s) => 'skipped' in s);
+  const parts = record.steps.map((s) =>
+    'skipped' in s ? `skipped the ${s.step}` : s.step === 'draw' ? `drew ${cardsCountText(s.count)}` : `discarded ${s.cards.length ? cardsText(s.cards) : 'no card'}`
+  );
+  const text = !taken.length && skipped.length ? 'skipped its play text' : parts.join(', then ');
+  return `${text}${record.condition === 'notMet' ? ' (condition not met)' : record.condition === 'unchecked' ? ' (condition not checked)' : ''}`;
+}
+
+// "; drew 7 cards, then discarded Tricorder and Phaser" after a play whose effect has a record (#1800), each
+// card's own for a move of more than one card.
+const movedEffectsText = (move: LogMove): string =>
+  moveEffects(move)
+    .map((record, i) =>
+      record && record.steps.length ? `; ${move.cards.length > 1 ? `${move.cards[i] ?? 'a card'}: ` : ''}${playEffectText(record)}` : ''
+    )
+    .join('');
+
+// A "when you play" effect waiting for the player (#1800): the play at `target`, its card `id` where it stands
+// on the table, its model, its condition, the steps the record holds and the step that comes next.
+export interface PendingPlayEffect {
+  target: ChargeTarget;
+  id: string;
+  instance: CardInstance;
+  name: string;
+  model: PlayModel;
+  condition: PlayConditionState | null;
+  steps: PlayEffectStepRecord[];
+  step: PlayStepSpec;
+}
+
+// The steps the log holds for the play at `target` (#1800): its move's record, then each `playEffect` entry
+// that names it, in order; the condition of the first that has one.
+function playEffectRecordOf(log: LogEntry[], target: ChargeTarget): PlayEffectRecord {
+  const entry = log[target.entry];
+  const move = entry?.kind === 'move' && isIndex(target.move) ? entry.moves[target.move] : undefined;
+  const own = move && isIndex(target.card) ? moveEffects(move)[target.card] : null;
+  const later = log
+    .slice(target.entry + 1)
+    .filter((e): e is Extract<LogEntry, { kind: 'playEffect' }> => e.kind === 'playEffect' && !!e.target && sameTarget(e.target, target) && isPlayEffectRecord(e.effect))
+    .map((e) => e.effect);
+  const records = [...(own ? [own] : []), ...later];
+  const condition = records.find((r) => r.condition !== undefined)?.condition;
+  return { ...(condition ? { condition } : {}), steps: records.flatMap((r) => r.steps) };
+}
+
+// The played card on the table (#1800): in an away team, a crew or a ship row, by its name, the one at the
+// place the play logged first.
+function playedCardOnTable(table: TableState, name: string, to: LogPlace): CardInstance | null {
+  const found: { instance: CardInstance; here: boolean }[] = [];
+  table.missions.forEach((slot, i) => {
+    const mission = missionName(table, i);
+    const named = (c: CardInstance) => !!c.card && cardDisplayName(c.card) === name;
+    slot.awayTeam.filter(named).forEach((instance) => found.push({ instance, here: to.kind === 'awayTeam' && to.mission === mission }));
+    slot.ships.forEach((ship) => {
+      if (named(ship)) found.push({ instance: ship, here: to.kind === 'shipRow' && to.mission === mission });
+      const shipName = ship.card ? cardDisplayName(ship.card) : '';
+      (ship.crew ?? []).filter(named).forEach((instance) => found.push({ instance, here: to.kind === 'crew' && to.ship === shipName }));
+    });
+  });
+  return (found.find((f) => f.here) ?? found[0])?.instance ?? null;
+}
+
+// The pending "when you play" effect (#1800), derived from the effective log so an undo, a redo and a reload
+// agree: the latest play of the current turn's play and draw, when its card has a model, its record does not
+// hold every step yet, and the card still stands in an away team, a crew or a ship row. A later play, the end
+// of the segment, the card leaving the table and a Cancel of the play (`effectiveLog`) end it. Null otherwise.
+export function pendingPlayEffectOf(state: { table: TableState; log: LogEntry[] }): PendingPlayEffect | null {
+  const { table } = state;
+  if (table.segment !== 'playAndDraw') return null;
+  const log = effectiveLog(state.log);
+  for (let i = log.length - 1; i >= 0; i--) {
+    const entry = log[i];
+    if (entry.turn !== table.turn) return null;
+    if (entrySegment(entry) !== 'playAndDraw') return null;
+    if (entry.kind !== 'move') continue;
+    for (let m = entry.moves.length - 1; m >= 0; m--) {
+      const move = entry.moves[m];
+      const costs = moveCosts(move);
+      if (!costs) continue;
+      for (let c = costs.length - 1; c >= 0; c--) {
+        if (costs[c] === null) continue;
+        const name = move.cards[c];
+        const model = name ? playModelOf(name) : undefined;
+        if (!name || !model) return null;
+        const target = { entry: i, move: m, card: c };
+        const record = playEffectRecordOf(log, target);
+        const specs = playStepsOf(model);
+        const step = specs[record.steps.length];
+        if (!step) return null;
+        const instance = playedCardOnTable(table, name, move.to);
+        if (!instance) return null;
+        const live = playConditionOf(model, costFactsOf(table, []));
+        const condition = live && record.condition ? { ...live, status: record.condition } : live;
+        return { target, id: instance.id, instance, name, model, condition, steps: record.steps, step };
+      }
+    }
+  }
+  return null;
+}
+
+// Adds `steps` to the record of the pending effect (#1800), with the table they left. While the play's entry is
+// the last of the log, the steps amend its move and the undo snapshot stays the table from before the play, so
+// one undo takes back the play and every step. After a correction of a charge the steps go into one
+// `playEffect` entry of their own, which later steps amend, and whose undo takes back the effect only.
+function withPlayEffectSteps(state: GameState, pending: PendingPlayEffect, steps: PlayEffectStepRecord[], table: TableState): GameState {
+  const last = state.log.length - 1;
+  const condition = pending.steps.length === 0 && pending.condition ? { condition: pending.condition.status } : {};
+  const entry = state.log[last];
+  const { target } = pending;
+  if (target.entry === last && entry?.kind === 'move' && isIndex(target.move) && isIndex(target.card)) {
+    const moves = entry.moves.map((move, m) => {
+      if (m !== target.move) return move;
+      const effects = moveEffects(move);
+      const own = effects[target.card!];
+      effects[target.card!] = { ...(own?.condition ? { condition: own.condition } : condition), steps: [...(own?.steps ?? []), ...steps] };
+      return { ...move, effects };
+    });
+    return { table, log: [...state.log.slice(0, -1), { ...entry, moves }], undo: state.undo, redo: [] };
+  }
+  if (entry?.kind === 'playEffect' && entry.target && sameTarget(entry.target, target) && isPlayEffectRecord(entry.effect)) {
+    const amended: LogEntry = { ...entry, effect: { ...entry.effect, steps: [...entry.effect.steps, ...steps] } };
+    return { table, log: [...state.log.slice(0, -1), amended], undo: state.undo, redo: [] };
+  }
+  const added: LogEntry = {
+    kind: 'playEffect',
+    target: { ...target },
+    card: pending.name,
+    effect: { ...condition, steps },
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
+  return { table, log: [...state.log, added], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The draw of the pending effect (#1800): only at its draw step. Up to `count` cards, clamped to the model's
+// most, drawn free, as many as the draw deck holds; the record gives the real count, 0 included.
+function playEffectDrawState(state: GameState, action: { count: number }): GameState {
+  const pending = pendingPlayEffectOf(state);
+  if (!pending || pending.step.step !== 'draw' || pending.model.kind !== 'drawUpToThenDiscard') return state;
+  if (typeof action.count !== 'number' || !Number.isFinite(action.count)) return state;
+  const wanted = drawUpToCount(pending.model, action.count, state.table.drawDeck.length);
+  let table = state.table;
+  let count = 0;
+  while (count < wanted) {
+    const next = tableReducer(table, { type: 'drawCard', from: 'drawDeck', to: 'hand' });
+    if (next === table) break;
+    table = next;
+    count++;
+  }
+  return withPlayEffectSteps(state, pending, [{ step: 'draw', count }], table);
+}
+
+// The discard of the pending effect (#1800): exactly the model's number of different hand cards, or the whole
+// hand when it holds fewer, go to the discard pile in `ids` order.
+function playEffectDiscardState(state: GameState, action: { ids: string[] }): GameState {
+  const pending = pendingPlayEffectOf(state);
+  if (!pending || pending.step.step !== 'discard' || pending.model.kind !== 'drawUpToThenDiscard') return state;
+  const ids = [...new Set(action.ids)];
+  const n = discardCount(pending.model, state.table.hand.length);
+  if (ids.length !== action.ids.length || ids.length !== n || !ids.every((id) => state.table.hand.some((c) => c.id === id))) return state;
+  const table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), state.table);
+  return withPlayEffectSteps(state, pending, [{ step: 'discard', cards: ids.map((id) => cardName(state.table, id)) }], table);
+}
+
+// Skip and Done of the pending effect (#1800): every step left is recorded as skipped, so the panel does not
+// open again on a reload. The table does not change.
+function playEffectSkipState(state: GameState): GameState {
+  const pending = pendingPlayEffectOf(state);
+  if (!pending) return state;
+  const left = playStepsOf(pending.model).slice(pending.steps.length);
+  return withPlayEffectSteps(state, pending, left.map((s) => ({ step: s.step, skipped: true as const })), state.table);
 }

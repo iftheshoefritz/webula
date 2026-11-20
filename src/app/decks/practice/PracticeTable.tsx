@@ -63,6 +63,8 @@ import {
   PRACTICE_DISSIDENT_TSV,
   PRACTICE_RECALL_TSV,
   PRACTICE_KMTAR_TSV,
+  PRACTICE_TAIN_HAND,
+  PRACTICE_TAIN_TSV,
   PRACTICE_MISSIONS_HAND,
   PRACTICE_MISSIONS_TSV,
   PRACTICE_BOT_COSTS_TSV,
@@ -188,7 +190,9 @@ import {
   actionReveal,
   resolveStepOf,
   resolvingRecalled,
+  pendingPlayEffectOf,
 } from './gameLog';
+import { discardCount, playConditionLine } from '../../../lib/playModels';
 import {
   CardHoldProvider,
   NO_CALLOUT_STYLE,
@@ -2262,6 +2266,9 @@ function PracticeDrawContent() {
   // `?fixture=kmtar` (#1762) deals the piles table with five missions whose non-headquarters ones require
   // Diplomacy, and K'mtar at the end of the hand.
   const isKmtarFixture = fixture === 'kmtar';
+  // `?fixture=tain` (#1800) deals the piles table with five missions whose non-headquarters ones require
+  // Intelligence, and Enabran Tain "Retired" Spymaster at the end of the hand, for his "when you play" effect.
+  const isTainFixture = fixture === 'tain';
   // `?fixture=dissident` (#1763) deals the piles table with The New Resistance in the core, a Dissident at the
   // end of the hand and another on top of the draw deck.
   const isDissidentFixture = fixture === 'dissident';
@@ -2291,6 +2298,7 @@ function PracticeDrawContent() {
     isCompletionFixture ||
     isMissionsFixture ||
     isKmtarFixture ||
+    isTainFixture ||
     isDissidentFixture ||
     isAttemptFixture ||
     isBotFixture;
@@ -2621,7 +2629,10 @@ function PracticeDrawContent() {
   // Issue #1728: the resolving event shows in the modal panel, or after View table or Escape as a small
   // card. Page state, not part of the save: an event that starts resolving, a restore, a reload and an
   // undo that brings the event back all open the panel. Adjusted during render on the change of the id.
-  const resolvingId = table.resolving?.id ?? null;
+  // The subject is the card whose play text is resolving: the event, or else the personnel or ship whose
+  // "when you play" effect is pending (#1800), derived from the log.
+  const pendingPlay = table.resolving ? null : pendingPlayEffectOf(game);
+  const resolvingId = table.resolving?.id ?? (pendingPlay ? `played-${pendingPlay.target.entry}-${pendingPlay.target.move}-${pendingPlay.target.card}` : null);
   const [resolvingCollapsed, setResolvingCollapsed] = useState(false);
   const [prevResolvingId, setPrevResolvingId] = useState(resolvingId);
   if (resolvingId !== prevResolvingId) {
@@ -2681,6 +2692,18 @@ function PracticeDrawContent() {
                   onExchange: (handId, tableId) => dispatch({ type: 'resolveExchange', handId, tableId }),
                 }
               : undefined;
+  // The steps of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
+  const playedStep: ResolveStep | undefined =
+    pendingPlay?.model.kind === 'drawUpToThenDiscard'
+      ? pendingPlay.step.step === 'draw'
+        ? { step: 'drawUpTo', max: pendingPlay.model.drawUpTo, deck: table.drawDeck.length, onDraw: (count) => dispatch({ type: 'playEffectDraw', count }) }
+        : {
+            step: 'discardFromHand',
+            count: discardCount(pendingPlay.model, table.hand.length),
+            hand: table.hand,
+            onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
+          }
+      : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -2898,6 +2921,8 @@ function PracticeDrawContent() {
               ? missionsFixtureExtras()
               : isKmtarFixture
                 ? kmtarFixtureExtras()
+                : isTainFixture
+                  ? tainFixtureExtras()
                 : isDissidentFixture
                   ? dissidentFixtureExtras()
                   : null
@@ -3018,6 +3043,13 @@ function PracticeDrawContent() {
     core: [] as any[],
     lateHand: extractDrawDeck(deckFromTsv(PRACTICE_KMTAR_TSV, data)).filter((r: any) => r.originalName === PRACTICE_KMTAR_HAND),
   });
+  // The card `?fixture=tain` adds to the end of the hand (#1800): Enabran Tain "Retired" Spymaster.
+  const tainFixtureExtras = () => ({
+    hand: [] as any[],
+    crew: [] as any[],
+    core: [] as any[],
+    lateHand: extractDrawDeck(deckFromTsv(PRACTICE_TAIN_TSV, data)).filter((r: any) => r.originalName === PRACTICE_TAIN_HAND),
+  });
   // The cards `?fixture=dissident` adds (#1763): The New Resistance to the core, Leeta to the end of the hand,
   // and Damar on top of the draw deck.
   const dissidentFixtureExtras = () => {
@@ -3042,6 +3074,7 @@ function PracticeDrawContent() {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
     if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
     if (isKmtarFixture) return deckFromTsv(PRACTICE_KMTAR_TSV, data);
+    if (isTainFixture) return deckFromTsv(PRACTICE_TAIN_TSV, data);
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isRecallFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data), ...deckFromTsv('1\tMiracle Working', data) };
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
@@ -3133,6 +3166,7 @@ function PracticeDrawContent() {
           isCompletionFixture ||
           isMissionsFixture ||
           isKmtarFixture ||
+          isTainFixture ||
           isDissidentFixture ||
           isAttemptFixture ||
           isBotFixture,
@@ -3414,7 +3448,12 @@ function PracticeDrawContent() {
   // Moves the turn to its next segment, or at the end of the turn raises the turn counter by one and
   // unstops every stopped personnel card on the table (#718, #1605).
   // The turn waits while an event resolves (#1728): the reducer ignores the action then too.
-  const turnBlockedBy = table.resolving ? `Resolve ${cardDisplayName(table.resolving.card)} first` : null;
+  // A pending "when you play" effect holds it too (#1800).
+  const turnBlockedBy = table.resolving
+    ? `Resolve ${cardDisplayName(table.resolving.card)} first`
+    : pendingPlay
+      ? `Resolve ${pendingPlay.name} first`
+      : null;
   const nextTurn = () => {
     if (turnBlockedBy) return;
     dispatch({ type: 'advanceSegment' });
@@ -5199,6 +5238,25 @@ function PracticeDrawContent() {
             )}
             {table.resolving && resolvingCollapsed && (
               <ResolvingMini instance={table.resolving} onOpen={() => setResolvingCollapsed(false)} />
+            )}
+            {/* The played card of a pending "when you play" effect (#1800): Done or Skip, and no Cancel. */}
+            {pendingPlay && !resolvingCollapsed && (
+              <ResolvingPanel
+                instance={pendingPlay.instance}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onViewTable={() => setResolvingCollapsed(true)}
+                step={playedStep}
+                played={{
+                  text: pendingPlay.model.text,
+                  condition: pendingPlay.condition ? playConditionLine(pendingPlay.model, pendingPlay.condition) : null,
+                  started: pendingPlay.steps.length > 0,
+                  onEnd: () => dispatch({ type: 'playEffectSkip' }),
+                }}
+              />
+            )}
+            {pendingPlay && resolvingCollapsed && (
+              <ResolvingMini instance={pendingPlay.instance} played onOpen={() => setResolvingCollapsed(false)} />
             )}
             </MissionSpendProvider>
             </TableCardUseProvider>

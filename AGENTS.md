@@ -605,7 +605,24 @@ sentence "Remove this event from the game." (`removesItselfFromGame` in `playCos
 sentence start in any case, #1730), **Resolved → Remove from game** (`resolving-remove-from-game`) shows
 first: one `batch` (`resolvedRemoveFromGameAction`), that `move` and then `setRemovedFromGame`, which
 leaves the card at the end of the discard pile marked as the discard pile panel's Remove from game marks
-it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Recall** (#1764): an event with "Recall: N." in its `Keywords` (Miracle Working, Second Edition, Planned Provocation, Profound Discovery), or Vidiian Organ Bank while the player has two completed missions (its `recall` in `titles/recall.ts`), plays from the discard pile: a drag of it out of the discard pile panel shows the Play target (`playTargetEligible` with `fromDiscard`, never for a card marked removed from the game), and the move into the resolving zone is a play at its cost + N, "Played Miracle Working (cost 2, Miracle Working: Recall 1, played from your discard pile)" (`recallOf` in `playCost.ts`); a move of it from the discard pile anywhere else is no play. Vidiian Organ Bank with fewer than two completed missions is refused on the Play target (`recallRefused`): no move and no entry. While a recalled event resolves (`resolvingRecalled`, from the log), the panel shows Resolved → Remove from game and no Resolved → Discard, the last step of its resolve model leaves it removed from the game ("…, and Miracle Working was removed from the game", the entry's `removed`), and Cancel puts it back at the end of the discard pile, "Cancelled playing Miracle Working, and it went back to the discard pile" (`returnedTo`). **Cancel**
+it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Recall** (#1764): an event with "Recall: N." in its `Keywords` (Miracle Working, Second Edition, Planned Provocation, Profound Discovery), or Vidiian Organ Bank while the player has two completed missions (its `recall` in `titles/recall.ts`), plays from the discard pile: a drag of it out of the discard pile panel shows the Play target (`playTargetEligible` with `fromDiscard`, never for a card marked removed from the game), and the move into the resolving zone is a play at its cost + N, "Played Miracle Working (cost 2, Miracle Working: Recall 1, played from your discard pile)" (`recallOf` in `playCost.ts`); a move of it from the discard pile anywhere else is no play. Vidiian Organ Bank with fewer than two completed missions is refused on the Play target (`recallRefused`): no move and no entry. While a recalled event resolves (`resolvingRecalled`, from the log), the panel shows Resolved → Remove from game and no Resolved → Discard, the last step of its resolve model leaves it removed from the game ("…, and Miracle Working was removed from the game", the entry's `removed`), and Cancel puts it back at the end of the discard pile, "Cancelled playing Miracle Working, and it went back to the discard pile" (`returnedTo`). **When you play** (#1800): a personnel or a ship whose title has a model in `PLAY_MODELS`
+(`src/lib/playModels/`, by whole title, `playModelOf`) leaves its effect pending once played, derived from the
+effective log (`pendingPlayEffectOf` in `gameLog.ts`): the latest play of the turn's play and draw, while its
+record (`LogMove.effects`) lacks a step and the card stands in an away team, a crew or a ship row. No
+`TableState` field holds it, and `resolving` never holds the card. The resolving panel then takes the played card
+as its subject (`played` of `ResolvingPanel`): the card previews on a hold and never drags, the effect's text
+(`resolve-play-text`), the condition line (`resolve-condition`, "Condition met: …", "Condition not met: …" or
+"Condition not checked: …", from `CostFacts`; the player may resolve it anyway), the step, and **Skip**
+(`resolving-skip`) or, once a step was taken, **Done** (`resolving-done`), both `playEffectSkip`, which records every
+step left as skipped; no Discard, Remove from game or Cancel. View table and Escape collapse it to `resolving-mini`,
+and the next-turn button reads "Resolve <card> first". Each step amends the play's own entry, so the play and its
+effect are one entry and one undo, "Played Enabran Tain "Retired" Spymaster at Celtris III (cost 3); drew 7 cards,
+then discarded Tricorder and Phaser"; after a correction of the charge the steps write one `playEffect` entry of their
+own, addressed to the play, whose undo takes back the effect only. A malformed record is dropped, the move kept. The
+one kind is `'drawUpToThenDiscard'` (Enabran Tain): `resolve-step-draw-up-to`, a stepper (`resolve-draw-minus`,
+`resolve-draw-count`, `resolve-draw-plus`) from 0 to 7 or the draw deck, and Draw N (`resolve-draw`,
+`playEffectDraw`), then `resolve-step-discard`, 2 cards of the hand (`resolve-hand-card`) and Discard 2
+(`resolve-discard`, `playEffectDiscard`). **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -730,7 +747,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twenty-two fixtures. Each one deals the same table on every load.
+The practice table has twenty-three fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -793,6 +810,11 @@ The practice table has twenty-two fixtures. Each one deals the same table on eve
   (slot 2, the crewed ship), Volan III and Qo'noS, a headquarters; These Are The Voyages, At What Cost? and
   Ferengi Tradition in the draw deck, and K'mtar at the end of the hand, so a play of him offers the download.
   The three events shift the ids after them. It keeps its game under `practiceGame:fixture=kmtar`.
+- `?fixture=tain` (#1800) deals the `?fixture=piles` table, the same cards and the same ids, with five missions
+  whose non-headquarters ones require Intelligence (`PRACTICE_TAIN_TSV`): Celtris III (slot 0, the away team of
+  20), Farius Prime, Argus Array (slot 2, the crewed ship), Sector 21396 and Cardassia Prime, a headquarters, and
+  Enabran Tain "Retired" Spymaster at the end of the hand, so a play of him opens his "when you play" effect with
+  its condition met. It keeps its game under `practiceGame:fixture=tain`.
 - `?fixture=dissident` (#1763) deals the `?fixture=piles` table, the same cards and the same ids, with The
   New Resistance at the end of the core, Leeta Rebel Supporter, a Dissident of cost 0, at the end of the hand,
   and Damar Cardassian Liberator, a Dissident of cost 4, on top of the draw deck (`PRACTICE_DISSIDENT_TSV`,
