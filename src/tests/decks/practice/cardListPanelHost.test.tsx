@@ -193,9 +193,20 @@ describe('Practice draw: the crew panel is tall enough for the cards on the ship
 
   it.each([[[]], [[makeCard(1)]]])('the row of an empty or small crew grows to fill the panel', (cards) => {
     renderPanel('crew', cards);
-    const row = screen.getByTestId('card-list-panel-crew').parentElement!.parentElement!;
+    const row = screen.getByTestId('card-list-panel-crew-ship').parentElement!.parentElement!;
     expect(row.className).toMatch(/\bflex-1\b/);
     expect(row.className).toMatch(/\bmin-h-0\b/);
+  });
+
+  it('draws no crew grid for an empty crew, and keeps the ship and the cards on it (#1798)', () => {
+    renderPanel('crew', []);
+    expect(screen.queryByTestId('card-list-panel-crew')).toBeNull();
+    expect(screen.getByTestId('card-list-panel-crew-ship')).toBeInTheDocument();
+  });
+
+  it('draws the crew grid for a crew of one (#1798)', () => {
+    renderPanel('crew', [makeCard(1)]);
+    expect(screen.getByTestId('card-list-panel-crew').querySelectorAll('[data-card-id]')).toHaveLength(1);
   });
 
   it('the ship section stretches with the row and is not clamped to a percentage height', () => {

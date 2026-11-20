@@ -1096,7 +1096,9 @@ export default function CardListPanel({
             wrap its cards into the width the host leaves it. */}
         {host ? (
           <div className={`min-h-0 max-w-full flex flex-row gap-2 ${location === 'crew' ? 'flex-1' : ''}`}>
-            {gridElement}
+            {/* #1798: a ship with no crew draws no crew grid. The empty grid was a padding box
+                as tall as the row and about 16 px wide, a sliver beside the ship. */}
+            {!(location === 'crew' && cards.length === 0) && gridElement}
             <PanelHost
               host={host}
               testId={location === 'crew' ? 'card-list-panel-crew-ship' : `card-list-panel-${location}-host`}

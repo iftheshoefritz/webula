@@ -235,7 +235,7 @@ describe('Practice draw: a mission\'s overlapping ship row opens a list panel (#
     });
 
     expect(document.body.querySelector('[data-testid="card-list-panel-shipRow"]')).toBeNull();
-    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     expect(screen.getByTestId('card-list-panel-crew-ship').querySelector('img[alt="I.K.S. Somraw"]')).not.toBeNull();
     expect(screen.queryByTestId('card-preview')).toBeNull();
   });
