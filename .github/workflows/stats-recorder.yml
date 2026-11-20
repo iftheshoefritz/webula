@@ -3,7 +3,11 @@ name: Stats Recorder
 # Once a day, run `scripts/collect_stats.mjs` (#1431) and put what it wrote under `stats/` on the
 # fixed branch `stats/update`, with one open pull request from it (#1432). No Claude.
 #
-# The branch is rebuilt from `origin/main` on every run, so the pull request cannot conflict. No
+# The branch is rebuilt from `origin/main` on every run, so the pull request cannot conflict, and
+# the stats of the previous `stats/update` are merged into it first, so no day is lost while the
+# pull request waits. The step that opens the pull request needs the repository setting "Allow
+# GitHub Actions to create and approve pull requests"; with it off, the step fails, and the
+# branch still keeps every day. No
 # commit message and no title starts with `wip:`: Vercel's `ignoreCommand` would skip the
 # production deploy of the merge.
 
@@ -51,6 +55,18 @@ jobs:
 
       - name: Reset the stats branch to main
         run: git checkout -B "$BRANCH" origin/main
+
+      # The window is only the last 3 days, so without this step a day that the open pull request
+      # holds is lost when the branch is rebuilt from main before that pull request merges.
+      - name: Carry over the stats of the previous stats branch
+        run: |
+          if git fetch --depth=1 origin "$BRANCH" && git cat-file -e FETCH_HEAD:stats 2>/dev/null; then
+            mkdir -p "$RUNNER_TEMP/previous"
+            git archive FETCH_HEAD stats | tar -x -C "$RUNNER_TEMP/previous"
+            node scripts/merge_stats.mjs "$RUNNER_TEMP/previous/stats"
+          else
+            echo "No previous $BRANCH with stats: nothing to carry over."
+          fi
 
       - name: Work out the window
         id: window
