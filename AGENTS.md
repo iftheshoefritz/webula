@@ -575,8 +575,9 @@ undo and game log buttons (`data-testid="turn-score-column"`, #1337): the next-t
 the score over minus and plus. The next-turn button advances through the segments of the turn,
 `TableState.segment` (#1605): play and draw, then orders, then the next turn, or discard first when
 the hand holds more than 7 (`nextSegmentOf`); its `aria-label` and `title` say what a tap does ("Go to
-orders", "Go to discard", "Next turn"), and the segment's short name, "Play", "Orders" or "Discard",
-shows under it (`data-testid="turn-segment"`). An attempt started in play and draw moves the turn to
+orders", "Go to discard", "Next turn"), and under it the segments of the turn show as a list of three rows,
+"Play", "Orders" and "Discard" (`data-testid="turn-segment-list"`, #1790), the current one marked,
+`aria-current="step"` and `data-testid="turn-segment"`; the list is no control. An attempt started in play and draw moves the turn to
 orders, and no segment refuses a move. The game menu's Settings hold "Counters: On/Off"
 (`game-menu-turn-counters`, #1607), a setting of the device under `practice-turn-counters`, off by
 default. Beside it, "Apply card text to attributes: On/Off" (`game-menu-card-text-attributes`, #1668),
@@ -631,10 +632,12 @@ button, `data-testid="draw-opening-hand"`, in place of the next-turn button and 
 score below it as before. A tap dispatches `drawOpeningHand`, which moves the top 7 of the draw deck (fewer
 when it is short) to the hand at no cost, in one log entry, "Drew the opening hand (7 cards)", and
 clears the flag; one undo brings it back. An empty draw deck disables it. A hand draw meanwhile is an
-ordinary charged draw and keeps the flag; `nextTurn` clears it. The next-turn button has its row to itself, and the segment's name sits on a row of its own below it
-(`data-testid="turn-segment-row"`, #1679), which the compact column keeps. With counters on, the
-counter of the turn's counters, `data-testid="turn-counters"`, shares the segment's row in play and
-draw only, "Play 0/7": "<spent>/<limit>", with `data-over="true"` past the limit. In Orders and
+ordinary charged draw and keeps the flag; `nextTurn` clears it. Every control of the column has a row of its own (#1679, #1790): the next-turn button, the
+three rows of the segment list, the row of the counter (`data-testid="turn-counters-row"`), the
+score, and minus and plus side by side. With counters on, the counter of the turn's counters,
+`data-testid="turn-counters"`, fills its row in play and draw only, "0/7": "<spent>/<limit>", with
+`data-over="true"` past the limit; the row keeps its height without it, so the score does not move,
+and the Draw 7 block is as tall as the next-turn button, the list and that row. In Orders and
 Discard neither the counter nor its list shows, and nothing marks counters left unspent. Everything is derived from the log
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that
 `gameReducer` makes for `correctCharge` and `adjustCounterLimit` with no change to the table, and
@@ -696,10 +699,13 @@ buttons; on the desktop full table each corner button is as wide and as tall as 
 (`w-full h-7`, #1497), and the attempt layout keeps the small `btn-icon-sm` ones. Its mission row keeps the same `TOUCH_CONTROLS_COLUMN` on the left and
 `MENU_BUTTON_GUTTER` on the right (`DESKTOP_FULL_TABLE_RESERVE` in `desktopMissionSlotBudget`). The
 bottom row holds no turn or score on either device. They keep `data-testid="turn-counter"`, now inside the next-turn button, and
-`"score-counter"`. In fullscreen on iPadOS the column
-keeps its "Turn" and "Score" labels where it has the height, and goes compact, with no labels and
-smaller buttons, only when the full column does not fit 8 px above the bottom row
-(`turnScoreColumnCompact` in `tableScale.ts`, #1395).
+`"score-counter"`. The column sizes its rows from the free height above the bottom edge
+(`turnScoreColumnLayout` in `tableScale.ts`, #1395, #1790): the tap rows (the next-turn button, the
+counter, minus and plus) are the largest between 32 and 44 px that fit 8 px above the bottom edge,
+less the bottom inset, a list row about 9/16 of that, text 12 px or more; 32 px with the labels at
+667×375, 44 px at 800×600 and on a 1280×800 desktop. Where the floor does not fit, the "Turn" and
+"Score" labels go first, and only then, in fullscreen on iPadOS, the column goes compact, with smaller
+rows.
 
 In fullscreen on iPadOS, WebKit draws its own close X and shrink button over the top-left corner,
 and no CSS reaches them. The corner column moves below them (`top-14`, #1207), and the table hides

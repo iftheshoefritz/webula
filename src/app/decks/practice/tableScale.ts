@@ -1178,28 +1178,86 @@ export function useAttemptLayout(
   };
 }
 
-// The height of the full column (#1395): the turn group is a label line (`leading-3`), then `gap-1`
-// and an `h-7` button that shows the turn number (#1449); the score group is a label line, a number
-// line (`leading-6`), then `gap-1` and a row of `h-7` buttons; and `gap-2` between the two groups.
-// The buttons and the gap shrank from `h-8` and `gap-3` (#1399), so the column fits at 667×375 below
-// four corner buttons. The turn group ends with the segment's row (#1605, #1679) under `gap-1`, an
-// `h-4` row of the segment's name and, in play and draw, the turn's counter.
+// The layout of the turn and score column (#1395, #1790). From the top, each control on a row of its
+// own: the turn group, a label line (`leading-3`), the next-turn button that shows the turn number
+// (#1449), the segments of the turn as a marked list of three rows (#1605, #1790) and the row of the
+// turn's counter (#1607), which the column keeps whether the counter shows or not, so the score does
+// not move; then, `gap-2` below, the score group, a label line, a number line (`leading-6`) and one
+// row of minus and plus. Inside each group the rows sit `gap-1` apart, the list's rows edge to edge.
+// The tap rows (the next-turn button, the counter, minus and plus) are the largest between 32 and 44
+// px for which the column, and `TURN_SCORE_COLUMN_CLEARANCE` under it, fits above `roomBottom`, and a
+// list row grows with them, 18 px at 32 and 25 at 44. At the floor with its labels the column is
+// 12 + 4 + 32 + 4 + 3×18 + 4 + 32 + 8 + 12 + 24 + 4 + 32 = 222 px: at 667×375 on touch it starts at
+// 124 and the room ends at 375 − 16 = 359, so 227 px are free and it fits. Where even that does not
+// fit, the labels go first, and only then, in fullscreen on iPadOS, the compact look.
 const TURN_SCORE_LABEL_LINE = 12; // px
-const TURN_SEGMENT_ROW = 16; // px
-const TURN_SCORE_NUMBER_LINE = 24; // px
-const TURN_SCORE_BUTTON = 28; // px
-const TURN_SCORE_GROUP_GAP = 8; // px
-const TURN_GROUP = TURN_SCORE_LABEL_LINE + 4 + TURN_SCORE_BUTTON + 4 + TURN_SEGMENT_ROW;
-const SCORE_GROUP = TURN_SCORE_LABEL_LINE + TURN_SCORE_NUMBER_LINE + 4 + TURN_SCORE_BUTTON;
-export const TURN_SCORE_COLUMN_HEIGHT = TURN_GROUP + SCORE_GROUP + TURN_SCORE_GROUP_GAP; // px
+const TURN_SCORE_ROW_GAP = 4; // px, `gap-1`
+const TURN_SCORE_GROUP_GAP = 8; // px, `gap-2`
+const TURN_SCORE_NUMBER_LINE = 24; // px, `leading-6`
+const TURN_SCORE_COMPACT_NUMBER_LINE = 20; // px, `leading-5`
+export const TURN_SCORE_TAP_ROW_MIN = 32; // px
+export const TURN_SCORE_TAP_ROW_MAX = 44; // px
+// The compact look: today's `h-6` buttons and 14 px list rows.
+const TURN_SCORE_COMPACT_TAP_ROW = 24; // px
+const TURN_SCORE_COMPACT_LIST_ROW = 14; // px
 // The clearance between the column and the bottom row, the gap under the corner buttons.
 export const TURN_SCORE_COLUMN_CLEARANCE = 8; // px
-// Issue #1395: the column goes compact only in fullscreen on iPadOS, where it starts below the
-// system controls, and only when the full column does not fit between its top and the top of the
-// bottom row, both measured from the top of the game layer. A `roomBottom` of 0 or less is not
-// measured yet (jsdom, the first render), and counts as room enough, so an iPad mini keeps its
-// labels and no iPad flashes the compact look on entry.
-export function turnScoreColumnCompact({
+
+export interface TurnScoreColumnLayout {
+  // The compact look of fullscreen on iPadOS: no labels, smaller rows.
+  compact: boolean;
+  // The "Turn" and "Score" labels above the groups.
+  labels: boolean;
+  // The height of the next-turn button, the counter's row, and the row of minus and plus.
+  tapRow: number;
+  // The height of each row of the segment list.
+  listRow: number;
+  // The text of the tap rows and of the list, in px, at least 12.
+  tapText: number;
+  listText: number;
+  // The score's number line.
+  numberLine: number;
+}
+
+function turnScoreLayoutAt(tapRow: number, labels: boolean): TurnScoreColumnLayout {
+  const listRow = Math.round((tapRow * 9) / 16);
+  return {
+    compact: false,
+    labels,
+    tapRow,
+    listRow,
+    tapText: tapRow >= 40 ? 14 : 12,
+    listText: listRow >= 22 ? 13 : 12,
+    numberLine: TURN_SCORE_NUMBER_LINE,
+  };
+}
+
+const TURN_SCORE_COMPACT_LAYOUT: TurnScoreColumnLayout = {
+  compact: true,
+  labels: false,
+  tapRow: TURN_SCORE_COMPACT_TAP_ROW,
+  listRow: TURN_SCORE_COMPACT_LIST_ROW,
+  tapText: 12,
+  listText: 12,
+  numberLine: TURN_SCORE_COMPACT_NUMBER_LINE,
+};
+
+// The height of the column drawn with `layout`.
+export function turnScoreColumnHeight(layout: TurnScoreColumnLayout): number {
+  const label = layout.labels ? TURN_SCORE_LABEL_LINE : 0;
+  const turnGroup =
+    (layout.labels ? label + TURN_SCORE_ROW_GAP : 0) +
+    layout.tapRow + TURN_SCORE_ROW_GAP + 3 * layout.listRow + TURN_SCORE_ROW_GAP + layout.tapRow;
+  const scoreGroup = label + layout.numberLine + TURN_SCORE_ROW_GAP + layout.tapRow;
+  return turnGroup + TURN_SCORE_GROUP_GAP + scoreGroup;
+}
+
+// `top` and `roomBottom` are measured from the top of the game layer, `top` with the top inset. The
+// column may run to the bottom edge, since the bottom row starts right of it (#1489). A `roomBottom`
+// of 0 or less is not measured yet (jsdom, the first render) and gets the floor with its labels, so
+// no iPad flashes the compact look on entry. Only with the iPadOS system controls (`systemControls`)
+// does a column that does not fit go compact; elsewhere it keeps the floor, with no labels.
+export function turnScoreColumnLayout({
   systemControls,
   top,
   roomBottom,
@@ -1207,7 +1265,15 @@ export function turnScoreColumnCompact({
   systemControls: boolean;
   top: number;
   roomBottom: number;
-}): boolean {
-  if (!systemControls || roomBottom <= 0) return false;
-  return top + TURN_SCORE_COLUMN_HEIGHT + TURN_SCORE_COLUMN_CLEARANCE > roomBottom;
+}): TurnScoreColumnLayout {
+  if (roomBottom <= 0) return turnScoreLayoutAt(TURN_SCORE_TAP_ROW_MIN, true);
+  const fits = (layout: TurnScoreColumnLayout) =>
+    top + turnScoreColumnHeight(layout) + TURN_SCORE_COLUMN_CLEARANCE <= roomBottom;
+  for (let tapRow = TURN_SCORE_TAP_ROW_MAX; tapRow >= TURN_SCORE_TAP_ROW_MIN; tapRow--) {
+    const layout = turnScoreLayoutAt(tapRow, true);
+    if (fits(layout)) return layout;
+  }
+  const unlabelled = turnScoreLayoutAt(TURN_SCORE_TAP_ROW_MIN, false);
+  if (fits(unlabelled) || !systemControls) return unlabelled;
+  return TURN_SCORE_COMPACT_LAYOUT;
 }

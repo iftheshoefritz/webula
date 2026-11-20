@@ -218,7 +218,8 @@ import {
   useMissionScale,
   useShipRowCount,
   useTableScale,
-  turnScoreColumnCompact,
+  turnScoreColumnLayout,
+  type TurnScoreColumnLayout,
 } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { useToolbarScrollRoom } from './toolbarScrollRoom';
@@ -815,8 +816,10 @@ function GameMenu({
 // (`TOUCH_CONTROLS_COLUMN`), below the corner buttons: the turn over the next-turn button, then the
 // score over minus and plus. A desktop shows the same column, in the look of its corner buttons
 // (#1451). They are table content, not part of `corner-buttons`, so a card list
-// panel and the hand arc cover them as they covered the counters of the bottom row. `compact`
-// (`turnScoreColumnCompact`) hides the labels and draws smaller buttons.
+// panel and the hand arc cover them as they covered the counters of the bottom row. Each control has
+// a row of its own (#1790): the next-turn button, the segments of the turn as a marked list, the
+// counter of the turn, the score, and minus and plus; `turnScoreColumnLayout` sizes the rows from the
+// free height, may hide the labels, and in fullscreen on iPadOS may go compact.
 // The content column's `p-4`, grown by the safe-area insets (#1383, #1384): only the sides with an
 // inset get an inline padding, so the DOM is unchanged where every inset is 0.
 function contentPadding(insets: SafeAreaInsets): React.CSSProperties | undefined {
@@ -848,6 +851,8 @@ function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean, 
 // The short names of the segments of a turn in the column (#1605), and what a tap of the next-turn
 // button does from each.
 const TURN_SEGMENT_NAMES: Record<TurnSegment, string> = { playAndDraw: 'Play', orders: 'Orders', discard: 'Discard' };
+// The order of the segment list (#1790).
+const TURN_SEGMENTS: TurnSegment[] = ['playAndDraw', 'orders', 'discard'];
 const ADVANCE_LABELS: Record<ReturnType<typeof nextSegmentOf>, string> = {
   playAndDraw: 'Next turn',
   orders: 'Go to orders',
@@ -862,7 +867,7 @@ function TurnScoreColumn({
   score,
   onNextTurn,
   onAdjustScore,
-  compact,
+  layout,
   top,
   touch,
   counters,
@@ -877,8 +882,8 @@ function TurnScoreColumn({
   score: number;
   onNextTurn: () => void;
   onAdjustScore: (delta: number) => void;
-  // `turnScoreColumnCompact`.
-  compact: boolean;
+  // `turnScoreColumnLayout`.
+  layout: TurnScoreColumnLayout;
   // `controlsColumnTop`.
   top: number;
   // The round `btn-system` look of the touch corner buttons, or the desktop's `btn-icon` (#1451).
@@ -892,10 +897,12 @@ function TurnScoreColumn({
   // disables it on an empty draw deck. Null once the opening hand is drawn.
   openingHand?: { onDraw: () => void; empty: boolean } | null;
 }) {
-  const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
-  const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
+  const { compact, tapRow, listRow, tapText, listText, numberLine } = layout;
+  const label = layout.labels ? 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted' : 'sr-only';
+  const number = compact ? 'text-sm font-semibold' : 'text-lg font-semibold';
   const look = touch ? 'btn-system' : 'btn-icon';
-  const button = `${look} w-full ${compact ? 'h-6 text-xs' : 'h-7'} disabled:opacity-50 disabled:cursor-not-allowed`;
+  const button = `${look} w-full disabled:opacity-50 disabled:cursor-not-allowed`;
+  const tapStyle: React.CSSProperties = { height: tapRow, fontSize: tapText };
   return (
     <div
       data-testid="turn-score-column"
@@ -909,7 +916,8 @@ function TurnScoreColumn({
     >
       {/* One button shows the turn and advances it (#1449), through the segments of the turn (#1605).
           The visible label sits above it, and `turn-counter` keeps a screen-reader "Turn" of its own,
-          so its text still reads "Turn N". The segment's row shows under it, in compact too. */}
+          so its text still reads "Turn N". The segment list and the counter's row show under it, each
+          on rows of their own (#1790), in compact too. */}
       {openingHand ? (
         // The opening hand (#1736): one free draw of 7 in place of the turn block, as tall as it, so
         // the score below does not move.
@@ -919,14 +927,16 @@ function TurnScoreColumn({
           </span>
           <button
             data-testid="draw-opening-hand"
-            className={`${button} text-xs font-semibold text-text-primary`}
+            className={`${button} font-semibold text-text-primary`}
+            style={tapStyle}
             onClick={openingHand.onDraw}
             disabled={openingHand.empty}
             title="Draw the opening hand of 7 cards, at no cost"
           >
             Draw 7
           </button>
-          <div className="h-4" aria-hidden="true" />
+          {/* The segment list and the counter's row, `gap-1` apart. */}
+          <div style={{ height: 3 * listRow + 4 + tapRow }} aria-hidden="true" />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-1">
@@ -935,6 +945,7 @@ function TurnScoreColumn({
           </span>
           <button
             className={`${button} flex items-center justify-center gap-1`}
+            style={tapStyle}
             onClick={onNextTurn}
             disabled={!!blockedBy}
             aria-label={blockedBy ?? ADVANCE_LABELS[next]}
@@ -942,29 +953,53 @@ function TurnScoreColumn({
           >
             <span data-testid="turn-counter" className="text-text-primary">
               <span className="sr-only">Turn </span>
-              <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
+              <span className="font-semibold" style={{ fontSize: tapText + 2 }}>
+                {turn}
+              </span>
             </span>
             <FaForward className="shrink-0" />
           </button>
-          {/* The segment's row, below the next-turn button (#1679): its name, and in play and draw the
-              counter of the turn (#1607) beside it, "Play 0/7". Orders and Discard show no counter. */}
-          <div data-testid="turn-segment-row" className="flex h-4 w-full items-center justify-center gap-1">
-            <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
-              {TURN_SEGMENT_NAMES[segment]}
-            </span>
+          {/* The segments of the turn, one row each, the current one marked (#1790). The list is no
+              control: the next-turn button advances the segment. `turn-segment` is the current row. */}
+          <ol data-testid="turn-segment-list" className="flex w-full flex-col" aria-label="Segments of the turn">
+            {TURN_SEGMENTS.map((s) => {
+              const current = s === segment;
+              return (
+                <li
+                  key={s}
+                  data-testid={current ? 'turn-segment' : undefined}
+                  data-segment={s}
+                  aria-current={current ? 'step' : undefined}
+                  className={`flex w-full items-center justify-center rounded ${
+                    current ? 'bg-white/15 font-semibold text-text-primary' : 'text-text-muted'
+                  }`}
+                  style={{ height: listRow, fontSize: listText }}
+                >
+                  {TURN_SEGMENT_NAMES[s]}
+                </li>
+              );
+            })}
+          </ol>
+          {/* The counter of the turn (#1607), in play and draw, "0/7" alone; its label and the list
+              name the grants. The row keeps its height without it, so the score does not move. */}
+          <div data-testid="turn-counters-row" className="flex w-full" style={{ height: tapRow }}>
             {counters && segment === 'playAndDraw' && (
-              <TurnCounterButton counters={counters} className={`${look} h-4`} onOpen={onOpenCounters} />
+              <TurnCounterButton counters={counters} className={look} style={tapStyle} onOpen={onOpenCounters} />
             )}
           </div>
         </div>
       )}
       <div className="flex flex-col items-center gap-1">
         <div data-testid="score-counter" className="text-center text-text-primary">
-          <span className={label}>Score</span> <span className={number}>{score}</span>
+          <span className={label}>Score</span>{' '}
+          <span className={number} style={{ lineHeight: `${numberLine}px` }}>
+            {score}
+          </span>
         </div>
         <div className="flex w-full items-center gap-1">
           <button
             className={button}
+            style={tapStyle}
             onClick={() => onAdjustScore(-SCORE_STEP)}
             disabled={score <= SCORE_MIN}
             aria-label="Decrease score"
@@ -973,6 +1008,7 @@ function TurnScoreColumn({
           </button>
           <button
             className={button}
+            style={tapStyle}
             onClick={() => onAdjustScore(SCORE_STEP)}
             disabled={score >= SCORE_MAX}
             aria-label="Increase score"
@@ -4739,7 +4775,7 @@ function PracticeDrawContent() {
                 score={score}
                 onNextTurn={nextTurn}
                 onAdjustScore={adjustScore}
-                compact={turnScoreColumnCompact({
+                layout={turnScoreColumnLayout({
                   systemControls: fullscreen.isFullscreen && fullscreen.systemControlsInset,
                   top: turnScoreTop + safeArea.top,
                   // The column reaches the bottom edge, since the closed hand left the bottom row (#1489).
