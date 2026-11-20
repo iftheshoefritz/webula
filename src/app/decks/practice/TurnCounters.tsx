@@ -473,10 +473,13 @@ export function TurnCountersList({
 export function TurnCounterButton({
   counters,
   className,
+  style,
   onOpen,
 }: {
   counters: TurnCounters;
   className: string;
+  // The height and the text size of the column's tap rows (#1790).
+  style?: React.CSSProperties;
   onOpen: () => void;
 }) {
   const { spent, limit } = counters;
@@ -496,7 +499,8 @@ export function TurnCounterButton({
       onClick={onOpen}
       aria-label={text}
       title={text}
-      className={`${className} min-w-0 flex-1 px-0 text-[10px] font-semibold tabular-nums ${
+      style={style}
+      className={`${className} min-w-0 flex-1 px-0 font-semibold tabular-nums ${
         over ? 'text-amber-300' : 'text-text-primary'
       }`}
     >

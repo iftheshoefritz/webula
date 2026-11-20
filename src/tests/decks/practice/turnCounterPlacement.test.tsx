@@ -82,7 +82,7 @@ describe('the opening hand of a new game (#1736)', () => {
       expect(draw7).toHaveTextContent('Draw 7');
       expect(draw7).toHaveClass(fine ? 'btn-icon' : 'btn-system', 'w-full');
       expect(within(column).queryByTestId('turn-counter')).toBeNull();
-      expect(within(column).queryByTestId('turn-segment-row')).toBeNull();
+      expect(within(column).queryByTestId('turn-segment-list')).toBeNull();
       expect(within(column).getByTestId('score-counter')).toBeInTheDocument();
       expect(within(column).getByRole('button', { name: 'Increase score' })).toBeInTheDocument();
     });
@@ -158,8 +158,14 @@ describe('the turn and score controls in the left column on a touch screen (#133
     const button = within(column).getByRole('button', { name: 'Go to orders' });
     expect(button).toHaveAttribute('title', 'Go to orders');
     expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
+    const list = within(column).getByTestId('turn-segment-list');
+    expect(Array.from(list.children).map((row) => row.textContent)).toEqual(['Play', 'Orders', 'Discard']);
+    expect(list.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+    expect(within(column).getByTestId('turn-segment')).toHaveAttribute('aria-current', 'step');
     fireEvent.click(button);
     expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Orders');
+    expect(list.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+    expect(list.querySelector('[aria-current="step"]')).toHaveAttribute('data-segment', 'orders');
     expect(button).toHaveAttribute('title', 'Next turn');
     fireEvent.click(button);
     expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
@@ -241,10 +247,11 @@ describe('the turn and score controls in the left column on a desktop (#1451)', 
     );
   });
 
-  it('draws the corner buttons as wide and as tall as the next-turn button (#1497)', async () => {
+  it('draws the corner buttons as wide as the next-turn button, which is 32 px tall or more (#1497, #1790)', async () => {
     await renderPage();
     const next = screen.getByRole('button', { name: 'Go to orders' });
-    expect(next).toHaveClass('w-full', 'h-7');
+    expect(next).toHaveClass('w-full');
+    expect(parseInt(next.style.height, 10)).toBeGreaterThanOrEqual(32);
     const corner = screen.getByTestId('corner-buttons');
     for (const button of within(corner).getAllByRole('button')) {
       expect(button).toHaveClass('btn-icon', 'w-full', 'h-7');
