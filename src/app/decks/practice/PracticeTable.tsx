@@ -3,6 +3,7 @@
 import React, {
   Suspense,
   useEffect,
+  useContext,
   useEffectEvent,
   useMemo,
   useReducer,
@@ -233,6 +234,8 @@ import { attributesOnTableOf } from './attributesOnTable';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
+import { PILE_CARD_EDGE, pileCastShadow, pileDepth, pileLayers } from './pileDepth';
+import { TABLE_3D_CLASS, TABLE_3D_KEY, Table3DContext, layoutPosition, planeTiltStyle, type Point } from './table3d';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
@@ -441,6 +444,8 @@ function GameMenu({
   onToggleCardText,
   resolveEvents,
   onToggleResolveEvents,
+  table3d,
+  onToggleTable3d,
   botGame,
   botPileName,
   touch,
@@ -486,6 +491,9 @@ function GameMenu({
   // The setting "Resolve events in a panel" (#1727).
   resolveEvents: boolean;
   onToggleResolveEvents: () => void;
+  // The 3D table (`table3d.ts`), a setting of the device, on by default.
+  table3d: boolean;
+  onToggleTable3d: () => void;
   // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
   botPileName: string;
@@ -609,6 +617,15 @@ function GameMenu({
                 className={SPLASH_ITEM_CLASS}
               >
                 Resolve events in a panel: {resolveEvents ? 'On' : 'Off'}
+              </button>
+              <button
+                type="button"
+                onClick={onToggleTable3d}
+                aria-pressed={table3d}
+                data-testid="game-menu-table-3d"
+                className={SPLASH_ITEM_CLASS}
+              >
+                3D table: {table3d ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -1152,6 +1169,130 @@ type DownloadPile = keyof typeof DOWNLOAD_HAND;
 const HAND_DECK = { hand: 'drawDeck', dilemmaHand: 'dilemmaPile' } as const;
 const isDownloadPile = (location: FlatPanelLocation): location is DownloadPile => location in DOWNLOAD_HAND;
 
+// One part of the tilted table (`table3d.ts`): the board of missions and ships, or the bottom row.
+// Both take the same tilt about the same hinge, the middle of the bottom edge of `hingeBox` (the
+// bottom row's measured box), so they lie in one plane. The element sits inside its part's measured
+// box, so the sizes of the table do not change. `mat` draws the playmat in the plane behind it, from
+// `matTop` px above it down past the bottom row, across the bottom row's width: the bottom row,
+// a later stacking context, paints over it. With the setting off, or `enabled` false, the part draws
+// flat.
+function TablePlane({
+  hingeBox,
+  enabled = true,
+  mat = false,
+  matTop = 0,
+  className,
+  testId,
+  children,
+}: {
+  hingeBox: HTMLElement | null;
+  enabled?: boolean;
+  mat?: boolean;
+  matTop?: number;
+  className?: string;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  const on = useContext(Table3DContext) && enabled;
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [geometry, setGeometry] = useState<{ hinge: Point; pos: Point; width: number; height: number; row: { left: number; right: number } } | null>(null);
+  useEffect(() => {
+    if (!on || !el || !hingeBox) return;
+    const measure = () => {
+      const row = hingeBox.getBoundingClientRect();
+      const padLeft = parseFloat(getComputedStyle(hingeBox).paddingLeft) || 0;
+      setGeometry({
+        hinge: { x: (row.left + padLeft + row.right) / 2, y: row.bottom },
+        pos: layoutPosition(el),
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+        row: { left: row.left + padLeft, right: row.right },
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    observer.observe(hingeBox);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [on, el, hingeBox]);
+  if (!on) return <div className={className}>{children}</div>;
+  const style = geometry ? planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y) : undefined;
+  return (
+    <div ref={setEl} data-testid={testId} className={`relative ${className ?? ''}`} style={style}>
+      {mat && geometry && (
+        <div
+          aria-hidden="true"
+          data-testid="board-mat"
+          className="board-mat pointer-events-none absolute -z-10 rounded-2xl"
+          style={{
+            top: -(matTop + 8),
+            bottom: -(geometry.hinge.y - (geometry.pos.y + geometry.height) + 8),
+            left: Math.min(0, geometry.row.left - geometry.pos.x) - 8,
+            right: Math.min(0, geometry.pos.x + geometry.width - geometry.row.right) - 8,
+          }}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+
+// The cards of a pile under its top card (`pileDepth.ts`): each a real card of the game, a little
+// lower and askew, so the pile looks as thick as it is. A face-down pile shows card backs, and the
+// discard pile the faces of its own cards under the top one (`faces`, from the top down). They sit
+// behind the top card in the pile's own box. The card back has its own black border, so only a
+// face takes the table's border (`cardBorderStyle`). They sit with no pointer events, so they change no drop target,
+// no drag and no size. With the setting off it draws nothing.
+function PileDepth({ count, rowScale, faces }: { count: number; rowScale: number; faces?: string[] }) {
+  const on = useContext(Table3DContext);
+  const layers = on ? pileLayers(count, rowScale) : [];
+  if (layers.length === 0) return null;
+  const cardWidth = pileCardSize(rowScale).width;
+  // Spread the faces over the layers, so the bottom layer shows the pile's bottom card.
+  const faceOf = (k: number) =>
+    faces && faces.length > 0
+      ? faces[Math.min(faces.length - 1, Math.round((k * (faces.length - 1)) / Math.max(1, layers.length - 1)))]
+      : '/cardimages/cardback.jpg';
+  return (
+    <div aria-hidden="true" data-testid="pile-depth" data-depth={pileDepth(count, rowScale)} data-layers={layers.length} className="pointer-events-none absolute inset-0">
+      {/* The bottom card first, so each card above it paints over it. */}
+      {layers
+        .map((layer, k) => (
+          <img
+            key={k}
+            src={faceOf(k)}
+            onError={showCardMissing}
+            alt=""
+            draggable={false}
+            className="absolute inset-0 w-full h-full rounded-lg object-cover"
+            style={{
+              ...(faces ? cardBorderStyle(cardWidth) : {}),
+              transform: `translate(${layer.x}px, ${layer.y}px) rotate(${layer.rotate}deg)`,
+              filter: `brightness(${layer.brightness})`,
+              boxShadow: k === layers.length - 1 ? `${PILE_CARD_EDGE}, ${pileCastShadow(count, rowScale)}` : PILE_CARD_EDGE,
+            }}
+          />
+        ))
+        .reverse()}
+    </div>
+  );
+}
+
+// A pile stands on the table: its bottom card sits on the bottom row's baseline, level with the
+// bottoms of the cards in the core and the brig, and its top card rises by the pile's height
+// (`pileDepth`). The pile's box keeps its place in the row; its contents (the cards under the top,
+// the top card, its drop halves, its drag and its count) move up together, so a drop aims at the
+// top card where it shows. With the 3D table off, or an empty pile, nothing moves.
+function usePileLift(count: number, rowScale: number): React.CSSProperties | undefined {
+  const on = useContext(Table3DContext);
+  const depth = on ? pileDepth(count, rowScale) : 0;
+  return depth > 0 ? { transform: `translateY(${-depth}px)` } : undefined;
+}
+
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
 // `handleDragEnd`'s dilemma routing below). A separate component, mounted only while a top card
@@ -1207,11 +1348,14 @@ function DiscardPileCard({
 function DiscardPile({
   topCard,
   count,
+  under = [],
   onOpen,
   rowScale = 1,
 }: {
   topCard: CardInstance | undefined;
   count: number;
+  // The cards under the top card, from the top down: the 3D pile shows their faces.
+  under?: CardInstance[];
   onOpen: () => void;
   // The bottom-row scale (`computeBottomRowScale`, #1465).
   rowScale?: number;
@@ -1220,6 +1364,7 @@ function DiscardPile({
   const draggedType = useDraggedCardType();
   const highlight = highlightState('discard', draggedType, isOver);
   const landedNonce = useLandedNonce('discard');
+  const lift = usePileLift(count, rowScale);
 
   // A ring shows that the discard pile accepts the card under the pointer (`isOver`), or accepts
   // the dragged card's type generally (`valid`, #608).
@@ -1233,7 +1378,12 @@ function DiscardPile({
     >
       <LandedRing nonce={landedNonce} />
       {topCard ? (
-        <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} rowScale={rowScale} />
+        <div data-testid="pile-lift" className="relative" style={lift}>
+          <div className="pointer-events-none absolute inset-0">
+            <PileDepth count={count} rowScale={rowScale} faces={under.map((c) => cardImageUrl(c.card))} />
+          </div>
+          <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} rowScale={rowScale} />
+        </div>
       ) : (
         <div
           style={pileCardSize(rowScale)}
@@ -1473,6 +1623,7 @@ function DilemmaPileButton({
 }) {
   const size = pileCardSize(rowScale);
   const landedNonce = useLandedNonce('dilemmaPile');
+  const lift = usePileLift(count, rowScale);
   const halves = (
     <>
       <PileHalf
@@ -1503,8 +1654,10 @@ function DilemmaPileButton({
       data-landed={landedNonce !== null || undefined}
     >
       <LandedRing nonce={landedNonce} />
+      <div data-testid="pile-lift" className="absolute inset-0" style={lift}>
       {count > 0 ? (
         <>
+          <PileDepth count={count} rowScale={rowScale} />
           <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} cardWidth={size.width} />
           <CountBadge count={count} landedNonce={landedNonce} />
         </>
@@ -1515,6 +1668,7 @@ function DilemmaPileButton({
       )}
 
       {topCard ? <PileTopCardDrag topCard={topCard}>{halves}</PileTopCardDrag> : halves}
+      </div>
     </div>
   );
 }
@@ -1542,6 +1696,7 @@ function DrawPileButton({
 }) {
   const size = pileCardSize(rowScale);
   const landedNonce = useLandedNonce('drawDeck');
+  const lift = usePileLift(count, rowScale);
   const halves = (
     <>
       <PileHalf
@@ -1575,8 +1730,10 @@ function DrawPileButton({
       data-landed={landedNonce !== null || undefined}
     >
       <LandedRing nonce={landedNonce} />
+      <div data-testid="pile-lift" className="absolute inset-0" style={lift}>
       {count > 0 ? (
         <>
+          <PileDepth count={count} rowScale={rowScale} />
           <PileArt alt="Face-down draw deck" shuffleCount={shuffleCount} cardWidth={size.width} />
           <CountBadge count={count} landedNonce={landedNonce} />
         </>
@@ -1587,6 +1744,7 @@ function DrawPileButton({
       )}
 
       {topCard ? <PileTopCardDrag topCard={topCard}>{halves}</PileTopCardDrag> : halves}
+      </div>
     </div>
   );
 }
@@ -2162,6 +2320,8 @@ function PracticeDrawContent() {
   const [cardTextOn, setCardTextOn] = useLocalStorage<boolean>(CARD_TEXT_ATTRIBUTES_KEY, false);
   // Whether a played event that resolves goes to the resolving zone (#1727); the Play target reads it.
   const [resolveEventsOn, setResolveEventsOn] = useLocalStorage<boolean>(RESOLVE_EVENTS_KEY, false);
+  // The 3D table (`table3d.ts`), a setting of the device, on by default.
+  const [table3dOn, setTable3dOn] = useLocalStorage<boolean>(TABLE_3D_KEY, true);
   // The brief chip of the last charge: the index of its entry in the log. It is page state, so a
   // reload does not bring it back. A newer charge replaces it, undo and redo remove it, and it shows
   // only while its entry is of the current turn, so the next turn removes it too.
@@ -4148,7 +4308,7 @@ function PracticeDrawContent() {
       {debugTaps && <TapDebugOverlay standalone={fullscreen.standalone} />}
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
-      <div ref={setGameLayer} data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
+      <div ref={setGameLayer} data-testid="practice-game-layer" className={`fixed inset-0 bg-gradient-page ${table3dOn ? TABLE_3D_CLASS : ''} font-body text-text-primary flex flex-col`}>
         {/* The warning of a Load deck that dropped cards the card data does not have (#1616). */}
         {missingCards > 0 && (
           <div
@@ -4207,6 +4367,8 @@ function PracticeDrawContent() {
           onToggleCardText={() => setCardTextOn((on) => !on)}
           resolveEvents={resolveEventsOn}
           onToggleResolveEvents={() => setResolveEventsOn((on) => !on)}
+          table3d={table3dOn}
+          onToggleTable3d={() => setTable3dOn((on) => !on)}
           botGame={table.opponent === 'bot'}
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
@@ -4456,6 +4618,7 @@ function PracticeDrawContent() {
             <RangeUsedProvider value={rangeUsedInfo}>
             <TableCardUseProvider value={tableCardUses}>
             <MissionSpendProvider value={missionSpendOffers}>
+            <Table3DContext value={table3dOn}>
             {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
                 row clears the home indicator, the table clears the notch, and the background stays
                 full-bleed under both. The scale hooks read the bottom padding from the computed
@@ -4551,6 +4714,7 @@ function PracticeDrawContent() {
                   paddingRight: MENU_BUTTON_GUTTER,
                 }}
               >
+                <TablePlane testId="tilted-board" hingeBox={bottomRow} mat matTop={underMissionHeadroom(missionScale, finePointer)}>
                 <MissionRow
                   missions={missions}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
@@ -4566,6 +4730,7 @@ function PracticeDrawContent() {
                   desktop={finePointer}
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE)}
                 />
+                </TablePlane>
               </div>
               <TurnScoreColumn
                 turn={turn}
@@ -4605,14 +4770,18 @@ function PracticeDrawContent() {
                   already used. */}
               <div
                 ref={setBottomRow}
-                className="mt-auto flex flex-row items-end gap-2"
+                className="mt-auto flex flex-row items-end"
                 style={{ paddingLeft: TOUCH_CONTROLS_COLUMN }}
               >
+                {/* The bottom row lies on the tilted table with the board (`TablePlane`), but not in
+                    the attempt layout, whose board stays flat. */}
+                <TablePlane testId="tilted-bottom-row" hingeBox={bottomRow} enabled={!attemptLayoutShows} className="flex-1 min-w-0 flex flex-row items-end gap-2">
                 <div className="flex flex-row items-end gap-2">
                   <div className="flex flex-col items-center gap-1">
                     <DiscardPile
                       topCard={discard[discard.length - 1]}
                       count={discard.length}
+                      under={discard.slice(0, -1).reverse()}
                       onOpen={() => openOnlyFlatZone('discard')}
                       rowScale={bottomRowScale}
                     />
@@ -4701,6 +4870,7 @@ function PracticeDrawContent() {
                     />
                   </div>
                 </div>
+                </TablePlane>
               </div>
 
               {/* The two hands (#1489). Each draws its closed fan and its open arc in the game layer,
@@ -5002,6 +5172,7 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            </Table3DContext>
             {/* The Play target (#1729), only while the pointer is above its line. */}
             {playEligible && playTargetAt !== null && <PlayTarget line={playTargetAt} container={gameLayer} />}
             {/* The resolving event (#1728): the panel, below the charge chip and the splash, or its small

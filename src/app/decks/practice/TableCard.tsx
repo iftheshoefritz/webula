@@ -226,7 +226,7 @@ export function TableCardImage({
   const rangeShown = uncropped && !isFaceDown && hasShipOverlay(card) ? shipRangeShown(card, rangeLeft, onTable) : null;
   return (
     <div className="relative w-full" style={{ height }}>
-      <div className={`relative w-full h-full overflow-hidden bg-black/20 ${className}`}>
+      <div className={`table-card-art relative w-full h-full overflow-hidden bg-black/20 ${className}`}>
         <img
           draggable={false}
           src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
