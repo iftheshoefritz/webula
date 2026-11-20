@@ -295,10 +295,8 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     // The crew member is gone from the crew (and now in the discard pile). The panel stays open
-    // on the ship, with an empty crew (#832).
-    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
-    expect(panel).not.toBeNull();
-    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
+    // on the ship (#832), with no crew grid (#1798).
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     expect(screen.getByTestId('card-list-panel-crew-ship')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Data' })).not.toBeInTheDocument();
     expect(screen.getByAltText('Discard pile')).toBeInTheDocument();
@@ -392,9 +390,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     await act(async () => {
       mockOnDragEnd!({ active: { id: equipmentId }, over: { id: 'discard' } });
     });
-    panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
-    expect(panel).not.toBeNull();
-    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     expect(screen.getByTestId('card-list-panel-crew-ship')).toBeInTheDocument();
   });
 
@@ -448,7 +444,7 @@ describe('Practice draw: dropping a card on a ship', () => {
     expect(screen.getByRole('button', { name: 'Data' })).toBeInTheDocument();
   });
 
-  it('tapping a ship with no crew opens its panel with the ship and an empty crew, and no preview (#764, #832)', async () => {
+  it('tapping a ship with no crew opens its panel with the ship and no crew grid, and no preview (#764, #832, #1798)', async () => {
     await setupOpenHand([mockShipCard]);
     const [shipId] = mockDraggableIds;
     await placeShipOnMission(shipId, 2, 0);
@@ -458,9 +454,8 @@ describe('Practice draw: dropping a card on a ship', () => {
     });
 
     expect(screen.queryByTestId('card-preview')).toBeNull();
-    const panel = document.body.querySelector('[data-testid="card-list-panel-crew"]') as HTMLElement;
-    expect(panel).not.toBeNull();
-    expect(panel.querySelectorAll('[data-card-id]')).toHaveLength(0);
+    // #1798: an empty crew draws no grid, so no empty sliver shows beside the ship.
+    expect(document.body.querySelector('[data-testid="card-list-panel-crew"]')).toBeNull();
     const shipSection = screen.getByTestId('card-list-panel-crew-ship');
     expect(shipSection.querySelector('img[alt="U.S.S. Relativity"]')).not.toBeNull();
   });
