@@ -59,7 +59,18 @@ export type ResolveStep =
   // The "may draw up to N" step of a played card (#1800): a stepper from 0 to `max`, at most what the deck holds.
   | { step: 'drawUpTo'; max: number; deck: number; onDraw: (count: number) => void }
   // The "discard N cards from hand" step of a played card (#1800): `count` cards of `hand`.
-  | { step: 'discardFromHand'; count: number; hand: CardInstance[]; onDiscard: (ids: string[]) => void };
+  | { step: 'discardFromHand'; count: number; hand: CardInstance[]; onDiscard: (ids: string[]) => void }
+  // The examine of the top of the draw deck of a played card (#1809): the `examined` cards, of which the player
+  // takes from `min` to `max` that pass `takes`, and orders the rest for the bottom of the draw deck.
+  | {
+      step: 'examineTake';
+      examined: CardInstance[];
+      min: number;
+      max: number;
+      takes: (instance: CardInstance) => boolean;
+      testText?: string;
+      onApply: (take: string[], bottom: string[]) => void;
+    };
 
 /** The played card of a pending "when you play" effect (#1800), the panel's other subject. */
 export interface PlayedSubject {
@@ -206,26 +217,32 @@ function HandOption({
   onToggle,
   pickedLabel,
   badge = true,
+  testId = 'resolve-hand-card',
+  disabled = false,
 }: {
   instance: CardInstance;
   order: number | null;
   onToggle: () => void;
   pickedLabel?: string;
   badge?: boolean;
+  testId?: string;
+  disabled?: boolean;
 }) {
   const hold = useCardHold(instance.id);
   const name = cardDisplayName(instance.card);
   return (
     <button
       type="button"
-      data-testid="resolve-hand-card"
+      data-testid={testId}
       data-card-choice={instance.id}
+      data-available={disabled ? 'false' : undefined}
+      disabled={disabled}
       aria-pressed={order !== null}
       aria-label={order !== null ? `${name}, ${pickedLabel ?? `${order + 1} of the cards to put on the bottom`}` : name}
       onClick={onToggle}
       {...hold}
       style={NO_CALLOUT_STYLE}
-      className={`relative shrink-0 rounded-md border-2 ${order !== null ? 'border-blue-400' : 'border-transparent'}`}
+      className={`relative shrink-0 rounded-md border-2 disabled:cursor-default disabled:opacity-40 ${order !== null ? 'border-blue-400' : 'border-transparent'}`}
     >
       <img
         draggable={false}
@@ -282,6 +299,42 @@ function DrawStep({ step }: { step: Extract<ResolveStep, { step: 'draw' }> }) {
   );
 }
 
+// The order of the cards for the bottom of the draw deck (#1739), with buttons that move one earlier or later:
+// the first goes nearest the top, the last to the very bottom. The examine of a played card (#1809) shares it.
+function BottomOrder({ ids, nameOf, onShift }: { ids: string[]; nameOf: (id: string) => string; onShift: (from: number, to: number) => void }) {
+  return (
+    <ol data-testid="resolve-order" className="flex flex-col gap-1 overflow-y-auto text-xs text-text-primary">
+      {ids.map((id, i) => (
+        <li key={id} data-testid="resolve-order-card" data-card-choice={id} className="flex items-center gap-1">
+          <span className="w-4 shrink-0 text-text-muted">{i + 1}.</span>
+          <span className="min-w-0 flex-1 truncate">{nameOf(id)}</span>
+          <button
+            type="button"
+            data-testid="resolve-order-up"
+            aria-label="Nearer the top"
+            className="btn-icon-sm"
+            disabled={i === 0}
+            onClick={() => onShift(i, i - 1)}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            data-testid="resolve-order-down"
+            aria-label="Nearer the bottom"
+            className="btn-icon-sm"
+            disabled={i === ids.length - 1}
+            onClick={() => onShift(i, i + 1)}
+          >
+            ↓
+          </button>
+        </li>
+      ))}
+      <li className="text-[11px] text-text-muted">The last goes to the very bottom.</li>
+    </ol>
+  );
+}
+
 // The bottom step (#1739): the hand as a row that scrolls sideways, a tap picks a card up to `count`, the
 // picked cards in their order with buttons that move one earlier or later, and Place on bottom once
 // exactly `count` are picked. The first of the order goes nearest the top, the last to the very bottom.
@@ -304,37 +357,7 @@ function BottomStep({ step }: { step: Extract<ResolveStep, { step: 'bottom' }> }
           return <HandOption key={c.id} instance={c} order={at >= 0 ? at : null} onToggle={() => toggle(c.id)} />;
         })}
       </div>
-      {picked.length > 0 && (
-        <ol data-testid="resolve-order" className="flex flex-col gap-1 overflow-y-auto text-xs text-text-primary">
-          {picked.map((id, i) => (
-            <li key={id} data-testid="resolve-order-card" data-card-choice={id} className="flex items-center gap-1">
-              <span className="w-4 shrink-0 text-text-muted">{i + 1}.</span>
-              <span className="min-w-0 flex-1 truncate">{cardDisplayName(inHand.get(id)!.card)}</span>
-              <button
-                type="button"
-                data-testid="resolve-order-up"
-                aria-label="Nearer the top"
-                className="btn-icon-sm"
-                disabled={i === 0}
-                onClick={() => shift(i, i - 1)}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                data-testid="resolve-order-down"
-                aria-label="Nearer the bottom"
-                className="btn-icon-sm"
-                disabled={i === picked.length - 1}
-                onClick={() => shift(i, i + 1)}
-              >
-                ↓
-              </button>
-            </li>
-          ))}
-          <li className="text-[11px] text-text-muted">The last goes to the very bottom.</li>
-        </ol>
-      )}
+      {picked.length > 0 && <BottomOrder ids={picked} nameOf={(id) => cardDisplayName(inHand.get(id)!.card)} onShift={shift} />}
       <button
         type="button"
         data-testid="resolve-place-bottom"
@@ -576,6 +599,65 @@ function DiscardFromHandStep({ step }: { step: Extract<ResolveStep, { step: 'dis
   );
 }
 
+// The examine of a played card (#1809): the examined cards as a row, a tap takes a card that passes the test up
+// to `max` (a second tap puts it back), the rest in the order for the bottom, and one button that applies both.
+// Its picks are its own state, so a new subject, which remounts it, starts with none taken.
+function ExamineTakeStep({ step }: { step: Extract<ResolveStep, { step: 'examineTake' }> }) {
+  const examinedIds = step.examined.map((c) => c.id);
+  const [taken, setTaken] = useState<string[]>([]);
+  const [order, setOrder] = useState<string[]>(examinedIds);
+  const byId = new Map(step.examined.map((c) => [c.id, c]));
+  const picked = taken.filter((id) => byId.has(id));
+  // The rest in the chosen order, then any examined card the order does not hold yet.
+  const rest = [...order, ...examinedIds.filter((id) => !order.includes(id))].filter((id) => byId.has(id) && !picked.includes(id));
+  const toggle = (id: string) => {
+    if (picked.includes(id)) {
+      setTaken(picked.filter((i) => i !== id));
+      setOrder([...rest, id]);
+    } else if (step.max === 1) {
+      setTaken([id]);
+      setOrder([...rest.filter((i) => i !== id), ...picked]);
+    } else if (picked.length < step.max) {
+      setTaken([...picked, id]);
+      setOrder(rest.filter((i) => i !== id));
+    }
+  };
+  const shift = (from: number, to: number) => setOrder(arrayMove(rest, from, to));
+  const n = step.examined.length;
+  const take = step.max === 0 ? 'no card to take' : step.max === 1 ? `take ${step.testText ?? 'one'}` : `take up to ${step.max}`;
+  return (
+    <div data-testid="resolve-step-examine" className="flex min-h-0 min-w-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">
+        {n === 0 ? 'Your draw deck is empty: nothing to examine.' : `The top ${n === 1 ? 'card' : `${n} cards`} of your draw deck: ${take}`}
+      </p>
+      <div data-testid="resolve-examined" className="flex min-w-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
+        {step.examined.map((c) => (
+          <HandOption
+            key={c.id}
+            instance={c}
+            testId="resolve-examine-card"
+            order={picked.includes(c.id) ? picked.indexOf(c.id) : null}
+            badge={false}
+            pickedLabel="to take into hand"
+            disabled={!step.takes(c) || step.max === 0}
+            onToggle={() => toggle(c.id)}
+          />
+        ))}
+      </div>
+      {rest.length > 0 && <BottomOrder ids={rest} nameOf={(id) => cardDisplayName(byId.get(id)!.card)} onShift={shift} />}
+      <button
+        type="button"
+        data-testid="resolve-examine-apply"
+        className="btn-primary w-full text-sm leading-tight"
+        disabled={picked.length < step.min || picked.length > step.max}
+        onClick={() => step.onApply(picked, rest)}
+      >
+        {picked.length ? `Take ${picked.length}, place ${rest.length} on bottom` : `Place ${rest.length} on bottom`}
+      </button>
+    </div>
+  );
+}
+
 export function ResolvingPanel({
   instance,
   hidden,
@@ -660,6 +742,8 @@ export function ResolvingPanel({
             )}
             {!step ? null : step.step === 'drawUpTo' ? (
               <DrawUpToStep key={`draw-up-to-${instance.id}`} step={step} />
+            ) : step.step === 'examineTake' ? (
+              <ExamineTakeStep key={`examine-${instance.id}`} step={step} />
             ) : step.step === 'discardFromHand' ? (
               <DiscardFromHandStep key={`discard-${instance.id}`} step={step} />
             ) : step.step === 'draw' ? (
