@@ -9,7 +9,7 @@ import { pileTableInputOf } from './attempt';
 import { CardInstance, TableAction, TableState, drawFromDilemmaPile } from './tableReducer';
 
 export type BotAttemptAction = Extract<TableAction, { type: 'botAttempt' }>;
-export type BotStartFields = Pick<BotAttemptAction, 'missionIndex' | 'shipId' | 'personnel' | 'subtract' | 'botDraw' | 'botSpend' | 'drawCards' | 'changes'>;
+export type BotStartFields = Pick<BotAttemptAction, 'missionIndex' | 'shipId' | 'personnel' | 'subtract' | 'botDraw' | 'botSpend' | 'drawCards' | 'changes' | 'downloadId'>;
 
 // A new seed for each bot attempt, so two attempts at the same table need not choose alike.
 export const newBotSeed = (): number => Math.floor(Math.random() * 2 ** 31);

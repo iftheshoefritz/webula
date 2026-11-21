@@ -283,6 +283,10 @@ export interface AttemptStartExtras {
   spend?: number;
   drawCards?: number;
   changes?: string[];
+  // Caldos IV (#1828): the card of the draw deck the attempt downloads into the hand, and the order the
+  // page chose for the shuffle after it.
+  downloadId?: string;
+  downloadOrder?: string[];
 }
 
 export interface RevealSnapshot {
@@ -1256,14 +1260,18 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       const n = drawSpend(personnel, subtract);
       // Rigel X's free draw (#1759), as `drawOpeningHand` draws: it leaves `openingHand` alone.
       const drawnCards = state.drawDeck.slice(0, Math.max(0, action.drawCards ?? 0));
+      const rest = state.drawDeck.slice(drawnCards.length);
+      // Caldos IV's download (#1828), then the shuffle in the page's order; a copy no longer there downloads nothing.
+      const downloaded = action.downloadId ? rest.find((c) => c.id === action.downloadId) : undefined;
+      const handCards = [...drawnCards, ...(downloaded ? [downloaded] : [])];
       // An attempt is an order (#1605): one started in play and draw moves the turn to orders.
       return {
         ...state,
         ...(state.segment === 'playAndDraw' ? { segment: 'orders' as const } : {}),
-        ...(drawnCards.length
+        ...(handCards.length
           ? {
-              drawDeck: state.drawDeck.slice(drawnCards.length),
-              hand: [...state.hand, ...drawnCards.map((c) => ({ ...c, face: entryFace(state, 'hand') }))],
+              drawDeck: downloaded ? inShuffleOrder(rest.filter((c) => c !== downloaded), action.downloadOrder) : rest,
+              hand: [...state.hand, ...handCards.map((c) => ({ ...c, face: entryFace(state, 'hand') }))],
             }
           : {}),
         attempt: {
@@ -1299,8 +1307,8 @@ export function tableReducer(state: TableState, action: TableAction): TableState
     }
 
     case 'botAttempt': {
-      const { missionIndex, shipId, personnel, subtract, botDraw, botSpend, pile, drawn, stack, drawCards } = action;
-      const started = tableReducer(state, { type: 'startAttempt', missionIndex, shipId, personnel, subtract, botDraw, botSpend, drawCards });
+      const { missionIndex, shipId, personnel, subtract, botDraw, botSpend, pile, drawn, stack, drawCards, downloadId, downloadOrder } = action;
+      const started = tableReducer(state, { type: 'startAttempt', missionIndex, shipId, personnel, subtract, botDraw, botSpend, drawCards, downloadId, downloadOrder });
       if (started === state) return state;
       const drawnCards = drawn.map((id) => state.dilemmaPile.find((c) => c.id === id));
       if (drawnCards.some((c) => !c) || pile.length + drawn.length !== state.dilemmaPile.length) return state;
