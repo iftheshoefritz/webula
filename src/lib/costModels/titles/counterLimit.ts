@@ -50,6 +50,16 @@ export const COUNTER_LIMIT_MODELS: CostModel[] = [
     family: 'limit',
     limitCap: (facts) => (facts.core.includes('Code of the Ushaan') ? { amount: 7, reason: 'in your core' } : null),
   },
+  // Blue Skies (#1826): "To play this event, you must command three [Rom] Dissidents or three [TNG] Dissidents.
+  // Plays in your core. You cannot spend more than seven counters during your turn. At the end of an opponent's
+  // Play and Draw Cards segment, if they spent eight or more counters, score 5 points." The counters count in
+  // play and draw only, so "during your turn" caps the same limit as Code of the Ushaan. The condition of play
+  // is not checked, and the points wait for the opponent's counters (#1758).
+  {
+    title: 'Blue Skies',
+    family: 'limit',
+    limitCap: (facts) => (facts.core.includes('Blue Skies') ? { amount: 7, reason: 'in your core' } : null),
+  },
   // "Lose 5 points to spend 7 additional counters this turn. Destroy this event." The printed cost, and the
   // choice of +7. The points and the destroy stay by hand.
   {

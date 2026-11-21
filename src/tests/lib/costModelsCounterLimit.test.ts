@@ -2,6 +2,7 @@ import { cappedLimit, costModelOf, limitCapsOf, limitGrantsOf, turnChoicesOf } f
 import { CommandedTraits, CostCoreCard, CostFacts, CostMission } from '../../lib/costModels/model';
 import { moveCharge } from '../../lib/playCost';
 import { partnerTraitsOf } from '../../lib/dilemmaBot/simulator';
+import { limitPartsText } from '../../app/decks/practice/TurnCounters';
 
 // The cards that change the turn's counter limit, batch 11 (#1704), with invented facts.
 
@@ -49,6 +50,27 @@ describe('the counter limit models, batch 11 (#1704)', () => {
     expect(cappedLimit(13, limitCapsOf(facts({ core: ['Code of the Ushaan'] })))).toBe(7);
     expect(cappedLimit(5, limitCapsOf(facts({ core: ['Code of the Ushaan'] })))).toBe(5);
     expect(cappedLimit(13, [])).toBe(13);
+  });
+
+  // Blue Skies (#1826): "To play this event, you must command three [Rom] Dissidents or three [TNG] Dissidents.
+  // Plays in your core. You cannot spend more than seven counters during your turn. At the end of an opponent's
+  // Play and Draw Cards segment, if they spent eight or more counters, score 5 points."
+  it('caps the limit at 7 while Blue Skies is in the core', () => {
+    expect(costModelOf('Blue Skies')?.family).toBe('limit');
+    const caps = limitCapsOf(facts({ core: ['Blue Skies'] }));
+    expect(caps).toEqual([{ title: 'Blue Skies', amount: 7, reason: 'in your core' }]);
+    expect(limitCapsOf(facts({ hand: [{ id: 'b1', title: 'Blue Skies', type: 'event' }] }))).toEqual([]);
+    expect(cappedLimit(13, caps)).toBe(7);
+    expect(limitPartsText({ spent: 0, limit: 7, grants: [{ title: 'Surprise Party', amount: 1 }], caps, uncapped: 8 } as never)).toBe(
+      '7 + 1 Surprise Party, capped at 7 (Blue Skies)'
+    );
+  });
+
+  it('with Blue Skies and Code of the Ushaan both in the core, keeps one limit of 7 and names one cap', () => {
+    const caps = limitCapsOf(facts({ core: ['Blue Skies', 'Code of the Ushaan'] }));
+    expect(caps.map((c) => c.title)).toEqual(['Code of the Ushaan', 'Blue Skies']);
+    expect(cappedLimit(13, caps)).toBe(7);
+    expect(limitPartsText({ spent: 0, limit: 7, grants: [], caps, uncapped: 12 } as never)).toBe('12, capped at 7 (Code of the Ushaan)');
   });
 
   it('offers At What Cost? its +7 at its printed cost', () => {

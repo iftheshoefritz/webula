@@ -90,14 +90,33 @@ export interface ExchangeCandidates {
   groups: PersonnelCandidateGroup[];
 }
 
-// The two sides of Vidiian Organ Bank's exchange (#1765): the personnel of `affiliation` in the hand, and
-// those the player commands, unstopped (a stopped personnel cannot be replaced), never the brig, by place.
-// The reducer and the panel both ask it, so they never disagree.
-export function exchangeCandidatesOf(table: TableState, affiliation: string): ExchangeCandidates {
+// The one affiliation of a personnel, lowercased, or '' (#1826).
+const affiliationOf = (card: CardInstance['card'] | undefined): string => String(card?.affiliation ?? '').trim().toLowerCase();
+
+// Whether the personnel `hand` of the hand may take the place of `onTable` (#1826): with a fixed `affiliation`
+// any two of its candidates; with none, two personnel of the same affiliation (The Crossing).
+export const exchangeMatches = (hand: CardInstance, onTable: CardInstance, affiliation?: string): boolean =>
+  affiliation !== undefined || (affiliationOf(hand.card) !== '' && affiliationOf(hand.card) === affiliationOf(onTable.card));
+
+// The two sides of an exchange: for Vidiian Organ Bank (#1765) the personnel of `affiliation` in the hand, and
+// those the player commands, unstopped (a stopped personnel cannot be replaced), never the brig, by place. With
+// no `affiliation` (The Crossing, #1826) each side keeps the personnel that share an affiliation with one of the
+// other side. The reducer and the panel both ask it, so they never disagree.
+export function exchangeCandidatesOf(table: TableState, affiliation?: string): ExchangeCandidates {
+  if (affiliation !== undefined) {
+    return {
+      hand: table.hand.filter((c) => personnelOf(c.card, affiliation)),
+      groups: personnelCandidateGroups(table)
+        .map((g) => ({ ...g, cards: g.cards.filter((c) => personnelOf(c.card.card, affiliation)) }))
+        .filter((g) => g.cards.length > 0),
+    };
+  }
+  const handPersonnel = table.hand.filter((c) => c.card.type === 'personnel');
+  const groups = personnelCandidateGroups(table)
+    .map((g) => ({ ...g, cards: g.cards.filter((c) => handPersonnel.some((h) => exchangeMatches(h, c.card))) }))
+    .filter((g) => g.cards.length > 0);
   return {
-    hand: table.hand.filter((c) => personnelOf(c.card, affiliation)),
-    groups: personnelCandidateGroups(table)
-      .map((g) => ({ ...g, cards: g.cards.filter((c) => personnelOf(c.card.card, affiliation)) }))
-      .filter((g) => g.cards.length > 0),
+    hand: handPersonnel.filter((h) => groups.some((g) => g.cards.some((c) => exchangeMatches(h, c.card)))),
+    groups,
   };
 }

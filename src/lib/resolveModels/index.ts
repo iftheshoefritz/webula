@@ -44,12 +44,20 @@ export interface DownloadCopyModel {
   draw: number;
 }
 
-/** "Exchange a [Vid] personnel in hand with a [Vid] personnel you command and own." (#1765) */
+/**
+ * "Exchange a [Vid] personnel in hand with a [Vid] personnel you command and own." (#1765), and The Crossing's
+ * "Replace one of your personnel with a personnel of the same affiliation from your hand." (#1826).
+ */
 export interface ExchangeModel {
   kind: 'exchange';
   title: string;
-  /** The affiliation, lowercased, both personnel of the exchange must have ("vidiian"). */
-  affiliation: string;
+  /**
+   * The affiliation, lowercased, both personnel of the exchange must have ("vidiian"). Absent, the two must
+   * share an affiliation, whichever it is (The Crossing).
+   */
+  affiliation?: string;
+  /** Where the personnel taken off the table goes: the hand (the default) or the discard pile. */
+  replacedTo?: 'hand' | 'discard';
 }
 
 export type ResolveModel = DrawThenBottomModel | DiscardDrawModel | DownloadCopyModel | ExchangeModel;
@@ -81,6 +89,10 @@ export const RESOLVE_MODELS: ResolveModel[] = [
   // Destroy this event." A copy is a card of the same title; the brig is not commanded.
   { kind: 'downloadCopy', title: 'Second Edition', drawIfIcon: '[au]', draw: 1 },
   { kind: 'exchange', title: 'Vidiian Organ Bank', affiliation: 'vidiian' },
+  // "To play this event, you must command three [SF] personnel or three [Xin] personnel. Replace one of your
+  // personnel with a personnel of the same affiliation from your hand. Place the personnel you replaced in
+  // your discard pile. Destroy this event." (#1826) The condition of play is not checked.
+  { kind: 'exchange', title: 'The Crossing', replacedTo: 'discard' },
 ];
 
 const BY_TITLE = new Map(RESOLVE_MODELS.map((m) => [m.title.toLowerCase(), m]));

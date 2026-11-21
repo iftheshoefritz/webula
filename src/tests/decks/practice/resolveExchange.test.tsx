@@ -162,3 +162,106 @@ describe('the panel step (#1765)', () => {
     expect(screen.getByTestId('resolve-exchange-empty')).toHaveTextContent('No unstopped [Vid] personnel you command');
   });
 });
+
+// Issue #1826: The Crossing, "To play this event, you must command three [SF] personnel or three [Xin] personnel.
+// Replace one of your personnel with a personnel of the same affiliation from your hand. Place the personnel you
+// replaced in your discard pile. Destroy this event." The same exchange step, with a matching affiliation, and the
+// replaced personnel to the discard pile.
+describe('The Crossing (#1826)', () => {
+  const CROSSING = card('tc', { type: 'event', name: 'the crossing', originalName: 'The Crossing', cost: '2' });
+  const crossing = (overrides: Partial<TableState> = {}) => table({ resolving: CROSSING, ...overrides });
+
+  it('is an exchange of any matching affiliation, whose replaced personnel goes to the discard pile', () => {
+    expect(resolveModelOf('The Crossing')).toEqual({ kind: 'exchange', title: 'The Crossing', replacedTo: 'discard' });
+    expect(resolveStepOf(resolvingGame(crossing()))).toBe('exchange');
+  });
+
+  it('lists the personnel of each side that share an affiliation with one of the other, never a stopped one nor the brig', () => {
+    // Hal ([Vid]) matches Amo and Cru; Fed (Federation) matches nobody; Kor (Klingon) matches nobody in the hand.
+    const { hand, groups } = exchangeCandidatesOf(crossing());
+    expect(hand.map((c) => c.id)).toEqual(['hal']);
+    expect(groups.map((g) => g.cards.map((c) => c.id))).toEqual([['amo'], ['cru']]);
+    const withKlingon = exchangeCandidatesOf(crossing({ hand: [person('kh', 'Klingon Hand', 'klingon'), person('fed', 'Fed Invented', 'federation')] }));
+    expect(withKlingon.hand.map((c) => c.id)).toEqual(['kh']);
+    expect(withKlingon.groups.map((g) => g.cards.map((c) => c.id))).toEqual([['kor']]);
+  });
+
+  it('replaces: the table personnel to the discard pile, the hand personnel to its place, the event after it, one entry and one undo', () => {
+    const game = resolvingGame(crossing());
+    const after = exchange(game, 'hal', 'cru');
+    expect(after.table.missions[2].ships[0].crew!.map((c) => c.id)).toEqual(['kor', 'hal']);
+    expect(after.table.hand.map((c) => c.id)).toEqual(['fed', 'h1']);
+    expect(after.table.discard.map((c) => c.id)).toEqual(['cru', 'tc']);
+    expect(after.table.resolving).toBeNull();
+    expect(after.log).toHaveLength(game.log.length + 1);
+    const entry = after.log[after.log.length - 1];
+    expect(logEntryText(entry)).toBe('Replaced Cru Invented with Hal Invented, Cru Invented went to the discard pile, and The Crossing went to the discard pile');
+    expect(isLogEntry(JSON.parse(JSON.stringify(entry)))).toBe(true);
+    const undone = gameReducer(after, { type: 'undo' });
+    expect(undone.table).toBe(game.table);
+  });
+
+  it('refuses two personnel of different affiliations, a stopped one and the brig', () => {
+    const game = resolvingGame(crossing({ hand: [person('hal', 'Hal Invented'), person('kh', 'Klingon Hand', 'klingon')] }));
+    for (const [handId, tableId] of [
+      ['kh', 'cru'],
+      ['hal', 'kor'],
+      ['hal', 'sto'],
+      ['hal', 'bri'],
+    ]) {
+      expect(exchange(game, handId, tableId)).toBe(game);
+    }
+    expect(exchange(game, 'kh', 'kor').table.discard.map((c) => c.id)).toEqual(['kor', 'tc']);
+  });
+
+  it('leaves Vidiian Organ Bank sending its personnel to the hand', () => {
+    const after = exchange(resolvingGame(table()), 'hal', 'cru');
+    expect(after.table.hand.map((c) => c.id)).toContain('cru');
+    expect(after.table.discard.map((c) => c.id)).toEqual(['ev']);
+  });
+
+  describe('the panel', () => {
+    const panel = (t: TableState, onExchange = jest.fn()) => {
+      const all = (id: string) => t.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((sh) => sh.crew ?? [])]).find((c) => c.id === id);
+      const matches = (handId: string, tableId: string) =>
+        String(t.hand.find((c) => c.id === handId)?.card.affiliation) === String(all(tableId)?.card.affiliation);
+      render(
+        <DndContext>
+          <ResolvingPanel
+            instance={CROSSING}
+            hidden={false}
+            escapeActive={false}
+            onDiscard={jest.fn()}
+            onCancel={jest.fn()}
+            onViewTable={jest.fn()}
+            step={{ step: 'exchange', ...exchangeCandidatesOf(t), onExchange, replace: { matches } }}
+          />
+        </DndContext>
+      );
+      return onExchange;
+    };
+
+    it('disables the hand personnel that do not match the picked one, and replaces', () => {
+      const onExchange = panel(crossing({ hand: [person('hal', 'Hal Invented'), person('kh', 'Klingon Hand', 'klingon')] }));
+      const rows = screen.getAllByTestId('resolve-personnel');
+      expect(rows.map((r) => r.getAttribute('data-card-choice'))).toEqual(['amo', 'cru', 'kor']);
+      expect(rows[0]).toHaveTextContent('to the discard pile');
+      fireEvent.click(rows[2]);
+      const handCards = screen.getAllByTestId('resolve-hand-card');
+      expect(handCards.map((c) => c.getAttribute('data-card-choice'))).toEqual(['hal', 'kh']);
+      expect(handCards[0]).toBeDisabled();
+      expect(handCards[1]).not.toBeDisabled();
+      fireEvent.click(handCards[1]);
+      const button = screen.getByTestId('resolve-exchange');
+      expect(button).toHaveTextContent('Replace');
+      fireEvent.click(button);
+      expect(onExchange).toHaveBeenCalledWith('kh', 'kor');
+    });
+
+    it('says so when no personnel of the hand matches one commanded', () => {
+      panel(crossing({ hand: [person('fed', 'Fed Invented', 'federation')] }));
+      expect(screen.getByTestId('resolve-exchange-empty')).toHaveTextContent('No personnel in your hand shares an affiliation');
+      expect(screen.queryByTestId('resolve-exchange')).toBeNull();
+    });
+  });
+});

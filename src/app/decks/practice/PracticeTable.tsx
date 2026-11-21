@@ -66,6 +66,10 @@ import {
   PRACTICE_DOWNLOADS_DRAW_TOP,
   PRACTICE_DOWNLOADS_HAND,
   PRACTICE_DOWNLOADS_TSV,
+  PRACTICE_60S_CORE,
+  PRACTICE_60S_DRAW_TOP,
+  PRACTICE_60S_HAND,
+  PRACTICE_60S_TSV,
   PRACTICE_RECALL_TSV,
   PRACTICE_KMTAR_TSV,
   PRACTICE_TAIN_HAND,
@@ -148,7 +152,7 @@ import { isDownloadChoice } from '../../../lib/costModels/model';
 import { DownloadChoicePanel } from './DownloadChoicePanel';
 import { CompletionEffectPanel } from './CompletionEffectPanel';
 import { completionBatch, completionEffectOf, flipActions } from './completionEffects';
-import { downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups } from './personnelChoice';
+import { downloadCopyOf, exchangeCandidatesOf, exchangeMatches, personnelCandidateGroups } from './personnelChoice';
 import { nameableDilemmaTitles, preventionOf } from './dilemmaPrevention';
 import { DilemmaNamePicker } from './DilemmaNamePicker';
 import { NamedCardProvider, type NamedCards } from './NamedCardContext';
@@ -2286,6 +2290,9 @@ function PracticeDrawContent() {
   // `?fixture=downloads` (#1810) deals the piles table with Opaka Kai of Bajor and Jean-Luc Picard Vintner at the
   // end of the hand, whose plays download into hand, and two [Baj] personnel on top of the draw deck.
   const isDownloadsFixture = fixture === 'downloads';
+  // `?fixture=60s` (#1826) deals the piles table with Blue Skies in the core, and Tavana, Qartum, The Crossing and a
+  // Federation personnel at the end of the hand.
+  const is60sFixture = fixture === '60s';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2318,6 +2325,7 @@ function PracticeDrawContent() {
     isDissidentFixture ||
     isUniqueFixture ||
     isDownloadsFixture ||
+    is60sFixture ||
     isAttemptFixture ||
     isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -2720,6 +2728,20 @@ function PracticeDrawContent() {
                   // Vidiian Organ Bank (#1765): a [Vid] personnel of the hand and an unstopped one on the table.
                   ...exchangeCandidatesOf(table, resolveModel.affiliation),
                   onExchange: (handId, tableId) => dispatch({ type: 'resolveExchange', handId, tableId }),
+                  // The Crossing (#1826): two personnel of the same affiliation, the replaced one to the discard pile.
+                  ...(resolveModel.affiliation === undefined
+                    ? {
+                        replace: {
+                          matches: (handId: string, tableId: string) => {
+                            const hand = table.hand.find((c) => c.id === handId);
+                            const onTable = personnelCandidateGroups(table)
+                              .flatMap((g) => g.cards)
+                              .find((c) => c.id === tableId);
+                            return !!hand && !!onTable && exchangeMatches(hand, onTable.card);
+                          },
+                        },
+                      }
+                    : {}),
                 }
               : undefined;
   // The steps of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
@@ -3018,7 +3040,9 @@ function PracticeDrawContent() {
                     ? uniqueFixtureExtras()
                   : isDownloadsFixture
                     ? downloadsFixtureExtras()
-                    : null
+                    : is60sFixture
+                      ? sixtySFixtureExtras()
+                      : null
       : null;
     const extraKeys = new Set(
       extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand, ...(extras.drawTop ?? []), ...(extras.discard ?? [])].map((c: any) => c.collectorsinfo) : []
@@ -3188,6 +3212,19 @@ function PracticeDrawContent() {
       drawTop: named(PRACTICE_DOWNLOADS_DRAW_TOP),
     };
   };
+  // The cards `?fixture=60s` adds (#1826): Blue Skies to the core, four cards to the end of the hand, and two on
+  // top of the draw deck.
+  const sixtySFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_60S_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return {
+      hand: [] as any[],
+      crew: [] as any[],
+      core: named(PRACTICE_60S_CORE),
+      lateHand: named(PRACTICE_60S_HAND),
+      drawTop: named(PRACTICE_60S_DRAW_TOP),
+    };
+  };
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
   const botCostsFixtureExtras = () => ({
     hand: [] as any[],
@@ -3207,6 +3244,7 @@ function PracticeDrawContent() {
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
     if (isUniqueFixture) return { ...deck, ...deckFromTsv(PRACTICE_UNIQUE_TSV, data) };
     if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
+    if (is60sFixture) return { ...deck, ...deckFromTsv(PRACTICE_60S_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = {
       ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
@@ -3297,6 +3335,7 @@ function PracticeDrawContent() {
           isDissidentFixture ||
           isUniqueFixture ||
           isDownloadsFixture ||
+          is60sFixture ||
           isAttemptFixture ||
           isBotFixture,
         attemptFixturePhase,

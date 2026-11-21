@@ -56,7 +56,17 @@ export type ResolveStep =
   | { step: 'bottom'; count: number; hand: CardInstance[]; onPlace: (ids: string[]) => void }
   | { step: 'discardDraw'; draw: number; hand: CardInstance[]; onDiscardDraw: (id: string) => void }
   | { step: 'download'; groups: PersonnelCandidateGroup[]; available: (id: string) => boolean; onDownload: (personnelId: string) => void }
-  | { step: 'exchange'; hand: CardInstance[]; groups: PersonnelCandidateGroup[]; onExchange: (handId: string, tableId: string) => void }
+  | {
+      step: 'exchange';
+      hand: CardInstance[];
+      groups: PersonnelCandidateGroup[];
+      onExchange: (handId: string, tableId: string) => void;
+      /**
+       * The Crossing (#1826): the two personnel must share an affiliation (`exchangeMatches`), and the replaced one
+       * goes to the discard pile. Absent, the [Vid] exchange of Vidiian Organ Bank.
+       */
+      replace?: { matches: (handId: string, tableId: string) => boolean };
+    }
   // The "may draw up to N" step of a played card (#1800): a stepper from 0 to `max`, at most what the deck holds.
   | { step: 'drawUpTo'; max: number; deck: number; onDraw: (count: number) => void }
   // The "discard N cards from hand" step of a played card (#1800): `count` cards of `hand`.
@@ -438,14 +448,20 @@ function DownloadStep({ step }: { step: Extract<ResolveStep, { step: 'download' 
 
 // The step of Vidiian Organ Bank (#1765): one [Vid] personnel of the hand, as a row of cards, and one
 // unstopped [Vid] personnel on the table, by place; a tap picks, another tap moves the pick. With either side
-// empty the step says which and shows no button: Resolved → Discard or Cancel ends it.
+// empty the step says which and shows no button: Resolved → Discard or Cancel ends it. The Crossing (#1826) replaces
+// a personnel with one of the same affiliation: a pick on one side disables the cards of the other side that do
+// not match it, and the replaced personnel goes to the discard pile.
 function ExchangeStep({ step }: { step: Extract<ResolveStep, { step: 'exchange' }> }) {
   const [handPick, setHandPick] = useState<string | null>(null);
   const [tablePick, setTablePick] = useState<string | null>(null);
   const handChosen = step.hand.some((c) => c.id === handPick) ? handPick : null;
   const tableChosen = step.groups.some((g) => g.cards.some((c) => c.id === tablePick)) ? tablePick : null;
-  const empty =
-    step.hand.length === 0
+  const replace = step.replace;
+  const empty = replace
+    ? step.hand.length === 0 || step.groups.length === 0
+      ? 'No personnel in your hand shares an affiliation with an unstopped personnel you command: nothing to replace.'
+      : null
+    : step.hand.length === 0
       ? 'No [Vid] personnel in your hand: nothing to exchange.'
       : step.groups.length === 0
         ? 'No unstopped [Vid] personnel you command: nothing to exchange.'
@@ -458,7 +474,11 @@ function ExchangeStep({ step }: { step: Extract<ResolveStep, { step: 'exchange' 
         </p>
       ) : (
         <>
-          <p className="text-sm text-text-primary">Exchange a [Vid] personnel of your hand with one you command</p>
+          <p className="text-sm text-text-primary">
+            {replace
+              ? 'Replace a personnel you command with one of the same affiliation from your hand'
+              : 'Exchange a [Vid] personnel of your hand with one you command'}
+          </p>
           <div data-testid="resolve-hand" className="flex min-w-0 shrink-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
             {step.hand.map((c) => (
               <HandOption
@@ -467,6 +487,7 @@ function ExchangeStep({ step }: { step: Extract<ResolveStep, { step: 'exchange' 
                 order={c.id === handChosen ? 0 : null}
                 badge={false}
                 pickedLabel="to put on the table"
+                disabled={!!replace && tableChosen !== null && !replace.matches(c.id, tableChosen)}
                 onToggle={() => setHandPick((id) => (id === c.id ? null : c.id))}
               />
             ))}
@@ -481,7 +502,8 @@ function ExchangeStep({ step }: { step: Extract<ResolveStep, { step: 'exchange' 
                     candidate={c}
                     selected={c.id === tableChosen}
                     onSelect={() => setTablePick((id) => (id === c.id ? null : c.id))}
-                    note="to the hand"
+                    note={replace ? 'to the discard pile' : 'to the hand'}
+                    disabled={!!replace && handChosen !== null && !replace.matches(handChosen, c.id)}
                   />
                 ))}
               </div>
@@ -494,7 +516,7 @@ function ExchangeStep({ step }: { step: Extract<ResolveStep, { step: 'exchange' 
             disabled={handChosen === null || tableChosen === null}
             onClick={() => handChosen && tableChosen && step.onExchange(handChosen, tableChosen)}
           >
-            Exchange
+            {replace ? 'Replace' : 'Exchange'}
           </button>
         </>
       )}
