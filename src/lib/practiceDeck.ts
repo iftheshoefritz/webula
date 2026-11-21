@@ -228,12 +228,15 @@ export const PRACTICE_BOT_ROADBLOCK_TSV = `1\tSelf-Replicating Roadblock`;
 
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the
-// core, for the arrows of the attribute bands.
+// core, for the arrows of the attribute bands. Soliton Wave (#1827), which makes each ship in play
+// Range +1, follows it at the end of the core, so every other card keeps its id.
 export const PRACTICE_ATTRIBUTES_TSV = `1\tKira Nerys Reformed Collaborator
-1\tDark Dissension`;
+1\tDark Dissension
+1\tSoliton Wave`;
 
-// The name of the card of `PRACTICE_ATTRIBUTES_TSV` that goes into the core; the rest go into the crew.
-export const PRACTICE_ATTRIBUTES_CORE = 'Dark Dissension';
+// The names of the cards of `PRACTICE_ATTRIBUTES_TSV` that go into the core, in core order; the rest
+// go into the crew.
+export const PRACTICE_ATTRIBUTES_CORE = ['Dark Dissension', 'Soliton Wave'];
 
 // The deck of `?fixture=completion` (#1757): the practice deck with the five missions whose completion
 // acts on the player's cards in place of its own, in slot order Aldea (the planet of the away team),

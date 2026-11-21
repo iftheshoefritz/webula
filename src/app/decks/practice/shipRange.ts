@@ -19,7 +19,8 @@ export const QUADRANT_SPAN = 2;
 // `toIndex` (#1635): the printed spans of the two missions, plus 2 when both slots hold a mission and
 // their quadrants differ, unless a span model of either mission, of the ship or of an event in the
 // core waives it (#1648). An empty slot, or a mission with no quadrant, adds no 2. The span models of
-// the core's events then take their reductions off the total, which never goes below 0. With
+// the core's events then take their reductions off the total, which never goes below 0, and last
+// set the total a move requires (Shadows of the Night, #1827). With
 // `cardText` false, the setting "Apply card text to attributes" off (#1668), no model applies: the
 // printed spans, and the 2 between quadrants, a rule of the game.
 export function moveSpanTotal(
@@ -42,14 +43,17 @@ export function moveSpanTotal(
   }
   if (!from || !to || !cardText) return total;
   for (const self of core) total -= rangeSpanModelOf(self)?.coreSpanReduction?.(self, from, to, ship) ?? 0;
-  return Math.max(0, total);
+  total = Math.max(0, total);
+  for (const self of core) total = rangeSpanModelOf(self)?.coreSpanTotal?.(self, from, to, ship, total) ?? total;
+  return total;
 }
 
 // A ship's Range on the table as it stands (#1635): its printed Range, plus the Range its own range
 // model gives it, plus the Range of every event placed on a mission card whose range model applies
 // to it, plus the Range of every personnel of its crew and every event placed on it whose range model
 // applies (#1648), plus the Range of every personnel the player commands whose range model changes
-// ships (#1671), for a ship on a ship row. It never goes below 0. With `cardText` false (#1668) it is
+// ships (#1671), and the Range of every event in the core whose range model applies (Soliton Wave,
+// #1827), for a ship on a ship row. It never goes below 0. With `cardText` false (#1668) it is
 // the printed Range.
 export function shipRangeOnTable(table: RangeTable, ship: CardInstance, cardText = true): number {
   if (!cardText) return printedRange(ship);
@@ -65,6 +69,7 @@ export function shipRangeOnTable(table: RangeTable, ship: CardInstance, cardText
   }
   if (missions.some((slot) => slot.ships.some((s) => s.id === ship.id))) {
     for (const p of commandedPersonnel(missions)) range += rangeSpanModelOf(p)?.commandedShipRange?.(p, ship, table) ?? 0;
+    for (const event of table.core ?? []) range += rangeSpanModelOf(event)?.coreRange?.(event, ship, table) ?? 0;
   }
   return Math.max(0, range);
 }
