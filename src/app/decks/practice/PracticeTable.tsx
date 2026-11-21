@@ -2739,6 +2739,13 @@ function PracticeDrawContent() {
             hand: table.hand,
             onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
           }
+      : pendingPlay?.model.kind === 'discardFromHand'
+        ? {
+            step: 'discardFromHand',
+            count: discardCount(pendingPlay.model, table.hand.length),
+            hand: table.hand,
+            onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
+          }
       : pendingPlay?.model.kind === 'examineTake'
         ? (() => {
             // The examine of #1809: the top of the draw deck, which stays there until the button.
@@ -5307,6 +5314,9 @@ function PracticeDrawContent() {
                   text: pendingPlay.model.text,
                   condition: pendingPlay.condition ? playConditionLine(pendingPlay.model, pendingPlay.condition) : null,
                   started: pendingPlay.steps.length > 0,
+                  // A first step that is no "may" (#1808) has no Skip; with an empty hand Done ends it.
+                  endable: pendingPlay.steps.length > 0 || pendingPlay.step.may || table.hand.length === 0,
+                  skippable: pendingPlay.step.may,
                   onEnd: () => dispatch({ type: 'playEffectSkip' }),
                 }}
               />

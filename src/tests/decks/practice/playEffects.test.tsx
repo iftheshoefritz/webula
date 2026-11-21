@@ -13,7 +13,7 @@ import {
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { ResolvingPanel } from '../../../app/decks/practice/ResolvingPanel';
-import { discardCount, drawUpToCount, DrawUpToThenDiscardModel, playConditionLine, playConditionOf, playModelOf, playStepsOf } from '../../../lib/playModels';
+import { discardCount, DrawUpToThenDiscardModel, drawUpToCount, playConditionLine, playConditionOf, playModelOf, playStepsOf } from '../../../lib/playModels';
 import type { CostMission } from '../../../lib/costModels/model';
 
 // Issue #1800: the "when you play" frame for personnel and ships, with Enabran Tain "Retired" Spymaster's
@@ -241,7 +241,7 @@ describe('the panel of a played card (#1800)', () => {
     const onEnd = jest.fn();
     panel({
       step: { step: 'drawUpTo', max: 7, deck: 5, onDraw },
-      played: { text: 'You may draw up to seven cards.', condition: 'Condition met: x', started: false, onEnd },
+      played: { text: 'You may draw up to seven cards.', condition: 'Condition met: x', started: false, endable: true, skippable: true, onEnd },
     });
     expect(screen.getByTestId('resolve-play-text')).toHaveTextContent('You may draw up to seven cards.');
     expect(screen.getByTestId('resolve-condition')).toHaveTextContent('Condition met: x');
@@ -262,7 +262,7 @@ describe('the panel of a played card (#1800)', () => {
     const onDiscard = jest.fn();
     panel({
       step: { step: 'discardFromHand', count: 2, hand: [TRICORDER, PHASER, OTHER], onDiscard },
-      played: { text: 't', condition: null, started: true, onEnd: jest.fn() },
+      played: { text: 't', condition: null, started: true, endable: true, skippable: false, onEnd: jest.fn() },
     });
     const button = screen.getByTestId('resolve-discard');
     expect(button).toBeDisabled();
@@ -275,5 +275,88 @@ describe('the panel of a played card (#1800)', () => {
     expect(onDiscard).toHaveBeenCalledWith(['h1', 'other']);
     expect(screen.getByTestId('resolving-done')).toBeInTheDocument();
     expect(screen.queryByTestId('resolve-condition')).toBeNull();
+  });
+});
+
+// Issue #1808: the kind "discard from hand", a step that is no "may", with Leeta Rebel Supporter's title.
+describe('the "when you play" kind discard from hand (#1808)', () => {
+  const LEETA = personnel('leeta', 'Leeta Rebel Supporter');
+
+  it('models the titles whose whole clause is "discard a card from hand", and not one that does more', () => {
+    for (const name of ['Leeta Rebel Supporter *VP', 'Jake Sisko Reporter Behind the Lines (SS)', 'Kira Nerys Reformed Collaborator', 'Odo Wayward Link', 'Tora Ziyal Beloved Daughter', 'Quark Resistance Informant (R2)']) {
+      expect(playModelOf(name)).toMatchObject({ kind: 'discardFromHand', discard: 1, text: 'Discard a card from hand.' });
+    }
+    expect(playModelOf('Niala Intelligence Asset')).toMatchObject({ kind: 'discardFromHand', discard: 2 });
+    expect(playModelOf('Modern Galor')).toBeUndefined();
+    expect(playModelOf('Bennet')).toBeUndefined();
+    expect(playStepsOf(playModelOf('Leeta Rebel Supporter')!)).toEqual([{ step: 'discard', may: false }]);
+  });
+
+  it('asks for N cards, or the whole hand when it holds fewer', () => {
+    const niala = playModelOf('Niala Intelligence Asset')!;
+    expect(discardCount(niala, 5)).toBe(2);
+    expect(discardCount(niala, 1)).toBe(1);
+    expect(discardCount(niala, 0)).toBe(0);
+  });
+
+  it('a play leaves the discard pending; the discard makes one entry, and one undo returns both cards to the hand', () => {
+    const start = played(table({ hand: [TRICORDER, PHASER, LEETA] }), 'leeta');
+    const before = start.undo[start.undo.length - 1];
+    expect(start.table.missions[0].awayTeam.map((c) => c.id)).toEqual(['leeta']);
+    expect(pendingPlayEffectOf(start)).toMatchObject({ id: 'leeta', step: { step: 'discard', may: false } });
+    expect(gameReducer(start, { type: 'playEffectSkip' })).toBe(start);
+    expect(gameReducer(start, { type: 'playEffectDiscard', ids: ['h1', 'h2'] })).toBe(start);
+    const done = dispatch(start, { type: 'playEffectDiscard', ids: ['h2'] });
+    expect(done.log).toHaveLength(1);
+    expect(done.table.discard.map((c) => c.id)).toEqual(['h2']);
+    expect(pendingPlayEffectOf(done)).toBeNull();
+    expect(lastText(done)).toBe('Played Leeta Rebel Supporter at Mission 0 (cost 3); discarded Phaser');
+    const undone = gameReducer(done, { type: 'undo' });
+    expect(undone.table).toBe(before);
+    expect(undone.table.hand.map((c) => c.id)).toEqual(['h1', 'h2', 'leeta']);
+  });
+
+  it('with an empty hand, Done ends the effect and the record says nothing was discarded', () => {
+    const start = played(table({ hand: [LEETA] }), 'leeta');
+    expect(pendingPlayEffectOf(start)?.step.step).toBe('discard');
+    const done = dispatch(start, { type: 'playEffectSkip' });
+    expect(pendingPlayEffectOf(done)).toBeNull();
+    expect(done.log).toHaveLength(1);
+    expect(lastText(done)).toBe('Played Leeta Rebel Supporter at Mission 0 (cost 3); discarded no card');
+  });
+
+  it('the panel shows no Skip before the discard, and Done with an empty hand', () => {
+    const { unmount } = render(
+      <DndContext>
+        <ResolvingPanel
+          instance={LEETA}
+          hidden={false}
+          escapeActive={false}
+          onViewTable={jest.fn()}
+          step={{ step: 'discardFromHand', count: 1, hand: [TRICORDER], onDiscard: jest.fn() }}
+          played={{ text: 'Discard a card from hand.', condition: null, started: false, endable: false, skippable: false, onEnd: jest.fn() }}
+        />
+      </DndContext>
+    );
+    expect(screen.getByTestId('resolve-step-discard')).toBeInTheDocument();
+    expect(screen.queryByTestId('resolving-skip')).toBeNull();
+    expect(screen.queryByTestId('resolving-done')).toBeNull();
+    unmount();
+    const onEnd = jest.fn();
+    render(
+      <DndContext>
+        <ResolvingPanel
+          instance={LEETA}
+          hidden={false}
+          escapeActive={false}
+          onViewTable={jest.fn()}
+          step={{ step: 'discardFromHand', count: 0, hand: [], onDiscard: jest.fn() }}
+          played={{ text: 'Discard a card from hand.', condition: null, started: false, endable: true, skippable: false, onEnd }}
+        />
+      </DndContext>
+    );
+    expect(screen.getByTestId('resolve-step-discard')).toHaveTextContent('Your hand is empty');
+    fireEvent.click(screen.getByTestId('resolving-done'));
+    expect(onEnd).toHaveBeenCalled();
   });
 });
