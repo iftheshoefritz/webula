@@ -614,7 +614,23 @@ sentence "Remove this event from the game." (`removesItselfFromGame` in `playCos
 sentence start in any case, #1730), **Resolved → Remove from game** (`resolving-remove-from-game`) shows
 first: one `batch` (`resolvedRemoveFromGameAction`), that `move` and then `setRemovedFromGame`, which
 leaves the card at the end of the discard pile marked as the discard pile panel's Remove from game marks
-it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Recall** (#1764): an event with "Recall: N." in its `Keywords` (Miracle Working, Second Edition, Planned Provocation, Profound Discovery), or Vidiian Organ Bank while the player has two completed missions (its `recall` in `titles/recall.ts`), plays from the discard pile: a drag of it out of the discard pile panel shows the Play target (`playTargetEligible` with `fromDiscard`, never for a card marked removed from the game), and the move into the resolving zone is a play at its cost + N, "Played Miracle Working (cost 2, Miracle Working: Recall 1, played from your discard pile)" (`recallOf` in `playCost.ts`); a move of it from the discard pile anywhere else is no play. Vidiian Organ Bank with fewer than two completed missions is refused on the Play target (`recallRefused`): no move and no entry. While a recalled event resolves (`resolvingRecalled`, from the log), the panel shows Resolved → Remove from game and no Resolved → Discard, the last step of its resolve model leaves it removed from the game ("…, and Miracle Working was removed from the game", the entry's `removed`), and Cancel puts it back at the end of the discard pile, "Cancelled playing Miracle Working, and it went back to the discard pile" (`returnedTo`). **When you play** (#1800): a personnel or a ship whose title has a model in `PLAY_MODELS`
+it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Recall** (#1764): an event with "Recall: N." in its `Keywords` (Miracle Working, Second Edition, Planned Provocation, Profound Discovery), or Vidiian Organ Bank while the player has two completed missions (its `recall` in `titles/recall.ts`), plays from the discard pile: a drag of it out of the discard pile panel shows the Play target (`playTargetEligible` with `fromDiscard`, never for a card marked removed from the game), and the move into the resolving zone is a play at its cost + N, "Played Miracle Working (cost 2, Miracle Working: Recall 1, played from your discard pile)" (`recallOf` in `playCost.ts`); a move of it from the discard pile anywhere else is no play. Vidiian Organ Bank with fewer than two completed missions is refused on the Play target (`recallRefused`): no move and no entry. While a recalled event resolves (`resolvingRecalled`, from the log), the panel shows Resolved → Remove from game and no Resolved → Discard, the last step of its resolve model leaves it removed from the game ("…, and Miracle Working was removed from the game", the entry's `removed`), and Cancel puts it back at the end of the discard pile, "Cancelled playing Miracle Working, and it went back to the discard pile" (`returnedTo`). **Check uniqueness and limits** (#1821): the game menu's Settings hold "Check uniqueness and limits:
+On/Off" (`game-menu-check-rules`), under `practice-check-rules`, off by default. With it on,
+`withShuffleOrders` stamps on each `move` the rules it breaks, `ruleWarnings` (`ruleWarningsOf` in
+`playRules.ts`), and on a `resolveDilemma` with a placement and a `playEffectDownload` aboard a ship the same:
+a play (a charged move) of a unique card while another card of its title (`cardTitleOf`, so the versions of a
+title conflict) is in play (`inPlayCards`: the away teams, the ship rows, the crews, the core and the cards
+placed on a mission card, a ship or a core card; never the hand, the discard pile, the cards under a mission,
+nor the brig, which holds the opponent's personnel, a known gap since the table does not model whose card is
+whose), "Unique: Yarka Harbinger of the Prophets is already in play"; and any move, played or not, a dilemma
+by hand or the bot's Resolve placement too, of a "(limit one per mission)" card onto a mission card, or a
+"(limit one per ship)" card onto a ship, that already holds a card of its title, "Limit one per mission:
+Self-Replicating Roadblock is already on Moab IV". The move still lands. The entry keeps them
+(`LogMove.warnings`, `dilemmaResolved.warnings`, `entryRuleWarnings`), its text ends with them ("…; unique:
+Yarka Harbinger of the Prophets is already in play"), one undo takes back both, and with the setting off
+nothing is checked or recorded. The charge chip shows each as a line, `charge-warning` with `data-rule`
+(`unique`, `limitPerMission`, `limitPerShip`), with Counters on or off; with Counters off it shows the
+warnings alone. **When you play** (#1800): a personnel or a ship whose title has a model in `PLAY_MODELS`
 (`src/lib/playModels/`, by whole title, `playModelOf`) leaves its effect pending once played, derived from the
 effective log (`pendingPlayEffectOf` in `gameLog.ts`): the latest play of the turn's play and draw, while its
 record (`LogMove.effects`) lacks a step and the card stands in an away team, a crew or a ship row. No
@@ -796,7 +812,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twenty-five fixtures. Each one deals the same table on every load.
+The practice table has twenty-six fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -881,6 +897,13 @@ The practice table has twenty-five fixtures. Each one deals the same table on ev
   `extraDrawTop` of `resetWithPiles`), so a play of Leeta offers the reveal and Damar then plays at cost 1. A play
   of Leeta also opens her "when you play" discard step (#1808). It
   keeps its game under `practiceGame:fixture=dissident`.
+- `?fixture=unique` (#1821) deals the `?fixture=piles` table, the same cards and the same ids, with
+  8 more (`PRACTICE_UNIQUE_TSV`): Yarka Harbinger of the Prophets, a unique personnel, joins the end of the
+  crew of the ship at Bilana System; Vina Orion Slave Girl, a unique personnel, goes into the discard pile;
+  and the second Yarka, the second Vina, two Self-Replicating Roadblocks "(limit one per mission)" and two
+  Inspiring Leaders "(limit one per ship)" end the hand. With "Check uniqueness and limits" on, a play of the
+  second Yarka warns, the second Vina does not, and the second Roadblock or Leader warns on the mission card
+  or ship that holds the first. It keeps its game under `practiceGame:fixture=unique`.
 - `?fixture=attempt` (#1169) deals the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the
   defaults of the attempt popup: the 12 unstopped crew minus the 3 dilemmas under the mission, so

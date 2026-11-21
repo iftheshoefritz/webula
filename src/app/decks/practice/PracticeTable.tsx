@@ -59,6 +59,10 @@ import {
   PRACTICE_DISSIDENT_DRAW_TOP,
   PRACTICE_DISSIDENT_HAND,
   PRACTICE_DISSIDENT_TSV,
+  PRACTICE_UNIQUE_DISCARDED,
+  PRACTICE_UNIQUE_HAND,
+  PRACTICE_UNIQUE_IN_PLAY,
+  PRACTICE_UNIQUE_TSV,
   PRACTICE_DOWNLOADS_DRAW_TOP,
   PRACTICE_DOWNLOADS_HAND,
   PRACTICE_DOWNLOADS_TSV,
@@ -176,6 +180,8 @@ import ControlsPanel from './ControlsPanel';
 import HomeScreenHelp from './HomeScreenHelp';
 import {
   actionCharged,
+  actionWarned,
+  entryRuleWarnings,
   earthSpendOf,
   ChargeTarget,
   costUseAvailable,
@@ -444,6 +450,8 @@ function GameMenu({
   onToggleCardText,
   resolveEvents,
   onToggleResolveEvents,
+  checkRules,
+  onToggleCheckRules,
   botGame,
   botPileName,
   touch,
@@ -489,6 +497,9 @@ function GameMenu({
   // The setting "Resolve events in a panel" (#1727).
   resolveEvents: boolean;
   onToggleResolveEvents: () => void;
+  // The setting "Check uniqueness and limits" (#1821).
+  checkRules: boolean;
+  onToggleCheckRules: () => void;
   // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
   botPileName: string;
@@ -581,6 +592,15 @@ function GameMenu({
                 className={SPLASH_ITEM_CLASS}
               >
                 Resolve events in a panel: {resolveEvents ? 'On' : 'Off'}
+              </button>
+              <button
+                type="button"
+                onClick={onToggleCheckRules}
+                aria-pressed={checkRules}
+                data-testid="game-menu-check-rules"
+                className={SPLASH_ITEM_CLASS}
+              >
+                Check uniqueness and limits: {checkRules ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -983,6 +1003,9 @@ export const CARD_TEXT_ATTRIBUTES_KEY = 'practice-card-text-attributes';
 
 // The localStorage key of the setting "Resolve events in a panel" (#1727).
 export const RESOLVE_EVENTS_KEY = 'practice-resolve-events';
+
+// The localStorage key of the setting "Check uniqueness and limits" (#1821).
+export const CHECK_RULES_KEY = 'practice-check-rules';
 
 function RotateDeviceOverlay() {
   return (
@@ -2257,6 +2280,9 @@ function PracticeDrawContent() {
   // `?fixture=dissident` (#1763) deals the piles table with The New Resistance in the core, a Dissident at the
   // end of the hand and another on top of the draw deck.
   const isDissidentFixture = fixture === 'dissident';
+  // `?fixture=unique` (#1821) deals the piles table with a second copy of a unique personnel in play, of one in
+  // the discard pile, and two copies each of a "(limit one per mission)" and a "(limit one per ship)" event.
+  const isUniqueFixture = fixture === 'unique';
   // `?fixture=downloads` (#1810) deals the piles table with Opaka Kai of Bajor and Jean-Luc Picard Vintner at the
   // end of the hand, whose plays download into hand, and two [Baj] personnel on top of the draw deck.
   const isDownloadsFixture = fixture === 'downloads';
@@ -2290,6 +2316,7 @@ function PracticeDrawContent() {
     isKmtarFixture ||
     isTainFixture ||
     isDissidentFixture ||
+    isUniqueFixture ||
     isDownloadsFixture ||
     isAttemptFixture ||
     isBotFixture;
@@ -2319,6 +2346,9 @@ function PracticeDrawContent() {
   const [cardTextOn, setCardTextOn] = useLocalStorage<boolean>(CARD_TEXT_ATTRIBUTES_KEY, false);
   // Whether a played event that resolves goes to the resolving zone (#1727); the Play target reads it.
   const [resolveEventsOn, setResolveEventsOn] = useLocalStorage<boolean>(RESOLVE_EVENTS_KEY, false);
+  // Whether a play or a placement checks uniqueness and the limits per mission and per ship (#1821). It
+  // joins each action in `withShuffleOrders`, so the reducer reads no storage; it blocks no move.
+  const [checkRulesOn, setCheckRulesOn] = useLocalStorage<boolean>(CHECK_RULES_KEY, false);
   // The brief chip of the last charge: the index of its entry in the log. It is page state, so a
   // reload does not bring it back. A newer charge replaces it, undo and redo remove it, and it shows
   // only while its entry is of the current turn, so the next turn removes it too.
@@ -2348,8 +2378,8 @@ function PracticeDrawContent() {
       .find((c) => c.target.move === target.move && c.target.card === target.card)
       ?.uses?.some((u) => u.id === id && u.effect === 'revealTop' && !u.used) ?? false;
   const dispatch = (action: GameAction) => {
-    const chosen = withShuffleOrders(table, action, game.log, cardTextOn);
-    if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
+    const chosen = withShuffleOrders(table, action, game.log, cardTextOn, checkRulesOn);
+    if (actionCharged(chosen) || (actionWarned(chosen) && chosen.type !== 'playEffectDownload')) setChargeChip({ entry: game.log.length });
     // The Enterprise's play aboard itself (#1811) is charged inside the play's own entry, or a new one after a
     // correction, so the chip shows both plays.
     else if (chosen.type === 'playEffectDownload') {
@@ -2984,6 +3014,8 @@ function PracticeDrawContent() {
                   ? tainFixtureExtras()
                 : isDissidentFixture
                   ? dissidentFixtureExtras()
+                  : isUniqueFixture
+                    ? uniqueFixtureExtras()
                   : isDownloadsFixture
                     ? downloadsFixtureExtras()
                     : null
@@ -3128,6 +3160,21 @@ function PracticeDrawContent() {
       drawTop: named(PRACTICE_DISSIDENT_DRAW_TOP),
     };
   };
+  // The cards `?fixture=unique` adds (#1821): one Yarka to the crew at Bilana System, one Vina to the discard
+  // pile, and the other copies to the end of the hand.
+  const uniqueFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_UNIQUE_TSV, data));
+    const first = (name: string) => rows.filter((r: any) => r.originalName === name).slice(0, 1);
+    const crew = first(PRACTICE_UNIQUE_IN_PLAY);
+    const discard = first(PRACTICE_UNIQUE_DISCARDED);
+    return {
+      hand: [] as any[],
+      crew,
+      core: [] as any[],
+      lateHand: PRACTICE_UNIQUE_HAND.flatMap((name) => rows.filter((r: any) => r.originalName === name && !crew.includes(r) && !discard.includes(r))),
+      discard,
+    };
+  };
   // The cards `?fixture=downloads` adds (#1810): Opaka and Picard to the end of the hand, and two [Baj] personnel
   // on top of the draw deck.
   const downloadsFixtureExtras = () => {
@@ -3158,6 +3205,7 @@ function PracticeDrawContent() {
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
+    if (isUniqueFixture) return { ...deck, ...deckFromTsv(PRACTICE_UNIQUE_TSV, data) };
     if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = {
@@ -3247,6 +3295,7 @@ function PracticeDrawContent() {
           isKmtarFixture ||
           isTainFixture ||
           isDissidentFixture ||
+          isUniqueFixture ||
           isDownloadsFixture ||
           isAttemptFixture ||
           isBotFixture,
@@ -3552,6 +3601,8 @@ function PracticeDrawContent() {
     : null;
   const chipCharges =
     chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryCharges(game.log, chargeChip.entry) : [];
+  // The warnings of the play rules the chip's entry broke (#1821): they show with Counters on or off.
+  const chipWarnings = chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryRuleWarnings(game.log[chargeChip.entry]) : [];
   // `source` names the model whose choice the player took (#1654), and `count` the count of a counted
   // choice (#1695).
   const correctCharge = (target: ChargeTarget, cost: number, source?: string, count?: number) =>
@@ -4498,15 +4549,18 @@ function PracticeDrawContent() {
           onToggleCardText={() => setCardTextOn((on) => !on)}
           resolveEvents={resolveEventsOn}
           onToggleResolveEvents={() => setResolveEventsOn((on) => !on)}
+          checkRules={checkRulesOn}
+          onToggleCheckRules={() => setCheckRulesOn((on) => !on)}
           botGame={table.opponent === 'bot'}
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
-        {turnCountersOn && chipCharges.length > 0 && (
+        {((turnCountersOn && chipCharges.length > 0) || chipWarnings.length > 0) && (
           <ChargeChip
-            charges={chipCharges}
+            charges={turnCountersOn ? chipCharges : []}
+            warnings={chipWarnings}
             onCorrect={(target, cost, source, count) => {
               correctCharge(target, cost, source, count);
               // A correction through the chip keeps it up for its full time again.

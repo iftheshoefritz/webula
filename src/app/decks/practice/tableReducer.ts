@@ -10,6 +10,7 @@ import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import type { PileSteps } from '../../../lib/dilemmaBot/pile/resolve';
 import { moveSpanTotal, printedRange, printedSpan } from './shipRange';
 import { drawSpend } from './drawSpend';
+import type { RuleWarning } from './playRules';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -349,6 +350,8 @@ export type TableAction =
   // after it in the same batch put in the discard pile.
   // `cardText` is the setting "Apply card text to attributes" (#1668), which the page stamps on the
   // move (`withShuffleOrders`): absent is off, and the range models do not apply.
+  // `ruleWarnings` are the play rules the move breaks (#1821, `ruleWarningsOf` in `playRules.ts`), which the
+  // page stamps on it while "Check uniqueness and limits" is on, for the log. The reducer ignores them.
   | {
       type: 'move';
       id: string;
@@ -360,6 +363,7 @@ export type TableAction =
       costReveal?: string[];
       costDiscard?: string[];
       cardText?: boolean;
+      ruleWarnings?: RuleWarning[];
     }
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,
   // `withShuffleOrders` in `gameLog.ts`), which the snapshot keeps, so the reducer stays pure.
@@ -482,6 +486,8 @@ export type TableAction =
       // The card that named the dilemma at the mission (#1789), "Self-Replicating Roadblock", for the log:
       // the action has no changes and its move goes to the bottom of the dilemma pile.
       returned?: string;
+      // The limit its placement breaks (#1821), stamped by the page as on a `move`, for the log.
+      ruleWarnings?: RuleWarning[];
     }
   | { type: 'reset'; cards: CardInstance[]; missions: CardInstance[]; dilemmas: CardInstance[]; opponent?: 'bot'; botPile?: BotPileInfo }
   // Replaces the whole table with a saved game (#975). `fromSavedGame` in `savedGame.ts` builds the
