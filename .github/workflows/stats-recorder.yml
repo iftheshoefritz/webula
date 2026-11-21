@@ -1,15 +1,13 @@
 name: Stats Recorder
 
-# Once a day, run `scripts/collect_stats.mjs` (#1431) and put what it wrote under `stats/` on the
-# fixed branch `stats/update`, with one open pull request from it (#1432). No Claude.
+# Once a day, run `scripts/collect_stats.mjs` (#1431) and push what it wrote under `stats/` to the
+# fixed branch `stats/update` (#1432). No Claude.
 #
-# The branch is rebuilt from `origin/main` on every run, so the pull request cannot conflict, and
-# the stats of the previous `stats/update` are merged into it first, so no day is lost while the
-# pull request waits. The step that opens the pull request needs the repository setting "Allow
-# GitHub Actions to create and approve pull requests"; with it off, the step fails, and the
-# branch still keeps every day. No
-# commit message and no title starts with `wip:`: Vercel's `ignoreCommand` would skip the
-# production deploy of the merge.
+# The workflow opens no pull request (#1791): the owner, or `/drive-issues`, merges `stats/update`
+# into `main` when the `/stats` page needs new stats. The branch is rebuilt from `origin/main` on
+# every run, so it cannot conflict, and the stats of the previous `stats/update` are merged into it
+# first, so no day is lost until it merges. No commit message starts with `wip:`: Vercel's
+# `ignoreCommand` would skip the production deploy of the merge.
 
 on:
   schedule:
@@ -36,7 +34,6 @@ jobs:
       actions: read
       contents: write
       issues: read
-      pull-requests: write
 
     env:
       BRANCH: stats/update
@@ -56,8 +53,8 @@ jobs:
       - name: Reset the stats branch to main
         run: git checkout -B "$BRANCH" origin/main
 
-      # The window is only the last 3 days, so without this step a day that the open pull request
-      # holds is lost when the branch is rebuilt from main before that pull request merges.
+      # The window is only the last 3 days, so without this step a day that the branch holds is lost
+      # when the branch is rebuilt from main before it merges.
       - name: Carry over the stats of the previous stats branch
         run: |
           if git fetch --depth=1 origin "$BRANCH" && git cat-file -e FETCH_HEAD:stats 2>/dev/null; then
@@ -109,21 +106,3 @@ jobs:
         if: steps.commit.outputs.changed == 'true'
         run: git push --force origin "$BRANCH"
 
-      - name: Open or update the stats pull request
-        if: steps.commit.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TITLE: "Stats: agent, CI and issue stats to ${{ steps.window.outputs.until }}"
-        run: |
-          pr=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
-          if [ -n "$pr" ]; then
-            gh pr edit "$pr" --title "$TITLE"
-            echo "Updated #$pr"
-          else
-            gh pr create --head "$BRANCH" --base main --title "$TITLE" --body "$(cat <<'EOF'
-          The stats that `scripts/collect_stats.mjs` collects (#1431), written by the Stats Recorder workflow (`.github/workflows/stats-recorder.yml`, #1432).
-
-          The workflow rebuilds `stats/update` from `main` on every run and force-pushes it, so this pull request always holds one commit on top of `main`, and each daily run updates it.
-          EOF
-          )"
-          fi
