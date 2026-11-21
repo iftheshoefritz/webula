@@ -45,7 +45,6 @@ import {
   shuffleArray,
   withBackImageFiles,
 } from '../deckBuilderUtils';
-import { costModelCoverage, costModelCoverageText } from '../../../lib/costModels/coverage';
 import { DeckList } from '../../../types';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { usePlaytestCards, useWithPlaytestCards } from '../../../hooks/usePlaytestCards';
@@ -417,16 +416,6 @@ function GameLogIcon() {
 const SPLASH_ITEM_CLASS =
   'block w-full rounded-md border border-white/10 bg-bg-secondary px-6 py-2.5 text-center text-base text-text-secondary hover:bg-white/[0.1] hover:text-text-primary';
 
-// The coverage of the deck's draw deck, the `Deck:` section, by the cost registry (#1697). The rows
-// of `useDataFetching` keep the printed name in `originalName`.
-function deckCostModelCoverage(deck: DeckList) {
-  return costModelCoverage(
-    Object.values(deck)
-      .filter((e) => e?.row && e.count > 0 && cardPileFor(e.row) === 'drawDeck')
-      .map((e) => ({ name: String(e.row.originalName ?? e.row.name), type: String(e.row.type ?? ''), gametext: String(e.row.gametext ?? '') }))
-  );
-}
-
 function GameMenu({
   open,
   onToggle,
@@ -513,11 +502,6 @@ function GameMenu({
   touch: boolean;
 }) {
   const [view, setView] = useState<'items' | 'settings' | 'offline'>('items');
-  // The share of the deck's cost-affecting titles that have a cost model (#1697), from the draw deck
-  // only, each title once; a tap on it shows the titles with none, inline.
-  const coverage = useMemo(() => deckCostModelCoverage(deck), [deck]);
-  const coverageText = costModelCoverageText(coverage);
-  const [coverageOpen, setCoverageOpen] = useState(false);
   // On the desktop full table every corner button takes the size of the next-turn button below it,
   // the full width of the column and `h-7` (#1497), so the column has one width; `controlsColumnTop`
   // counts them at `DESKTOP_CORNER_BUTTON`. Touch keeps the round 24 px buttons, and the attempt
@@ -586,32 +570,6 @@ function GameMenu({
               >
                 Counters: {turnCounters ? 'On' : 'Off'}
               </button>
-              {turnCounters && coverageText && (
-                coverage.missing.length > 0 ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setCoverageOpen((o) => !o)}
-                      aria-expanded={coverageOpen}
-                      data-testid="cost-model-coverage"
-                      className="text-center text-sm text-text-secondary underline decoration-dotted hover:text-text-primary"
-                    >
-                      {coverageText}
-                    </button>
-                    {coverageOpen && (
-                      <ul data-testid="cost-model-coverage-missing" className="text-center text-sm text-text-secondary">
-                        {coverage.missing.map((title) => (
-                          <li key={title}>{title}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                ) : (
-                  <p data-testid="cost-model-coverage" className="text-center text-sm text-text-secondary">
-                    {coverageText}
-                  </p>
-                )
-              )}
               <button
                 type="button"
                 onClick={onToggleCardText}
