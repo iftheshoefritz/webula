@@ -346,6 +346,12 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // A card named a card after its placement's entry (#1789): Self-Replicating Roadblock on the mission
   // card `on`, named again from the panel, or named after another action.
   | { kind: 'cardNamed'; card: string; named: string; on?: string }
+  // Let's Try That Again, Shall We? (#1847): the event `card` went to the discard pile, and the revealed
+  // `dilemma` selected again.
+  | { kind: 'selectedAgain'; card: string; dilemma: string }
+  // Dessert Disaster (#1847): the interrupt `card` went to the discard pile, and `to` took the place of
+  // `from` in the selection of the revealed `dilemma`.
+  | { kind: 'pickReplaced'; card: string; dilemma: string; from: string; to: string }
 );
 
 // The card on the table a use acted on (#1713).
@@ -666,6 +672,15 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
     case 'move': {
       const moves = moveEntry(before, [action], false);
       return moves.length ? { kind: 'move', moves } : null;
+    }
+    case 'selectAgain':
+    case 'replacePick': {
+      if (after === before) return null;
+      const dilemma = cardName(before, before.attempt!.revealSnapshot!.dilemmaId);
+      const card = cardName(before, action.type === 'selectAgain' ? action.eventId : action.cardId);
+      return action.type === 'selectAgain'
+        ? { kind: 'selectedAgain', card, dilemma }
+        : { kind: 'pickReplaced', card, dilemma, from: cardName(before, action.from), to: cardName(before, action.to) };
     }
     case 'flip': {
       const cards = flipEntry(before, [action]);
@@ -1009,6 +1024,11 @@ function withShuffleOrder(table: TableState, action: TableAction): TableAction {
   if (action.type === 'shuffle' && !action.order) return { ...action, order: shuffledIds(cardsAt(table, action.location)) };
   if (action.type === 'drawCard' && !action.order && drawReshuffles(table, action)) {
     return { ...action, order: shuffledIds(table.dilemmaPile) };
+  }
+  // Let's Try That Again's fresh roll of the revealed top card (#1847), from the table as it stands.
+  if (action.type === 'selectAgain' && !action.picks) {
+    const picks = revealPicksOf(table, Math.random);
+    return picks ? { ...action, picks } : action;
   }
   // A flip that takes a reveal snapshot of a dilemma that selects at random carries that roll (#1594,
   // #1628), so the snapshot keeps it.
@@ -1525,6 +1545,8 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   missionSpend: true,
   playEffect: true,
   cardNamed: true,
+  selectedAgain: true,
+  pickReplaced: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1550,6 +1572,10 @@ export function logEntryText(entry: LogEntry): string {
       if (!shuffled) return text;
       return text ? `${text}, then ${shuffled}` : capitalize(shuffled);
     }
+    case 'selectedAgain':
+      return `${entry.card}: ${entry.dilemma} selected again, and ${entry.card} went to the discard pile`;
+    case 'pickReplaced':
+      return `${entry.card}: replaced ${entry.from} with ${entry.to} in the selection of ${entry.dilemma}, and ${entry.card} went to the discard pile`;
     case 'cardNamed':
       return `${entry.card}${typeof entry.on === 'string' ? ` on ${entry.on}` : ''} named ${entry.named}`;
     case 'flip': {

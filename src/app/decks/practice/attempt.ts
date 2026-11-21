@@ -550,6 +550,9 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   'bot-resolve-prevent': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017', mission: '23V027', awayTeamSlot: 0 },
   // Urgent Search, a dual dilemma of 60S, whose label names an attribute and whose kept roll stops (#1845).
   'bot-resolve-60s': { title: 'Urgent Search', collectorsInfo: '67V020' },
+  // Hard of Heart, a planet dilemma that selects 2 at random, at Moab IV's away team, with Let's Try That
+  // Again in the core and Dessert Disaster in the hand (#1847).
+  'bot-select-again': { title: 'Hard of Heart', collectorsInfo: '38V004', awayTeamSlot: 0 },
 };
 
 export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA, spend?: number, awayTeamSlot?: number): {
