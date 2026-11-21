@@ -26,8 +26,8 @@ import React from 'react';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
 
-// The coverage of the deck by the cost registry in the game menu (#1697), on invented cards and
-// Goran, a title of the registry.
+// The Settings view of the game menu shows no count of cost models (#1818; it did from #1697), on
+// invented cards and Goran, a title of the registry.
 
 const row = (collectorsinfo: string, originalName: string, type: string, gametext = '') => ({
   collectorsinfo,
@@ -46,7 +46,7 @@ const deck = {
   '1P003': { count: 4, row: row('1P003', 'Test Plain', 'personnel', 'Order - Draw a card.') },
 };
 
-describe('the cost model coverage of the game menu (#1697)', () => {
+describe('the Settings view of the game menu (#1818)', () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem('currentDeck', JSON.stringify(deck));
@@ -67,31 +67,21 @@ describe('the cost model coverage of the game menu (#1697)', () => {
     fireEvent.click(screen.getByTestId('game-menu-settings-item'));
   };
 
-  it('shows nothing while Counters is off', async () => {
+  it('shows no cost model count, with Counters off and on', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
     openSettings();
     expect(screen.queryByTestId('cost-model-coverage')).toBeNull();
-  });
-
-  it('shows the figure under Counters while it is on, and a tap lists the titles with no model', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
-    openSettings();
+    expect(screen.getByTestId('game-menu-settings')).not.toHaveTextContent('Cost models');
     await act(async () => {
       fireEvent.click(screen.getByTestId('game-menu-turn-counters'));
     });
-    const coverage = screen.getByTestId('cost-model-coverage');
-    expect(screen.getByTestId('game-menu-turn-counters').nextElementSibling).toBe(coverage);
-    expect(coverage).toHaveTextContent('Cost models: 1 of 2 titles');
-    expect(screen.queryByTestId('cost-model-coverage-missing')).toBeNull();
-    fireEvent.click(coverage);
-    const missing = screen.getByTestId('cost-model-coverage-missing');
-    expect(missing).toHaveTextContent('Test Pilot');
-    expect(missing).not.toHaveTextContent('Goran');
-    expect(missing).not.toHaveTextContent('Test Dilemma');
-    expect(missing).not.toHaveTextContent('Test Plain');
+    expect(screen.getByTestId('game-menu-turn-counters')).toHaveTextContent('Counters: On');
+    expect(screen.queryByTestId('cost-model-coverage')).toBeNull();
+    expect(screen.getByTestId('game-menu-settings')).not.toHaveTextContent('Cost models');
+    expect(screen.getByTestId('game-menu-turn-counters').nextElementSibling).toBe(
+      screen.getByTestId('game-menu-card-text-attributes')
+    );
   });
 });
