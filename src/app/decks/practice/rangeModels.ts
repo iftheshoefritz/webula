@@ -31,6 +31,13 @@ export interface RangeSpanModel {
   // An event's span model in the core (#1648): what a move of `ship` from `from` to `to` takes off
   // the span total while the event `self` is in the core.
   coreSpanReduction?: (self: CardInstance, from: CardInstance, to: CardInstance, ship: CardInstance) => number;
+  // An event's span model in the core (#1827): the span total a move of `ship` from `from` to `to`
+  // requires while the event `self` is in the core, given the `total` after every reduction.
+  // `moveSpanTotal` applies it last.
+  coreSpanTotal?: (self: CardInstance, from: CardInstance, to: CardInstance, ship: CardInstance, total: number) => number;
+  // An event's range model in the core (#1827): the Range the ship `ship` on a ship row gains while
+  // the event `self` is in the core.
+  coreRange?: (self: CardInstance, ship: CardInstance, table: RangeTable) => number;
   // A personnel's range model (#1648): the Range the ship `ship` gains while `self` is in its crew.
   aboardRange?: (self: CardInstance, ship: CardInstance, table: RangeTable) => number;
   // An event's range model (#1648): the Range the ship `ship` gains while the event `self` is placed on it.
@@ -217,6 +224,24 @@ const MODELS: RangeSpanModel[] = [
     // more, subtract 3 from the span total required."
     title: 'Hurried Departure',
     coreSpanReduction: (_self, from) => ((Number(from.card?.span) || 0) >= 4 ? 3 : 0),
+  },
+  {
+    // "Plays in your core. When the Range required to move a ship to or from its owner's space
+    // mission is 4 or less, if that ship is Temporal or costs 3 or more, the Range required becomes
+    // 5." Every slot of the table is the player's.
+    title: 'Shadows of the Night',
+    coreSpanTotal: (_self, from, to, ship, total) =>
+      total <= 4 &&
+      [from, to].some((m) => String(m.card?.missiontype ?? '').toLowerCase() === 's') &&
+      (hasWord(ship.card?.keywords, 'temporal') || (Number(ship.card?.cost) || 0) >= 3)
+        ? 5
+        : total,
+  },
+  {
+    // "Plays in your core. Each ship in play is Range +1." Each copy adds +1. The clause on an
+    // opponent's ship waits for an opponent on the table (#1758).
+    title: 'Soliton Wave',
+    coreRange: () => 1,
   },
   {
     // "While you command more than five personnel aboard this ship, it is Range -2."

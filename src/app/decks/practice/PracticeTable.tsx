@@ -3119,8 +3119,13 @@ function PracticeDrawContent() {
   // The cards `?fixture=attributes` adds (#1666), split into the crew's and the core's.
   const attributesFixtureExtras = () => {
     const rows = extractDrawDeck(deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data));
-    const core = (row: any) => row.originalName === PRACTICE_ATTRIBUTES_CORE;
-    return { hand: [] as any[], crew: rows.filter((r) => !core(r)), core: rows.filter(core), lateHand: [] as any[] };
+    const core = (row: any) => PRACTICE_ATTRIBUTES_CORE.includes(row.originalName);
+    return {
+      hand: [] as any[],
+      crew: rows.filter((r) => !core(r)),
+      core: PRACTICE_ATTRIBUTES_CORE.flatMap((name) => rows.filter((r) => r.originalName === name)),
+      lateHand: [] as any[],
+    };
   };
   // The card `?fixture=missions` adds to the end of the hand (#1754): Robert Tomlinson, a [TOS] personnel.
   const missionsFixtureExtras = () => ({

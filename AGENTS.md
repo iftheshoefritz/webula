@@ -591,7 +591,10 @@ orders, and no segment refuses a move. The game menu's Settings hold "Counters: 
 default. Beside it, "Apply card text to attributes: On/Off" (`game-menu-card-text-attributes`, #1668),
 under `practice-card-text-attributes`, off by default, turns on the range and span models of
 `RANGE_SPAN_REGISTRY` (`rangeModels.ts`): off, a ship's Range is its printed Range and a move's span
-total the printed spans plus the 2 between quadrants, a rule of the game. `withShuffleOrders` stamps
+total the printed spans plus the 2 between quadrants, a rule of the game. Two models read the core (#1827): Soliton Wave
+makes every ship on a ship row Range +1 (`coreRange`), and Shadows of the Night sets the span total of
+a move to or from a space mission to 5 when it is 4 or less and the ship is Temporal or costs 3 or more,
+after every reduction (`coreSpanTotal`). `withShuffleOrders` stamps
 it on each `move` as `cardText` (absent is off), so the reducer reads no storage and a change of it
 leaves `rangeUsed` as it was. The same setting turns on the attribute models of `ATTRIBUTE_REGISTRY` (`attributeModels.ts`, #1664: U.S.S. Enterprise-J, Orlitus Cluster Astronomical Survey, Dark Dissension): `personnelAttributesOnTable` and `shipAttributesOnTable` give a card's Integrity, Cunning and Strength, or Weapons and Shields, on the table, each never below 0, and the printed values with it off. A ship's clause that changes its attributes (#1671: Groumall, A. G. Robinson, Wesley Crusher, Erika Hernandez, Geordi La Forge, Rotarran, Keldon Advanced, Sarajevo, Vedek Assembly Transport, Vidiian Cruiser) has one condition in `SHIP_CLAUSES` (`rangeModels.ts`) that its range model and its attribute model both call; the range hooks read a `RangeTable` (the missions, the discard and the core), and a commanded personnel that changes ships uses `commandedShipRange` and `commandedShipAttributes`. An equipment's `groupAttributes` changes its own group (The Sword of Kahless, #1683), and an event placed on a ship changes it through `placedOnShipAttributes` (Exceed Engine Output). With it on, the bands of the cropped personnel and ships (`PersonnelOverlay`, `ShipOverlay`) show them (#1666): `PracticeTable` builds `attributesOnTableOf` (`attributesOnTable.ts`), the values that differ from the printed ones by instance id, and shares it as `attributes` of `RangeUsedContext`; each differing value carries an arrow left of its number, up in green for a rise and down in red for a fall (`<prefix>-<attribute>-modified`, `data-direction`), and the band's `aria-label` adds the printed value, "Integrity 4, printed 5". A ship's Range arrow compares its Range on the table with the printed Range, never the range left: a moved ship still shows the range left, "Range 9 left of 12, printed 7". A whole ship card shows `ShipRangeLeftBox` when it moved or its Range differs (`shipRangeShown`), with the arrow; the other whole-card attributes show no change yet. With the setting off no arrow shows. The dilemma bot reads them (#1665): `useBotAttemptStart` stamps the setting on the `botAttempt` as `cardText`, the reducer keeps it on the `Attempt`, and `pileTableInputOf` gives the attempting personnel and ship their attributes and Range on the table, before the modifiers of `PileModifiers`, for the bot's search, label, Resolve and reveal roll; a change of the setting mid-attempt takes effect at the next attempt. Beside them, "Resolve events in a panel: On/Off" (`game-menu-resolve-events`, #1727), under
 `practice-resolve-events`, off by default, decides only whether the Play target of #1729 shows (see
@@ -855,10 +858,11 @@ The practice table has twenty-six fixtures. Each one deals the same table on eve
   Miracle Working plays at cost 2; Vidiian Organ Bank is refused until two missions are complete
   (`mission-toggle-<i>`), then plays at cost 1. It keeps its game under `practiceGame:fixture=recall`.
 - `?fixture=attributes` (#1666) deals the `?fixture=piles` table, the same cards and the same ids, with
-  2 more (`PRACTICE_ATTRIBUTES_TSV`): Kira Nerys Reformed Collaborator, a [TN] personnel, joins the end of
-  the crew of the ship at Bilana System, and Dark Dissension the end of the core (`extraCore` of
-  `resetWithPiles`). With "Apply card text to attributes" on, Kira's band in the crew panel shows
-  Integrity with a red down arrow and Cunning with a green up arrow. It keeps its game under
+  3 more (`PRACTICE_ATTRIBUTES_TSV`): Kira Nerys Reformed Collaborator, a [TN] personnel, joins the end of
+  the crew of the ship at Bilana System, and Dark Dissension and then Soliton Wave (#1827) the end of the
+  core (`extraCore` of `resetWithPiles`). With "Apply card text to attributes" on, Kira's band in the crew
+  panel shows Integrity with a red down arrow and Cunning with a green up arrow, and the ship's band its
+  Range +1 with a green up arrow. It keeps its game under
   `practiceGame:fixture=attributes`.
 - `?fixture=completion` (#1757) deals the `?fixture=piles` table with the five missions whose completion
   acts on the player's cards in place of its own (`PRACTICE_COMPLETION_TSV`): Aldea (slot 0, the away
