@@ -7,7 +7,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { createPortal } from 'react-dom';
 import { LAYER_PLAY_TARGET } from '../../../lib/layers';
-import { PLAY_TARGET_ID } from './playTarget';
+import { PLAY_TARGET_ID } from './playTargetRules';
 import { highlightClassName } from './zoneAccepts';
 
 export function PlayTarget({ line, container }: { line: number; container: HTMLElement | null }) {
