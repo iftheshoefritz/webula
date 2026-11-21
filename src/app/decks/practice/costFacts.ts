@@ -72,7 +72,6 @@ const handCardOf = (c: CardInstance) => ({
 });
 
 const coreCardOf = (c: CardInstance): CostCoreCard => {
-  const cost = Number.parseInt(String(c.card?.cost ?? ''), 10);
   return {
     id: c.id,
     title: cardTitleOf(cardDisplayName(c.card)),
@@ -81,7 +80,7 @@ const coreCardOf = (c: CardInstance): CostCoreCard => {
       .split('.')
       .map((k) => k.trim())
       .filter(Boolean),
-    cost: Number.isFinite(cost) ? cost : 0,
+    cost: printedCostOf(c),
   };
 };
 
@@ -122,13 +121,33 @@ const keywordsOf = (c: CardInstance): string[] => [
  * The events the player commands (#1749): those of the core, and those placed on the mission cards and the
  * ships of every slot. Not the brig, and not an event placed on a card of the core.
  */
-const eventsOf = (table: TableState): CostEventCard[] =>
+const commandedEventsOf = (table: TableState): CardInstance[] =>
   [
     ...table.core,
     ...table.missions.flatMap((s) => [...(s.mission?.placedOn ?? []), ...s.ships.flatMap((ship) => ship.placedOn ?? [])]),
-  ]
-    .filter((c) => text(c.card?.type) === 'event')
-    .map((c) => ({ title: cardTitleOf(cardDisplayName(c.card)), keywords: keywordsOf(c) }));
+  ].filter((c) => text(c.card?.type) === 'event');
+
+const eventsOf = (table: TableState): CostEventCard[] =>
+  commandedEventsOf(table).map((c) => ({ title: cardTitleOf(cardDisplayName(c.card)), keywords: keywordsOf(c) }));
+
+const printedCostOf = (c: CardInstance): number => {
+  const cost = Number.parseInt(String(c.card?.cost ?? ''), 10);
+  return Number.isFinite(cost) ? cost : 0;
+};
+
+/**
+ * The printed costs of the cards the player commands (#1768): the unstopped personnel and the equipment of
+ * every away team and crew (a stopped personnel meets no "while you command" condition, #1751), every ship of
+ * every ship row, and the events of `eventsOf`. Never the brig.
+ */
+const commandedCostsOf = (table: TableState): number[] =>
+  [
+    ...table.missions.flatMap((s) =>
+      slotCards(s).filter((c) => (c.card?.type === 'personnel' && !c.stopped) || text(c.card?.type) === 'equipment')
+    ),
+    ...table.missions.flatMap((s) => s.ships.filter((c) => c.card)),
+    ...commandedEventsOf(table),
+  ].map(printedCostOf);
 
 // `plays` are the cards played earlier this turn (#1703), from the log.
 export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): CostFacts {
@@ -147,6 +166,7 @@ export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], 
     pending,
     plays,
     events: eventsOf(table),
+    commandedCosts: commandedCostsOf(table),
     drawDeckTop: table.drawDeck.slice(0, DECK_TOP_FACTS).map((c) => ({ id: c.id, type: text(c.card?.type), species: speciesOf(c.card) })),
     // The bot's dilemma pile is the opponent's (#1738); in a game with no bot the pile is the player's own.
     ...(table.opponent === 'bot'
