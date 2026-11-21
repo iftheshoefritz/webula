@@ -5,6 +5,7 @@
 // score (#1700), and the cards placed on each core card (#1703). The plays of the turn (#1703) and the pending
 // discounts of the turn come from the log (`pendingDiscountsOf` in `gameLog.ts`).
 
+import { requirementTextsOf } from '../../../lib/requirementRules';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import { DECK_TOP_FACTS } from '../../../lib/costModels/model';
@@ -46,13 +47,13 @@ const costShipOf = (c: CardInstance): CostShip[] =>
       ]
     : [];
 
-function costMissionOf(slot: MissionSlot): CostMission {
+function costMissionOf(slot: MissionSlot, requirements: string): CostMission {
   const card = slot.mission?.card;
   const points = Number.parseInt(String(card?.points ?? ''), 10);
   return {
     completed: slot.completed === true,
     name: card ? cardDisplayName(card) : '',
-    requirements: card ? text(card.skills) : '',
+    requirements: card ? requirements : '',
     points: Number.isFinite(points) ? points : 0,
     type: text(card?.missiontype).charAt(0),
     icons: iconsOf(text(card?.affiliation).trim()),
@@ -162,7 +163,8 @@ export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], 
     discard: table.discard.filter((c) => !c.removedFromGame).map(handCardOf),
     ships: table.missions.flatMap((s) => s.ships.flatMap((c) => (c.card ? [cardTitleOf(cardDisplayName(c.card))] : []))),
     score: table.score,
-    missions: table.missions.map(costMissionOf),
+    // The requirements as the cards in play change them (#1828, Crescent Nebula), as the bot reads them.
+    missions: requirementTextsOf(table.missions.map((m) => m.mission?.card)).map((r, i) => costMissionOf(table.missions[i], text(r))),
     pending,
     plays,
     events: eventsOf(table),

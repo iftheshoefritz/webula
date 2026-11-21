@@ -28,6 +28,7 @@ import { missionCostOf } from '../../../lib/dilemmaBot/pile/missionCost';
 import { ATTRIBUTE_REGISTRY, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
 import { shipRangeOnTable } from './shipRange';
 import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
+import { addedRequirements, requirementTextWith } from '../../../lib/requirementRules';
 import { namedAtMission, roadblockReturnOf } from './selfReplicatingRoadblock';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -320,6 +321,15 @@ function shipRowOnTable(table: TableState, ship: CardInstance, cardText: boolean
 // `cardText`, the setting "Apply card text to attributes" (#1668) as the attempt froze it, the
 // attempting personnel and ship carry their attributes on the table (#1665), so the card text adds
 // to the printed value before the dilemmas' modifiers; off, the printed values.
+// The attempted mission's row with its requirements as the cards in play change them (#1828, Crescent
+// Nebula), so the bot's search, label and Resolve read them. The printed row when nothing changes them.
+function missionRowOnTable(table: TableState, missionIndex: number): CardInstance['card'] | undefined {
+  const card = table.missions[missionIndex]?.mission?.card;
+  if (!card) return card;
+  const added = addedRequirements(table.missions.map((s) => s.mission?.card))[missionIndex];
+  return added.length ? { ...card, skills: requirementTextWith(String(card.skills ?? ''), added) } : card;
+}
+
 export function pileTableInputOf(table: TableState, missionIndex: number, shipId?: string, cardText = false): PileTableInput {
   const slot = table.missions[missionIndex];
   const ship = slot?.ships.find((s) => s.id === shipId);
@@ -327,7 +337,7 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     cards: (attemptingCards(table, missionIndex, shipId) ?? []).map((c) =>
       cardText ? { ...c, card: personnelRowOnTable(table, c, true) } : c
     ),
-    mission: slot?.mission?.card,
+    mission: missionRowOnTable(table, missionIndex),
     ship: ship && shipRowOnTable(table, ship, cardText),
     placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
     returnedHere: namedAtMission(table, missionIndex),
@@ -459,7 +469,8 @@ export function attemptDefaults(
 export function attemptMissionRulesOf(table: TableState, panel: AttemptPanel): AttemptMissionRules {
   const found = attemptCards(table, panel);
   if (!found) return { offers: [] };
-  return attemptMissionRules(table.missions[found.missionIndex].mission?.card, found.cards);
+  const slot = table.missions[found.missionIndex];
+  return attemptMissionRules(slot.mission?.card, found.cards, { underMission: slot.underMission, drawDeck: table.drawDeck });
 }
 
 // The attempt of `/decks/practice?fixture=attempt` (#1169): the `startAttempt` that Start in the

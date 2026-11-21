@@ -29,7 +29,8 @@ import SearchPills from './SearchPills';
 import SearchResults from './SearchResults';
 import { CardDef } from '../types';
 import { signIn } from 'next-auth/react';
-import { missionRequirements, parseMissionRequirements } from '../lib/missionRequirements';
+import { missionRequirements } from '../lib/missionRequirements';
+import { parsedRequirementsOf } from '../lib/requirementRules';
 import { getReportsToOptions } from '../lib/reportsToOptions';
 import { unionAlignValues, unionSortedLabels } from '../lib/chartAggregation';
 import type { ParsedMissionRequirements } from '../lib/missionRequirements';
@@ -374,44 +375,45 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
 
   const aggregatedMissionReqs = useMemo(() => {
     const totals: Record<string, number> = {};
-    currentDeckRows
-      .filter((row) => row.pile === 'mission')
-      .forEach((row) => {
-        const parsed = parseMissionRequirements(row.skills || '');
-        const selectedIndex = missionBranchSelections[row.name] ?? null;
+    const missionRows = currentDeckRows.filter((row) => row.pile === 'mission');
+    // The requirements as the deck's cards change them (#1828, Crescent Nebula), as the practice table reads them.
+    const parsedRows = parsedRequirementsOf(missionRows);
+    missionRows.forEach((row, i) => {
+      const parsed = parsedRows[i];
+      const selectedIndex = missionBranchSelections[row.name] ?? null;
 
-        // "None" (-1) means ignore this mission entirely for skill requirements
-        if (selectedIndex === -1) return;
+      // "None" (-1) means ignore this mission entirely for skill requirements
+      if (selectedIndex === -1) return;
 
-        // Always include mandatory skills (common to every branch)
-        Object.entries(parsed.mandatory).forEach(([skill, n]) => {
-          totals[skill] = (totals[skill] || 0) + n;
-        });
-        if (parsed.orBranches) {
-          const branches =
-            selectedIndex !== null ? [parsed.orBranches[selectedIndex]] : parsed.orBranches;
-          // Union across all included branches (conservative when no selection)
-          const branchUnion: Record<string, number> = {};
-          for (const branch of branches) {
-            Object.entries(branch).forEach(([skill, n]) => {
-              branchUnion[skill] = Math.max(branchUnion[skill] || 0, n);
-            });
-          }
-          Object.entries(branchUnion).forEach(([skill, n]) => {
-            totals[skill] = (totals[skill] || 0) + n;
+      // Always include mandatory skills (common to every branch)
+      Object.entries(parsed.mandatory).forEach(([skill, n]) => {
+        totals[skill] = (totals[skill] || 0) + n;
+      });
+      if (parsed.orBranches) {
+        const branches =
+          selectedIndex !== null ? [parsed.orBranches[selectedIndex]] : parsed.orBranches;
+        // Union across all included branches (conservative when no selection)
+        const branchUnion: Record<string, number> = {};
+        for (const branch of branches) {
+          Object.entries(branch).forEach(([skill, n]) => {
+            branchUnion[skill] = Math.max(branchUnion[skill] || 0, n);
           });
         }
-      });
+        Object.entries(branchUnion).forEach(([skill, n]) => {
+          totals[skill] = (totals[skill] || 0) + n;
+        });
+      }
+    });
     return totals;
   }, [currentDeckRows, missionBranchSelections]);
 
   const parsedMissionReqs = useMemo(() => {
     const result: Record<string, ParsedMissionRequirements> = {};
-    currentDeckRows
-      .filter((row) => row.pile === 'mission')
-      .forEach((row) => {
-        result[row.name] = parseMissionRequirements(row.skills || '');
-      });
+    const missionRows = currentDeckRows.filter((row) => row.pile === 'mission');
+    const parsedRows = parsedRequirementsOf(missionRows);
+    missionRows.forEach((row, i) => {
+      result[row.name] = parsedRows[i];
+    });
     return result;
   }, [currentDeckRows]);
 
