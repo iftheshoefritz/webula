@@ -636,7 +636,12 @@ interrupt or a Temporal card), a tap takes one (Sobi one for each different Comm
 Requisitions Drone must take one, `examineTakeMin`), the rest in the order controls of the bottom step
 (`resolve-order`), and **Take 1, place 3 on bottom** (`resolve-examine-apply`, `playEffectExamine`), which moves the
 taken to the hand and the rest to the bottom of the draw deck in that order, "…; took Tricorder, placed 3 on the
-bottom". The cards stay in the draw deck until the button. **Cancel**
+bottom". The cards stay in the draw deck until the button. The kind `'score'` (#1812: Annexation Drone, DaiMon Solok
+Cargo Runner, Opaka Collaborator, Kira Taban Husband and Father, Eris Harbinger of the Dominion, Klaa Dauntless Hunter,
+and Brunt Acting Grand Nagus's score clause) has one step, `resolve-step-score`, with its condition (a `'table'`
+condition of `PlayConditionFacts`; Kira Taban's is "Condition not checked: needs the opponent's score") and **Score 5**
+(`resolve-score`, `playEffectScore`), which adds the points with `adjustScore`'s clamp, "…; scored 5 points"; Skip
+shows with or without "you may". **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -834,7 +839,9 @@ The practice table has twenty-three fixtures. Each one deals the same table on e
   20), Farius Prime, Argus Array (slot 2, the crewed ship), Sector 21396 and Cardassia Prime, a headquarters, and
   Enabran Tain "Retired" Spymaster at the end of the hand, so a play of him opens his "when you play" effect with
   its condition met. After him Requisitions Drone, Lenara Kahn Wormhole Theorist and Keiko O'Brien Botanist end the
-  hand (#1809), whose plays examine the top 4 of the draw deck. It keeps its game under `practiceGame:fixture=tain`.
+  hand (#1809), whose plays examine the top 4 of the draw deck, then Annexation Drone and DaiMon Solok Cargo Runner
+  (#1812), whose plays score 5 points (every non-headquarters mission is an [AQ] mission, so the Drone's condition
+  holds; Solok's does not). It keeps its game under `practiceGame:fixture=tain`.
 - `?fixture=dissident` (#1763) deals the `?fixture=piles` table, the same cards and the same ids, with The
   New Resistance at the end of the core, Leeta Rebel Supporter, a Dissident of cost 0, at the end of the hand,
   and Damar Cardassian Liberator, a Dissident of cost 4, on top of the draw deck (`PRACTICE_DISSIDENT_TSV`,

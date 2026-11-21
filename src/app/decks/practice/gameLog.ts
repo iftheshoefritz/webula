@@ -130,6 +130,8 @@ export type PlayEffectStepRecord =
   // The examine of the top of the draw deck (#1809): the names of the cards it took into hand, and how many it
   // placed on the bottom.
   | { step: 'examine'; taken: string[]; bottom: number }
+  // The points a score step added (#1812), after the clamp of the score.
+  | { step: 'score'; points: number }
   | { step: PlayStepName; skipped: true };
 
 // What a played card's "when you play" effect did so far (#1800): whether its condition held when the first
@@ -393,6 +395,7 @@ export type GameAction =
   | { type: 'playEffectDraw'; count: number }
   | { type: 'playEffectDiscard'; ids: string[] }
   | { type: 'playEffectExamine'; take: string[]; bottom: string[] }
+  | { type: 'playEffectScore' }
   | { type: 'playEffectSkip' }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
@@ -811,7 +814,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' } | { type: 'playEffectDraw' } | { type: 'playEffectDiscard' } | { type: 'playEffectExamine' } | { type: 'playEffectSkip' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' } | { type: 'playEffectDraw' } | { type: 'playEffectDiscard' } | { type: 'playEffectExamine' } | { type: 'playEffectScore' } | { type: 'playEffectSkip' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -917,6 +920,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'playEffectDraw') return playEffectDrawState(state, action);
   if (action.type === 'playEffectDiscard') return playEffectDiscardState(state, action);
   if (action.type === 'playEffectExamine') return playEffectExamineState(state, action);
+  if (action.type === 'playEffectScore') return playEffectScoreState(state);
   if (action.type === 'playEffectSkip') return playEffectSkipState(state);
   // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event.
   if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && pendingPlayEffectOf(state)) return state;
@@ -1079,6 +1083,7 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'playEffectDraw' ||
     action.type === 'playEffectDiscard' ||
     action.type === 'playEffectExamine' ||
+    action.type === 'playEffectScore' ||
     action.type === 'playEffectSkip'
   ) {
     return action;
@@ -2579,13 +2584,14 @@ function missionSpendState(
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
-const PLAY_STEP_NAMES: ReadonlySet<string> = new Set<PlayStepName>(['draw', 'discard', 'examine']);
+const PLAY_STEP_NAMES: ReadonlySet<string> = new Set<PlayStepName>(['draw', 'discard', 'examine', 'score']);
 
 const isPlayEffectStep = (step: unknown): step is PlayEffectStepRecord => {
-  const s = step as { step?: unknown; count?: unknown; cards?: unknown; taken?: unknown; bottom?: unknown; skipped?: unknown } | null | undefined;
+  const s = step as { step?: unknown; count?: unknown; cards?: unknown; taken?: unknown; bottom?: unknown; points?: unknown; skipped?: unknown } | null | undefined;
   if (!s || typeof s.step !== 'string' || !PLAY_STEP_NAMES.has(s.step)) return false;
   if (s.skipped === true) return true;
   if (s.step === 'draw') return isIndex(s.count);
+  if (s.step === 'score') return isIndex(s.points);
   if (s.step === 'examine') return isIndex(s.bottom) && Array.isArray(s.taken) && s.taken.every((c) => typeof c === 'string');
   return Array.isArray(s.cards) && s.cards.every((c) => typeof c === 'string');
 };
@@ -2622,7 +2628,9 @@ export function playEffectText(record: PlayEffectRecord): string {
         ? `drew ${cardsCountText(s.count)}`
         : s.step === 'examine'
           ? `took ${s.taken.length ? cardsText(s.taken) : 'no card'}, placed ${s.bottom} on the bottom`
-          : `discarded ${s.cards.length ? cardsText(s.cards) : 'no card'}`
+          : s.step === 'score'
+            ? `scored ${s.points} ${s.points === 1 ? 'point' : 'points'}`
+            : `discarded ${s.cards.length ? cardsText(s.cards) : 'no card'}`
   );
   const text = !taken.length && skipped.length ? 'skipped its play text' : parts.join(', then ');
   return `${text}${record.condition === 'notMet' ? ' (condition not met)' : record.condition === 'unchecked' ? ' (condition not checked)' : ''}`;
@@ -2804,6 +2812,15 @@ function playEffectExamineState(state: GameState, action: { take: string[]; bott
   const taken = action.take.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'hand' }), state.table);
   const table = action.bottom.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), taken);
   return withPlayEffectSteps(state, pending, [{ step: 'examine', taken: action.take.map((id) => cardName(state.table, id)), bottom: action.bottom.length }], table);
+}
+
+// The score of the pending effect (#1812): the model's points go to the score, clamped as `adjustScore` clamps
+// them, and the record holds the points it really added.
+function playEffectScoreState(state: GameState): GameState {
+  const pending = pendingPlayEffectOf(state);
+  if (!pending || pending.step.step !== 'score' || pending.model.kind !== 'score') return state;
+  const table = tableReducer(state.table, { type: 'adjustScore', delta: pending.model.points });
+  return withPlayEffectSteps(state, pending, [{ step: 'score', points: table.score - state.table.score }], table);
 }
 
 // Skip and Done of the pending effect (#1800): every step left is recorded as skipped, so the panel does not
