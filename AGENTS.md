@@ -1003,6 +1003,11 @@ The practice table has twenty-eight fixtures. Each one deals the same table on e
   of 20 (`BotRevealFixture.awayTeamSlot`), Well-Prepared Defenses (cost 2, no skill) revealed on top, so its
   Resolve preview reads "Prevented and overcome (Sigma Iotia II)" and no label shows. It keeps its game
   under `practiceGame:fixture=bot-resolve-prevent`.
+- `?fixture=bot-resolve-60s` (#1845) deals the `?fixture=bot-label` table and attempt with Urgent Search
+  (`67V020`), a dual dilemma of 60S (`titles/set60S.ts`), in place of Well-Prepared Defenses, revealed on top
+  of the stack. Its label names the attribute the most of the crew share ("Named Integrity"), the reveal
+  keeps its roll of one personnel, and its Resolve preview names the others it stops. It keeps its game
+  under `practiceGame:fixture=bot-resolve-60s`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,

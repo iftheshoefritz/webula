@@ -644,3 +644,20 @@ describe('?fixture=bot-resolve-overcome (#1760)', () => {
     if (r.resolvable) expect(r.overcome).toBeUndefined();
   });
 });
+
+describe('?fixture=bot-resolve-60s (#1845)', () => {
+  it('reveals Urgent Search, labels the named attribute, and stops by the kept roll in one log entry', () => {
+    const table = dealRevealFixture('bot-resolve-60s', true);
+    const top = table.dilemmaStack[0];
+    expect(top.card.originalName).toContain('Urgent Search');
+    expect(botLabelOf(table)).toMatch(/^Named (Integrity|Cunning|Strength)$/);
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(table.attempt?.revealSnapshot?.picks).toHaveLength(1);
+    expect(r.preview).toMatch(/^(Stops |No effect)/);
+    const start = initialGameState(table);
+    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Urgent Search', changes: r.changes, notes: r.notes, move: r.move });
+    expect(game.log).toHaveLength(start.log.length + 1);
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+});
