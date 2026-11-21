@@ -623,7 +623,12 @@ own, addressed to the play, whose undo takes back the effect only. A malformed r
 one kind is `'drawUpToThenDiscard'` (Enabran Tain): `resolve-step-draw-up-to`, a stepper (`resolve-draw-minus`,
 `resolve-draw-count`, `resolve-draw-plus`) from 0 to 7 or the draw deck, and Draw N (`resolve-draw`,
 `playEffectDraw`), then `resolve-step-discard`, 2 cards of the hand (`resolve-hand-card`) and Discard 2
-(`resolve-discard`, `playEffectDiscard`). **Cancel**
+(`resolve-discard`, `playEffectDiscard`). The kind `'discardFromHand'` (#1808) has that discard step alone, and
+it is no "may": the personnel whose whole clause is "discard a card from hand" (Leeta Rebel Supporter, Jake Sisko
+Reporter Behind the Lines, Kira Nerys Reformed Collaborator, Odo Wayward Link, Tora Ziyal Beloved Daughter, Quark
+Resistance Informant and the others of `DISCARD_A_CARD_TITLES`) and Niala Intelligence Asset's two. The panel shows
+no Skip before it, and a `playEffectSkip` then is refused; with an empty hand Done (`resolving-done`) ends the
+effect, recorded "discarded no card". **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -824,7 +829,8 @@ The practice table has twenty-three fixtures. Each one deals the same table on e
 - `?fixture=dissident` (#1763) deals the `?fixture=piles` table, the same cards and the same ids, with The
   New Resistance at the end of the core, Leeta Rebel Supporter, a Dissident of cost 0, at the end of the hand,
   and Damar Cardassian Liberator, a Dissident of cost 4, on top of the draw deck (`PRACTICE_DISSIDENT_TSV`,
-  `extraDrawTop` of `resetWithPiles`), so a play of Leeta offers the reveal and Damar then plays at cost 1. It
+  `extraDrawTop` of `resetWithPiles`), so a play of Leeta offers the reveal and Damar then plays at cost 1. A play
+  of Leeta also opens her "when you play" discard step (#1808). It
   keeps its game under `practiceGame:fixture=dissident`.
 - `?fixture=attempt` (#1169) deals the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the

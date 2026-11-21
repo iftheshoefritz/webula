@@ -69,6 +69,10 @@ export interface PlayedSubject {
   condition: string | null;
   // Whether a step was taken already: Done then ends the effect, and before it Skip does.
   started: boolean;
+  // Whether Done or Skip shows: not before a first step that is no "may" (#1808), while the hand holds a card.
+  endable: boolean;
+  // Whether the step is a "may", so the button before it reads Skip rather than Done.
+  skippable: boolean;
   onEnd: () => void;
 }
 
@@ -673,14 +677,14 @@ export function ResolvingPanel({
         )}
         <div className="flex w-32 flex-col gap-2">
           <p className="text-xs text-text-muted">Resolving</p>
-          {played && (
+          {played?.endable && (
             <button
               type="button"
-              data-testid={played.started ? 'resolving-done' : 'resolving-skip'}
-              className={played.started ? button : secondary}
+              data-testid={played.started || !played.skippable ? 'resolving-done' : 'resolving-skip'}
+              className={played.started || !played.skippable ? button : secondary}
               onClick={played.onEnd}
             >
-              {played.started ? 'Done' : 'Skip'}
+              {played.started || !played.skippable ? 'Done' : 'Skip'}
             </button>
           )}
           {onRemoveFromGame && (

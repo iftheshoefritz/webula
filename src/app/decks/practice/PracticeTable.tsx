@@ -2739,7 +2739,14 @@ function PracticeDrawContent() {
             hand: table.hand,
             onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
           }
-      : undefined;
+      : pendingPlay?.model.kind === 'discardFromHand'
+        ? {
+            step: 'discardFromHand',
+            count: discardCount(pendingPlay.model, table.hand.length),
+            hand: table.hand,
+            onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
+          }
+        : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -5287,6 +5294,9 @@ function PracticeDrawContent() {
                   text: pendingPlay.model.text,
                   condition: pendingPlay.condition ? playConditionLine(pendingPlay.model, pendingPlay.condition) : null,
                   started: pendingPlay.steps.length > 0,
+                  // A first step that is no "may" (#1808) has no Skip; with an empty hand Done ends it.
+                  endable: pendingPlay.steps.length > 0 || pendingPlay.step.may || table.hand.length === 0,
+                  skippable: pendingPlay.step.may,
                   onEnd: () => dispatch({ type: 'playEffectSkip' }),
                 }}
               />

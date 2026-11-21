@@ -5,6 +5,8 @@
 // It ships one kind:
 // - `'drawUpToThenDiscard'`: the player may draw up to N cards, a count the player picks from 0 to N, then
 //   discards M cards from hand (Enabran Tain "Retired" Spymaster).
+// - `'discardFromHand'`: the player discards N cards from hand, no "may" (#1808: Leeta Rebel Supporter, the
+//   Dissident personnel and the others whose whole clause is "discard a card from hand").
 // A personnel or a ship with no model plays as before.
 //
 // It imports no React and no reducer: the condition reads the facts of the cost models (`CostFacts`).
@@ -52,7 +54,38 @@ export interface DrawUpToThenDiscardModel {
   text: string;
 }
 
-export type PlayModel = DrawUpToThenDiscardModel;
+/** "Discard a card from hand.": the whole clause, and not a "may". */
+export interface DiscardFromHandModel {
+  kind: 'discardFromHand';
+  title: string;
+  /** The cards of the hand the player discards. */
+  discard: number;
+  condition?: PlayCondition;
+  text: string;
+}
+
+export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel;
+
+// The personnel whose whole "When you play this personnel" clause is "discard a card from hand" (#1808), and
+// Niala's "When you play this ship, discard two cards from hand." A clause that does more than the discard
+// (Modern Galor, Dominion Galor, Bennet) is left out.
+const DISCARD_A_CARD_TITLES = [
+  'Borven',
+  'Damar Martyred Outlaw',
+  'Elim Garak Imposing Patriot',
+  'Jake Sisko Reporter Behind the Lines',
+  'Kira Nerys Reformed Collaborator',
+  'Leeta Rebel Supporter',
+  'Marris',
+  'Natima Lang Professor of Political Ethics',
+  'Odo Wayward Link',
+  'Quark Resistance Informant',
+  'Rekelen',
+  'Rom Undercover Spy',
+  'Tekeny Ghemor Prominent Official',
+  'Tora Ziyal Beloved Daughter',
+  'Yassim Vocal Martyr',
+];
 
 export const PLAY_MODELS: PlayModel[] = [
   // "When you play this personnel, if each of your non-headquarters missions requires Intelligence, you may
@@ -65,6 +98,10 @@ export const PLAY_MODELS: PlayModel[] = [
     condition: { kind: 'nonHeadquartersRequire', skill: 'Intelligence' },
     text: 'You may draw up to seven cards, then discard two cards from hand.',
   },
+  ...DISCARD_A_CARD_TITLES.map(
+    (title): DiscardFromHandModel => ({ kind: 'discardFromHand', title, discard: 1, text: 'Discard a card from hand.' })
+  ),
+  { kind: 'discardFromHand', title: 'Niala Intelligence Asset', discard: 2, text: 'Discard two cards from hand.' },
 ];
 
 const BY_TITLE = new Map(PLAY_MODELS.map((m) => [m.title.toLowerCase(), m]));
@@ -80,6 +117,8 @@ export const playStepsOf = (model: PlayModel): PlayStepSpec[] => {
         { step: 'draw', may: true },
         { step: 'discard', may: false },
       ];
+    case 'discardFromHand':
+      return [{ step: 'discard', may: false }];
   }
 };
 
@@ -117,4 +156,4 @@ export const drawUpToCount = (model: DrawUpToThenDiscardModel, wanted: number, d
   Math.max(0, Math.min(Math.floor(wanted), model.drawUpTo, deck));
 
 /** The cards the discard step asks for: the model's number, or the whole hand when it holds fewer. */
-export const discardCount = (model: DrawUpToThenDiscardModel, hand: number): number => Math.min(model.discard, hand);
+export const discardCount = (model: PlayModel, hand: number): number => Math.min(model.discard, hand);

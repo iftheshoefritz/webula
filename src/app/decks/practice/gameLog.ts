@@ -2759,7 +2759,7 @@ function playEffectDrawState(state: GameState, action: { count: number }): GameS
 // hand when it holds fewer, go to the discard pile in `ids` order.
 function playEffectDiscardState(state: GameState, action: { ids: string[] }): GameState {
   const pending = pendingPlayEffectOf(state);
-  if (!pending || pending.step.step !== 'discard' || pending.model.kind !== 'drawUpToThenDiscard') return state;
+  if (!pending || pending.step.step !== 'discard') return state;
   const ids = [...new Set(action.ids)];
   const n = discardCount(pending.model, state.table.hand.length);
   if (ids.length !== action.ids.length || ids.length !== n || !ids.every((id) => state.table.hand.some((c) => c.id === id))) return state;
@@ -2768,10 +2768,16 @@ function playEffectDiscardState(state: GameState, action: { ids: string[] }): Ga
 }
 
 // Skip and Done of the pending effect (#1800): every step left is recorded as skipped, so the panel does not
-// open again on a reload. The table does not change.
+// open again on a reload. The table does not change. A first step that is no "may" (#1808, a discard from hand)
+// is not skipped while the hand holds a card; with an empty hand, Done records that it discarded no card.
 function playEffectSkipState(state: GameState): GameState {
   const pending = pendingPlayEffectOf(state);
   if (!pending) return state;
+  const handEmpty = state.table.hand.length === 0;
+  if (pending.steps.length === 0 && !pending.step.may && !handEmpty) return state;
   const left = playStepsOf(pending.model).slice(pending.steps.length);
-  return withPlayEffectSteps(state, pending, left.map((s) => ({ step: s.step, skipped: true as const })), state.table);
+  const steps = left.map((s, i): PlayEffectStepRecord =>
+    i === 0 && !s.may && s.step === 'discard' && handEmpty && pending.steps.length === 0 ? { step: 'discard', cards: [] } : { step: s.step, skipped: true }
+  );
+  return withPlayEffectSteps(state, pending, steps, state.table);
 }
