@@ -645,7 +645,12 @@ a species and a skill), the list of `DownloadChoicePanel` (`download-choice-card
 into the hand and shuffles the draw deck in the order the page chose (`withShuffleOrders`), "…; downloaded Kira Nerys,
 shuffled the draw deck"; with no match it shows `resolve-download-cards-none` and no button. Mavek's "if your
 non-Cardassian is at this mission" reads the other personnel of the slot the card stands at (`otherSpeciesHere`). A
-download that places or plays the card elsewhere has no model yet. **Cancel**
+download that places or plays the card elsewhere has no model yet. The kind `'score'` (#1812: Annexation Drone, DaiMon Solok
+Cargo Runner, Opaka Collaborator, Kira Taban Husband and Father, Eris Harbinger of the Dominion, Klaa Dauntless Hunter,
+and Brunt Acting Grand Nagus's score clause) has one step, `resolve-step-score`, with its condition (a `'table'`
+condition of `PlayConditionFacts`; Kira Taban's is "Condition not checked: needs the opponent's score") and **Score 5**
+(`resolve-score`, `playEffectScore`), which adds the points with `adjustScore`'s clamp, "…; scored 5 points"; Skip
+shows with or without "you may". **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -843,7 +848,9 @@ The practice table has twenty-four fixtures. Each one deals the same table on ev
   20), Farius Prime, Argus Array (slot 2, the crewed ship), Sector 21396 and Cardassia Prime, a headquarters, and
   Enabran Tain "Retired" Spymaster at the end of the hand, so a play of him opens his "when you play" effect with
   its condition met. After him Requisitions Drone, Lenara Kahn Wormhole Theorist and Keiko O'Brien Botanist end the
-  hand (#1809), whose plays examine the top 4 of the draw deck. It keeps its game under `practiceGame:fixture=tain`.
+  hand (#1809), whose plays examine the top 4 of the draw deck, then Annexation Drone and DaiMon Solok Cargo Runner
+  (#1812), whose plays score 5 points (every non-headquarters mission is an [AQ] mission, so the Drone's condition
+  holds; Solok's does not). It keeps its game under `practiceGame:fixture=tain`.
 - `?fixture=downloads` (#1810) deals the `?fixture=piles` table, the same cards and the same ids, with Opaka Kai
   of Bajor and Jean-Luc Picard Vintner *VP at the end of the hand, whose plays download into hand, and Furel
   Resistance Fighter and Lupaza Resistance Fighter, two [Baj] personnel, on top of the draw deck

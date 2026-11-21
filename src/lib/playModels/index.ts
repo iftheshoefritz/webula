@@ -13,6 +13,7 @@
 // - `'downloadTake'` (#1810): the player may download up to N cards of the draw deck that pass the model's test
 //   into hand, then shuffles the draw deck (Opaka Kai of Bajor, Jean-Luc Picard Vintner and the plain "you may
 //   download <a test>" texts).
+// - `'score'` (#1812): the player scores N points on a condition (Annexation Drone, DaiMon Solok, Opaka, Kira Taban).
 // A personnel or a ship with no model plays as before.
 //
 // It imports no React and no reducer: the condition reads the facts of the cost models (`CostFacts`).
@@ -44,10 +45,20 @@ export interface OtherSpeciesHereCondition {
   name: string;
 }
 
-export type PlayCondition = NonHeadquartersRequireCondition | OtherSpeciesHereCondition | UncheckedCondition;
+/** A condition of the table that the model tests on the facts (#1812): "you command three [Fer] personnel". */
+export interface TableCondition {
+  kind: 'table';
+  text: string;
+  holds: (facts: PlayConditionFacts) => boolean;
+}
+
+export type PlayCondition = NonHeadquartersRequireCondition | OtherSpeciesHereCondition | UncheckedCondition | TableCondition;
+
+/** The facts a condition reads: the missions always, the rest of `CostFacts` where the page has them. */
+export type PlayConditionFacts = Pick<CostFacts, 'missions'> & Partial<CostFacts>;
 
 /** The names of the steps a model can have. */
-export type PlayStepName = 'draw' | 'discard' | 'examine' | 'download';
+export type PlayStepName = 'draw' | 'discard' | 'examine' | 'download' | 'score';
 
 export interface PlayStepSpec {
   step: PlayStepName;
@@ -154,7 +165,17 @@ export interface DownloadTakeModel {
   text: string;
 }
 
-export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel | ExamineTakeModel | DownloadTakeModel;
+/** "… score 5 points." (#1812): the points go to the score, clamped as the score buttons clamp it. */
+export interface ScoreModel {
+  kind: 'score';
+  title: string;
+  points: number;
+  /** Whether the text says "you may score". Skip shows either way: the player may skip a condition the table cannot check. */
+  may: boolean;
+  condition?: PlayCondition;
+  text: string;
+}
+
 
 // A plain "When you play this …, you may download <testText>." (#1810), one card.
 const download = (title: string, testText: string, ...test: DownloadTest[]): DownloadTakeModel => ({
@@ -168,6 +189,115 @@ const download = (title: string, testText: string, ...test: DownloadTest[]): Dow
 
 // The download of one card or another of these titles, "{Engage Cloak}".
 const named = (...titles: string[]): DownloadTest => ({ titles: titles.map((t) => t.toLowerCase()) });
+export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel | ExamineTakeModel | DownloadTakeModel | ScoreModel;
+
+// The conditions of the score models (#1812). "You command" counts the unstopped personnel (`commanded`), as the
+// cost models do (#1751).
+const commandsCount = (facts: PlayConditionFacts, test: (p: CostFacts['commanded'][number]) => boolean, n: number): boolean =>
+  (facts.commanded ?? []).filter(test).length >= n;
+
+const commandsSpecies = (facts: PlayConditionFacts, species: string): boolean => commandsCount(facts, (p) => p.species.includes(species), 1);
+
+/** A mission card titled `title`: its name is the title, or the title then its subtitle. */
+const titled = (name: string, title: string): boolean => {
+  const n = name.toLowerCase();
+  return n === title || n.startsWith(`${title} `);
+};
+
+const SCORE_MODELS: ScoreModel[] = [
+  // "When you play this personnel, if each of your non-headquarters missions is an [AQ] mission, score 5 points."
+  {
+    kind: 'score',
+    title: 'Annexation Drone',
+    points: 5,
+    may: false,
+    condition: {
+      kind: 'table',
+      text: 'each of your non-headquarters missions is an [AQ] mission',
+      holds: (facts) => (facts.missions ?? []).every((m) => m.type === '' || m.type === 'h' || m.quadrant === 'a'),
+    },
+    text: 'Score 5 points.',
+  },
+  // "When you play this personnel, if you command three [Fer] personnel, score 5 points."
+  {
+    kind: 'score',
+    title: 'DaiMon Solok Cargo Runner',
+    points: 5,
+    may: false,
+    condition: {
+      kind: 'table',
+      text: 'you command three [Fer] personnel',
+      holds: (facts) => commandsCount(facts, (p) => p.affiliation === 'ferengi', 3),
+    },
+    text: 'Score 5 points.',
+  },
+  // "When you play this personnel, if you command {Bajor} and no other headquarters mission, you may score 5 points."
+  {
+    kind: 'score',
+    title: 'Opaka Collaborator',
+    points: 5,
+    may: true,
+    condition: {
+      kind: 'table',
+      text: 'you command Bajor and no other headquarters mission',
+      holds: (facts) => {
+        const headquarters = (facts.missions ?? []).filter((m) => m.type === 'h');
+        return headquarters.length === 1 && titled(headquarters[0].name, 'bajor');
+      },
+    },
+    text: 'You may score 5 points.',
+  },
+  // "When you play this personnel, if you have a lower score than each of your opponents, score 5 points."
+  {
+    kind: 'score',
+    title: 'Kira Taban Husband and Father',
+    points: 5,
+    may: false,
+    condition: { kind: 'unchecked', needs: "needs the opponent's score", text: 'you have a lower score than each of your opponents' },
+    text: 'Score 5 points.',
+  },
+  // "When you play this personnel, if you command a Founder and a Vorta, you may score 5 points."
+  {
+    kind: 'score',
+    title: 'Eris Harbinger of the Dominion',
+    points: 5,
+    may: true,
+    condition: {
+      kind: 'table',
+      text: 'you command a Founder and a Vorta',
+      holds: (facts) => commandsSpecies(facts, 'founder') && commandsSpecies(facts, 'vorta'),
+    },
+    text: 'You may score 5 points.',
+  },
+  // "When you play this personnel, if you command a Maneuver event, score 5 points."
+  {
+    kind: 'score',
+    title: 'Klaa Dauntless Hunter',
+    points: 5,
+    may: false,
+    condition: {
+      kind: 'table',
+      text: 'you command a Maneuver event',
+      holds: (facts) => (facts.events ?? []).some((e) => e.keywords.includes('maneuver')),
+    },
+    text: 'Score 5 points.',
+  },
+  // "When you play this personnel, if you command a mission worth 40 or more points and three [Fer] personnel,
+  // score 5 points." His cost clause is a cost model (`completedMission.ts`).
+  {
+    kind: 'score',
+    title: 'Brunt Acting Grand Nagus',
+    points: 5,
+    may: false,
+    condition: {
+      kind: 'table',
+      text: 'you command a mission worth 40 or more points and three [Fer] personnel',
+      holds: (facts) =>
+        (facts.missions ?? []).some((m) => m.type !== '' && m.points >= 40) && commandsCount(facts, (p) => p.affiliation === 'ferengi', 3),
+    },
+    text: 'Score 5 points.',
+  },
+];
 
 // The personnel whose whole "When you play this personnel" clause is "discard a card from hand" (#1808), and
 // Niala's "When you play this ship, discard two cards from hand." A clause that does more than the discard
@@ -329,6 +459,7 @@ export const PLAY_MODELS: PlayModel[] = [
   download('Tavana Reinvigorated Soldier', "The Warrior's Anthem", named("The Warrior's Anthem")),
   download('Qartum Delegation Transport', 'Latinum Storage', named('Latinum Storage')),
   download('Countermeasure Drone', 'Adapt, Ascertain, Neural Transceiver, or Reconfigure', named('Adapt', 'Ascertain', 'Neural Transceiver', 'Reconfigure')),
+  ...SCORE_MODELS,
 ];
 
 const BY_TITLE = new Map(PLAY_MODELS.map((m) => [m.title.toLowerCase(), m]));
@@ -350,6 +481,9 @@ export const playStepsOf = (model: PlayModel): PlayStepSpec[] => {
       return [{ step: 'examine', may: true }];
     case 'downloadTake':
       return [{ step: 'download', may: true }];
+    case 'score':
+      // Skip shows even without "you may" (#1812), since the table may not read the condition right.
+      return [{ step: 'score', may: true }];
   }
 };
 
@@ -379,7 +513,7 @@ export interface PlayedAt {
  * mission" condition reads the personnel of the slot the card stands at, not the card itself; with no slot it
  * is not met.
  */
-export function playConditionOf(model: PlayModel, facts: Pick<CostFacts, 'missions'>, at: PlayedAt = {}): PlayConditionState | null {
+export function playConditionOf(model: PlayModel, facts: PlayConditionFacts, at: PlayedAt = {}): PlayConditionState | null {
   const condition = model.condition;
   if (!condition) return null;
   const text = conditionWords(condition);
@@ -389,6 +523,7 @@ export function playConditionOf(model: PlayModel, facts: Pick<CostFacts, 'missio
     const met = here.some((p) => p.id !== at.id && !p.species.includes(condition.species));
     return { status: met ? 'met' : 'notMet', text };
   }
+  if (condition.kind === 'table') return { status: condition.holds(facts) ? 'met' : 'notMet', text };
   const met = (facts.missions ?? []).every((m) => m.type === '' || m.type === 'h' || missionRequires(m, condition.skill));
   return { status: met ? 'met' : 'notMet', text };
 }
