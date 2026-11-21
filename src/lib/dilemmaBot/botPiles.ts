@@ -5,7 +5,7 @@
 import { DeckList } from '../../types';
 import { BeginnerDeck, beginnerDeckId, beginnerDeckTitle } from '../beginnerDecks';
 import { ChampionshipDeck, championshipDeckId, championshipDeckTitle } from '../championshipDecks';
-import { DeckCardRow, botAffiliationsOf, botPileOf } from './pile/pile';
+import { DeckCardRow, botAffiliationsOf, botMissionsAndSongsOf, botPileOf } from './pile/pile';
 import { pileTitleOf } from './pile/registry';
 
 /** The id of the Chula pile, the default bot pile. */
@@ -28,6 +28,10 @@ export interface BotPileInfo extends BotPileChoice {
   // The deck's `Deck:` section holds Unexpected Difficulties (#1563), so the bot may redraw its dilemmas
   // once a game. Absent: it does not, as in a save from before #1563.
   unexpectedDifficulties?: true;
+  /** The planet and the space missions of the deck's `Missions:` section (#1846). Absent: none, as in a save from before #1846. */
+  missions?: { planet: number; space: number };
+  /** The different Song cards of its `Deck:` section (#1846). Absent: none. */
+  songCards?: number;
 }
 
 /** The title of the card that lets the bot redraw its dilemmas once a game (#1563). */
@@ -89,7 +93,7 @@ export function botPileDeckOf(
   deckText: string,
   deck: DeckList,
   rows: ReadonlyArray<DeckCardRow>,
-): { pile: DeckList; affiliations: string[]; unexpectedDifficulties: boolean } {
+): { pile: DeckList; affiliations: string[]; unexpectedDifficulties: boolean; missions: { planet: number; space: number }; songCards: number } {
   const ignored = new Set(botPileOf(deckText).ignored);
   const pile: DeckList = {};
   for (const [key, entry] of Object.entries(deck)) {
@@ -101,5 +105,6 @@ export function botPileDeckOf(
     pile,
     affiliations: botAffiliationsOf(deckText, rows),
     unexpectedDifficulties: deckSectionHolds(deckText, UNEXPECTED_DIFFICULTIES),
+    ...botMissionsAndSongsOf(deckText, rows),
   };
 }

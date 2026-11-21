@@ -12,7 +12,7 @@ import { modelOf } from './registry';
 /** The ops a Resolve applies to a card. A `move` has no destination on the table yet (#1578). */
 export type PileResolveOp = Exclude<PersonnelOp, 'move'>;
 
-const RESOLVE_OPS: ReadonlyArray<PileResolveOp> = ['stop', 'kill', 'remove', 'brig', 'holdInCore', 'returnToHand'];
+const RESOLVE_OPS: ReadonlyArray<PileResolveOp> = ['stop', 'kill', 'remove', 'brig', 'holdInCore', 'returnToHand', 'topOfDeck'];
 
 /** Where a card of the snapshot is now: still in the attempting row, in a zone of the table, or nowhere. */
 export type PileResolveWhere =
@@ -240,6 +240,7 @@ const VERBS: Record<PileResolveOp, [string, string]> = {
   brig: ['Places', " in the bot's brig"],
   holdInCore: ['Holds', ' in the core'],
   returnToHand: ['Returns', ' to the hand'],
+  topOfDeck: ['Places', ' on top of the draw deck'],
 };
 
 const PAST: Record<PileResolveOp, string> = {
@@ -249,6 +250,7 @@ const PAST: Record<PileResolveOp, string> = {
   brig: "placed in the bot's brig",
   holdInCore: 'held in the core',
   returnToHand: 'returned to the hand',
+  topOfDeck: 'placed on top of the draw deck',
 };
 
 type PersonnelEffect = { op: PileResolveOp; ks: number[] };
@@ -264,6 +266,7 @@ function isDone(op: PileResolveOp, where: PileResolveWhere): boolean {
   if (op === 'remove') return where.zone === 'discard' && !!where.removedFromGame;
   if (op === 'brig') return where.zone === 'botBrig';
   if (op === 'holdInCore') return where.zone === 'core';
+  if (op === 'topOfDeck') return where.zone === 'drawDeck';
   return where.zone === 'hand';
 }
 

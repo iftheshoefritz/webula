@@ -442,6 +442,10 @@ export class PlayState {
   returnToHand(ks: number[], why?: string, quiet = false) {
     this.remove(ks, 'returned', 'returnToHand', 'returns to the hand', why, quiet);
   }
+  /** Put `ks` on top of their owner's draw deck (#1846, Jailbreak): it counts as a kill in `PileResult`. */
+  topOfDeck(ks: number[]) {
+    this.remove(ks, 'killed', 'topOfDeck', "places on top of its owner's draw deck");
+  }
   /**
    * The ship leaves with every personnel aboard, stopped or not: at a space mission, the whole attempting
    * group. `what` is the count it fills: `'moved'` for a ship sent to another mission (Artificial Wormhole).

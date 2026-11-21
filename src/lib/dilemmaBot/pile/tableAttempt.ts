@@ -28,6 +28,7 @@ export interface PileCardRow extends AttemptedMission {
   shields?: string | number;
   staff?: string | number;
   cost?: string | number;
+  affiliation?: string | number;
 }
 
 type Row = PileCardRow | null | undefined;
@@ -56,6 +57,10 @@ export interface PileTableInput {
   facts?: BotTableFacts;
   /** The bot's side (#1520): the affiliations of its deck's personnel. Absent: unknown, as for the Chula pile. */
   botAffiliations?: string[];
+  /** The bot's side (#1846): the planet and the space missions of its deck. Absent: none, as for the Chula pile. */
+  botMissions?: { planet: number; space: number };
+  /** The different Song cards of the bot deck's `Deck:` section (#1846). Absent: none. */
+  botSongCards?: number;
   /** The events in the player's core (Compromised Experiment reads their Decay and the title of the one it chooses, Zero Hour counts them). Absent: none. */
   core?: ReadonlyArray<Row>;
   /** Every card the player commands on the table, away teams and crews, equipment too (Trellium-D). Absent: none. */
@@ -76,6 +81,10 @@ const isNebula = (row: PileCardRow): boolean =>
 
 const GAME = 'Chula: The Game';
 
+/** Whether a row has `keyword` among its keywords, lowercased, such as `'song'`. */
+const hasKeyword = (row: Row, keyword: string): boolean =>
+  String(row?.keywords ?? '').toLowerCase().split('.').some((w) => w.trim() === keyword);
+
 const titleOf = (row: Row): string | null => (row?.originalName ? pileTitleOf(row.originalName) : null);
 
 /** The skill indexes a mission's requirements name, over every branch. */
@@ -95,6 +104,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
   const requirements = parseRequirementBranches(String(mission.skills ?? ''));
   const attempted = attemptedMissionOf(mission);
   const kind = mission.missiontype === 's' ? 'space' : 'planet';
+  const affiliationIcons = (String(mission.affiliation ?? '').match(/\[[^\]]+\]/g) ?? []).length;
   const ship: PileShip | undefined =
     kind === 'space' && input.ship
       ? {
@@ -126,6 +136,8 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       points: Number(mission.points) || 0,
       span: Number(mission.span) || 0,
       nebula: isNebula(mission),
+      // The bracketed icons only (#1846): a mission whose game text lets any affiliation attempt it has none.
+      ...(affiliationIcons ? { affiliationIcons } : {}),
     },
     ship,
     table: {
@@ -172,6 +184,13 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       // The facts of #1518.
       nebulaMission: slots.some((s) => s.mission !== input.mission && isNebula(s.mission)),
       underPlayerMissions: slots.flatMap((s) => (s.under ?? []).map(titleOf).filter((t): t is string => t !== null)),
+      // The facts of #1846.
+      planetMissions: slots.filter((s) => s.mission.missiontype === 'p').length,
+      spaceMissions: slots.filter((s) => s.mission.missiontype === 's').length,
+      songsUnderMissions: new Set(
+        slots.flatMap((s) => (s.under ?? []).filter((row) => hasKeyword(row, 'song')).map(titleOf)).filter((t): t is string => t !== null),
+      ).size,
+      coreNonRitualEvents: events.filter((row) => !hasKeyword(row, 'ritual')).length,
     },
     equipment: input.cards
       .filter((c) => !c.stopped && c.card?.type === 'equipment')
@@ -182,6 +201,8 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
     gameOnMission: input.placedOn.filter((row) => titleOf(row) === GAME).length,
     choice: 'best',
     ...(input.botAffiliations ? { botAffiliations: [...input.botAffiliations] } : {}),
+    ...(input.botMissions ? { botMissions: { ...input.botMissions } } : {}),
+    ...(input.botSongCards ? { botSongCards: input.botSongCards } : {}),
     ...(input.dilemmaPile ? { botPile: drawnPileTitles(input.dilemmaPile) } : {}),
   };
   return { attempt, random: !requirements, personnelIds: attempting.map((c) => c.id) };

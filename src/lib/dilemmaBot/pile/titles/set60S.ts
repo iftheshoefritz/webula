@@ -1,7 +1,9 @@
 import {
+  both,
   botChooses,
   keywordIs,
   noEffect,
+  playerStops,
   req,
   selectRandom,
   sk,
@@ -9,12 +11,14 @@ import {
   stopRandom,
   unless,
   unlessGroup,
+  unlessSelected,
 } from '../families';
-import { Attr, ATTR_NAMES } from '../play';
+import { PileAttempt } from '../model';
+import { Attr, ATTR_NAMES, PlayState } from '../play';
 import { D, P, S, dilemmaList } from '../define';
 
 // The dilemmas of set 67, 60S (#1845, part 1 of #1825): the 15 titles that fit the families and read no new
-// fact of the table. The other six need a new fact or a new Resolve op (#1846).
+// fact of the table, and the six that read a new fact or use a new Resolve op (#1846, part 2).
 
 const { models, dilemma } = dilemmaList();
 
@@ -137,5 +141,57 @@ dilemma('You Need Therapy!', D, 2, 'unless', (() => {
   category: '4f',
   assumption: 'the bot always discards an Infiltrator whose skills, except Intelligence, the group lacks',
 });
+
+// ---- A new fact of the table or a new Resolve op (#1846) ----
+
+// goesUnder: false: it is placed on the mission, as Insurrection is.
+dilemma('Crossroads', D, 1, 'changes-later', (s) => {
+  const icons = s.attempt.mission.affiliationIcons ?? 0;
+  if (!icons) return;
+  s.requirements = s.requirements.map((b) => ({ ...b, attrs: b.attrs.map((t) => (t >= 0 ? t + 2 * icons : t)) as [number, number, number] }));
+  s.trace?.(`  each attribute requirement is ${2 * icons} more`);
+}, {
+  goesUnder: false, placement: 'placedOn',
+  gap: 'it is overcome when you complete the mission, which is past the attempt',
+});
+
+/** "Unless you have three personnel who do not have an attribute>6." */
+const threeOfSixOrLess = (s: PlayState) =>
+  s.unstopped().filter((k) => ATTRS.every((a) => s.attr(k, a) <= 6)).length >= 3;
+
+/** The missions that count for the mirror pair (#1846): the player's of `mine`, and the bot's incomplete ones of the other kind. */
+const missionCount = (a: PileAttempt, mine: 'planet' | 'space') =>
+  (mine === 'planet' ? a.table.planetMissions ?? 0 : a.table.spaceMissions ?? 0) +
+  (a.botMissions?.[mine === 'planet' ? 'space' : 'planet'] ?? 0);
+
+const BOT_MISSIONS_GAP = 'the bot\'s missions are those of its deck\'s Missions: section, all incomplete; the Chula pile has no deck, so the bot commands none';
+
+const mirror = (mine: 'planet' | 'space') => unlessGroup(threeOfSixOrLess, (s) => {
+  const n = missionCount(s.attempt, mine);
+  if (n) s.stop(s.select(n));
+}, 'three personnel with no attribute>6');
+
+const cost3WhenEmpty = (a: PileAttempt) => (a.table.underMission.length ? 6 : 3);
+
+dilemma('Interdimensional Aperture', S, 6, 'unless', mirror('planet'), { cost: cost3WhenEmpty, gap: BOT_MISSIONS_GAP });
+
+dilemma('Stupid Cave Mission', P, 6, 'unless', mirror('space'), { cost: cost3WhenEmpty, gap: BOT_MISSIONS_GAP });
+
+dilemma('Status Report', D, 3, 'choose', playerStops((s) => (s.attempt.table.songsUnderMissions ?? 0) + (s.attempt.botSongCards ?? 0)), {
+  gap: 'the bot\'s Song cards are the different ones of its deck\'s Deck: section, taken as in its core or discard pile; the Chula pile has none',
+});
+
+// The player destroys the events by hand before the Resolve, which reads the core as it stands.
+dilemma('Kobayashi Maru Scenario', D, 2, 'choose', (s) => {
+  const n = s.attempt.table.coreNonRitualEvents ?? 0;
+  if (n) s.kill(s.playerChooses(s.unstopped(), n));
+}, {
+  gap: 'you destroy any events of your core by hand before the Resolve, which reads the core as it stands',
+});
+
+dilemma('Jailbreak', D, 3, 'own', both(
+  unlessSelected(2, 'Physics or Cunning>13', (s, sel) => s.topOfDeck(sel)),
+  unless('Law or 3 Security', stopAll),
+));
 
 export const SET_60S_MODELS = models;

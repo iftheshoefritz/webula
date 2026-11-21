@@ -39,6 +39,49 @@ export interface DeckCardRow {
   originalName: string;
   type: string;
   affiliation: string;
+  /** `'p'`, `'s'` or `'h'` for a mission (#1846). */
+  missiontype?: string;
+  keywords?: string;
+}
+
+/** The rows of a deck file's lines in `section`, matched by `pileTitleOf`, a line with no row left out, one per line. */
+function sectionRows(deckText: string, rows: ReadonlyArray<DeckCardRow>, wanted: string): DeckCardRow[] {
+  const byTitle = new Map<string, DeckCardRow>();
+  for (const row of rows) {
+    const title = pileTitleOf(row.originalName);
+    if (!byTitle.has(title)) byTitle.set(title, row);
+  }
+  const out: DeckCardRow[] = [];
+  let section = '';
+  for (const line of deckText.split('\n')) {
+    if (/^\w+:\s*$/.test(line)) {
+      section = line.trim();
+      continue;
+    }
+    const match = /^(\d+)\t(.+?)\s*$/.exec(line);
+    const row = match && section === wanted && Number(match[1]) > 0 ? byTitle.get(pileTitleOf(match[2])) : undefined;
+    if (row) out.push(row);
+  }
+  return out;
+}
+
+/**
+ * The bot's side for Interdimensional Aperture, Stupid Cave Mission and Status Report (#1846): the planet
+ * and the space missions of a deck file's `Missions:` section, and the different Song cards of its
+ * `Deck:` section, by title.
+ */
+export function botMissionsAndSongsOf(deckText: string, rows: ReadonlyArray<DeckCardRow>): { missions: { planet: number; space: number }; songCards: number } {
+  const missions = sectionRows(deckText, rows, 'Missions:').filter((r) => r.type.toLowerCase() === 'mission');
+  const songs = sectionRows(deckText, rows, 'Deck:').filter((r) =>
+    String(r.keywords ?? '').toLowerCase().split('.').some((w) => w.trim() === 'song'),
+  );
+  return {
+    missions: {
+      planet: missions.filter((r) => String(r.missiontype ?? '').toLowerCase() === 'p').length,
+      space: missions.filter((r) => String(r.missiontype ?? '').toLowerCase() === 's').length,
+    },
+    songCards: new Set(songs.map((r) => pileTitleOf(r.originalName))).size,
+  };
 }
 
 /**

@@ -205,6 +205,17 @@ describe('savedGame', () => {
     expect('botPile' in repaired).toBe(false);
   });
 
+  it('keeps the bot deck\'s missions and Song cards, restores a pile saved before #1846, and drops a bad one', () => {
+    const botPile = { id: 'beginner:tos.txt', name: 'TOS', missions: { planet: 3, space: 2 }, songCards: 1 };
+    const game = { ...dealtTable(), opponent: 'bot' as const, botPile };
+    expect(fromSavedGame(JSON.stringify(toSavedGame(game, deck, 'builder')), deck)!.table.botPile).toEqual(botPile);
+    const old = { id: 'beginner:tos.txt', name: 'TOS', affiliations: ['federation'] };
+    expect(fromSavedGame(JSON.stringify(toSavedGame({ ...game, botPile: old }, deck, 'builder')), deck)!.table.botPile).toEqual(old);
+    const bad: any = toSavedGame(game, deck, 'builder');
+    bad.table.botPile.missions = { planet: 'x' };
+    expect('botPile' in fromSavedGame(JSON.stringify(bad), deck)!.table).toBe(false);
+  });
+
   it('keeps a pending opening hand, and drops any other value (#1736)', () => {
     const saved = toSavedGame({ ...dealtTable(), openingHand: 'pending' }, deck, 'builder');
     expect(fromSavedGame(JSON.stringify(saved), deck)!.table.openingHand).toBe('pending');

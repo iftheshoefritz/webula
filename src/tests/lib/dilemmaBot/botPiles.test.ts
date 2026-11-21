@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CHULA_BOT_PILE, UNEXPECTED_DIFFICULTIES, botPileChoices, botPileDeckOf, deckSectionHolds } from '../../../lib/dilemmaBot/botPiles';
 import * as pileModule from '../../../lib/dilemmaBot/pile/pile';
-import { botAffiliationsOf, botPileOf } from '../../../lib/dilemmaBot/pile/pile';
+import { botAffiliationsOf, botMissionsAndSongsOf, botPileOf } from '../../../lib/dilemmaBot/pile/pile';
 import { pileTitleOf } from '../../../lib/dilemmaBot/pile/registry';
 import { beginnerDeckId } from '../../../lib/beginnerDecks';
 import type { BeginnerDeck } from '../../../lib/beginnerDecks';
@@ -30,6 +30,7 @@ const data = (() => {
     const row: any = Object.fromEntries(head.map((h, i) => [h.toLowerCase(), (r[i] ?? '').toLowerCase()]));
     row.collectorsinfo = row.collectorsinfo.replace(/(^|[^0-9])0+(\d+)/g, '$1$2');
     row.originalName = r[head.indexOf('Name')];
+    row.missiontype = row.type === 'mission' ? row.mission : '';
     return row;
   });
 })();
@@ -136,5 +137,37 @@ describe('pileTableInputOf and the bot\'s pile (#1520)', () => {
   it('hands the player\'s score to the attempt (#1541)', () => {
     expect(pileTableInputOf({ ...initialTableState, opponent: 'bot', score: 5 }, 0).score).toBe(5);
     expect(pileTableInputOf({ ...initialTableState, opponent: 'bot' }, 0).score).toBe(0);
+  });
+});
+
+describe('the bot\'s missions and Song cards (#1846)', () => {
+  const rows = [
+    { originalName: 'Moab IV Avert Danger', type: 'mission', affiliation: '[baj][car][fed]', missiontype: 'p' },
+    { originalName: 'Bilana System Explore', type: 'mission', affiliation: '', missiontype: 's' },
+    { originalName: 'Earth Home', type: 'mission', affiliation: '', missiontype: 'h' },
+    { originalName: 'Major-General\'s Song', type: 'dilemma', affiliation: '', keywords: 'song.' },
+    { originalName: 'Song Event', type: 'event', affiliation: '', keywords: 'song.' },
+    { originalName: 'Data Android', type: 'personnel', affiliation: 'federation' },
+  ];
+  const text = 'Deck:\n2\tSong Event\n1\tData Android\nDilemmas:\n1\tMajor-General\'s Song\nMissions:\n1\tMoab IV Avert Danger\n1\tBilana System Explore\n1\tEarth Home\n';
+
+  it('counts the planet and the space missions of the Missions: section, and the different Song cards of the Deck: section', () => {
+    expect(botMissionsAndSongsOf(text, rows)).toEqual({ missions: { planet: 1, space: 1 }, songCards: 1 });
+  });
+
+  it('carries them on the deck of a chosen beginner pile', () => {
+    const text = beginnerText(beginnerDecks[0]);
+    const chosen = botPileDeckOf(text, deckFromTsv(text, data), data);
+    // The Klingon Beginner Deck: Qo'noS is a headquarters, the other four two planet and two space missions.
+    expect(chosen.missions).toEqual({ planet: 2, space: 2 });
+    expect(chosen).toMatchObject(botMissionsAndSongsOf(text, data));
+  });
+
+  it('hands them to the attempt, and none for the Chula pile', () => {
+    const botPile = { id: 'beginner:x.txt', name: 'X', missions: { planet: 3, space: 2 }, songCards: 1 };
+    const input = pileTableInputOf({ ...initialTableState, opponent: 'bot', botPile }, 0);
+    expect([input.botMissions, input.botSongCards]).toEqual([{ planet: 3, space: 2 }, 1]);
+    const chula = pileTableInputOf({ ...initialTableState, opponent: 'bot' }, 0);
+    expect([chula.botMissions, chula.botSongCards]).toEqual([undefined, undefined]);
   });
 });

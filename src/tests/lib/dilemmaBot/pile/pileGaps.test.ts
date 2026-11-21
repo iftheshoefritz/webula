@@ -260,6 +260,7 @@ describe('the dilemmas a play places elsewhere', () => {
       'All-Consuming Evil',
       'Causal Recursion',
       'Chula: The Game',
+      'Crossroads',
       'Face Your Fate',
       'Hard Time',
       'Inferiority',

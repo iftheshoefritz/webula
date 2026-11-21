@@ -309,8 +309,8 @@ export interface RevealSnapshot {
 // The effects of a dilemma on the attempting cards (#1587), each one or two table actions:
 // `stop` a `setStopped`, `kill` a `move` to the discard pile, `remove` that move and then a
 // `setRemovedFromGame`, `brig` a `move` to the bot's brig, `holdInCore` a `move` to the core, and
-// `returnToHand` a `move` to the hand.
-export type ResolveOp = 'stop' | 'kill' | 'remove' | 'brig' | 'holdInCore' | 'returnToHand';
+// `returnToHand` a `move` to the hand, and `topOfDeck` a `move` to the top of the draw deck (#1846).
+export type ResolveOp = 'stop' | 'kill' | 'remove' | 'brig' | 'holdInCore' | 'returnToHand' | 'topOfDeck';
 
 export interface ResolveChange {
   op: ResolveOp;
@@ -959,6 +959,7 @@ const RESOLVE_MOVES: Record<Exclude<ResolveOp, 'stop'>, Zone> = {
   brig: 'botBrig',
   holdInCore: 'core',
   returnToHand: 'hand',
+  topOfDeck: 'drawDeck',
 };
 
 // One op of a `resolveDilemma` on one card (#1587), or the same state when the card is no longer in
@@ -968,7 +969,7 @@ export function applyResolveChange(state: TableState, op: ResolveOp, id: string)
   const card = attempt && attemptingCards(state, attempt.missionIndex, attempt.shipId)?.find((c) => c.id === id);
   if (!card) return state;
   if (op === 'stop') return card.stopped ? state : tableReducer(state, { type: 'setStopped', ids: [id], stopped: true });
-  const moved = tableReducer(state, { type: 'move', id, to: RESOLVE_MOVES[op] });
+  const moved = tableReducer(state, { type: 'move', id, to: RESOLVE_MOVES[op], ...(op === 'topOfDeck' ? { position: 'top' as const } : {}) });
   return op === 'remove' ? tableReducer(moved, { type: 'setRemovedFromGame', ids: [id], removedFromGame: true }) : moved;
 }
 

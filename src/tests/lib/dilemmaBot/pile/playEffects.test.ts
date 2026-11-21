@@ -64,7 +64,7 @@ function sums(effects: PlayEffect[]) {
   const labels: { title: string; label: string }[] = [];
   for (const e of effects) {
     if (e.op === 'stop') out.stopped += e.ks.length;
-    else if (e.op === 'kill' || e.op === 'remove') out.killed += e.ks.length;
+    else if (e.op === 'kill' || e.op === 'remove' || e.op === 'topOfDeck') out.killed += e.ks.length;
     else if (e.op === 'brig') out.brig += e.ks.length;
     else if (e.op === 'holdInCore') out.heldInCore += e.ks.length;
     else if (e.op === 'move') out.moved += e.ks.length;

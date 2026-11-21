@@ -359,6 +359,9 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     dilemmaPile: table.dilemmaPile.map((c) => c.card),
     // The bot deck's affiliations (#1520); absent for the Chula pile.
     ...(table.botPile?.affiliations ? { botAffiliations: table.botPile.affiliations } : {}),
+    // The bot deck's missions and Song cards (#1846): absent for the Chula pile and a save from before.
+    ...(table.botPile?.missions ? { botMissions: table.botPile.missions } : {}),
+    ...(table.botPile?.songCards ? { botSongCards: table.botPile.songCards } : {}),
   };
 }
 

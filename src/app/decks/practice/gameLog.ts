@@ -1474,6 +1474,7 @@ const RESOLVE_OP_TEXT: Record<ResolveOp, string> = {
   brig: "sent to the bot's brig",
   holdInCore: 'held in the core',
   returnToHand: 'returned to the hand',
+  topOfDeck: 'put on top of the draw deck',
 };
 
 const resolveNoteText = (note: ResolveNote): string =>

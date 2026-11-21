@@ -1298,7 +1298,7 @@ names a destination other than under the mission, "No effect; goes to your core"
 stack is then on top, face down, so the label, the preview and the button go away until the player's tap
 reveals it; Resolve never reveals it. A `resolveDilemma` with no move, as in a save from before #1599,
 leaves the dilemma on the stack, and the button reads "Resolved", disabled. Every model with
-`goesUnder: false` sets a `placement` (`resolveDestination.test.ts`). The Resolve also changes the stack
+`goesUnder: false` sets a `placement` (`resolveDestination.test.ts`). The op `topOfDeck` (#1846, Jailbreak) puts a personnel on top of its owner's draw deck, a `move` to the draw deck with `position: 'top'`, logged "put on top of the draw deck Data". The six titles of 60S of #1846 read the table's `planetMissions`, `spaceMissions`, `songsUnderMissions`, `coreNonRitualEvents` and the mission's `affiliationIcons`, and the bot's `botMissions` and `botSongCards`, which `BotPileInfo.missions` and `songCards` carry from the chosen deck's `Missions:` and `Deck:` sections (`botMissionsAndSongsOf`); the Chula pile has neither. The Resolve also changes the stack
 (#1600): a fetch (`addBestOnTop` with a title, Vault of Tomorrow from the dilemma pile, Talosian Trial from
 beneath any mission, `DilemmaModel.fetchesFrom`) puts the first table card of that title on top of the
 stack, face down, for the player's tap (`fetchedCardOf`, the action's `fetchedId`); a dilemma that ends the
