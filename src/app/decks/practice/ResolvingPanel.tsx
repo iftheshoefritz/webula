@@ -60,6 +60,8 @@ export type ResolveStep =
   | { step: 'drawUpTo'; max: number; deck: number; onDraw: (count: number) => void }
   // The "discard N cards from hand" step of a played card (#1800): `count` cards of `hand`.
   | { step: 'discardFromHand'; count: number; hand: CardInstance[]; onDiscard: (ids: string[]) => void }
+  // The score of a played card (#1812): `points` to the score.
+  | { step: 'score'; points: number; onScore: () => void }
   // The examine of the top of the draw deck of a played card (#1809): the `examined` cards, of which the player
   // takes from `min` to `max` that pass `takes`, and orders the rest for the bottom of the draw deck.
   | {
@@ -599,6 +601,18 @@ function DiscardFromHandStep({ step }: { step: Extract<ResolveStep, { step: 'dis
   );
 }
 
+// The score of a played card (#1812): the points, and one button that adds them to the score.
+function ScoreStep({ step }: { step: Extract<ResolveStep, { step: 'score' }> }) {
+  return (
+    <div data-testid="resolve-step-score" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">Score {step.points} points</p>
+      <button type="button" data-testid="resolve-score" className="btn-primary w-full whitespace-nowrap text-sm" onClick={step.onScore}>
+        Score {step.points}
+      </button>
+    </div>
+  );
+}
+
 // The examine of a played card (#1809): the examined cards as a row, a tap takes a card that passes the test up
 // to `max` (a second tap puts it back), the rest in the order for the bottom, and one button that applies both.
 // Its picks are its own state, so a new subject, which remounts it, starts with none taken.
@@ -742,6 +756,8 @@ export function ResolvingPanel({
             )}
             {!step ? null : step.step === 'drawUpTo' ? (
               <DrawUpToStep key={`draw-up-to-${instance.id}`} step={step} />
+            ) : step.step === 'score' ? (
+              <ScoreStep step={step} />
             ) : step.step === 'examineTake' ? (
               <ExamineTakeStep key={`examine-${instance.id}`} step={step} />
             ) : step.step === 'discardFromHand' ? (

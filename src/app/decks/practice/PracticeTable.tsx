@@ -2746,6 +2746,8 @@ function PracticeDrawContent() {
             hand: table.hand,
             onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
           }
+      : pendingPlay?.model.kind === 'score'
+        ? { step: 'score', points: pendingPlay.model.points, onScore: () => dispatch({ type: 'playEffectScore' }) }
       : pendingPlay?.model.kind === 'examineTake'
         ? (() => {
             // The examine of #1809: the top of the draw deck, which stays there until the button.
