@@ -107,7 +107,9 @@ export function revealedPileAttemptOf(table: TableState) {
 
 export function botLabelOf(table: TableState): string | null {
   const play = revealedPlayOf(table);
-  return play && pileLabelOf(play.top.card, play.attempt, { revealed: play.revealed, rest: play.rest });
+  const snapshot = table.attempt?.revealSnapshot;
+  const picks = play && snapshot?.picks && snapshot.dilemmaId === play.top.id ? { personnelIds: play.personnelIds, revealPicks: snapshot.picks } : {};
+  return play && pileLabelOf(play.top.card, play.attempt, { revealed: play.revealed, rest: play.rest, ...picks });
 }
 
 // Where a card of the reveal snapshot is now (#1588): in the attempting row, with its stopped flag, in a
@@ -500,6 +502,7 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // of 4, and reveals Conflict of Interests, a dual dilemma of cost 4 that the mission raises past it.
 // `?fixture=bot-resolve-prevent` (#1761) attempts Sigma Iotia II in place of Bilana System and reveals
 // Well-Prepared Defenses, which the mission prevents and overcomes.
+// `?fixture=bot-resolve-60s` (#1845) reveals Urgent Search, a dual dilemma of 60S whose label names an attribute.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
 // The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
@@ -534,6 +537,8 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   'bot-resolve-overcome': { title: 'Conflict of Interests', collectorsInfo: '26V002', mission: '33V030', spend: 4 },
   // Well-Prepared Defenses, cost 2 and no skill, at Sigma Iotia II, which prevents and overcomes it (#1761).
   'bot-resolve-prevent': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017', mission: '23V027', awayTeamSlot: 0 },
+  // Urgent Search, a dual dilemma of 60S, whose label names an attribute and whose kept roll stops (#1845).
+  'bot-resolve-60s': { title: 'Urgent Search', collectorsInfo: '67V020' },
 };
 
 export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA, spend?: number, awayTeamSlot?: number): {

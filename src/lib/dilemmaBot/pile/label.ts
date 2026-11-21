@@ -32,11 +32,26 @@ export const modelsOf = (rows: ReadonlyArray<LabelRow>): DilemmaModel[] =>
 export function pileLabelOf(
   row: LabelRow,
   attempt: PileAttempt,
-  { revealed = [], rest = [] }: { revealed?: ReadonlyArray<LabelRow>; rest?: ReadonlyArray<LabelRow> } = {},
+  {
+    revealed = [],
+    rest = [],
+    personnelIds = [],
+    revealPicks,
+  }: {
+    revealed?: ReadonlyArray<LabelRow>;
+    rest?: ReadonlyArray<LabelRow>;
+    personnelIds?: ReadonlyArray<string | undefined>;
+    revealPicks?: ReadonlyArray<ReadonlyArray<string>>;
+  } = {},
 ): string | null {
   const model = row?.originalName ? modelOf(row.originalName) : undefined;
   if (!model) return null;
-  const { labels } = playPileStack(withRevealedCost(attempt, model, revealed), [model, ...modelsOf(rest)], seededRandom(LABEL_SEED));
+  // A label that reads the selection (Cunning Illusion, #1845) plays the roll the reveal kept, as the Resolve does.
+  let call = 0;
+  const picks = revealPicks
+    ? (count: number, pool: number[]) => (revealPicks[call++] ?? []).map((id) => personnelIds.indexOf(id)).filter((k) => pool.includes(k)).slice(0, count)
+    : undefined;
+  const { labels } = playPileStack(withRevealedCost(attempt, model, revealed), [model, ...modelsOf(rest)], seededRandom(LABEL_SEED), undefined, 0, picks ? { picks } : {});
   const texts = labels.filter((l) => l.title === model.title).map((l) => l.label);
   return texts.length ? texts.join('; ') : null;
 }
