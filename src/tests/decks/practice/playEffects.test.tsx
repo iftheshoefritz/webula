@@ -13,7 +13,7 @@ import {
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { ResolvingPanel } from '../../../app/decks/practice/ResolvingPanel';
-import { discardCount, drawUpToCount, playConditionLine, playConditionOf, playModelOf, playStepsOf } from '../../../lib/playModels';
+import { discardCount, drawUpToCount, DrawUpToThenDiscardModel, playConditionLine, playConditionOf, playModelOf, playStepsOf } from '../../../lib/playModels';
 import type { CostMission } from '../../../lib/costModels/model';
 
 // Issue #1800: the "when you play" frame for personnel and ships, with Enabran Tain "Retired" Spymaster's
@@ -70,7 +70,7 @@ const costMission = (type: string, requirements: string): CostMission => ({
 });
 
 describe('the "when you play" model of Enabran Tain (#1800)', () => {
-  const model = playModelOf('Enabran Tain "Retired" Spymaster *VP')!;
+  const model = playModelOf('Enabran Tain "Retired" Spymaster *VP') as DrawUpToThenDiscardModel;
 
   it('is found by its whole title, and a personnel with no model has none', () => {
     expect(model).toMatchObject({ kind: 'drawUpToThenDiscard', drawUpTo: 7, discard: 2 });

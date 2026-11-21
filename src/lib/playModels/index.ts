@@ -5,12 +5,15 @@
 // It ships one kind:
 // - `'drawUpToThenDiscard'`: the player may draw up to N cards, a count the player picks from 0 to N, then
 //   discards M cards from hand (Enabran Tain "Retired" Spymaster).
+// - `'examineTake'` (#1809): the player may examine the top N cards of the draw deck, take one (or as many as
+//   the model allows) into hand, those that pass the model's test of the card, and place the rest on the
+//   bottom of the draw deck in any order (Requisitions Drone, Lenara Kahn, Keiko O'Brien, Harry Kim, Sobi).
 // A personnel or a ship with no model plays as before.
 //
 // It imports no React and no reducer: the condition reads the facts of the cost models (`CostFacts`).
 
 import { cardTitleOf } from '../cardTitle';
-import type { CostFacts } from '../costModels/model';
+import type { CostCoreCard, CostFacts } from '../costModels/model';
 import { missionRequires } from '../costModels/titles/completedMission';
 
 /** "If each of your non-headquarters missions requires <skill>": an empty slot is no mission, and with no such mission it holds. */
@@ -30,7 +33,7 @@ export interface UncheckedCondition {
 export type PlayCondition = NonHeadquartersRequireCondition | UncheckedCondition;
 
 /** The names of the steps a model can have. */
-export type PlayStepName = 'draw' | 'discard';
+export type PlayStepName = 'draw' | 'discard' | 'examine';
 
 export interface PlayStepSpec {
   step: PlayStepName;
@@ -52,7 +55,41 @@ export interface DrawUpToThenDiscardModel {
   text: string;
 }
 
-export type PlayModel = DrawUpToThenDiscardModel;
+/** A card of the draw deck as the test of an examine reads it: its type, its keywords and its printed cost, as the card data has them. */
+export interface ExaminedCard {
+  type?: unknown;
+  keywords?: unknown;
+  cost?: unknown;
+}
+
+/**
+ * The test of the card an examine takes (#1809): a type of `types` or a keyword of `keywords` ("an interrupt
+ * or a Temporal card"), or a printed cost of `cost` or more.
+ */
+export type ExamineTest =
+  | { kind: 'typeOrKeyword'; types: string[]; keywords?: string[] }
+  | { kind: 'costAtLeast'; cost: number };
+
+/** How many cards an examine may take: a fixed number, or one for each different card of the core with a keyword. */
+export type ExamineTakeCount = { kind: 'fixed'; count: number } | { kind: 'differentCoreKeyword'; keyword: string };
+
+/** "You may examine the top four cards of your deck and take one into hand. Place the remaining cards on the bottom …" */
+export interface ExamineTakeModel {
+  kind: 'examineTake';
+  title: string;
+  /** The cards of the top of the draw deck it examines. */
+  examine: number;
+  take: ExamineTakeCount;
+  /** Whether a card must be taken once the cards are examined (Requisitions Drone), or "you may" take one. */
+  mustTake: boolean;
+  test?: ExamineTest;
+  /** The words of the test, for the panel: "an event". */
+  testText?: string;
+  condition?: PlayCondition;
+  text: string;
+}
+
+export type PlayModel = DrawUpToThenDiscardModel | ExamineTakeModel;
 
 export const PLAY_MODELS: PlayModel[] = [
   // "When you play this personnel, if each of your non-headquarters missions requires Intelligence, you may
@@ -64,6 +101,58 @@ export const PLAY_MODELS: PlayModel[] = [
     discard: 2,
     condition: { kind: 'nonHeadquartersRequire', skill: 'Intelligence' },
     text: 'You may draw up to seven cards, then discard two cards from hand.',
+  },
+  // "When you play this personnel, you may examine the top four cards of your deck and take one into hand. Place
+  // the remaining cards on the bottom of your deck in any order."
+  {
+    kind: 'examineTake',
+    title: 'Requisitions Drone',
+    examine: 4,
+    take: { kind: 'fixed', count: 1 },
+    mustTake: true,
+    text: 'You may examine the top four cards of your deck and take one into hand. Place the remaining cards on the bottom of your deck in any order.',
+  },
+  // "… you may examine the top four cards of your deck. You may reveal one event and take it into hand. …"
+  {
+    kind: 'examineTake',
+    title: 'Lenara Kahn Wormhole Theorist',
+    examine: 4,
+    take: { kind: 'fixed', count: 1 },
+    mustTake: false,
+    test: { kind: 'typeOrKeyword', types: ['event'] },
+    testText: 'an event',
+    text: 'You may examine the top four cards of your deck. You may reveal one event and take it into hand. Place the remaining cards on the bottom of your deck in any order.',
+  },
+  // "… You may reveal a card that has a cost of 4 or more and take it into your hand. …"
+  {
+    kind: 'examineTake',
+    title: "Keiko O'Brien Botanist",
+    examine: 4,
+    take: { kind: 'fixed', count: 1 },
+    mustTake: false,
+    test: { kind: 'costAtLeast', cost: 4 },
+    testText: 'a card with a cost of 4 or more',
+    text: 'You may examine the top four cards of your deck. You may reveal a card that has a cost of 4 or more and take it into your hand. Place the remaining cards on the bottom of your deck in any order.',
+  },
+  // "… You may reveal an interrupt or a Temporal card and take it into hand. …"
+  {
+    kind: 'examineTake',
+    title: 'Harry Kim Remorseful Survivor',
+    examine: 4,
+    take: { kind: 'fixed', count: 1 },
+    mustTake: false,
+    test: { kind: 'typeOrKeyword', types: ['interrupt'], keywords: ['temporal'] },
+    testText: 'an interrupt or a Temporal card',
+    text: 'You may examine the top four cards of your deck. You may reveal an interrupt or a Temporal card and take it into hand. Place the remaining cards on the bottom of your deck in any order.',
+  },
+  // "… You may take one card into hand for each different Commodity in your core, then place the remaining cards …"
+  {
+    kind: 'examineTake',
+    title: 'Sobi Felicium Dealer',
+    examine: 4,
+    take: { kind: 'differentCoreKeyword', keyword: 'commodity' },
+    mustTake: false,
+    text: 'You may examine the top four cards of your deck. You may take one card into hand for each different Commodity in your core, then place the remaining cards on the bottom of your deck in any order.',
   },
 ];
 
@@ -80,6 +169,8 @@ export const playStepsOf = (model: PlayModel): PlayStepSpec[] => {
         { step: 'draw', may: true },
         { step: 'discard', may: false },
       ];
+    case 'examineTake':
+      return [{ step: 'examine', may: true }];
   }
 };
 
@@ -118,3 +209,35 @@ export const drawUpToCount = (model: DrawUpToThenDiscardModel, wanted: number, d
 
 /** The cards the discard step asks for: the model's number, or the whole hand when it holds fewer. */
 export const discardCount = (model: DrawUpToThenDiscardModel, hand: number): number => Math.min(model.discard, hand);
+
+/** The cards an examine looks at: the model's number, or the whole draw deck when it holds fewer. */
+export const examineCount = (model: ExamineTakeModel, deck: number): number => Math.max(0, Math.min(model.examine, deck));
+
+const words = (value: unknown): string[] =>
+  String(value ?? '')
+    .toLowerCase()
+    .split('.')
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+/** Whether the examine may take `card`: every card for a model with no test. */
+export function examineTakes(model: ExamineTakeModel, card: ExaminedCard | null | undefined): boolean {
+  const test = model.test;
+  if (!test) return true;
+  if (!card) return false;
+  if (test.kind === 'costAtLeast') return (Number(card.cost) || 0) >= test.cost;
+  const type = String(card.type ?? '').toLowerCase();
+  const keywords = words(card.keywords);
+  return test.types.includes(type) || (test.keywords ?? []).some((k) => keywords.includes(k));
+}
+
+/** The most cards the examine may take: the fixed number, or one for each different title of the core with the keyword. */
+export function examineTakeMax(model: ExamineTakeModel, facts: { coreCards?: CostCoreCard[] }): number {
+  if (model.take.kind === 'fixed') return model.take.count;
+  const keyword = model.take.keyword;
+  return new Set((facts.coreCards ?? []).filter((c) => c.keywords.includes(keyword)).map((c) => c.title.toLowerCase())).size;
+}
+
+/** The fewest cards the examine takes of `examined`: one for a "take one" when a card may be taken, else none. */
+export const examineTakeMin = (model: ExamineTakeModel, examined: (ExaminedCard | null | undefined)[], max: number): number =>
+  model.mustTake && max > 0 && examined.some((c) => examineTakes(model, c)) ? 1 : 0;
