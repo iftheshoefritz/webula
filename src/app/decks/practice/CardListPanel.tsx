@@ -100,6 +100,7 @@ import { safeAreaMargins } from './useSafeAreaInsets';
 import { ScrollIndicator } from './ScrollIndicator';
 import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
 import { TableCardUseBadge } from './TableCardUseContext';
+import { NamedCardBadge } from './NamedCardContext';
 import PanelCloseButton from './PanelCloseButton';
 import { useFinePointer } from './useFinePointer';
 
@@ -476,6 +477,7 @@ function CardListPanelCard({
         )}
       </button>
       <TableCardUseBadge id={instance.id} />
+      <NamedCardBadge id={instance.id} named={instance.named} />
       {selected && (
         <button
           type="button"

@@ -14,11 +14,17 @@ const SHOWN = 50;
 
 export function DilemmaNamePicker({
   title,
+  heading,
+  closeLabel = 'Cancel',
   titles,
   onChoose,
   onClose,
 }: {
   title: string;
+  // The heading, "Self-Replicating Roadblock: name a dilemma or an event" (#1789); Tristan Adams's by default.
+  heading?: string;
+  // The words of the close button, "Skip" for a name the card asks for once it is played (#1789).
+  closeLabel?: string;
   titles: string[];
   onChoose: (title: string) => void;
   onClose: () => void;
@@ -39,7 +45,7 @@ export function DilemmaNamePicker({
         className={`fixed left-1/2 top-1/2 ${LAYER_MODAL} flex -translate-x-1/2 -translate-y-1/2 flex-col gap-2 rounded-md border border-white/10 bg-bg-secondary p-3 shadow-lg`}
         style={{ maxHeight: safeModalMaxHeight(90), width: safeModalWidth('22rem') }}
       >
-        <h2 className="text-sm font-semibold text-text-primary">{title}: name a dilemma (+2)</h2>
+        <h2 className="text-sm font-semibold text-text-primary">{heading ?? `${title}: name a dilemma (+2)`}</h2>
         <input
           type="search"
           data-testid="dilemma-name-search"
@@ -67,7 +73,7 @@ export function DilemmaNamePicker({
         </div>
         <div className="flex justify-end border-t border-white/10 pt-2">
           <button type="button" data-testid="dilemma-name-cancel" onClick={onClose} className="btn-icon min-h-11 w-auto px-3 text-sm">
-            Cancel
+            {closeLabel}
           </button>
         </div>
       </div>

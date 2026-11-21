@@ -84,6 +84,8 @@ export interface PileTable {
   handCostMax?: number;
   /** The titles of the dilemmas placed on the attempted mission (Organ Theft, Pattern Loss). Absent: none. */
   onMission?: string[];
+  /** The dilemma titles that return to the dilemma pile with no effect when revealed at the attempted mission (Self-Replicating Roadblock, #1789). Absent: none. */
+  returnedHere?: string[];
   /** Whether the player commands a headquarters mission in another quadrant (Local Trouble). Absent: false. */
   headquartersOtherQuadrant?: boolean;
   /** Whether the player has a ship at the attempted mission (Revealed, Mr. Tricorder). Absent: true. */

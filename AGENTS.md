@@ -796,7 +796,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twenty-four fixtures. Each one deals the same table on every load.
+The practice table has twenty-five fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -921,6 +921,9 @@ The practice table has twenty-four fixtures. Each one deals the same table on ev
   the dilemma pile's reveal panel at the bottom on those four (`actionReveal`), where the player orders
   them; an undo closes it. In a game with no bot Ptol keeps its counted choice. It keeps its game under
   `practiceGame:fixture=bot-costs`.
+- `?fixture=bot-roadblock` (#1789) deals the `?fixture=bot` table, the same cards and the same ids, with
+  Self-Replicating Roadblock (`30V017`) at the end of the hand (`PRACTICE_BOT_ROADBLOCK_TSV`). It keeps its
+  game under `practiceGame:fixture=bot-roadblock`.
 - `?fixture=bot-label` (#1519) deals the `?fixture=bot` table with one Well-Prepared Defenses
   (`17V017`) added to the dilemma pile, and starts a bot attempt at Bilana System with the bot's
   numbers, with no search, in `'face'`: the stack holds Well-Prepared Defenses on top, face up, and
@@ -1307,6 +1310,22 @@ his −4), which opens a picker, `dilemma-name-picker` (`dilemma-name-search`, `
 dilemma title otherwise (`nameableDilemmaTitles`); a choice is one `correctCharge` with `named`, a
 `chargeCorrected` entry "(Tristan Adams, named Wavefront)", read back by `namedDilemmasOf`. A game by hand
 changes nothing at the reveal.
+
+Self-Replicating Roadblock names a dilemma or an event (#1789, `selfReplicatingRoadblock.ts`). After any
+move of it onto a mission card (`roadblockToNameOf`, from the last log entry) the picker of #1761 opens,
+`dilemma-name-picker`, headed "Self-Replicating Roadblock: name a dilemma or an event", over the bot pile's
+dilemma titles first in a bot game, then every dilemma title, then every event title (`nameableCardTitles`),
+with **Skip** in place of Cancel. A choice dispatches `setNamed`, which keeps the title on the placed card
+as `CardInstance.named` (any move of the card clears it) and amends the placement's `move` entry
+(`LogMove.named`, "…, naming Wavefront"), so one undo takes back both; a name set later is a `cardNamed`
+entry of its own. In a card list panel each Roadblock on a mission card shows a badge, `named-card`
+(`data-named`, `NamedCardContext.tsx`), "Named: Wavefront" or "Name a card", whose tap opens the picker
+again. The table enforces neither "limit one per mission" nor "non-headquarters", and stops no play of a
+named event. In a bot game `pileTableInputOf` hands the named titles of the attempted mission to the bot as
+`PileAttempt.table.returnedHere`: its play (`faceRest`) spends a named dilemma's cost and returns it to the
+pile with no effect, so the search rarely chooses it, and `botResolveOf` gives a revealed named dilemma the
+preview "Named by Self-Replicating Roadblock: no effect; returns to the dilemma pile", no label, and a
+Resolve that moves it to the bottom of the dilemma pile, face up (`resolveDilemma` with `returned`).
 
 A Resolve that adds a modifier names it (#1598, `modifiersClause` in `pile/resolve.ts`): the preview
 of a modifier-only dilemma reads "First skill off for the rest of the attempt" in place of "No effect",
