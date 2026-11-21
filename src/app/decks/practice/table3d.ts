@@ -1,8 +1,8 @@
 // The 3D look of the practice table, after the board of a digital card game such as MTG Arena: the
 // board of missions and ships leans away from the player in perspective on a playmat, the table is
 // a lit surface of felt, every card on it sits a little above it with a shadow under it, and each
-// pile is as thick as it is tall (`pileDepth.ts`). One setting of the device turns all of it on and
-// off, "3D table" in the game menu's Settings, on by default.
+// pile is as thick as it is tall (`pileDepth.ts`). The table always draws so (#1822); only the
+// attempt layout keeps its bottom row flat.
 //
 // The tilt is a transform of an element inside the mission row's measured box (`setMissionRows`) and
 // one inside the bottom row's (`setBottomRow`), never of those boxes: `useShipRows` and
@@ -11,14 +11,7 @@
 // layout box. dnd-kit measures each droppable with `getBoundingClientRect`, which gives the box
 // around the projected card, and the browser hit-tests the tilted cards as drawn, so a tap and a
 // drop land where the player sees the card.
-import { createContext, type CSSProperties } from 'react';
-
-// The setting of the device, on by default.
-export const TABLE_3D_KEY = 'practice-3d-table';
-
-// Whether the table draws in 3D: the setting of `TABLE_3D_KEY`, which the practice table provides
-// around its game.
-export const Table3DContext = createContext(true);
+import type { CSSProperties } from 'react';
 
 // How far the table leans back, in degrees, and the distance of the eye, in px. It hinges at the
 // bottom edge of the bottom row, the edge nearest the player, so the bottom row barely moves and the
@@ -53,6 +46,6 @@ export function layoutPosition(el: HTMLElement): Point {
 
 const round = (n: number): number => Math.round(n * 100) / 100;
 
-// The class of the game layer that turns on the lit surface and the shadows of the cards
+// The class of the game layer that draws the lit surface and the shadows of the cards
 // (`globals.css`).
 export const TABLE_3D_CLASS = 'table-3d';

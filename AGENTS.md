@@ -535,9 +535,9 @@ minimum screen, on a phone and at agent-browser's 800×600 it is 1, a pile card 
 on a desktop it is 1.25, and at 1920×1080 about 1.69. The sizes of the row are functions of it in
 `flatRowWidths.ts` (`pileCardSize`, `flatCardWidth`, `flatRowWidths`).
 
-The table draws in 3D (`table3d.ts`), after the board of a digital card game such as MTG Arena. The
-game menu's Settings hold "3D table: On/Off" (`game-menu-table-3d`), a setting of the device under
-`practice-3d-table`, on by default, and it turns all four parts on and off:
+The table draws in 3D (`table3d.ts`), after the board of a digital card game such as MTG Arena. It
+always draws so, in four parts; no setting turns it off (#1822), and nothing reads the old key
+`practice-3d-table`:
 
 - The board of missions and ships and the bottom row lean away from the player as one table
   (`TablePlane`, `data-testid="tilted-board"` and `"tilted-bottom-row"`): each takes
