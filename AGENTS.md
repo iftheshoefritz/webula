@@ -644,8 +644,16 @@ a species and a skill), the list of `DownloadChoicePanel` (`download-choice-card
 `resolve-download-cards-summary`, and **Download** (`resolve-download-cards`, `playEffectDownload`), which takes them
 into the hand and shuffles the draw deck in the order the page chose (`withShuffleOrders`), "…; downloaded Kira Nerys,
 shuffled the draw deck"; with no match it shows `resolve-download-cards-none` and no button. Mavek's "if your
-non-Cardassian is at this mission" reads the other personnel of the slot the card stands at (`otherSpeciesHere`). A
-download that places or plays the card elsewhere has no model yet. The kind `'score'` (#1812: Annexation Drone, DaiMon Solok
+non-Cardassian is at this mission" reads the other personnel of the slot the card stands at (`otherSpeciesHere`). The
+kind `'downloadPlace'` (#1811) downloads one card to a place the played card sets, in the same step: Gelnon Aloof
+Tactician a Jem'Hadar aboard one of the player's [Dom] ships, the ships of his mission first (`resolve-download-ship`,
+`data-ship-id`; `resolve-download-no-ship` with none), U.S.S. Enterprise Where She Belongs a [TOS] personnel of cost 4 or
+more played aboard itself at its printed cost −4, never below 0, and Reconnaissance Drone a non-Drone personnel placed on
+top of the draw deck after the shuffle (`DownloadPlace`, `downloadPlaceShipsOf`, `playEffectDownload` with `shipId`).
+The Enterprise's play is charged with its source, "(cost 1, U.S.S. Enterprise Where She Belongs: played aboard this ship
+at cost −4)": a second move of the play's own entry, so the counters count it, the chip shows both plays and one undo
+takes back both; after a correction of the charge it is one `move` entry of its own whose `effectOf` holds the step.
+Its cost choice "Ignore its next ability: −4", once taken, ends the download (`ignoredByCostChoice`). The kind `'score'` (#1812: Annexation Drone, DaiMon Solok
 Cargo Runner, Opaka Collaborator, Kira Taban Husband and Father, Eris Harbinger of the Dominion, Klaa Dauntless Hunter,
 and Brunt Acting Grand Nagus's score clause) has one step, `resolve-step-score`, with its condition (a `'table'`
 condition of `PlayConditionFacts`; Kira Taban's is "Condition not checked: needs the opponent's score") and **Score 5**
@@ -854,7 +862,10 @@ The practice table has twenty-four fixtures. Each one deals the same table on ev
 - `?fixture=downloads` (#1810) deals the `?fixture=piles` table, the same cards and the same ids, with Opaka Kai
   of Bajor and Jean-Luc Picard Vintner *VP at the end of the hand, whose plays download into hand, and Furel
   Resistance Fighter and Lupaza Resistance Fighter, two [Baj] personnel, on top of the draw deck
-  (`PRACTICE_DOWNLOADS_TSV`, `extraDrawTop`); the draw deck holds [TNG] personnel for Picard. It keeps its game
+  (`PRACTICE_DOWNLOADS_TSV`, `extraDrawTop`); the draw deck holds [TNG] personnel for Picard. After them (#1811)
+  Gelnon Aloof Tactician, U.S.S. Enterprise Where She Belongs, Reconnaissance Drone and Jem'Hadar Attack Ship, a [Dom]
+  ship to play before Gelnon, end the hand, and James T. Kirk Original Thinker, a [TOS] personnel of cost 5, and
+  Ixtana'Rax Honored Elder, a Jem'Hadar, follow Furel and Lupaza on top of the draw deck. It keeps its game
   under `practiceGame:fixture=downloads`.
 - `?fixture=dissident` (#1763) deals the `?fixture=piles` table, the same cards and the same ids, with The
   New Resistance at the end of the core, Leeta Rebel Supporter, a Dissident of cost 0, at the end of the hand,

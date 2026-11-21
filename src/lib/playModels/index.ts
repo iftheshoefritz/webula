@@ -13,6 +13,10 @@
 // - `'downloadTake'` (#1810): the player may download up to N cards of the draw deck that pass the model's test
 //   into hand, then shuffles the draw deck (Opaka Kai of Bajor, Jean-Luc Picard Vintner and the plain "you may
 //   download <a test>" texts).
+// - `'downloadPlace'` (#1811): the player may download one card that passes the model's test, then shuffles the
+//   draw deck, and the card goes to the place the played card sets: aboard a [Dom] ship the player picks (Gelnon),
+//   played aboard the played ship at cost −4 (U.S.S. Enterprise Where She Belongs), or on top of the draw deck
+//   (Reconnaissance Drone).
 // - `'score'` (#1812): the player scores N points on a condition (Annexation Drone, DaiMon Solok, Opaka, Kira Taban).
 // A personnel or a ship with no model plays as before.
 //
@@ -133,6 +137,7 @@ export interface DownloadedCard {
   keywords?: unknown;
   species?: unknown;
   skills?: unknown;
+  cost?: unknown;
 }
 
 /**
@@ -149,6 +154,10 @@ export interface DownloadTest {
   keywords?: string[];
   species?: string[];
   skills?: string[];
+  /** Keywords the card must not have (#1811): "a non-Drone personnel". */
+  notKeywords?: string[];
+  /** The least printed cost (#1811): "who has a cost of 4 or more". */
+  costAtLeast?: number;
 }
 
 /** "You may download a [Baj] personnel.", "… up to three [TNG] personnel." */
@@ -161,6 +170,30 @@ export interface DownloadTakeModel {
   test: DownloadTest[];
   /** The words of the test, for the panel: "a [Baj] personnel". */
   testText: string;
+  condition?: PlayCondition;
+  text: string;
+}
+
+/**
+ * Where the card a `'downloadPlace'` model downloads goes (#1811): aboard one of the player's ships of an
+ * affiliation, which the player picks; played aboard the played ship at its printed cost less `discount`; or
+ * on top of the draw deck, after the shuffle.
+ */
+export type DownloadPlace =
+  | { kind: 'aboardShip'; affiliation: string; text: string }
+  | { kind: 'playAboardThis'; discount: number }
+  | { kind: 'drawDeckTop' };
+
+/** "You may download a Jem'Hadar and place it aboard your [Dom] ship." */
+export interface DownloadPlaceModel {
+  kind: 'downloadPlace';
+  title: string;
+  test: DownloadTest[];
+  /** The words of the test, for the panel: "a Jem'Hadar". */
+  testText: string;
+  place: DownloadPlace;
+  /** Whether the play's cost choice ignores this ability (#1811): "You may play this ship at cost -4 to ignore its next ability." */
+  ignoredByCostChoice?: true;
   condition?: PlayCondition;
   text: string;
 }
@@ -189,7 +222,7 @@ const download = (title: string, testText: string, ...test: DownloadTest[]): Dow
 
 // The download of one card or another of these titles, "{Engage Cloak}".
 const named = (...titles: string[]): DownloadTest => ({ titles: titles.map((t) => t.toLowerCase()) });
-export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel | ExamineTakeModel | DownloadTakeModel | ScoreModel;
+export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel | ExamineTakeModel | DownloadTakeModel | DownloadPlaceModel | ScoreModel;
 
 // The conditions of the score models (#1812). "You command" counts the unstopped personnel (`commanded`), as the
 // cost models do (#1751).
@@ -459,6 +492,42 @@ export const PLAY_MODELS: PlayModel[] = [
   download('Tavana Reinvigorated Soldier', "The Warrior's Anthem", named("The Warrior's Anthem")),
   download('Qartum Delegation Transport', 'Latinum Storage', named('Latinum Storage')),
   download('Countermeasure Drone', 'Adapt, Ascertain, Neural Transceiver, or Reconfigure', named('Adapt', 'Ascertain', 'Neural Transceiver', 'Reconfigure')),
+  // "When you play this personnel, if each of your non-headquarters missions is an [AQ] mission, you may download a
+  // Jem'Hadar and place it aboard your [Dom] ship."
+  {
+    kind: 'downloadPlace',
+    title: 'Gelnon Aloof Tactician',
+    test: [{ species: ["jem'hadar"] }],
+    testText: "a Jem'Hadar",
+    place: { kind: 'aboardShip', affiliation: 'dominion', text: 'your [Dom] ship' },
+    condition: {
+      kind: 'table',
+      text: 'each of your non-headquarters missions is an [AQ] mission',
+      holds: (facts) => (facts.missions ?? []).every((m) => m.type === '' || m.type === 'h' || m.quadrant === 'a'),
+    },
+    text: "You may download a Jem'Hadar and place it aboard your [Dom] ship.",
+  },
+  // "When you play this ship, you may download a [TOS] personnel who has a cost of 4 or more and play him or her at
+  // cost -4 aboard this ship." Its "may play at cost -4 to ignore its next ability" is a cost model (`mayCost.ts`):
+  // once the player takes that choice, the download is no longer pending.
+  {
+    kind: 'downloadPlace',
+    title: 'U.S.S. Enterprise Where She Belongs',
+    test: [{ types: ['personnel'], icons: ['[tos]'], costAtLeast: 4 }],
+    testText: 'a [TOS] personnel who has a cost of 4 or more',
+    place: { kind: 'playAboardThis', discount: 4 },
+    ignoredByCostChoice: true,
+    text: 'You may download a [TOS] personnel who has a cost of 4 or more and play him or her at cost -4 aboard this ship.',
+  },
+  // "When you play this personnel, you may download a non-Drone personnel, then place that personnel on top of your deck."
+  {
+    kind: 'downloadPlace',
+    title: 'Reconnaissance Drone',
+    test: [{ types: ['personnel'], notKeywords: ['drone'] }],
+    testText: 'a non-Drone personnel',
+    place: { kind: 'drawDeckTop' },
+    text: 'You may download a non-Drone personnel, then place that personnel on top of your deck.',
+  },
   ...SCORE_MODELS,
 ];
 
@@ -480,6 +549,7 @@ export const playStepsOf = (model: PlayModel): PlayStepSpec[] => {
     case 'examineTake':
       return [{ step: 'examine', may: true }];
     case 'downloadTake':
+    case 'downloadPlace':
       return [{ step: 'download', may: true }];
     case 'score':
       // Skip shows even without "you may" (#1812), since the table may not read the condition right.
@@ -576,7 +646,7 @@ export const examineTakeMin = (model: ExamineTakeModel, examined: (ExaminedCard 
   model.mustTake && max > 0 && examined.some((c) => examineTakes(model, c)) ? 1 : 0;
 
 /** Whether a download of the model may take `card`: it passes one of the model's tests. */
-export function downloadTakes(model: DownloadTakeModel, card: DownloadedCard | null | undefined): boolean {
+export function downloadTakes(model: Pick<DownloadTakeModel, 'test'>, card: DownloadedCard | null | undefined): boolean {
   if (!card) return false;
   const type = String(card.type ?? '').toLowerCase();
   const title = cardTitleOf(String(card.name ?? '')).toLowerCase();
@@ -598,6 +668,32 @@ export function downloadTakes(model: DownloadTakeModel, card: DownloadedCard | n
     (!t.icons || t.icons.some((i) => icons.includes(i))) &&
     (!t.keywords || t.keywords.some((k) => keywords.includes(k))) &&
     (!t.species || t.species.some((sp) => species.includes(sp))) &&
-    (!t.skills || t.skills.some((sk) => skills.includes(sk)));
+    (!t.skills || t.skills.some((sk) => skills.includes(sk))) &&
+    (!t.notKeywords || !t.notKeywords.some((k) => keywords.includes(k))) &&
+    (t.costAtLeast === undefined || (Number(card.cost) || 0) >= t.costAtLeast);
   return model.test.some(passes);
 }
+
+/** A ship of the player as a `'downloadPlace'` destination (#1811): its instance id, its card and its mission slot. */
+export interface DownloadShip {
+  id: string;
+  affiliation: string;
+  missionIndex: number;
+}
+
+/**
+ * The ships a `'downloadPlace'` model may place its card aboard (#1811), the ships of the played card's mission
+ * slot first, then the rest in slot order: for `'aboardShip'` the ships of its affiliation, for `'playAboardThis'`
+ * the played ship alone, and none for `'drawDeckTop'`.
+ */
+export function downloadPlaceShips<S extends DownloadShip>(model: DownloadPlaceModel, ships: S[], played: PlayedAt): S[] {
+  const place = model.place;
+  if (place.kind === 'drawDeckTop') return [];
+  if (place.kind === 'playAboardThis') return ships.filter((s) => s.id === played.id);
+  const own = ships.filter((s) => s.affiliation.toLowerCase().includes(place.affiliation));
+  return [...own.filter((s) => s.missionIndex === played.missionIndex), ...own.filter((s) => s.missionIndex !== played.missionIndex)];
+}
+
+/** The cost of the play of `'playAboardThis'` (#1811): the printed cost less the discount, never below 0. */
+export const downloadPlayCost = (model: DownloadPlaceModel, printed: number): number | null =>
+  model.place.kind === 'playAboardThis' ? Math.max(0, printed - model.place.discount) : null;

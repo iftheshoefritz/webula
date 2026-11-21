@@ -315,13 +315,34 @@ export const PRACTICE_TAIN_HAND = [
 
 // The cards `?fixture=downloads` (#1810) adds to the `?fixture=piles` table: Opaka Kai of Bajor and Jean-Luc
 // Picard Vintner *VP (the piles deck holds his other version) at the end of the hand, whose plays download into
-// hand, and two [Baj] personnel, Furel and Lupaza, on top of the draw deck, for Opaka's download.
+// hand, and two [Baj] personnel, Furel and Lupaza, on top of the draw deck, for Opaka's download. After them
+// (#1811) Gelnon Aloof Tactician, U.S.S. Enterprise Where She Belongs and Reconnaissance Drone, whose plays download
+// to a place, and Jem'Hadar Attack Ship, a [Dom] ship for Gelnon, end the hand; James T. Kirk Original Thinker, a
+// [TOS] personnel of cost 5, and Ixtana'Rax, a Jem'Hadar, follow them on top of the draw deck.
 export const PRACTICE_DOWNLOADS_TSV = `1\tOpaka Kai of Bajor
 1\tJean-Luc Picard Vintner *VP
 1\tFurel Resistance Fighter
-1\tLupaza Resistance Fighter`;
-export const PRACTICE_DOWNLOADS_HAND = ['Opaka Kai of Bajor', 'Jean-Luc Picard Vintner *VP'];
-export const PRACTICE_DOWNLOADS_DRAW_TOP = ['Furel Resistance Fighter', 'Lupaza Resistance Fighter'];
+1\tLupaza Resistance Fighter
+1\tGelnon Aloof Tactician
+1\tU.S.S. Enterprise Where She Belongs
+1\tReconnaissance Drone
+1\tJem'Hadar Attack Ship
+1\tJames T. Kirk Original Thinker
+1\tIxtana'Rax Honored Elder`;
+export const PRACTICE_DOWNLOADS_HAND = [
+  'Opaka Kai of Bajor',
+  'Jean-Luc Picard Vintner *VP',
+  'Gelnon Aloof Tactician',
+  'U.S.S. Enterprise Where She Belongs',
+  'Reconnaissance Drone',
+  "Jem'Hadar Attack Ship",
+];
+export const PRACTICE_DOWNLOADS_DRAW_TOP = [
+  'Furel Resistance Fighter',
+  'Lupaza Resistance Fighter',
+  'James T. Kirk Original Thinker',
+  "Ixtana'Rax Honored Elder",
+];
 
 export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)

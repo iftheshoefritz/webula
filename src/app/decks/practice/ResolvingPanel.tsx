@@ -76,7 +76,17 @@ export type ResolveStep =
     }
   // The download into hand of a played card (#1810): the `cards` of the draw deck that pass the model's test
   // (`testText`), of which the player downloads 1 to `max`.
-  | { step: 'downloadCards'; cards: CardInstance[]; max: number; testText: string; onDownload: (ids: string[]) => void };
+  // A download to a place (#1811) adds `placeText`, where the card goes, and for a place aboard a ship the `ships`
+  // the player picks from, the first picked at first; `onDownload` then gets the ship's id.
+  | {
+      step: 'downloadCards';
+      cards: CardInstance[];
+      max: number;
+      testText: string;
+      placeText?: string;
+      ships?: CardInstance[];
+      onDownload: (ids: string[], shipId?: string) => void;
+    };
 
 /** The played card of a pending "when you play" effect (#1800), the panel's other subject. */
 export interface PlayedSubject {
@@ -681,13 +691,23 @@ function ExamineTakeStep({ step }: { step: Extract<ResolveStep, { step: 'examine
 // button: Skip ends the effect. Its picks are its own state, so a new subject, which remounts it, starts with none.
 function DownloadCardsStep({ step }: { step: Extract<ResolveStep, { step: 'downloadCards' }> }) {
   const [chosen, setChosen] = useState<string[]>([]);
+  const [chosenShip, setChosenShip] = useState<string | null>(null);
   const picked = chosen.filter((id) => step.cards.some((c) => c.id === id));
+  const ships = step.ships;
+  const ship = ships ? (ships.find((s) => s.id === chosenShip) ?? ships[0]) : undefined;
+  const noShip = !!ships && ships.length === 0;
   const toggle = (id: string) =>
     setChosen(picked.includes(id) ? picked.filter((i) => i !== id) : step.max === 1 ? [id] : picked.length < step.max ? [...picked, id] : picked);
   return (
     <div data-testid="resolve-step-download-cards" className="flex min-h-0 flex-col gap-2">
-      <p className="text-sm text-text-primary">Download {step.testText} from your draw deck</p>
-      {step.cards.length === 0 ? (
+      <p className="text-sm text-text-primary">
+        Download {step.testText} from your draw deck{step.placeText ? `, ${step.placeText}` : ''}
+      </p>
+      {noShip ? (
+        <p data-testid="resolve-download-no-ship" className="text-xs text-text-muted">
+          You have no ship to place it aboard.
+        </p>
+      ) : step.cards.length === 0 ? (
         <p data-testid="resolve-download-cards-none" className="text-xs text-text-muted">
           No card of your draw deck is {step.testText.replace(/^up to \w+ /, '')}.
         </p>
@@ -707,12 +727,36 @@ function DownloadCardsStep({ step }: { step: Extract<ResolveStep, { step: 'downl
               />
             ))}
           </div>
+          {ships && ships.length > 1 && (
+            <div data-testid="resolve-download-ships" className="flex flex-wrap gap-1">
+              {ships.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  data-testid="resolve-download-ship"
+                  data-ship-id={s.id}
+                  aria-pressed={s.id === ship?.id}
+                  className={`min-h-11 rounded border px-2 text-sm text-text-primary ${
+                    s.id === ship?.id ? 'border-blue-400 bg-blue-500/20' : 'border-white/10'
+                  }`}
+                  onClick={() => setChosenShip(s.id)}
+                >
+                  {s.card ? cardDisplayName(s.card) : 'Ship'}
+                </button>
+              ))}
+            </div>
+          )}
+          {ships && ships.length === 1 && ship && (
+            <p data-testid="resolve-download-ship-only" className="text-xs text-text-muted">
+              Aboard {ship.card ? cardDisplayName(ship.card) : 'the ship'}
+            </p>
+          )}
           <button
             type="button"
             data-testid="resolve-download-cards"
             className="btn-primary w-full text-sm leading-tight"
             disabled={picked.length === 0}
-            onClick={() => step.onDownload(picked)}
+            onClick={() => (ship ? step.onDownload(picked, ship.id) : step.onDownload(picked))}
           >
             Download {picked.length || ''}
           </button>
