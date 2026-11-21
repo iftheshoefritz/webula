@@ -85,7 +85,7 @@ import { useDndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { cardIdOfDraggable, panelDraggableId } from './panelDragId';
 import { DILEMMA_STACK_CHOICE_END_LABELS, dilemmaStackInsertPoint } from './dilemmaStackInsert';
 import { CardInstance, MissionPileName } from './tableReducer';
-import TableCard, { RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth } from './TableCard';
+import TableCard, { RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, STOPPED_OVERLAY_CLASSNAME, cardBorderStyle, cardBorderWidth, cropBottomBorderStyle } from './TableCard';
 import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, WholeCardAttributeBoxes, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
 import { rangeUsedDisplay } from './shipRange';
 import { useRangeUsed } from './RangeUsedContext';
@@ -412,7 +412,7 @@ function CardListPanelCard({
               height={CARD_IMAGE_HEIGHT}
               alt={cardDisplayName(card)}
               className={`w-full h-full object-cover object-top ${greyed ? STOPPED_IMAGE_CLASSNAME : ''}`}
-              style={NO_CALLOUT_STYLE}
+              style={{ ...NO_CALLOUT_STYLE, ...cropBottomBorderStyle(cardWidth) }}
             />
             {/* #1176: the icons and the attributes the crop cuts off. The panel shows the face of
                 a face-down away team (#964), so the overlay shows on it too. */}

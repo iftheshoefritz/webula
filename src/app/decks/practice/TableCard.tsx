@@ -29,7 +29,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, WholeCardAttributeBoxes, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, WholeCardAttributeBoxes, cropBottomBorderWidth, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
 import { useRangeUsed } from './RangeUsedContext';
 import type { RangeLeft } from './shipRange';
 import { cardImageUrl } from '../../../lib/cardImageUrl';
@@ -91,6 +91,13 @@ export function cardBorderWidth(cardWidth: number): number {
 export function cardBorderStyle(cardWidth: number): CSSProperties {
   const border = cardBorderWidth(cardWidth);
   return { outline: `${border}px solid black`, outlineOffset: -border };
+}
+// The black border along the bottom of an art crop (#1795), as wide as the border the card image
+// prints along its top and sides, which the crop shows and its bottom cuts off. A border on the
+// `<img>` takes its strip from the bottom of the crop's box, so the crop keeps its size and the art
+// keeps its scale (`object-cover object-top`) and loses a strip at its bottom.
+export function cropBottomBorderStyle(cardWidth: number): CSSProperties {
+  return { borderBottom: `${cropBottomBorderWidth(cardWidth)}px solid black` };
 }
 // The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
 export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
@@ -232,7 +239,7 @@ export function TableCardImage({
           src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
           alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
           className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped || instance.removedFromGame ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), ...(uncropped ? {} : cropBottomBorderStyle(width)) }}
         />
         {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. It sits
             in the clipped box, so its band, on the bottom of the crop (#1236), keeps to the crop's
