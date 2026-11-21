@@ -280,9 +280,14 @@ is logged in, with `fetch` inside the page.
 `scripts/collect_stats.mjs` (#1431) reads GitHub and writes JSON Lines files under `stats/`, at the
 top of the repository, outside `public/`, one file per month. It needs `GH_TOKEN` (or `GITHUB_TOKEN`,
 or a logged-in `gh`) and `unzip`. `--since` and `--until` are UTC dates, both inclusive; `--until`
-defaults to today. Slice a backfill with them: the `GITHUB_TOKEN` allows 1,000 REST requests an
-hour, and each run costs about two, its jobs and its log. The script prints what it fetched and
-what it skipped.
+defaults to today. Each run costs about two REST requests, its jobs and its log. The `GITHUB_TOKEN`
+allows 1,000 an hour, so slice a backfill in Actions with them. A user token allows 5,000 an hour,
+and a local run waits for the reset when it reaches the limit, so one local run can backfill
+everything. It tries a request again after a 5xx or a dropped connection, and after the last try it
+files the run of a log it could not get with no `claude` field. The script writes each day of runs and each month of closed items as soon as it has them,
+so a run that stops keeps its finished days and a second run resumes. It asks for no log of a run
+older than 90 days, the log retention of GitHub: such a run has no `claude` field. The first run of
+the repository is from 2026-03-07. The script prints what it fetched and what it skipped.
 
 ```bash
 GH_TOKEN=… node scripts/collect_stats.mjs --since 2026-10-28 [--until 2026-10-31] [--repo iftheshoefritz/webula]
@@ -315,8 +320,11 @@ merge are in `scripts/stats/*.mjs`, which use no network, and `src/tests/scripts
 tests them.
 
 `.github/workflows/stats-recorder.yml` (#1432) runs the script every day at 02:43 UTC over the last
-3 days and opens or updates one pull request from the branch `stats/update`, which each run rebuilds
-from `main`. A dispatch with `since` and `until` runs a backfill slice. `.github/workflows/README.md`
+3 days and pushes the result to the branch `stats/update`, which each run rebuilds from `main`. It
+opens no pull request (#1791): the owner, or `/drive-issues`, merges `stats/update` when `/stats`
+needs new stats. Before it collects, it merges the stats of the previous `stats/update` into the new
+branch with `scripts/merge_stats.mjs`, so a day stays on the branch until it merges.
+A dispatch with `since` and `until` runs a backfill slice. `.github/workflows/README.md`
 describes it.
 
 The page `/stats` (#1417) shows the stats to early-access users: per workflow the runs, the median
@@ -1105,7 +1113,7 @@ A tap anywhere on the ship, the counter of the cards on it too, opens its crew p
 
 A drag out of the core onto a ship has failed once. See #701.
 
-The **Play** target (#1729, `PlayTarget.tsx`, `playTarget.ts`) plays an event that resolves at once.
+The **Play** target (#1729, `PlayTarget.tsx`, `playTargetRules.ts`) plays an event that resolves at once.
 It shows during a drag only when "Resolve events in a panel" is on, the segment is play and draw, no
 attempt is in progress, `resolving` is empty, and the drag carries one card, from the hand, for which
 `resolvesOnPlay` is true (`playTargetEligible`), and only while the pointer is above the line:

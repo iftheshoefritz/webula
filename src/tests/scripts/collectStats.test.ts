@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
+import { days, monthWindows, rateLimitWait } from '../../../scripts/stats/backfill.mjs';
 import { countIssues, openIssueStatus } from '../../../scripts/stats/issueStatus.mjs';
 import { groupByMonth, mergeLines, monthOf, parseLines } from '../../../scripts/stats/records.mjs';
 import { claudeFromLog, findResultRecord, targetFromLog } from '../../../scripts/stats/resultRecord.mjs';
@@ -162,5 +163,37 @@ describe('the month files', () => {
     const items = groupByMonth('items', [{ closed_at: '2026-09-30T12:00:00Z' }]);
     expect(Object.keys(items)).toEqual(['2026-09']);
     expect(Object.keys(groupByMonth('issues', [{ date: '2026-03-08' }]))).toEqual(['2026-03']);
+  });
+});
+
+describe('a backfill', () => {
+  const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name] ?? null });
+
+  it('lists every day of the window, both ends included, across a month end', () => {
+    expect(days('2026-10-30', '2026-11-02')).toEqual(['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']);
+  });
+
+  it('splits the window at month ends, so no search passes 1,000 results', () => {
+    expect(monthWindows('2026-09-29', '2026-11-03')).toEqual([
+      ['2026-09-29', '2026-09-30'],
+      ['2026-10-01', '2026-10-31'],
+      ['2026-11-01', '2026-11-03'],
+    ]);
+    expect(monthWindows('2026-11-05', '2026-11-05')).toEqual([['2026-11-05', '2026-11-05']]);
+  });
+
+  it('waits until the reset, plus 5 s, when the hourly limit is used up', () => {
+    const now = 1_000_000_000_000;
+    const reset = String(now / 1000 + 600);
+    expect(rateLimitWait(403, headers({ 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': reset }), now)).toBe(605_000);
+  });
+
+  it('waits for Retry-After on a secondary rate limit', () => {
+    expect(rateLimitWait(429, headers({ 'retry-after': '30' }))).toBe(30_000);
+  });
+
+  it('does not wait on a 403 that is not a rate limit, nor on a success', () => {
+    expect(rateLimitWait(403, headers({ 'x-ratelimit-remaining': '4000' }))).toBe(0);
+    expect(rateLimitWait(200, headers({ 'x-ratelimit-remaining': '0' }))).toBe(0);
   });
 });

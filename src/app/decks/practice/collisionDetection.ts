@@ -1,6 +1,6 @@
 import { Collision, CollisionDetection, pointerWithin, rectIntersection } from '@dnd-kit/core';
 import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
-import { PLAY_TARGET_ID } from './playTarget';
+import { PLAY_TARGET_ID } from './playTargetRules';
 
 // Two stages, and the order between them is the whole point.
 //

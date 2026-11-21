@@ -24,6 +24,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DAY_MS, days, monthWindows, rateLimitWait } from './stats/backfill.mjs';
 import { countIssues } from './stats/issueStatus.mjs';
 import { KINDS, groupByMonth, mergeLines, monthOf, parseLines } from './stats/records.mjs';
 import { claudeFromLog, targetFromLog } from './stats/resultRecord.mjs';
@@ -31,7 +32,6 @@ import { claudeFromLog, targetFromLog } from './stats/resultRecord.mjs';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const STATS = path.join(ROOT, 'stats');
 const API = process.env.GITHUB_API_URL || 'https://api.github.com';
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function parseArgs(argv) {
   const args = { repo: process.env.GITHUB_REPOSITORY || 'iftheshoefritz/webula' };
@@ -56,22 +56,57 @@ function token() {
 let TOKEN = '';
 const requests = { rest: 0, graphql: 0 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const MAX_SERVER_ERROR_TRIES = 4;
+
 async function rest(pathAndQuery, { allow = [] } = {}) {
-  requests.rest++;
-  const res = await fetch(`${API}/${pathAndQuery}`, {
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
-  if (allow.includes(res.status)) return { status: res.status, res };
-  if (!res.ok) throw new Error(`GET ${pathAndQuery}: ${res.status} ${await res.text()}`);
-  return { status: res.status, res };
+  for (let attempt = 1; ; attempt++) {
+    requests.rest++;
+    let res;
+    try {
+      res = await fetch(`${API}/${pathAndQuery}`, {
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+    } catch (error) {
+      // A dropped connection throws, as undici's "terminated" does. Try again as on a 5xx.
+      if (attempt >= MAX_SERVER_ERROR_TRIES) throw error;
+      console.log(`  GET ${pathAndQuery}: ${error.message}, try ${attempt + 1} of ${MAX_SERVER_ERROR_TRIES}`);
+      await sleep(5000 * attempt);
+      continue;
+    }
+    if (allow.includes(res.status)) return { status: res.status, res };
+    const wait = rateLimitWait(res.status, res.headers);
+    if (wait > 0) {
+      console.log(`  rate limited: waiting ${Math.ceil(wait / 60_000)} min, until ${new Date(Date.now() + wait).toISOString()}`);
+      await sleep(wait);
+      continue;
+    }
+    if (res.status >= 500 && attempt < MAX_SERVER_ERROR_TRIES) {
+      console.log(`  GET ${pathAndQuery}: ${res.status}, try ${attempt + 1} of ${MAX_SERVER_ERROR_TRIES}`);
+      await sleep(5000 * attempt);
+      continue;
+    }
+    if (!res.ok) throw new Error(`GET ${pathAndQuery}: ${res.status} ${await res.text()}`);
+    return { status: res.status, res };
+  }
 }
 
 async function restJson(pathAndQuery) {
-  return (await rest(pathAndQuery)).res.json();
+  for (let tries = 1; ; tries++) {
+    try {
+      return await (await rest(pathAndQuery)).res.json();
+    } catch (error) {
+      // A connection dropped while the body downloads throws ("terminated"): try again.
+      if (tries >= MAX_SERVER_ERROR_TRIES || error.message.startsWith('GET ')) throw error;
+      console.log(`  GET ${pathAndQuery}: ${error.message}, try ${tries + 1} of ${MAX_SERVER_ERROR_TRIES}`);
+      await sleep(5000 * tries);
+    }
+  }
 }
 
 async function graphql(query, variables) {
@@ -96,14 +131,6 @@ async function graphqlAll(query, variables, pick) {
     if (!connection.pageInfo.hasNextPage) return nodes;
     after = connection.pageInfo.endCursor;
   }
-}
-
-function days(since, until) {
-  const out = [];
-  for (let t = Date.parse(`${since}T00:00:00Z`); t <= Date.parse(`${until}T00:00:00Z`); t += DAY_MS) {
-    out.push(new Date(t).toISOString().slice(0, 10));
-  }
-  return out;
 }
 
 function monthsOf(since, until) {
@@ -138,13 +165,33 @@ async function writeRecords(kind, records) {
 }
 
 /** The text of the top-level `*.txt` files of a run attempt's log zip, or null when the log is gone. */
+// The zip of a run's log, or null when GitHub has none. A connection dropped while the body
+// downloads throws ("terminated"), so the request and the read are tried again together; after the
+// last try only this log is given up, and the run is filed with no `claude` field.
+async function runLogBytes(repo, runId, attempt) {
+  const logPath = `repos/${repo}/actions/runs/${runId}/attempts/${attempt}/logs`;
+  for (let tries = 1; ; tries++) {
+    try {
+      const { status, res } = await rest(logPath, { allow: [404, 410] });
+      if (status === 404 || status === 410) return null;
+      return Buffer.from(await res.arrayBuffer());
+    } catch (error) {
+      if (tries >= MAX_SERVER_ERROR_TRIES) {
+        console.log(`  GET ${logPath}: ${error.message}, no log after ${tries} tries`);
+        return null;
+      }
+      console.log(`  GET ${logPath}: ${error.message}, try ${tries + 1} of ${MAX_SERVER_ERROR_TRIES}`);
+      await sleep(5000 * tries);
+    }
+  }
+}
+
 async function runLog(repo, runId, attempt) {
-  const { status, res } = await rest(`repos/${repo}/actions/runs/${runId}/attempts/${attempt}/logs`, { allow: [404, 410] });
-  if (status === 404 || status === 410) return null;
+  const bytes = await runLogBytes(repo, runId, attempt);
+  if (bytes === null) return null;
   const dir = await mkdtemp(path.join(tmpdir(), 'collect-stats-'));
   try {
     const zip = path.join(dir, 'logs.zip');
-    const bytes = Buffer.from(await res.arrayBuffer());
     // A run that never started a job, such as a startup failure, has an empty zip.
     if (bytes.length <= 22) return null;
     await writeFile(zip, bytes);
@@ -159,6 +206,16 @@ async function runLog(repo, runId, attempt) {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * GitHub keeps a run's log for 90 days, the repository's setting and the most it allows, and
+ * answers 404 or 410 after that. An older run is filed with no `claude` field and no log request.
+ */
+const LOG_RETENTION_DAYS = 90;
+
+function logExpired(run) {
+  return Date.now() - Date.parse(run.created_at) > LOG_RETENTION_DAYS * DAY_MS;
 }
 
 const MAX_LISTED_RUNS = 1000;
@@ -185,8 +242,10 @@ async function listRuns(repo, from, to) {
 async function collectRuns(repo, since, until) {
   console.log(`runs ${since}..${until}`);
   const known = await existingKeys('runs', since, until);
-  const records = [];
   for (const day of days(since, until)) {
+    // Each day is written as soon as it is fetched, so a backfill that stops keeps the days it
+    // finished, and a second run starts where the first stopped.
+    const records = [];
     const start = Date.parse(`${day}T00:00:00Z`);
     const runs = await listRuns(repo, start, start + DAY_MS - 1000);
     let skipped = 0;
@@ -213,7 +272,7 @@ async function collectRuns(repo, since, until) {
         started_at: job.started_at,
         completed_at: job.completed_at,
       }));
-      const log = await runLog(repo, run.id, run.run_attempt);
+      const log = logExpired(run) ? null : await runLog(repo, run.id, run.run_attempt);
       const claude = log === null ? undefined : claudeFromLog(log);
       if (claude) withClaude++;
       let number = run.pull_requests?.[0]?.number ?? null;
@@ -243,8 +302,8 @@ async function collectRuns(repo, since, until) {
       `  ${day}: ${runs.length} listed, ${skipped} skipped, ${incomplete} not complete, ` +
         `${filed} already filed, ${runs.length - skipped - incomplete - filed} fetched (${withClaude} with a result record)`,
     );
+    if (records.length > 0) await writeRecords('runs', records);
   }
-  await writeRecords('runs', records);
 }
 
 const OPEN_ISSUES = `query($owner: String!, $name: String!, $after: String) {
@@ -338,6 +397,10 @@ async function ciRuns(repo, branch, closedAt) {
 }
 
 async function collectItems(repo, since, until) {
+  for (const [from, to] of monthWindows(since, until)) await collectItemsOfWindow(repo, from, to);
+}
+
+async function collectItemsOfWindow(repo, since, until) {
   console.log(`items closed ${since}..${until}`);
   const known = await existingKeys('items', since, until);
   const records = [];
@@ -372,7 +435,7 @@ async function collectItems(repo, since, until) {
     }
     console.log(`  ${kind}: ${nodes.length} closed, ${filed} already filed, ${nodes.length - filed} fetched`);
   }
-  await writeRecords('items', records);
+  if (records.length > 0) await writeRecords('items', records);
 }
 
 async function main() {
