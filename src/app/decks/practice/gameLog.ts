@@ -1339,7 +1339,7 @@ const playedPlaceText = (place: LogPlace): string => {
 };
 
 // The text of one move, with its verb: "played" when every card of it was a play, and "resolved" for
-// the resolving event that goes to the discard pile (#1727), or is removed from the game (#1730).
+// the resolving event that goes to the discard pile (#1727) or the core (#1796), or is removed from the game (#1730).
 const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text: string } => {
   const costs = moveCosts(move);
   if (costs && costs.every((c) => c !== null)) {
@@ -1348,7 +1348,8 @@ const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text:
   if (move.from.kind === 'resolving' && move.to.kind === 'discard' && move.removedFromGame) {
     return { verb: 'resolved', text: `${cardsText(move.cards)}, and removed it from the game` };
   }
-  if (move.from.kind === 'resolving' && move.to.kind === 'discard') {
+  // A core event with a "When you play this event" clause (#1796) goes to the core once resolved.
+  if (move.from.kind === 'resolving' && (move.to.kind === 'discard' || move.to.kind === 'core')) {
     return { verb: 'resolved', text: `${cardsText(move.cards)}, and it went to ${placeText(move.to)}` };
   }
   return {

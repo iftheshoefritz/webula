@@ -770,6 +770,7 @@ export function ResolvingPanel({
   instance,
   hidden,
   escapeActive,
+  onCore,
   onDiscard,
   onRemoveFromGame,
   onCancel,
@@ -782,7 +783,9 @@ export function ResolvingPanel({
   hidden: boolean;
   // Whether Escape reaches the panel: not while the game menu splash covers it.
   escapeActive: boolean;
-  // Absent for a recalled event (#1764), which ends removed from the game.
+  // Shown only for a core event with a "When you play this event" clause (#1796), which goes to the core.
+  onCore?: () => void;
+  // Absent for a recalled event (#1764), which ends removed from the game, and for a core event (#1796).
   onDiscard?: () => void;
   // Shown only for an event that removes itself from the game (`removesItselfFromGame`).
   onRemoveFromGame?: () => void;
@@ -891,6 +894,11 @@ export function ResolvingPanel({
               onClick={onRemoveFromGame}
             >
               Resolved → Remove from game
+            </button>
+          )}
+          {onCore && (
+            <button type="button" data-testid="resolving-core" className={button} onClick={onCore}>
+              Resolved → Core
             </button>
           )}
           {onDiscard && (

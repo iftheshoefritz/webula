@@ -82,6 +82,10 @@ describe('playTargetEligible (#1729)', () => {
     expect(playTargetEligible(base)).toBe(true);
   });
 
+  it('is true for a core event with a "When you play this event" clause (#1796)', () => {
+    expect(playTargetEligible({ ...base, group: [event('Plays in your core. When you play this event, name a skill.')] })).toBe(true);
+  });
+
   it.each([
     ['the setting is off', { resolveEvents: false }],
     ['the segment is orders', { table: { ...base.table, segment: 'orders' as const } }],
@@ -90,6 +94,7 @@ describe('playTargetEligible (#1729)', () => {
     ['the drag is not from the hand', { fromHand: false }],
     ['the drag carries two cards', { group: [resolving, resolving] }],
     ['the event plays in the core', { group: [event('Plays in your core.')] }],
+    ['a core event with play text is not from the hand', { group: [event('Plays in your core. When you play this event, name a skill.')], fromHand: false, fromDiscard: true }],
   ])('is false when %s', (_, change) => {
     expect(playTargetEligible({ ...base, ...change })).toBe(false);
   });
@@ -212,5 +217,99 @@ describe('the Play target on ?fixture=costs (#1729)', () => {
     startDrag(id);
     moveTo(id, 100);
     expect(screen.queryByTestId('play-target')).toBeNull();
+  });
+});
+
+describe('a core event with play text on ?fixture=costs (#1796)', () => {
+  let rectSpy: jest.SpyInstance;
+
+  const renderTable = async (resolveEvents: boolean, query = 'fixture=costs&reset=1&menu=0') => {
+    if (query.includes('reset=1')) localStorage.clear();
+    localStorage.setItem('practice-turn-counters', 'true');
+    localStorage.setItem('practice-resolve-events', String(resolveEvents));
+    mockSearchParamsValue = new URLSearchParams(query);
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+  };
+
+  beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+      })),
+    });
+    rectSpy = jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 500,
+      bottom: 580,
+      left: 0,
+      right: 800,
+      width: 800,
+      height: 80,
+      x: 0,
+      y: 500,
+      toJSON: () => ({}),
+    } as DOMRect);
+  });
+
+  afterEach(() => rectSpy.mockRestore());
+
+  it('plays Peak Performance from the Play target into the panel, and Resolved → Core puts it in the core', async () => {
+    await renderTable(true);
+    const id = handIdOf('Peak Performance');
+    startDrag(id);
+    moveTo(id, 100);
+    expect(screen.getByTestId('play-target')).toBeInTheDocument();
+    dropOn(id, 'resolving', 100);
+    expect(saved().table.resolving.id).toBe(id);
+    expect(screen.getByTestId('turn-counters')).toHaveTextContent('1/7');
+    expect(screen.queryByTestId('resolving-discard')).toBeNull();
+    act(() => screen.getByTestId('resolving-core').click());
+    expect(saved().table.resolving).toBeNull();
+    expect(saved().table.core.map((c: any) => c.id)).toContain(id);
+    expect(screen.queryByTestId('resolving-panel')).toBeNull();
+    expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', 'Undo: Resolved Peak Performance, and it went to the core');
+    act(() => screen.getByTestId('undo-button').click());
+    expect(saved().table.resolving.id).toBe(id);
+    expect(screen.getByTestId('resolving-panel')).toBeInTheDocument();
+  });
+
+  it('opens the panel on a drop on the core too, and a reload keeps it', async () => {
+    await renderTable(true);
+    const id = handIdOf('Peak Performance');
+    startDrag(id);
+    moveTo(id, LINE + 40);
+    dropOn(id, 'core', LINE + 40);
+    expect(saved().table.resolving.id).toBe(id);
+    expect(screen.getByTestId('resolving-core')).toBeInTheDocument();
+    expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', 'Undo: Played Peak Performance (cost 1)');
+    document.body.innerHTML = '';
+    await renderTable(true, 'fixture=costs&menu=0');
+    expect(screen.getByTestId('resolving-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('resolving-core')).toBeInTheDocument();
+  });
+
+  it('plays straight into the core with the setting off', async () => {
+    await renderTable(false);
+    const id = handIdOf('Peak Performance');
+    startDrag(id);
+    moveTo(id, LINE + 40);
+    dropOn(id, 'core', LINE + 40);
+    expect(saved().table.resolving).toBeNull();
+    expect(saved().table.core.map((c: any) => c.id)).toContain(id);
+  });
+
+  it('keeps Surprise Party, which has no play text, a plain play into the core', async () => {
+    await renderTable(true);
+    const id = handIdOf('Surprise Party');
+    startDrag(id);
+    moveTo(id, LINE + 40);
+    dropOn(id, 'core', LINE + 40);
+    expect(saved().table.resolving).toBeNull();
+    expect(saved().table.core.map((c: any) => c.id)).toContain(id);
   });
 });
