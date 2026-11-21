@@ -52,6 +52,9 @@ import {
   examineTakeMin,
   examineTakes,
   downloadTakes,
+  downloadPlaceShips,
+  downloadPlayCost,
+  DownloadPlaceModel,
   PlayConditionState,
   PlayConditionStatus,
   PlayModel,
@@ -131,8 +134,10 @@ export type PlayEffectStepRecord =
   // The examine of the top of the draw deck (#1809): the names of the cards it took into hand, and how many it
   // placed on the bottom.
   | { step: 'examine'; taken: string[]; bottom: number }
-  // The download into hand (#1810): the names of the cards it took; the draw deck was shuffled after.
-  | { step: 'download'; cards: string[] }
+  // The download into hand (#1810): the names of the cards it took; the draw deck was shuffled after. A download
+  // to a place (#1811) names where the card went, "aboard Attack Ship" or "on top of the draw deck"; a play
+  // aboard the played ship is a move of its own in the same entry.
+  | { step: 'download'; cards: string[]; placed?: string }
   // The points a score step added (#1812), after the clamp of the score.
   | { step: 'score'; points: number }
   | { step: PlayStepName; skipped: true };
@@ -166,7 +171,10 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // One player action, so one entry, even when its cards went to more than one place (a group
   // dropped on a mission sends a ship to the ship row and a personnel to the away team). A
   // download shuffles the pile after its moves, and `shuffled` names it.
-  | { kind: 'move'; moves: LogMove[]; shuffled?: LogPlace }
+  // A play of a "when you play" effect after a correction of its charge (#1811, the Enterprise's play aboard
+  // itself) records the step in `effectOf`, the play it belongs to, so the step and the second play are one
+  // entry and one undo.
+  | { kind: 'move'; moves: LogMove[]; shuffled?: LogPlace; effectOf?: { target: ChargeTarget; card: string; effect: PlayEffectRecord } }
   | { kind: 'flip'; cards: { name: string; face: 'up' | 'down' }[] }
   | { kind: 'flipMission'; mission: string; flipped: boolean }
   | { kind: 'shuffle'; place: LogPlace }
@@ -399,8 +407,9 @@ export type GameAction =
   | { type: 'playEffectDiscard'; ids: string[] }
   | { type: 'playEffectExamine'; take: string[]; bottom: string[] }
   // The download of the cards `ids` of the draw deck into hand (#1810), then the shuffle of the draw deck in
-  // `order`, which `withShuffleOrders` chooses.
-  | { type: 'playEffectDownload'; ids: string[]; order?: string[] }
+  // `order`, which `withShuffleOrders` chooses. A download to a place (#1811) takes one card, and `shipId` names
+  // the ship it goes aboard.
+  | { type: 'playEffectDownload'; ids: string[]; order?: string[]; shipId?: string }
   | { type: 'playEffectScore' }
   | { type: 'playEffectSkip' }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
@@ -1433,7 +1442,8 @@ export function logEntryText(entry: LogEntry): string {
       // Each run of moves of one verb shares it: "Moved A from …; B from …; played C at …".
       const moves = entry.moves.map(moveText).map((m, i, all) => (i > 0 && all[i - 1].verb === m.verb ? m.text : `${m.verb} ${m.text}`));
       const shuffled = entry.shuffled ? `shuffled ${placeText(entry.shuffled)}` : null;
-      const text = moves.length ? capitalize(moves.join('; ')) : '';
+      const effect = entry.effectOf && isPlayEffectRecord(entry.effectOf.effect) ? `${entry.effectOf.card}: ${playEffectText(entry.effectOf.effect)}; ` : '';
+      const text = moves.length ? `${effect}${effect ? moves.join('; ') : capitalize(moves.join('; '))}` : '';
       if (!shuffled) return text;
       return text ? `${text}, then ${shuffled}` : capitalize(shuffled);
     }
@@ -2636,7 +2646,7 @@ export function playEffectText(record: PlayEffectRecord): string {
         : s.step === 'examine'
           ? `took ${s.taken.length ? cardsText(s.taken) : 'no card'}, placed ${s.bottom} on the bottom`
           : s.step === 'download'
-            ? `downloaded ${s.cards.length ? cardsText(s.cards) : 'no card'}, shuffled the draw deck`
+            ? `downloaded ${s.cards.length ? cardsText(s.cards) : 'no card'}, shuffled the draw deck${typeof s.placed === 'string' && s.placed ? `, placed it ${s.placed}` : ''}`
           : s.step === 'score'
             ? `scored ${s.points} ${s.points === 1 ? 'point' : 'points'}`
             : `discarded ${s.cards.length ? cardsText(s.cards) : 'no card'}`
@@ -2675,8 +2685,13 @@ function playEffectRecordOf(log: LogEntry[], target: ChargeTarget): PlayEffectRe
   const own = move && isIndex(target.card) ? moveEffects(move)[target.card] : null;
   const later = log
     .slice(target.entry + 1)
-    .filter((e): e is Extract<LogEntry, { kind: 'playEffect' }> => e.kind === 'playEffect' && !!e.target && sameTarget(e.target, target) && isPlayEffectRecord(e.effect))
-    .map((e) => e.effect);
+    .flatMap((e) =>
+      e.kind === 'playEffect' && !!e.target && sameTarget(e.target, target) && isPlayEffectRecord(e.effect)
+        ? [e.effect]
+        : e.kind === 'move' && e.effectOf?.target && sameTarget(e.effectOf.target, target) && isPlayEffectRecord(e.effectOf.effect)
+          ? [e.effectOf.effect]
+          : []
+    );
   const records = [...(own ? [own] : []), ...later];
   const condition = records.find((r) => r.condition !== undefined)?.condition;
   return { ...(condition ? { condition } : {}), steps: records.flatMap((r) => r.steps) };
@@ -2722,6 +2737,13 @@ export function pendingPlayEffectOf(state: { table: TableState; log: LogEntry[] 
         const model = name ? playModelOf(name) : undefined;
         if (!name || !model) return null;
         const target = { entry: i, move: m, card: c };
+        // The Enterprise's "play at cost -4 to ignore its next ability" (#1811): the choice taken ignores the effect.
+        if (
+          model.kind === 'downloadPlace' &&
+          model.ignoredByCostChoice &&
+          entryCharges(state.log, i).some((ch) => ch.target.move === m && ch.target.card === c && ch.choiceTaken)
+        )
+          return null;
         const record = playEffectRecordOf(log, target);
         const specs = playStepsOf(model);
         const step = specs[record.steps.length];
@@ -2831,7 +2853,9 @@ function playEffectExamineState(state: GameState, action: { take: string[]; bott
 // in `order`. A download of none is a Skip.
 function playEffectDownloadState(state: GameState, action: { ids: string[]; order?: string[] }): GameState {
   const pending = pendingPlayEffectOf(state);
-  if (!pending || pending.step.step !== 'download' || pending.model.kind !== 'downloadTake') return state;
+  if (!pending || pending.step.step !== 'download') return state;
+  if (pending.model.kind === 'downloadPlace') return playEffectDownloadPlaceState(state, pending, pending.model, action);
+  if (pending.model.kind !== 'downloadTake') return state;
   const model = pending.model;
   if (!Array.isArray(action.ids)) return state;
   const ids = [...new Set(action.ids)];
@@ -2841,6 +2865,80 @@ function playEffectDownloadState(state: GameState, action: { ids: string[]; orde
   const taken = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'hand' }), state.table);
   const table = tableReducer(taken, { type: 'shuffle', location: 'drawDeck', ...(action.order ? { order: action.order } : {}) });
   return withPlayEffectSteps(state, pending, [{ step: 'download', cards: ids.map((id) => cardName(state.table, id)) }], table);
+}
+
+// The ships of the player as destinations of a download to a place (#1811), in slot order.
+const downloadShipsOf = (table: TableState) =>
+  table.missions.flatMap((slot, missionIndex) =>
+    slot.ships.map((ship) => ({ id: ship.id, affiliation: String(ship.card?.affiliation ?? ''), missionIndex, instance: ship }))
+  );
+
+/** The ships a pending download to a place may put its card aboard (#1811), the played card's mission first. */
+export function downloadPlaceShipsOf(table: TableState, pending: PendingPlayEffect): CardInstance[] {
+  if (pending.model.kind !== 'downloadPlace') return [];
+  const missionIndex = table.missions.findIndex(
+    (slot) => slot.awayTeam.includes(pending.instance) || slot.ships.some((ship) => ship === pending.instance || (ship.crew ?? []).includes(pending.instance))
+  );
+  return downloadPlaceShips(pending.model, downloadShipsOf(table), { id: pending.id, ...(missionIndex >= 0 ? { missionIndex } : {}) }).map((s) => s.instance);
+}
+
+// The download to a place of the pending effect (#1811): one card of the draw deck that passes the model's test.
+// Aboard a ship (`shipId`, one of `downloadPlaceShipsOf`), it boards the crew, then the draw deck is shuffled in
+// `order`; on top of the draw deck, the draw deck is shuffled without it, then it goes on top. A play aboard the
+// played ship is charged its printed cost less the discount, with the ship as its source: the entry gains the
+// move, so the turn's counters count it and one undo takes back both plays.
+function playEffectDownloadPlaceState(
+  state: GameState,
+  pending: PendingPlayEffect,
+  model: DownloadPlaceModel,
+  action: { ids: string[]; order?: string[]; shipId?: string }
+): GameState {
+  if (!Array.isArray(action.ids) || action.ids.length !== 1) return state;
+  const id = action.ids[0];
+  const found = state.table.drawDeck.find((c) => c.id === id);
+  if (!found || !downloadTakes(model, found.card)) return state;
+  const shuffle = (t: TableState) => tableReducer(t, { type: 'shuffle', location: 'drawDeck', ...(action.order ? { order: action.order } : {}) });
+  const name = cardName(state.table, id);
+  if (model.place.kind === 'drawDeckTop') {
+    const out = shuffle(tableReducer(state.table, { type: 'move', id, to: 'hand' }));
+    const table = tableReducer(out, { type: 'move', id, to: 'drawDeck', position: 'top' });
+    return withPlayEffectSteps(state, pending, [{ step: 'download', cards: [name], placed: 'on top of the draw deck' }], table);
+  }
+  const ship = downloadPlaceShipsOf(state.table, pending).find((s) => s.id === action.shipId);
+  if (!ship) return state;
+  const cost = downloadPlayCost(model, printedCost(found.card));
+  const move: Extract<TableAction, { type: 'move' }> = {
+    type: 'move',
+    id,
+    to: { zone: 'crew', shipId: ship.id },
+    ...(cost !== null ? { cost, costSource: { title: model.title, reason: `played aboard this ship at cost −${model.place.kind === 'playAboardThis' ? model.place.discount : 0}` } } : {}),
+  };
+  const boarded = tableReducer(state.table, move);
+  if (boarded === state.table) return state;
+  const table = shuffle(boarded);
+  if (cost === null) {
+    return withPlayEffectSteps(state, pending, [{ step: 'download', cards: [name], placed: `aboard ${cardName(state.table, ship.id)}` }], table);
+  }
+  const steps: PlayEffectStepRecord[] = [{ step: 'download', cards: [name] }];
+  const moves = moveEntry(state.table, [move], false);
+  const last = state.log[state.log.length - 1];
+  // The play's own entry gains the move of the second play.
+  if (pending.target.entry === state.log.length - 1 && last?.kind === 'move') {
+    const played = withPlayEffectSteps(state, pending, steps, table);
+    const amended = played.log[played.log.length - 1];
+    if (amended?.kind !== 'move') return state;
+    return { ...played, log: [...played.log.slice(0, -1), { ...amended, moves: [...amended.moves, ...moves] }] };
+  }
+  // After a correction of the charge, one move entry of the second play holds the step too.
+  const condition = pending.steps.length === 0 && pending.condition ? { condition: pending.condition.status } : {};
+  const entry: LogEntry = {
+    kind: 'move',
+    moves,
+    effectOf: { target: { ...pending.target }, card: pending.name, effect: { ...condition, steps } },
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
 // The score of the pending effect (#1812): the model's points go to the score, clamped as `adjustScore` clamps

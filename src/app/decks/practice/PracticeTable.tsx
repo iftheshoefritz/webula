@@ -194,6 +194,7 @@ import {
   resolveStepOf,
   resolvingRecalled,
   pendingPlayEffectOf,
+  downloadPlaceShipsOf,
 } from './gameLog';
 import { discardCount, downloadTakes, examineCount, examineTakeMax, examineTakeMin, examineTakes, playConditionLine } from '../../../lib/playModels';
 import {
@@ -2400,6 +2401,13 @@ function PracticeDrawContent() {
   const dispatch = (action: GameAction) => {
     const chosen = withShuffleOrders(table, action, game.log, cardTextOn);
     if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
+    // The Enterprise's play aboard itself (#1811) is charged inside the play's own entry, or a new one after a
+    // correction, so the chip shows both plays.
+    else if (chosen.type === 'playEffectDownload') {
+      const pending = pendingPlayEffectOf(game);
+      if (pending?.model.kind === 'downloadPlace' && pending.model.place.kind === 'playAboardThis')
+        setChargeChip({ entry: pending.target.entry === game.log.length - 1 ? pending.target.entry : game.log.length });
+    }
     else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) setChargeChip(null);
     // A play that reveals the opponent's dilemma pile (#1738) opens the reveal panel at the bottom of the
     // pile, on the cards it put there, where the player orders them. The panel draws over every other
@@ -2771,6 +2779,27 @@ function PracticeDrawContent() {
               onApply: (take: string[], bottom: string[]) => dispatch({ type: 'playEffectExamine', take, bottom }),
             };
           })()
+        : pendingPlay?.model.kind === 'downloadPlace'
+          ? (() => {
+              // The download to a place of #1811: one card of the draw deck that passes the model's test, and the
+              // ship it goes aboard, the played card's mission first.
+              const model = pendingPlay.model;
+              const place = model.place;
+              return {
+                step: 'downloadCards' as const,
+                cards: table.drawDeck.filter((c) => downloadTakes(model, c.card)),
+                max: 1,
+                testText: model.testText,
+                placeText:
+                  place.kind === 'drawDeckTop'
+                    ? 'then place it on top of your draw deck'
+                    : place.kind === 'playAboardThis'
+                      ? `and play it at cost −${place.discount} aboard this ship`
+                      : `and place it aboard ${place.text}`,
+                ...(place.kind === 'drawDeckTop' ? {} : { ships: downloadPlaceShipsOf(table, pendingPlay) }),
+                onDownload: (ids: string[], shipId?: string) => dispatch({ type: 'playEffectDownload', ids, ...(shipId ? { shipId } : {}) }),
+              };
+            })()
         : pendingPlay?.model.kind === 'downloadTake'
           ? (() => {
               // The download of #1810: the cards of the draw deck that pass the model's test, in deck order.
