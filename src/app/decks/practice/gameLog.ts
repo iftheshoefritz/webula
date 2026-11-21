@@ -124,6 +124,9 @@ export interface LogMove {
   // with none. Each step of the effect amends the play's own entry, so the play and its effect are one entry
   // and one undo. Absent when no card of the move has a record.
   effects?: (PlayEffectRecord | null)[];
+  // The card the moved card named (#1789), "Wavefront": Self-Replicating Roadblock's name, which amends
+  // the move that placed it on a mission card, so the placement and its name are one entry and one undo.
+  named?: string;
 }
 
 // One step of a "when you play" effect (#1800): the cards it drew, the names of the cards it discarded, or
@@ -257,6 +260,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       restUnder?: number;
       // The card that prevented and overcame it (#1761), "Sigma Iotia II".
       prevented?: string;
+      // The card whose name returned it to the dilemma pile (#1789), "Self-Replicating Roadblock".
+      returned?: string;
     }
   // A correction of one charge by the player (#1607): `target` names the charge, `card` its card
   // (null for an unseen card, absent for a draw), `from` and `to` the cost before and after.
@@ -326,6 +331,9 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // charge came after it: the play at `target`, its card, and the steps of this entry. Its undo takes back
   // those steps only.
   | { kind: 'playEffect'; target: ChargeTarget; card: string; effect: PlayEffectRecord }
+  // A card named a card after its placement's entry (#1789): Self-Replicating Roadblock on the mission
+  // card `on`, named again from the panel, or named after another action.
+  | { kind: 'cardNamed'; card: string; named: string; on?: string }
 );
 
 // The card on the table a use acted on (#1713).
@@ -768,6 +776,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
             ...(action.overcome ? { overcome: action.overcome } : {}),
             ...(restUnder ? { restUnder } : {}),
             ...(action.prevented ? { prevented: action.prevented } : {}),
+            ...(action.returned ? { returned: action.returned } : {}),
           };
         })(),
       };
@@ -938,6 +947,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'playEffectDownload') return playEffectDownloadState(state, action);
   if (action.type === 'playEffectScore') return playEffectScoreState(state);
   if (action.type === 'playEffectSkip') return playEffectSkipState(state);
+  if (action.type === 'setNamed') return setNamedState(state, action);
   // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event.
   if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && pendingPlayEffectOf(state)) return state;
   if (action.type === 'restore') {
@@ -1343,7 +1353,7 @@ const playedPlaceText = (place: LogPlace): string => {
 const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text: string } => {
   const costs = moveCosts(move);
   if (costs && costs.every((c) => c !== null)) {
-    return { verb: 'played', text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}${movedEffectsText(move)}` };
+    return { verb: 'played', text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}${movedNamedText(move)}${movedEffectsText(move)}` };
   }
   if (move.from.kind === 'resolving' && move.to.kind === 'discard' && move.removedFromGame) {
     return { verb: 'resolved', text: `${cardsText(move.cards)}, and removed it from the game` };
@@ -1354,7 +1364,7 @@ const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text:
   }
   return {
     verb: 'moved',
-    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}${move.removedFromGame ? ', and removed from the game' : ''}${movedEffectsText(move)}`,
+    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}${move.removedFromGame ? ', and removed from the game' : ''}${movedNamedText(move)}${movedEffectsText(move)}`,
   };
 };
 
@@ -1423,6 +1433,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   resolveExchanged: true,
   missionSpend: true,
   playEffect: true,
+  cardNamed: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1448,6 +1459,8 @@ export function logEntryText(entry: LogEntry): string {
       if (!shuffled) return text;
       return text ? `${text}, then ${shuffled}` : capitalize(shuffled);
     }
+    case 'cardNamed':
+      return `${entry.card}${typeof entry.on === 'string' ? ` on ${entry.on}` : ''} named ${entry.named}`;
     case 'flip': {
       const byFace = (['up', 'down'] as const)
         .map((face) => ({ face, names: entry.cards.filter((c) => c.face === face).map((c) => c.name) }))
@@ -1508,7 +1521,9 @@ export function logEntryText(entry: LogEntry): string {
       const overcome = typeof entry.overcome === 'string' ? `Overcome: ${entry.overcome}` : '';
       // Prevented and overcome (#1761): "prevented and overcome (Sigma Iotia II)".
       const prevented = typeof entry.prevented === 'string' ? `prevented and overcome (${entry.prevented})` : '';
-      const effects = prevented || overcome || [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
+      // Named at the mission (#1789): "named by Self-Replicating Roadblock, no effect".
+      const returned = typeof entry.returned === 'string' ? `named by ${entry.returned}, no effect` : '';
+      const effects = prevented || returned || overcome || [ops, modifiers].filter(Boolean).join('; ') || 'no effect';
       // The steps of a kept roll (#1629): each selection, then each check, before the effects. An old
       // entry has none.
       const steps = [
@@ -2658,6 +2673,9 @@ export function playEffectText(record: PlayEffectRecord): string {
 
 // "; drew 7 cards, then discarded Tricorder and Phaser" after a play whose effect has a record (#1800), each
 // card's own for a move of more than one card.
+// ", naming Wavefront" after the placement of a card that named a card (#1789).
+const movedNamedText = (move: LogMove): string => (typeof move.named === 'string' && move.named ? `, naming ${move.named}` : '');
+
 const movedEffectsText = (move: LogMove): string =>
   moveEffects(move)
     .map((record, i) =>
@@ -2964,4 +2982,40 @@ function playEffectSkipState(state: GameState): GameState {
     i === 0 && !s.may && s.step === 'discard' && handEmpty && pending.steps.length === 0 ? { step: 'discard', cards: [] } : { step: s.step, skipped: true }
   );
   return withPlayEffectSteps(state, pending, steps, state.table);
+}
+
+// A card names a card (#1789). When the last entry is the move that placed the card on a card and named
+// nothing yet, the name amends that move, and the undo snapshot stays the table from before the move, so
+// one undo takes back the placement and the name. Otherwise it is a `cardNamed` entry of its own.
+function setNamedState(state: GameState, action: { id: string; named?: string }): GameState {
+  const table = tableReducer(state.table, { type: 'setNamed', id: action.id, ...(action.named ? { named: action.named } : {}) });
+  if (table === state.table || !action.named) return table === state.table ? state : { ...state, table, redo: [] };
+  const found = findInstanceAnywhere(table, action.id);
+  if (!found) return state;
+  const name = cardName(table, action.id);
+  const on = typeof found.zone === 'object' && found.zone.zone === 'on' ? cardName(table, found.zone.targetId) : undefined;
+  const last = state.log[state.log.length - 1];
+  const move = last?.kind === 'move' ? last.moves[last.moves.length - 1] : undefined;
+  if (
+    last?.kind === 'move' &&
+    move &&
+    move.named === undefined &&
+    move.cards.length === 1 &&
+    move.cards[0] === name &&
+    move.to.kind === 'on' &&
+    move.to.card === on &&
+    !findInstanceAnywhere(state.table, action.id)?.instance.named
+  ) {
+    const amended: LogEntry = { ...last, moves: [...last.moves.slice(0, -1), { ...move, named: action.named }] };
+    return { table, log: [...state.log.slice(0, -1), amended], undo: state.undo, redo: [] };
+  }
+  const entry: LogEntry = {
+    kind: 'cardNamed',
+    card: name,
+    named: action.named,
+    ...(on ? { on } : {}),
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }

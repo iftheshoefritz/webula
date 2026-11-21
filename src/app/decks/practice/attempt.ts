@@ -28,6 +28,7 @@ import { missionCostOf } from '../../../lib/dilemmaBot/pile/missionCost';
 import { ATTRIBUTE_REGISTRY, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
 import { shipRangeOnTable } from './shipRange';
 import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
+import { namedAtMission, roadblockReturnOf } from './selfReplicatingRoadblock';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -156,6 +157,9 @@ export type BotResolve =
       // The card that prevented and overcame the dilemma (#1761), "Sigma Iotia II" or "Tristan Adams":
       // no effect, and it goes beneath the mission.
       prevented?: string;
+      // The card whose name returns the dilemma to the dilemma pile (#1789), "Self-Replicating Roadblock":
+      // no effect, and it goes to the bottom of the dilemma pile.
+      returned?: string;
     };
 
 // Where the resolved dilemma goes, in table terms (#1599).
@@ -197,6 +201,13 @@ export function botResolveOf(
   if (prevented) {
     const move = resolveMoveOf(table, 'under');
     return { resolvable: true, preview: `Prevented and overcome (${prevented})`, changes: [], notes: [], prevented, ...(move ? { move } : {}) };
+  }
+  // A dilemma a Self-Replicating Roadblock on the attempted mission named (#1789): no effect, whatever its
+  // model, and it returns to the bottom of the dilemma pile, face up.
+  const returned = roadblockReturnOf(table);
+  if (returned) {
+    const move = resolveMoveOf(table, 'pileBottom');
+    return { resolvable: true, preview: `Named by ${returned}: no effect; returns to the dilemma pile`, changes: [], notes: [], returned, ...(move ? { move } : {}) };
   }
   const row = table.attempt ? attemptingCards(table, table.attempt.missionIndex, table.attempt.shipId) : null;
   const rowPersonnel = new Set((row ?? []).filter((c) => c.card?.type === 'personnel').map((c) => c.id));
@@ -319,6 +330,7 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     mission: slot?.mission?.card,
     ship: ship && shipRowOnTable(table, ship, cardText),
     placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
+    returnedHere: namedAtMission(table, missionIndex),
     underMission: (slot?.underMission ?? []).map((c) => c.card),
     missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed, under: s.underMission.map((c) => c.card) })),
     hand: table.hand.map((c) => c.card),

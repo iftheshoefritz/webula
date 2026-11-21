@@ -370,7 +370,7 @@ function repairTable(table: TableState): TableState {
 function tableRestorer(dealtDeck: DeckList) {
   let maxInstanceId = 0;
   const restore = (saved: SavedCardInstance): CardInstance => {
-    const { key, crew, placedOn, ...rest } = saved;
+    const { key, crew, placedOn, named, ...rest } = saved;
     const entry = dealtDeck[key];
     if (!entry?.row) throw new MissingKeyError();
     maxInstanceId = Math.max(maxInstanceId, instanceNumber(saved.id));
@@ -379,6 +379,8 @@ function tableRestorer(dealtDeck: DeckList) {
       card: { ...entry.row },
       ...(crew ? { crew: crew.map(restore) } : {}),
       ...(placedOn ? { placedOn: placedOn.map(restore) } : {}),
+      // The name a card named (#1789): kept when it is a title, dropped alone otherwise.
+      ...(typeof named === 'string' && named ? { named } : {}),
     };
   };
   const restoreResolving = (saved: unknown): CardInstance | null => {

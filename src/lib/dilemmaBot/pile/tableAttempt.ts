@@ -42,6 +42,8 @@ export interface PileTableInput {
   ship?: Row;
   /** The rows placed on the attempted mission. */
   placedOn: ReadonlyArray<Row>;
+  /** The dilemma titles that return to the dilemma pile when revealed at the attempted mission (Self-Replicating Roadblock's name, #1789). Absent: none. */
+  returnedHere?: ReadonlyArray<string>;
   /** The rows beneath the attempted mission. */
   underMission: ReadonlyArray<Row>;
   /** Every mission slot of the table, with the dilemmas beneath it (Talosian Trial). */
@@ -153,6 +155,7 @@ export function pileAttemptOf(input: PileTableInput): { attempt: PileAttempt; ra
       trelliumD: (input.commanded ?? []).filter((row) => titleOf(row) === 'Trellium-D').length,
       ...(input.hand.length ? { handCostMax: Math.max(0, ...input.hand.map((row) => Number(row?.cost) || 0)) } : {}),
       onMission: input.placedOn.map(titleOf).filter((t): t is string => t !== null),
+      ...(input.returnedHere?.length ? { returnedHere: [...input.returnedHere] } : {}),
       headquartersOtherQuadrant: slots.some((s) => s.mission.missiontype === 'h' && String(s.mission.quadrant ?? '') !== String(mission.quadrant ?? '')),
       ...(input.shipsAtMission
         ? { shipAtMission: input.shipsAtMission.length > 0, staffedShipAtMission: input.shipsAtMission.some((s) => s.staffed) }

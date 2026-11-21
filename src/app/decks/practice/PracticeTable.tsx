@@ -71,6 +71,7 @@ import {
   PRACTICE_MISSIONS_HAND,
   PRACTICE_MISSIONS_TSV,
   PRACTICE_BOT_COSTS_TSV,
+  PRACTICE_BOT_ROADBLOCK_TSV,
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
   PRACTICE_COSTS_CORE,
@@ -148,6 +149,8 @@ import { completionBatch, completionEffectOf, flipActions } from './completionEf
 import { downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups } from './personnelChoice';
 import { nameableDilemmaTitles, preventionOf } from './dilemmaPrevention';
 import { DilemmaNamePicker } from './DilemmaNamePicker';
+import { NamedCardProvider, type NamedCards } from './NamedCardContext';
+import { ROADBLOCK_TITLE, isRoadblock, nameableCardTitles, roadblockToNameOf } from './selfReplicatingRoadblock';
 import useLocalStorage from '../../../hooks/useLocalStorage';
 import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
@@ -2332,7 +2335,9 @@ function PracticeDrawContent() {
   // `?fixture=bot-resolve-becalmed` (#1628) with Becalmed, whose roll and check the preview names.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
   // `?fixture=bot-costs` (#1738) deals the `?fixture=bot` table with Ptol at the end of the hand.
-  const isBotCostsFixture = fixture === 'bot-costs';
+  // `?fixture=bot-roadblock` (#1789) deals it with Self-Replicating Roadblock at the end of the hand instead.
+  const botExtraTsv = fixture === 'bot-costs' ? PRACTICE_BOT_COSTS_TSV : fixture === 'bot-roadblock' ? PRACTICE_BOT_ROADBLOCK_TSV : null;
+  const isBotCostsFixture = botExtraTsv !== null;
   const isBotFixture = fixture === 'bot' || isBotCostsFixture || botRevealFixture !== null;
   const isFixture =
     fixture === '1' ||
@@ -2388,6 +2393,10 @@ function PracticeDrawContent() {
   // Tristan Adams's "+2: name a dilemma" (#1761): the charge, the model and the cost the choice sets,
   // while the picker of a title is open.
   const [dilemmaNaming, setDilemmaNaming] = useState<{ target: ChargeTarget; source: string; cost: number } | null>(null);
+  // Self-Replicating Roadblock's name (#1789): the card a tap on its badge in a panel opens the picker for,
+  // and the log entry whose placement the player skipped naming, so the picker the placement opens stays shut.
+  const [roadblockNamingId, setRoadblockNamingId] = useState<string | null>(null);
+  const [roadblockSkipped, setRoadblockSkipped] = useState<object | null>(null);
   // The picker of Nimbus III's download (#1754), open with the slot it spends at.
   const [nimbusPickerSlot, setNimbusPickerSlot] = useState<number | null>(null);
   // `play` marks the panel a play opened on the cards it revealed (#1738).
@@ -2916,7 +2925,7 @@ function PracticeDrawContent() {
   // reveal kept, and those who met its check. Gone once it is resolved or the next card is on top.
   const botRowMarks = useMemo((): BotRowMarks | null => {
     const snapshot = table.attempt?.revealSnapshot;
-    if (!botLabelCardId || !snapshot || snapshot.dilemmaId !== botLabelCardId || snapshot.resolved || !snapshot.picks?.length || prevented) return null;
+    if (!botLabelCardId || !snapshot || snapshot.dilemmaId !== botLabelCardId || snapshot.resolved || !snapshot.picks?.length || prevented || (botResolve?.resolvable && botResolve.returned)) return null;
     const checks = botResolve?.resolvable ? (botResolve.steps?.checks ?? []) : [];
     return {
       selected: [...new Set(snapshot.picks.flat())],
@@ -2941,6 +2950,7 @@ function PracticeDrawContent() {
       ...(pressed.restToPile?.length ? { restToPile: pressed.restToPile } : {}),
       ...(pressed.overcome ? { overcome: pressed.overcome, ...(pressed.restUnder?.length ? { restUnder: pressed.restUnder } : {}) } : {}),
       ...(pressed.prevented ? { prevented: pressed.prevented } : {}),
+      ...(pressed.returned ? { returned: pressed.returned } : {}),
     });
   };
 
@@ -3197,7 +3207,7 @@ function PracticeDrawContent() {
     hand: [] as any[],
     crew: [] as any[],
     core: [] as any[],
-    lateHand: extractDrawDeck(deckFromTsv(PRACTICE_BOT_COSTS_TSV, data)),
+    lateHand: extractDrawDeck(deckFromTsv(botExtraTsv ?? '', data)),
   });
   const fixtureDeck = (): DeckList => {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
@@ -3213,7 +3223,7 @@ function PracticeDrawContent() {
     if (!isBotFixture) return deck;
     const botDeck = {
       ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
-      ...(isBotCostsFixture ? deckFromTsv(PRACTICE_BOT_COSTS_TSV, data) : {}),
+      ...(botExtraTsv ? deckFromTsv(botExtraTsv, data) : {}),
     };
     // The dilemma a revealing bot fixture adds, by its collector's info as `parseCardData` stores it.
     const labelled = botRevealFixture
@@ -3622,6 +3632,15 @@ function PracticeDrawContent() {
   };
   // The cards that offer a use for a charge of this turn's play and draw (#1713), each for the latest
   // charge it can still serve, so its badge takes that one.
+  // Issue #1789: a Self-Replicating Roadblock just placed on a mission card asks for its name, and every
+  // Roadblock on a mission card shows its name, or "Name a card", in the panel, where a tap changes it.
+  const roadblockToName = roadblockToNameOf(table, game.log);
+  const lastEntry = game.log[game.log.length - 1];
+  const roadblockNaming = roadblockNamingId ?? (roadblockToName && lastEntry !== roadblockSkipped ? roadblockToName.id : null);
+  const namedCards: NamedCards = {
+    ids: new Set(missions.flatMap((m) => (m.mission?.placedOn ?? []).filter((c) => isRoadblock(c.card)).map((c) => c.id))),
+    onName: setRoadblockNamingId,
+  };
   const tableCardUses = new Map<string, TableCardUse>();
   if (turnCountersOn && table.segment === 'playAndDraw') {
     for (const charge of [...turnCharges(game.log, turn)].reverse()) {
@@ -4658,6 +4677,22 @@ function PracticeDrawContent() {
             onClose={() => setDilemmaNaming(null)}
           />
         )}
+        {roadblockNaming && !dilemmaNaming && (
+          <DilemmaNamePicker
+            title={ROADBLOCK_TITLE}
+            heading={`${ROADBLOCK_TITLE}: name a dilemma or an event`}
+            closeLabel={roadblockNamingId ? 'Cancel' : 'Skip'}
+            titles={nameableCardTitles(table.opponent === 'bot' ? nameableDilemmaTitles(table, data) : [], data)}
+            onChoose={(named) => {
+              dispatch({ type: 'setNamed', id: roadblockNaming, named });
+              setRoadblockNamingId(null);
+            }}
+            onClose={() => {
+              if (!roadblockNamingId) setRoadblockSkipped(lastEntry ?? null);
+              setRoadblockNamingId(null);
+            }}
+          />
+        )}
         {personnelChoice && (
           <PersonnelChoicePanel
             title={personnelChoice.source}
@@ -4790,6 +4825,7 @@ function PracticeDrawContent() {
             <PlaceOnHoldProvider value={placeOnHold}>
             <RangeUsedProvider value={rangeUsedInfo}>
             <TableCardUseProvider value={tableCardUses}>
+            <NamedCardProvider value={namedCards}>
             <MissionSpendProvider value={missionSpendOffers}>
             <Table3DContext value={table3dOn}>
             {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
@@ -4854,7 +4890,7 @@ function PracticeDrawContent() {
                       width={attemptSizes.stackWidth}
                       height={attemptSizes.stackHeight}
                       cardWidth={attemptSizes.stackCardWidth}
-                      botLabel={prevented ? null : botLabelText}
+                      botLabel={prevented || (botResolve?.resolvable && botResolve.returned) ? null : botLabelText}
                       onDismissBotLabel={() => {
                         if (botLabel) setDismissedBotLabels((ids) => new Set(ids).add(botLabel.id));
                       }}
@@ -5401,6 +5437,7 @@ function PracticeDrawContent() {
               <ResolvingMini instance={pendingPlay.instance} played onOpen={() => setResolvingCollapsed(false)} />
             )}
             </MissionSpendProvider>
+            </NamedCardProvider>
             </TableCardUseProvider>
             </RangeUsedProvider>
             </PlaceOnHoldProvider>

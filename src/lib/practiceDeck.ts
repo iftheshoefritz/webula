@@ -222,6 +222,10 @@ export const RESOLVING_FIXTURE_EVENT = PRACTICE_COSTS_LATE_HAND[0];
 // whose play in a bot game reveals the top four cards of the bot's dilemma pile.
 export const PRACTICE_BOT_COSTS_TSV = `1\tPtol`;
 
+// The card `?fixture=bot-roadblock` (#1789) adds to the end of the hand of the `?fixture=bot` table:
+// Self-Replicating Roadblock, an event that names a dilemma when it is placed on a mission card.
+export const PRACTICE_BOT_ROADBLOCK_TSV = `1\tSelf-Replicating Roadblock`;
+
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the
 // core, for the arrows of the attribute bands.

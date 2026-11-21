@@ -561,6 +561,13 @@ export class PlayState {
       }
       this.current = model.title;
       this.faced.push(model.title);
+      // A title Self-Replicating Roadblock named at the mission returns to the dilemma pile when revealed,
+      // with no effect (#1789): its cost is spent.
+      if (this.attempt.table.returnedHere?.includes(model.title)) {
+        this.trace?.(`${model.title}: named by Self-Replicating Roadblock`);
+        this.returnsToPile();
+        continue;
+      }
       if (this.live === 0) {
         this.trace?.(`${model.title}: not faced, every personnel is stopped`);
         this.unfaced(model);
