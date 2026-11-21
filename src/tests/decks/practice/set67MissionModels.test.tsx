@@ -18,6 +18,7 @@ import { costFactsOf } from '../../../app/decks/practice/costFacts';
 import { toSavedGame, fromSavedGame } from '../../../app/decks/practice/savedGame';
 import { missionRequires } from '../../../lib/costModels/titles/completedMission';
 import { pileAttemptOf } from '../../../lib/dilemmaBot/pile/tableAttempt';
+import { pileResolveOf } from '../../../lib/dilemmaBot/pile/resolve';
 import { SKILL_INDEX } from '../../../lib/dilemmaBot/requirements';
 import { addedRequirements, parsedRequirementsOf, requirementTextsOf } from '../../../lib/requirementRules';
 import { cardTitleOf } from '../../../lib/cardTitle';
@@ -183,6 +184,23 @@ describe('Crescent Nebula Take Out the Trash (#1828)', () => {
     // Without Crescent Nebula the printed branches stand.
     const plain = pileAttemptOf(pileTableInputOf(tableOf([{}, { mission: inst(orMission), awayTeam: crew }]), 1)).attempt;
     expect(plain.requirements.every((b) => b.skills[SKILL_INDEX.intelligence] === 0)).toBe(true);
+  });
+
+  it('a dilemma that reads a skill of the mission reads Intelligence: Dead Weight spares an Intelligence personnel', () => {
+    const skilled = (name: string, skills: string) =>
+      inst({ name: name.toLowerCase(), originalName: name, type: 'personnel', species: 'human', affiliation: 'bajoran', cost: '2', skills, integrity: '5', cunning: '5', strength: '5' });
+    const crew = [skilled('Spy', 'intelligence'), skilled('Doc', 'medical'), skilled('Bio', 'biology')];
+    const resolveAt = (first: Partial<MissionSlot>) => {
+      const t = tableOf([first, { mission: inst(caldos()), awayTeam: crew }]);
+      const { attempt, personnelIds } = pileAttemptOf(pileTableInputOf(t, 1));
+      const ids = crew.map((c) => c.id);
+      const r = pileResolveOf(rowOf('Dead Weight'), attempt, { personnelIds, snapshotIds: ids, where: () => ({ at: 'row', stopped: false }) });
+      if (!r.resolvable) throw new Error(r.reason);
+      return r;
+    };
+    // With Crescent Nebula the Intelligence personnel holds a required skill, so only Doc is stopped.
+    expect(resolveAt({ mission: inst(nebula()) }).preview).toMatch(/^Stops Doc\b/);
+    expect(resolveAt({}).preview).toMatch(/^Stops Spy, Doc\b/);
   });
 
   it('the cost facts read the same requirements', () => {
