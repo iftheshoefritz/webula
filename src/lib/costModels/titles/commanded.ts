@@ -1,3 +1,4 @@
+import { cardTitleOf } from '../../cardTitle';
 import { SKILL_INDEX } from '../../dilemmaBot/requirements';
 import { CommandedTraits, CostFacts, CostModel, ModelCost } from '../model';
 
@@ -106,9 +107,20 @@ export const COMMANDED_MODELS: CostModel[] = [
   { title: 'Bareil Antos Petty Thief', label: 'Bareil Antos', family: 'ownCost', playCost: ifCommand(1, has('anthropology'), 2, 'an Anthropology personnel') },
   // "When you play this personnel, if you command a Vorta, this personnel is cost -1."
   { title: 'Deyos Ruthless Administrator', label: 'Deyos', family: 'ownCost', playCost: ifCommand(1, species('vorta'), 1, 'a Vorta') },
-  // "When you play this personnel, if you command an Acquisition personnel, he is cost -3." His counter
-  // grant, "While you command four cards that have a cost of four or more…", is not modelled here.
-  { title: 'Gint The First Grand Nagus', label: 'Gint', family: 'ownCost', playCost: ifCommand(1, has('acquisition'), 3, 'an Acquisition personnel') },
+  // "When you play this personnel, if you command an Acquisition personnel, he is cost -3. While you command
+  // four cards that have a cost of four or more, you may spend an additional counter each turn." The grant
+  // (#1768) is read from the table as it stands, while Gint is unstopped and commanded, he counting himself.
+  {
+    title: 'Gint The First Grand Nagus',
+    label: 'Gint',
+    family: 'ownCost',
+    playCost: ifCommand(1, has('acquisition'), 3, 'an Acquisition personnel'),
+    limitGrant: (facts) => {
+      if (!facts.commanded.some((p) => cardTitleOf(p.name) === 'gint the first grand nagus')) return null;
+      const n = (facts.commandedCosts ?? []).filter((cost) => cost >= 4).length;
+      return n >= 4 ? { amount: 1, reason: `you command ${n} cards of cost 4 or more` } : null;
+    },
+  },
   // "When you play this personnel, if you command an Honor personnel, she is cost -1."
   { title: 'Grilka Glorious Lady', label: 'Grilka', family: 'ownCost', playCost: ifCommand(1, has('honor'), 1, 'an Honor personnel') },
   // "When you play this personnel, if you command three events, he is cost -1."

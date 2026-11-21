@@ -112,6 +112,12 @@ export interface CostFacts {
    */
   events?: CostEventCard[];
   /**
+   * The printed cost of each card the player commands (#1768), a non-numeric cost 0: the unstopped personnel
+   * and the equipment of every away team and crew, never the brig, the ships of every ship row, and the
+   * events of `events`. Missions have no cost. Absent is none.
+   */
+  commandedCosts?: number[];
+  /**
    * The top cards of the player's own draw deck, top first, at most `DECK_TOP_FACTS` (#1744), each with its
    * instance id, its type and its species, lowercased. The player's deck in every game. Absent is empty.
    */
