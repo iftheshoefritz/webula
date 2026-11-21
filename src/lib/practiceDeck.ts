@@ -264,6 +264,23 @@ export const PRACTICE_DISSIDENT_TSV = `1\tThe New Resistance
 // Working, an event with Recall: 1, and a second Vidiian Organ Bank, whose Recall needs two completed missions.
 export const PRACTICE_RECALL_TSV = `1\tMiracle Working
 1\tVidiian Organ Bank`;
+// The cards `?fixture=unique` (#1821) adds to the `?fixture=piles` table, two of each: Yarka Harbinger of the
+// Prophets, a unique personnel, one in the crew of the ship at Bilana System and one at the end of the hand;
+// Vina Orion Slave Girl, a unique personnel, one in the discard pile and one at the end of the hand; and
+// Self-Replicating Roadblock "(limit one per mission)" and Inspiring Leader "(limit one per ship)", both copies
+// at the end of the hand.
+export const PRACTICE_UNIQUE_TSV = `2\tYarka Harbinger of the Prophets
+2\tVina Orion Slave Girl
+2\tSelf-Replicating Roadblock
+2\tInspiring Leader`;
+export const PRACTICE_UNIQUE_IN_PLAY = 'Yarka Harbinger of the Prophets';
+export const PRACTICE_UNIQUE_DISCARDED = 'Vina Orion Slave Girl';
+export const PRACTICE_UNIQUE_HAND = [
+  'Yarka Harbinger of the Prophets',
+  'Vina Orion Slave Girl',
+  'Self-Replicating Roadblock',
+  'Inspiring Leader',
+];
 export const PRACTICE_DISSIDENT_CORE = 'The New Resistance';
 export const PRACTICE_DISSIDENT_HAND = 'Leeta Rebel Supporter';
 export const PRACTICE_DISSIDENT_DRAW_TOP = 'Damar Cardassian Liberator';

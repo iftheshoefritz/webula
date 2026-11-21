@@ -41,6 +41,7 @@ import {
 } from './tableReducer';
 import { drawSpend, drawSpendText } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
+import { ruleWarningsIn, ruleWarningsOf, ruleWarningText, type RuleWarning } from './playRules';
 import { revealPicksOf } from './attempt';
 import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
@@ -127,6 +128,9 @@ export interface LogMove {
   // The card the moved card named (#1789), "Wavefront": Self-Replicating Roadblock's name, which amends
   // the move that placed it on a mission card, so the placement and its name are one entry and one undo.
   named?: string;
+  // The play rules the move broke (#1821), recorded while "Check uniqueness and limits" was on: "Unique:
+  // Data is already in play". Absent when it broke none, and in an entry from before #1821.
+  warnings?: RuleWarning[];
 }
 
 // One step of a "when you play" effect (#1800): the cards it drew, the names of the cards it discarded, or
@@ -241,9 +245,11 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // `went`: where the dilemma went (#1599), "goes under Bilana System", only when it left the stack.
   // `selected` and `checks`: the steps of a kept roll (#1629), the names of each random select and of
   // the personnel who met each check, captured at dispatch. An entry from before #1629 has neither.
+  // `warnings`: the limit its placement broke (#1821), only when it left the stack.
   | {
       kind: 'dilemmaResolved';
       dilemma: string;
+      warnings?: RuleWarning[];
       selected?: string[][];
       checks?: ResolveCheck[];
       ops: { op: ResolveOp; cards: string[] }[];
@@ -417,7 +423,7 @@ export type GameAction =
   // The download of the cards `ids` of the draw deck into hand (#1810), then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses. A download to a place (#1811) takes one card, and `shipId` names
   // the ship it goes aboard.
-  | { type: 'playEffectDownload'; ids: string[]; order?: string[]; shipId?: string }
+  | { type: 'playEffectDownload'; ids: string[]; order?: string[]; shipId?: string; ruleWarnings?: RuleWarning[] }
   | { type: 'playEffectScore' }
   | { type: 'playEffectSkip' }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
@@ -568,6 +574,7 @@ function moveEntry(
           : null;
       const uses = cost !== null && move.costUses?.length ? move.costUses : null;
       const removedFromGame = removed.has(move.id);
+      const warnings = move.ruleWarnings?.length ? move.ruleWarnings : null;
       const group = groups.find(
         (g) =>
           placeKey(g.from) === placeKey(from) &&
@@ -582,6 +589,7 @@ function moveEntry(
         if (uses || group.uses) group.uses = [...(group.uses ?? group.cards.map(() => null)), uses];
         group.cards.push(card);
         if (range) group.range = [...(group.range ?? []), range];
+        if (warnings) group.warnings = [...(group.warnings ?? []), ...warnings];
       } else
         groups.push({
           cards: [card],
@@ -594,6 +602,7 @@ function moveEntry(
           ...(play ? { plays: [play] } : {}),
           ...(uses ? { uses: [uses] } : {}),
           ...(removedFromGame ? { removedFromGame: true as const } : {}),
+          ...(warnings ? { warnings: [...warnings] } : {}),
         });
     }
     state = next;
@@ -777,6 +786,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
             ...(restUnder ? { restUnder } : {}),
             ...(action.prevented ? { prevented: action.prevented } : {}),
             ...(action.returned ? { returned: action.returned } : {}),
+            ...(went && action.ruleWarnings?.length ? { warnings: [...action.ruleWarnings] } : {}),
           };
         })(),
       };
@@ -1085,12 +1095,47 @@ function withCharge(table: TableState, action: TableAction, turnFacts: TurnFacts
 const withCardText = (action: TableAction, cardText: boolean): TableAction =>
   cardText && action.type === 'move' && action.cardText === undefined ? { ...action, cardText: true } : action;
 
-const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts, cardText: boolean): TableAction[] =>
-  withCharge(table, withShuffleOrder(table, withCardText(action, cardText)), turnFacts);
+// The play rules each action of `actions` breaks (#1821), stamped on it as `ruleWarnings`, while the setting
+// "Check uniqueness and limits" is on: a move that changed its place, read from the table before it, a play
+// (a charged move) for uniqueness too, and the placement of a resolved dilemma. The actions run in turn, so
+// the second of two copies of a batch sees the first.
+function withRuleWarnings(table: TableState, actions: TableAction[]): TableAction[] {
+  let state = table;
+  return actions.map((a) => {
+    let out = a;
+    if (a.type === 'move' && a.ruleWarnings === undefined) {
+      const found = findInstanceAnywhere(state, a.id);
+      const next = found ? tableReducer(state, a) : state;
+      const landed = next !== state ? findInstanceAnywhere(next, a.id) : null;
+      if (found && landed && tableZoneKey(found.zone) !== tableZoneKey(landed.zone)) {
+        const warnings = ruleWarningsOf(state, found.instance, landed.zone, typeof a.cost === 'number');
+        if (warnings.length) out = { ...a, ruleWarnings: warnings };
+      }
+    } else if (a.type === 'resolveDilemma' && a.move && a.ruleWarnings === undefined) {
+      const found = findInstanceAnywhere(state, a.dilemmaId);
+      const warnings = found ? ruleWarningsOf(state, found.instance, a.move.to, false) : [];
+      if (warnings.length) out = { ...a, ruleWarnings: warnings };
+    }
+    state = tableReducer(state, out);
+    return out;
+  });
+}
+
+const withOrderAndCharge = (table: TableState, action: TableAction, turnFacts: TurnFacts, cardText: boolean, checkRules: boolean): TableAction[] => {
+  const chosen = withCharge(table, withShuffleOrder(table, withCardText(action, cardText)), turnFacts);
+  return checkRules ? withRuleWarnings(table, chosen) : chosen;
+};
 
 // `log` is the game's log, for the pending discounts of the turn (#1656). With none, no discount waits.
-// `cardText` is the setting "Apply card text to attributes" (#1668), off by default.
-export function withShuffleOrders(table: TableState, action: GameAction, log: LogEntry[] = [], cardText = false): GameAction {
+// `cardText` is the setting "Apply card text to attributes" (#1668), off by default. `checkRules` is the
+// setting "Check uniqueness and limits" (#1821), off by default: with it off no action carries a warning.
+export function withShuffleOrders(
+  table: TableState,
+  action: GameAction,
+  log: LogEntry[] = [],
+  cardText = false,
+  checkRules = false
+): GameAction {
   if (
     action.type === 'undo' ||
     action.type === 'redo' ||
@@ -1114,7 +1159,14 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
   ) {
     return action;
   }
-  if (action.type === 'downloadForCharge' || action.type === 'playEffectDownload') {
+  if (action.type === 'playEffectDownload') {
+    const ordered = action.order ? action : { ...action, order: shuffledIds(table.drawDeck.filter((c) => !action.ids.includes(c.id))) };
+    // A download played aboard a ship (#1811) is a play, so it checks uniqueness (#1821).
+    const card = action.shipId && action.ids.length === 1 ? table.drawDeck.find((c) => c.id === action.ids[0]) : undefined;
+    const warnings = checkRules && card && action.shipId && !action.ruleWarnings ? ruleWarningsOf(table, card, { zone: 'crew', shipId: action.shipId }, true) : [];
+    return warnings.length ? { ...ordered, ruleWarnings: warnings } : ordered;
+  }
+  if (action.type === 'downloadForCharge') {
     if (action.order) return action;
     return { ...action, order: shuffledIds(table.drawDeck.filter((c) => !action.ids.includes(c.id))) };
   }
@@ -1136,13 +1188,13 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     const effect = !!completionOf(action.actions);
     let state = table;
     const actions = action.actions.flatMap((a) => {
-      const chosen = effect && a.type === 'move' ? [a] : withOrderAndCharge(state, a, turnFacts, cardText);
+      const chosen = effect && a.type === 'move' ? [a] : withOrderAndCharge(state, a, turnFacts, cardText, checkRules);
       state = chosen.reduce(tableReducer, state);
       return chosen;
     });
     return { ...action, actions };
   }
-  const chosen = withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts(), cardText);
+  const chosen = withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts(), cardText, checkRules);
   return chosen.length === 1 ? chosen[0] : { type: 'batch', actions: chosen };
 }
 
@@ -1353,7 +1405,10 @@ const playedPlaceText = (place: LogPlace): string => {
 const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text: string } => {
   const costs = moveCosts(move);
   if (costs && costs.every((c) => c !== null)) {
-    return { verb: 'played', text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}${movedNamedText(move)}${movedEffectsText(move)}` };
+    return {
+      verb: 'played',
+      text: `${cardsText(move.cards)}${playedPlaceText(move.to)}${movedCostText(move)}${movedNamedText(move)}${movedEffectsText(move)}${warningsText(move.warnings)}`,
+    };
   }
   if (move.from.kind === 'resolving' && move.to.kind === 'discard' && move.removedFromGame) {
     return { verb: 'resolved', text: `${cardsText(move.cards)}, and removed it from the game` };
@@ -1364,9 +1419,18 @@ const moveText = (move: LogMove): { verb: 'played' | 'moved' | 'resolved'; text:
   }
   return {
     verb: 'moved',
-    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}${move.removedFromGame ? ', and removed from the game' : ''}${movedNamedText(move)}${movedEffectsText(move)}`,
+    text: `${cardsText(move.cards)} from ${placeText(move.from)} to ${destinationText(move)}${movedRangeText(move)}${movedCostText(move)}${move.removedFromGame ? ', and removed from the game' : ''}${movedNamedText(move)}${movedEffectsText(move)}${warningsText(move.warnings)}`,
   };
 };
+
+// The warnings of the play rules a move broke (#1821), "; unique: Data is already in play".
+const warningsText = (warnings: unknown): string =>
+  ruleWarningsIn(warnings)
+    .map((w) => {
+      const text = ruleWarningText(w);
+      return `; ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+    })
+    .join('');
 
 const movedRangeText = (move: LogMove): string => {
   const ranges = Array.isArray(move.range) ? move.range.filter((r) => r && typeof r.used === 'number' && typeof r.left === 'number') : [];
@@ -1540,7 +1604,7 @@ export function logEntryText(entry: LogEntry): string {
         .map((part) => `; ${part}`)
         .join('');
       const notes = entry.notes?.length ? ` (${entry.notes.map(resolveNoteText).join('; ')})` : '';
-      return `Resolved ${entry.dilemma}: ${[...steps, effects].join('; ')}${notes}${went}`;
+      return `Resolved ${entry.dilemma}: ${[...steps, effects].join('; ')}${notes}${went}${warningsText(entry.warnings)}`;
     }
     case 'attemptPhase': {
       const text =
@@ -2534,6 +2598,21 @@ export function actionCharged(action: GameAction): boolean {
   return actions.some((a) => (a.type === 'move' || a.type === 'drawCard') && typeof a.cost === 'number');
 }
 
+// Whether an action carries a warning of the play rules (#1821), so the page shows its chip.
+export function actionWarned(action: GameAction): boolean {
+  if (action.type === 'playEffectDownload') return !!action.ruleWarnings?.length;
+  const actions = action.type === 'batch' ? action.actions : [action];
+  return actions.some((a) => (a.type === 'move' || a.type === 'resolveDilemma') && !!a.ruleWarnings?.length);
+}
+
+// The warnings of the play rules an entry recorded (#1821), from its moves or its resolved dilemma's
+// placement, malformed ones left out.
+export function entryRuleWarnings(entry: LogEntry | undefined): RuleWarning[] {
+  if (entry?.kind === 'move') return entry.moves.flatMap((m) => ruleWarningsIn(m.warnings));
+  if (entry?.kind === 'dilemmaResolved') return ruleWarningsIn(entry.warnings);
+  return [];
+}
+
 // The label of a mission's spend in the chip and the list (#1754), "Earth Lush and Beautiful Home: draw 2".
 export const missionSpendLabel = (entry: Extract<LogEntry, { kind: 'missionSpend' }>): string =>
   entry.spend === 'earth' ? `${entry.mission}: draw ${entry.drew ?? 0}` : `${entry.mission}: ${entry.downloaded ?? 'download'}`;
@@ -2910,7 +2989,7 @@ function playEffectDownloadPlaceState(
   state: GameState,
   pending: PendingPlayEffect,
   model: DownloadPlaceModel,
-  action: { ids: string[]; order?: string[]; shipId?: string }
+  action: { ids: string[]; order?: string[]; shipId?: string; ruleWarnings?: RuleWarning[] }
 ): GameState {
   if (!Array.isArray(action.ids) || action.ids.length !== 1) return state;
   const id = action.ids[0];
@@ -2931,6 +3010,7 @@ function playEffectDownloadPlaceState(
     id,
     to: { zone: 'crew', shipId: ship.id },
     ...(cost !== null ? { cost, costSource: { title: model.title, reason: `played aboard this ship at cost −${model.place.kind === 'playAboardThis' ? model.place.discount : 0}` } } : {}),
+    ...(cost !== null && action.ruleWarnings?.length ? { ruleWarnings: action.ruleWarnings } : {}),
   };
   const boarded = tableReducer(state.table, move);
   if (boarded === state.table) return state;

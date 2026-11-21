@@ -6,6 +6,7 @@ import { useEscapeLayer } from './useEscapeLayer';
 import { ChargeTarget, LogCharge, TurnCounters } from './gameLog';
 import type { TurnSegment } from './tableReducer';
 import { SAFE_INSET_CSS, safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
+import { ruleWarningText, type RuleWarning } from './playRules';
 
 // The counters of the turn (#1607): the chip of the last charge and the list of the turn's charges.
 // The table's charge is a suggestion, so each one has Free, minus and plus. The UI word for a charge
@@ -262,6 +263,7 @@ export function ChargeChip({
   uses,
   deckDiscard,
   missionSpend,
+  warnings = [],
 }: {
   charges: LogCharge[];
   onCorrect: OnCorrect;
@@ -274,6 +276,9 @@ export function ChargeChip({
   deckDiscard?: DeckDiscardHandlers;
   // Earth's offer after the play the chip shows (#1754), "Spend 1: draw 2".
   missionSpend?: { label: string; onSpend: () => void };
+  // The play rules the entry broke (#1821), a line each below the charges. With Counters off the chip
+  // shows them alone.
+  warnings?: RuleWarning[];
 }) {
   return (
     <div
@@ -306,6 +311,11 @@ export function ChargeChip({
           Spend 1: draw 2
         </button>
       )}
+      {warnings.map((warning, i) => (
+        <p key={i} data-testid="charge-warning" data-rule={warning.rule} className="text-xs text-amber-300">
+          {ruleWarningText(warning)}
+        </p>
+      ))}
     </div>
   );
 }
