@@ -10,7 +10,7 @@ import { printedCost } from '../../../lib/playCost';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 
 // One card of the picker: a toggle with its name and printed cost, and a hold that previews it.
-function DownloadOption({ card, on, disabled, onToggle }: { card: CardInstance; on: boolean; disabled: boolean; onToggle: () => void }) {
+export function DownloadOption({ card, on, disabled, onToggle }: { card: CardInstance; on: boolean; disabled: boolean; onToggle: () => void }) {
   const hold = useCardHold(card.id);
   return (
     <button

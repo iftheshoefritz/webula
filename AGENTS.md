@@ -636,7 +636,16 @@ interrupt or a Temporal card), a tap takes one (Sobi one for each different Comm
 Requisitions Drone must take one, `examineTakeMin`), the rest in the order controls of the bottom step
 (`resolve-order`), and **Take 1, place 3 on bottom** (`resolve-examine-apply`, `playEffectExamine`), which moves the
 taken to the hand and the rest to the bottom of the draw deck in that order, "…; took Tricorder, placed 3 on the
-bottom". The cards stay in the draw deck until the button. The kind `'score'` (#1812: Annexation Drone, DaiMon Solok
+bottom". The cards stay in the draw deck until the button. The kind `'downloadTake'` (#1810: Opaka Kai of Bajor, Jean-Luc
+Picard Vintner, Mavek Science Officer, Cal Hudson Attache to the Demilitarized Zone, Niles and the other plain "you may
+download <a test>" texts) has one step, `resolve-step-download-cards`: the cards of the draw deck that pass the model's
+test (`downloadTakes`: a title, a persona of a personnel or ship by its name, a type, an affiliation, an icon, a keyword,
+a species and a skill), the list of `DownloadChoicePanel` (`download-choice-card`), at most `upTo` on (Picard 3, most 1),
+`resolve-download-cards-summary`, and **Download** (`resolve-download-cards`, `playEffectDownload`), which takes them
+into the hand and shuffles the draw deck in the order the page chose (`withShuffleOrders`), "…; downloaded Kira Nerys,
+shuffled the draw deck"; with no match it shows `resolve-download-cards-none` and no button. Mavek's "if your
+non-Cardassian is at this mission" reads the other personnel of the slot the card stands at (`otherSpeciesHere`). A
+download that places or plays the card elsewhere has no model yet. The kind `'score'` (#1812: Annexation Drone, DaiMon Solok
 Cargo Runner, Opaka Collaborator, Kira Taban Husband and Father, Eris Harbinger of the Dominion, Klaa Dauntless Hunter,
 and Brunt Acting Grand Nagus's score clause) has one step, `resolve-step-score`, with its condition (a `'table'`
 condition of `PlayConditionFacts`; Kira Taban's is "Condition not checked: needs the opponent's score") and **Score 5**
@@ -771,7 +780,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twenty-three fixtures. Each one deals the same table on every load.
+The practice table has twenty-four fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -842,6 +851,11 @@ The practice table has twenty-three fixtures. Each one deals the same table on e
   hand (#1809), whose plays examine the top 4 of the draw deck, then Annexation Drone and DaiMon Solok Cargo Runner
   (#1812), whose plays score 5 points (every non-headquarters mission is an [AQ] mission, so the Drone's condition
   holds; Solok's does not). It keeps its game under `practiceGame:fixture=tain`.
+- `?fixture=downloads` (#1810) deals the `?fixture=piles` table, the same cards and the same ids, with Opaka Kai
+  of Bajor and Jean-Luc Picard Vintner *VP at the end of the hand, whose plays download into hand, and Furel
+  Resistance Fighter and Lupaza Resistance Fighter, two [Baj] personnel, on top of the draw deck
+  (`PRACTICE_DOWNLOADS_TSV`, `extraDrawTop`); the draw deck holds [TNG] personnel for Picard. It keeps its game
+  under `practiceGame:fixture=downloads`.
 - `?fixture=dissident` (#1763) deals the `?fixture=piles` table, the same cards and the same ids, with The
   New Resistance at the end of the core, Leeta Rebel Supporter, a Dissident of cost 0, at the end of the hand,
   and Damar Cardassian Liberator, a Dissident of cost 4, on top of the draw deck (`PRACTICE_DISSIDENT_TSV`,

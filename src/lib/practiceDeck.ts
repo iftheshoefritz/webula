@@ -313,6 +313,16 @@ export const PRACTICE_TAIN_HAND = [
   'DaiMon Solok Cargo Runner',
 ];
 
+// The cards `?fixture=downloads` (#1810) adds to the `?fixture=piles` table: Opaka Kai of Bajor and Jean-Luc
+// Picard Vintner *VP (the piles deck holds his other version) at the end of the hand, whose plays download into
+// hand, and two [Baj] personnel, Furel and Lupaza, on top of the draw deck, for Opaka's download.
+export const PRACTICE_DOWNLOADS_TSV = `1\tOpaka Kai of Bajor
+1\tJean-Luc Picard Vintner *VP
+1\tFurel Resistance Fighter
+1\tLupaza Resistance Fighter`;
+export const PRACTICE_DOWNLOADS_HAND = ['Opaka Kai of Bajor', 'Jean-Luc Picard Vintner *VP'];
+export const PRACTICE_DOWNLOADS_DRAW_TOP = ['Furel Resistance Fighter', 'Lupaza Resistance Fighter'];
+
 export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)
   .join('\n')}

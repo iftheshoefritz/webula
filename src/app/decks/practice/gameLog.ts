@@ -51,6 +51,7 @@ import {
   examineTakeMax,
   examineTakeMin,
   examineTakes,
+  downloadTakes,
   PlayConditionState,
   PlayConditionStatus,
   PlayModel,
@@ -130,6 +131,8 @@ export type PlayEffectStepRecord =
   // The examine of the top of the draw deck (#1809): the names of the cards it took into hand, and how many it
   // placed on the bottom.
   | { step: 'examine'; taken: string[]; bottom: number }
+  // The download into hand (#1810): the names of the cards it took; the draw deck was shuffled after.
+  | { step: 'download'; cards: string[] }
   // The points a score step added (#1812), after the clamp of the score.
   | { step: 'score'; points: number }
   | { step: PlayStepName; skipped: true };
@@ -395,6 +398,9 @@ export type GameAction =
   | { type: 'playEffectDraw'; count: number }
   | { type: 'playEffectDiscard'; ids: string[] }
   | { type: 'playEffectExamine'; take: string[]; bottom: string[] }
+  // The download of the cards `ids` of the draw deck into hand (#1810), then the shuffle of the draw deck in
+  // `order`, which `withShuffleOrders` chooses.
+  | { type: 'playEffectDownload'; ids: string[]; order?: string[] }
   | { type: 'playEffectScore' }
   | { type: 'playEffectSkip' }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
@@ -814,7 +820,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' } | { type: 'playEffectDraw' } | { type: 'playEffectDiscard' } | { type: 'playEffectExamine' } | { type: 'playEffectScore' } | { type: 'playEffectSkip' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' } | { type: 'playEffectDraw' } | { type: 'playEffectDiscard' } | { type: 'playEffectExamine' } | { type: 'playEffectDownload' } | { type: 'playEffectScore' } | { type: 'playEffectSkip' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -920,6 +926,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'playEffectDraw') return playEffectDrawState(state, action);
   if (action.type === 'playEffectDiscard') return playEffectDiscardState(state, action);
   if (action.type === 'playEffectExamine') return playEffectExamineState(state, action);
+  if (action.type === 'playEffectDownload') return playEffectDownloadState(state, action);
   if (action.type === 'playEffectScore') return playEffectScoreState(state);
   if (action.type === 'playEffectSkip') return playEffectSkipState(state);
   // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event.
@@ -1088,7 +1095,7 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
   ) {
     return action;
   }
-  if (action.type === 'downloadForCharge') {
+  if (action.type === 'downloadForCharge' || action.type === 'playEffectDownload') {
     if (action.order) return action;
     return { ...action, order: shuffledIds(table.drawDeck.filter((c) => !action.ids.includes(c.id))) };
   }
@@ -2584,7 +2591,7 @@ function missionSpendState(
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
-const PLAY_STEP_NAMES: ReadonlySet<string> = new Set<PlayStepName>(['draw', 'discard', 'examine', 'score']);
+const PLAY_STEP_NAMES: ReadonlySet<string> = new Set<PlayStepName>(['draw', 'discard', 'examine', 'download', 'score']);
 
 const isPlayEffectStep = (step: unknown): step is PlayEffectStepRecord => {
   const s = step as { step?: unknown; count?: unknown; cards?: unknown; taken?: unknown; bottom?: unknown; points?: unknown; skipped?: unknown } | null | undefined;
@@ -2628,6 +2635,8 @@ export function playEffectText(record: PlayEffectRecord): string {
         ? `drew ${cardsCountText(s.count)}`
         : s.step === 'examine'
           ? `took ${s.taken.length ? cardsText(s.taken) : 'no card'}, placed ${s.bottom} on the bottom`
+          : s.step === 'download'
+            ? `downloaded ${s.cards.length ? cardsText(s.cards) : 'no card'}, shuffled the draw deck`
           : s.step === 'score'
             ? `scored ${s.points} ${s.points === 1 ? 'point' : 'points'}`
             : `discarded ${s.cards.length ? cardsText(s.cards) : 'no card'}`
@@ -2719,7 +2728,10 @@ export function pendingPlayEffectOf(state: { table: TableState; log: LogEntry[] 
         if (!step) return null;
         const instance = playedCardOnTable(table, name, move.to);
         if (!instance) return null;
-        const live = playConditionOf(model, costFactsOf(table, []));
+        const missionIndex = table.missions.findIndex(
+          (slot) => slot.awayTeam.includes(instance) || slot.ships.some((ship) => ship === instance || (ship.crew ?? []).includes(instance))
+        );
+        const live = playConditionOf(model, costFactsOf(table, []), { id: instance.id, ...(missionIndex >= 0 ? { missionIndex } : {}) });
         const condition = live && record.condition ? { ...live, status: record.condition } : live;
         return { target, id: instance.id, instance, name, model, condition, steps: record.steps, step };
       }
@@ -2812,6 +2824,23 @@ function playEffectExamineState(state: GameState, action: { take: string[]; bott
   const taken = action.take.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'hand' }), state.table);
   const table = action.bottom.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), taken);
   return withPlayEffectSteps(state, pending, [{ step: 'examine', taken: action.take.map((id) => cardName(state.table, id)), bottom: action.bottom.length }], table);
+}
+
+// The download of the pending effect (#1810): `ids`, different cards of the draw deck that pass the model's test,
+// at least one and no more than the model allows, go to the hand in that order, then the draw deck is shuffled
+// in `order`. A download of none is a Skip.
+function playEffectDownloadState(state: GameState, action: { ids: string[]; order?: string[] }): GameState {
+  const pending = pendingPlayEffectOf(state);
+  if (!pending || pending.step.step !== 'download' || pending.model.kind !== 'downloadTake') return state;
+  const model = pending.model;
+  if (!Array.isArray(action.ids)) return state;
+  const ids = [...new Set(action.ids)];
+  if (ids.length !== action.ids.length || ids.length === 0 || ids.length > model.upTo) return state;
+  const byId = new Map(state.table.drawDeck.map((c) => [c.id, c]));
+  if (!ids.every((id) => byId.has(id) && downloadTakes(model, byId.get(id)!.card))) return state;
+  const taken = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'hand' }), state.table);
+  const table = tableReducer(taken, { type: 'shuffle', location: 'drawDeck', ...(action.order ? { order: action.order } : {}) });
+  return withPlayEffectSteps(state, pending, [{ step: 'download', cards: ids.map((id) => cardName(state.table, id)) }], table);
 }
 
 // The score of the pending effect (#1812): the model's points go to the score, clamped as `adjustScore` clamps

@@ -61,6 +61,9 @@ import {
   PRACTICE_DISSIDENT_DRAW_TOP,
   PRACTICE_DISSIDENT_HAND,
   PRACTICE_DISSIDENT_TSV,
+  PRACTICE_DOWNLOADS_DRAW_TOP,
+  PRACTICE_DOWNLOADS_HAND,
+  PRACTICE_DOWNLOADS_TSV,
   PRACTICE_RECALL_TSV,
   PRACTICE_KMTAR_TSV,
   PRACTICE_TAIN_HAND,
@@ -192,7 +195,7 @@ import {
   resolvingRecalled,
   pendingPlayEffectOf,
 } from './gameLog';
-import { discardCount, examineCount, examineTakeMax, examineTakeMin, examineTakes, playConditionLine } from '../../../lib/playModels';
+import { discardCount, downloadTakes, examineCount, examineTakeMax, examineTakeMin, examineTakes, playConditionLine } from '../../../lib/playModels';
 import {
   CardHoldProvider,
   NO_CALLOUT_STYLE,
@@ -2308,6 +2311,9 @@ function PracticeDrawContent() {
   // `?fixture=dissident` (#1763) deals the piles table with The New Resistance in the core, a Dissident at the
   // end of the hand and another on top of the draw deck.
   const isDissidentFixture = fixture === 'dissident';
+  // `?fixture=downloads` (#1810) deals the piles table with Opaka Kai of Bajor and Jean-Luc Picard Vintner at the
+  // end of the hand, whose plays download into hand, and two [Baj] personnel on top of the draw deck.
+  const isDownloadsFixture = fixture === 'downloads';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2336,6 +2342,7 @@ function PracticeDrawContent() {
     isKmtarFixture ||
     isTainFixture ||
     isDissidentFixture ||
+    isDownloadsFixture ||
     isAttemptFixture ||
     isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -2764,7 +2771,19 @@ function PracticeDrawContent() {
               onApply: (take: string[], bottom: string[]) => dispatch({ type: 'playEffectExamine', take, bottom }),
             };
           })()
-        : undefined;
+        : pendingPlay?.model.kind === 'downloadTake'
+          ? (() => {
+              // The download of #1810: the cards of the draw deck that pass the model's test, in deck order.
+              const model = pendingPlay.model;
+              return {
+                step: 'downloadCards' as const,
+                cards: table.drawDeck.filter((c) => downloadTakes(model, c.card)),
+                max: model.upTo,
+                testText: model.testText,
+                onDownload: (ids: string[]) => dispatch({ type: 'playEffectDownload', ids }),
+              };
+            })()
+          : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -2986,7 +3005,9 @@ function PracticeDrawContent() {
                   ? tainFixtureExtras()
                 : isDissidentFixture
                   ? dissidentFixtureExtras()
-                  : null
+                  : isDownloadsFixture
+                    ? downloadsFixtureExtras()
+                    : null
       : null;
     const extraKeys = new Set(
       extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand, ...(extras.drawTop ?? []), ...(extras.discard ?? [])].map((c: any) => c.collectorsinfo) : []
@@ -3128,6 +3149,19 @@ function PracticeDrawContent() {
       drawTop: named(PRACTICE_DISSIDENT_DRAW_TOP),
     };
   };
+  // The cards `?fixture=downloads` adds (#1810): Opaka and Picard to the end of the hand, and two [Baj] personnel
+  // on top of the draw deck.
+  const downloadsFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_DOWNLOADS_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return {
+      hand: [] as any[],
+      crew: [] as any[],
+      core: [] as any[],
+      lateHand: named(PRACTICE_DOWNLOADS_HAND),
+      drawTop: named(PRACTICE_DOWNLOADS_DRAW_TOP),
+    };
+  };
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
   const botCostsFixtureExtras = () => ({
     hand: [] as any[],
@@ -3145,6 +3179,7 @@ function PracticeDrawContent() {
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
+    if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = {
       ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
@@ -3233,6 +3268,7 @@ function PracticeDrawContent() {
           isKmtarFixture ||
           isTainFixture ||
           isDissidentFixture ||
+          isDownloadsFixture ||
           isAttemptFixture ||
           isBotFixture,
         attemptFixturePhase,

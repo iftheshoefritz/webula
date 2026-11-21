@@ -33,6 +33,7 @@ import { PANEL_SURFACE_CLASSNAME } from './CardListPanel';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { PersonnelCandidate, PersonnelCandidateGroup } from './personnelChoice';
 import { printedCost } from '../../../lib/playCost';
+import { DownloadOption } from './DownloadChoicePanel';
 
 // The height of the panel's card: the native height of the image at most, and what the screen leaves
 // once the panel's padding and the insets are off, so the card and its buttons fit 667×375.
@@ -72,7 +73,10 @@ export type ResolveStep =
       takes: (instance: CardInstance) => boolean;
       testText?: string;
       onApply: (take: string[], bottom: string[]) => void;
-    };
+    }
+  // The download into hand of a played card (#1810): the `cards` of the draw deck that pass the model's test
+  // (`testText`), of which the player downloads 1 to `max`.
+  | { step: 'downloadCards'; cards: CardInstance[]; max: number; testText: string; onDownload: (ids: string[]) => void };
 
 /** The played card of a pending "when you play" effect (#1800), the panel's other subject. */
 export interface PlayedSubject {
@@ -672,6 +676,52 @@ function ExamineTakeStep({ step }: { step: Extract<ResolveStep, { step: 'examine
   );
 }
 
+// The download of a played card (#1810): the list of `DownloadChoicePanel` (#1762), the matching cards of the
+// draw deck, at most `max` on, and one button that downloads them. With no match it says so and shows no
+// button: Skip ends the effect. Its picks are its own state, so a new subject, which remounts it, starts with none.
+function DownloadCardsStep({ step }: { step: Extract<ResolveStep, { step: 'downloadCards' }> }) {
+  const [chosen, setChosen] = useState<string[]>([]);
+  const picked = chosen.filter((id) => step.cards.some((c) => c.id === id));
+  const toggle = (id: string) =>
+    setChosen(picked.includes(id) ? picked.filter((i) => i !== id) : step.max === 1 ? [id] : picked.length < step.max ? [...picked, id] : picked);
+  return (
+    <div data-testid="resolve-step-download-cards" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">Download {step.testText} from your draw deck</p>
+      {step.cards.length === 0 ? (
+        <p data-testid="resolve-download-cards-none" className="text-xs text-text-muted">
+          No card of your draw deck is {step.testText.replace(/^up to \w+ /, '')}.
+        </p>
+      ) : (
+        <>
+          <p data-testid="resolve-download-cards-summary" className="text-xs text-text-muted">
+            {picked.length} of {step.max} chosen
+          </p>
+          <div className="flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain pr-1">
+            {step.cards.map((c) => (
+              <DownloadOption
+                key={c.id}
+                card={c}
+                on={picked.includes(c.id)}
+                disabled={step.max > 1 && !picked.includes(c.id) && picked.length >= step.max}
+                onToggle={() => toggle(c.id)}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            data-testid="resolve-download-cards"
+            className="btn-primary w-full text-sm leading-tight"
+            disabled={picked.length === 0}
+            onClick={() => step.onDownload(picked)}
+          >
+            Download {picked.length || ''}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ResolvingPanel({
   instance,
   hidden,
@@ -760,6 +810,8 @@ export function ResolvingPanel({
               <ScoreStep step={step} />
             ) : step.step === 'examineTake' ? (
               <ExamineTakeStep key={`examine-${instance.id}`} step={step} />
+            ) : step.step === 'downloadCards' ? (
+              <DownloadCardsStep key={`download-cards-${instance.id}`} step={step} />
             ) : step.step === 'discardFromHand' ? (
               <DiscardFromHandStep key={`discard-${instance.id}`} step={step} />
             ) : step.step === 'draw' ? (
