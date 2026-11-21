@@ -189,7 +189,7 @@ describe('the download panel (#1810)', () => {
           escapeActive={false}
           onViewTable={jest.fn()}
           step={{ step: 'downloadCards', cards, max, testText: max > 1 ? 'up to three [TNG] personnel' : 'a [Baj] personnel', onDownload }}
-          played={{ text: 'You may download up to three [TNG] personnel.', condition: 'Condition met: …', started: false, onEnd: jest.fn() }}
+          played={{ text: 'You may download up to three [TNG] personnel.', condition: 'Condition met: …', started: false, endable: true, skippable: true, onEnd: jest.fn() }}
         />
       </DndContext>
     );

@@ -1,5 +1,5 @@
 import { cardTitleOf } from '../../lib/cardTitle';
-import { isPlayEffectCard, PLAY_MODEL_TITLES } from '../../lib/playModels/coverage';
+import { isPlayEffectCard, playClauseOf, PLAY_MODEL_TITLES } from '../../lib/playModels/coverage';
 import { backlogOf, cardRows, shippedDecks } from './backlogData';
 
 // The backlog of the "when you play" registry (#1801): the personnel and ship titles whose "When you play
@@ -19,6 +19,12 @@ describe('the "when you play" model backlog', () => {
 
   it('finds Enabran Tain, and lists the shipped backlog without the modelled titles', () => {
     expect(isPlayEffectCard(textOf('Enabran Tain "Retired" Spymaster'))).toBe(true);
+    // #1808: every text whose whole clause is a discard from hand has a model.
+    for (const c of cards.filter(isPlayEffectCard)) {
+      if (/^When you play this (personnel|ship), discard (a card|two cards) from hand\.$/.test(playClauseOf(c.gametext ?? '') ?? '')) {
+        expect(modelled.has(cardTitleOf(c.name).toLowerCase())).toBe(true);
+      }
+    }
     const titles = backlog.map((b) => b.title);
     expect(titles.length).toBeGreaterThan(0);
     for (const t of PLAY_MODEL_TITLES) expect(titles).not.toContain(t);

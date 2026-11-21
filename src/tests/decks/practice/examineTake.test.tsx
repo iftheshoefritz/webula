@@ -177,7 +177,7 @@ describe('the examine panel (#1809)', () => {
           escapeActive={false}
           onViewTable={jest.fn()}
           step={{ step: 'examineTake', examined, min: 0, max: 1, takes: (c) => examineTakes(lenara, c.card), testText: 'an event', onApply }}
-          played={{ text: lenara.text, condition: null, started: false, onEnd: jest.fn() }}
+          played={{ text: lenara.text, condition: null, started: false, endable: true, skippable: true, onEnd: jest.fn() }}
         />
       </DndContext>
     );
@@ -201,7 +201,7 @@ describe('the examine panel (#1809)', () => {
           escapeActive={false}
           onViewTable={jest.fn()}
           step={{ step: 'examineTake', examined: DECK.slice(0, 2), min: 1, max: 1, takes: () => true, onApply: jest.fn() }}
-          played={{ text: drone.text, condition: null, started: false, onEnd: jest.fn() }}
+          played={{ text: drone.text, condition: null, started: false, endable: true, skippable: true, onEnd: jest.fn() }}
         />
       </DndContext>
     );

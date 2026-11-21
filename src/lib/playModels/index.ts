@@ -5,6 +5,8 @@
 // It ships one kind:
 // - `'drawUpToThenDiscard'`: the player may draw up to N cards, a count the player picks from 0 to N, then
 //   discards M cards from hand (Enabran Tain "Retired" Spymaster).
+// - `'discardFromHand'`: the player discards N cards from hand, no "may" (#1808: Leeta Rebel Supporter, the
+//   Dissident personnel and the others whose whole clause is "discard a card from hand").
 // - `'examineTake'` (#1809): the player may examine the top N cards of the draw deck, take one (or as many as
 //   the model allows) into hand, those that pass the model's test of the card, and place the rest on the
 //   bottom of the draw deck in any order (Requisitions Drone, Lenara Kahn, Keiko O'Brien, Harry Kim, Sobi).
@@ -64,6 +66,16 @@ export interface DrawUpToThenDiscardModel {
   discard: number;
   condition?: PlayCondition;
   /** The effect's text, for the panel. */
+  text: string;
+}
+
+/** "Discard a card from hand.": the whole clause, and not a "may". */
+export interface DiscardFromHandModel {
+  kind: 'discardFromHand';
+  title: string;
+  /** The cards of the hand the player discards. */
+  discard: number;
+  condition?: PlayCondition;
   text: string;
 }
 
@@ -142,7 +154,7 @@ export interface DownloadTakeModel {
   text: string;
 }
 
-export type PlayModel = DrawUpToThenDiscardModel | ExamineTakeModel | DownloadTakeModel;
+export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel | ExamineTakeModel | DownloadTakeModel;
 
 // A plain "When you play this …, you may download <testText>." (#1810), one card.
 const download = (title: string, testText: string, ...test: DownloadTest[]): DownloadTakeModel => ({
@@ -157,6 +169,27 @@ const download = (title: string, testText: string, ...test: DownloadTest[]): Dow
 // The download of one card or another of these titles, "{Engage Cloak}".
 const named = (...titles: string[]): DownloadTest => ({ titles: titles.map((t) => t.toLowerCase()) });
 
+// The personnel whose whole "When you play this personnel" clause is "discard a card from hand" (#1808), and
+// Niala's "When you play this ship, discard two cards from hand." A clause that does more than the discard
+// (Modern Galor, Dominion Galor, Bennet) is left out.
+const DISCARD_A_CARD_TITLES = [
+  'Borven',
+  'Damar Martyred Outlaw',
+  'Elim Garak Imposing Patriot',
+  'Jake Sisko Reporter Behind the Lines',
+  'Kira Nerys Reformed Collaborator',
+  'Leeta Rebel Supporter',
+  'Marris',
+  'Natima Lang Professor of Political Ethics',
+  'Odo Wayward Link',
+  'Quark Resistance Informant',
+  'Rekelen',
+  'Rom Undercover Spy',
+  'Tekeny Ghemor Prominent Official',
+  'Tora Ziyal Beloved Daughter',
+  'Yassim Vocal Martyr',
+];
+
 export const PLAY_MODELS: PlayModel[] = [
   // "When you play this personnel, if each of your non-headquarters missions requires Intelligence, you may
   // draw up to seven cards, then discard two cards from hand."
@@ -168,6 +201,10 @@ export const PLAY_MODELS: PlayModel[] = [
     condition: { kind: 'nonHeadquartersRequire', skill: 'Intelligence' },
     text: 'You may draw up to seven cards, then discard two cards from hand.',
   },
+  ...DISCARD_A_CARD_TITLES.map(
+    (title): DiscardFromHandModel => ({ kind: 'discardFromHand', title, discard: 1, text: 'Discard a card from hand.' })
+  ),
+  { kind: 'discardFromHand', title: 'Niala Intelligence Asset', discard: 2, text: 'Discard two cards from hand.' },
   // "When you play this personnel, you may examine the top four cards of your deck and take one into hand. Place
   // the remaining cards on the bottom of your deck in any order."
   {
@@ -307,6 +344,8 @@ export const playStepsOf = (model: PlayModel): PlayStepSpec[] => {
         { step: 'draw', may: true },
         { step: 'discard', may: false },
       ];
+    case 'discardFromHand':
+      return [{ step: 'discard', may: false }];
     case 'examineTake':
       return [{ step: 'examine', may: true }];
     case 'downloadTake':
@@ -367,7 +406,7 @@ export const drawUpToCount = (model: DrawUpToThenDiscardModel, wanted: number, d
   Math.max(0, Math.min(Math.floor(wanted), model.drawUpTo, deck));
 
 /** The cards the discard step asks for: the model's number, or the whole hand when it holds fewer. */
-export const discardCount = (model: DrawUpToThenDiscardModel, hand: number): number => Math.min(model.discard, hand);
+export const discardCount = (model: PlayModel, hand: number): number => ('discard' in model ? Math.min(model.discard, hand) : 0);
 
 /** The cards an examine looks at: the model's number, or the whole draw deck when it holds fewer. */
 export const examineCount = (model: ExamineTakeModel, deck: number): number => Math.max(0, Math.min(model.examine, deck));
