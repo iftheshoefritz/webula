@@ -53,7 +53,8 @@ const FIXTURE_FRESH = '/decks/practice?fixture=1&reset=1&menu=0';
 // - `setup(ctx, mode)`: optional. Runs before the crop is read and the recording starts, such as to
 //   open the panel the gesture works in.
 // - `crop`: selectors of the elements the gesture uses. The clip shows the box around all of them,
-//   read from the page before the gesture starts.
+//   read from the page before the gesture starts. A selector that matches nothing prints a
+//   warning and is left out of the box; the run stops when none of them matches.
 // - `run(ctx, mode)`: the gesture. `ctx.drag(cardId, target)` runs `practice_drag.sh`, with
 //   `--touch` in the touch mode, and returns what it printed. `ctx.input(...)` runs
 //   `cdp_input.sh`. `ctx.evaluate(js)` reads the page.
@@ -76,7 +77,7 @@ const GESTURES = {
   'complete-mission': {
     fixture: FIXTURE_FRESH,
     modes: ['touch', 'mouse'],
-    crop: ['[data-testid="mission-corners-1"]', '[data-testid="mission-corners-3"]', '[data-testid="mission-pile-awayTeam-2"]'],
+    crop: ['[data-testid="mission-corners-1"]', '[data-testid="mission-corners-3"]', '[data-zone="mission-on-2"]'],
     async run(ctx, mode) {
       const cardId = await ctx.evaluate(
         `document.querySelector('[data-testid="mission-corners-2"]')?.parentElement.querySelector('[data-card-id]')?.dataset.cardId`
@@ -372,16 +373,19 @@ async function record(rowId, gesture, mode, outDir) {
   };
   if (gesture.setup) await gesture.setup(ctx, mode);
 
-  const crop = await evaluate(`(() => {
-    const rects = ${JSON.stringify(gesture.crop)}.map((s) => document.querySelector(s)).filter(Boolean).map((e) => e.getBoundingClientRect());
-    if (rects.length === 0) return null;
+  const { crop, missing } = await evaluate(`(() => {
+    const selectors = ${JSON.stringify(gesture.crop)};
+    const missing = selectors.filter((s) => !document.querySelector(s));
+    const rects = selectors.map((s) => document.querySelector(s)).filter(Boolean).map((e) => e.getBoundingClientRect());
+    if (rects.length === 0) return { crop: null, missing };
     const pad = ${CROP_PAD};
     const x = Math.max(0, Math.min(...rects.map((r) => r.left)) - pad);
     const y = Math.max(0, Math.min(...rects.map((r) => r.top)) - pad);
     const right = Math.min(innerWidth, Math.max(...rects.map((r) => r.right)) + pad);
     const bottom = Math.min(innerHeight, Math.max(...rects.map((r) => r.bottom)) + pad);
-    return { x, y, w: right - x, h: bottom - y, vw: innerWidth, vh: innerHeight };
+    return { crop: { x, y, w: right - x, h: bottom - y, vw: innerWidth, vh: innerHeight }, missing };
   })()`);
+  for (const selector of missing) console.warn(`warning: ${rowId} (${mode}): crop selector ${selector} matches nothing`);
   if (!crop) throw new Error(`none of ${gesture.crop.join(', ')} is on the page`);
 
   await evaluate(MARKER);

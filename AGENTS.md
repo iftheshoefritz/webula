@@ -534,6 +534,36 @@ minimum screen, on a phone and at agent-browser's 800×600 it is 1, a pile card 
 on a desktop it is 1.25, and at 1920×1080 about 1.69. The sizes of the row are functions of it in
 `flatRowWidths.ts` (`pileCardSize`, `flatCardWidth`, `flatRowWidths`).
 
+The table draws in 3D (`table3d.ts`), after the board of a digital card game such as MTG Arena. The
+game menu's Settings hold "3D table: On/Off" (`game-menu-table-3d`), a setting of the device under
+`practice-3d-table`, on by default, and it turns all four parts on and off:
+
+- The board of missions and ships and the bottom row lean away from the player as one table
+  (`TablePlane`, `data-testid="tilted-board"` and `"tilted-bottom-row"`): each takes
+  `perspective(1200px) rotateX(18deg)` about the same hinge on screen, the middle of the bottom
+  edge of the bottom row (`planeTiltStyle`), so the two lie in one plane. The hands, the corner
+  buttons and the turn and score column stay flat in front, since the hands are `position: fixed`
+  and a transformed ancestor would re-anchor them. One playmat, `data-testid="board-mat"`, runs in
+  that plane from above the slivers of the dilemmas under the missions to below the bottom row. Each
+  tilted element sits inside its part's measured box (`setMissionRows`, `setBottomRow`), never on it,
+  so `useShipRows` and `computeTableScale` measure what they did before and the sizes of the table do
+  not change. dnd-kit measures each droppable's projected box, and the browser hit-tests the tilted
+  cards as drawn, so drops and taps land where the card shows. The attempt layout does not tilt.
+- The game layer takes the class `table-3d`: felt, a soft spotlight and a vignette (`globals.css`).
+- Every table card (`table-card-art` of `TableCardImage`) casts a shadow on the table.
+- The draw deck, the dilemma pile and the discard pile draw real cards of the game under the top
+  card (`pileDepth.ts`), `data-testid="pile-depth"` with `data-depth` (the pile's height in px:
+  0.2 px a card past the first, at most 10, times the bottom-row scale) and `data-layers`, at most 10
+  `<img>`s (`pileLayers`), each lower, further right, darker and a little askew than the one above,
+  the same on every render. A face-down pile shows `cardback.jpg`, and the discard pile the faces of
+  its own cards under the top one. A pale hairline under each card (`PILE_CARD_EDGE`) tells the black
+  borders apart, and the bottom card casts the pile's shadow. The layers sit behind the art with no
+  pointer events, so no pile's size, drop halves or drag change.
+  A pile stands on the table: its bottom card sits on the bottom row's baseline, level with the
+  bottoms of the core and brig cards, and its contents (`data-testid="pile-lift"`: the layers, the
+  top card, its drop halves, its drag and its count) rise by the pile's height (`usePileLift`), so a
+  tall pile's top shows above the single cards of the row. The pile's box keeps its place.
+
 The card sizes in `MissionRow.tsx` and `TableCard.tsx` are still the sizes at scale 1, and scale 1
 is still a 320 px tall table. At 667×375 the table draws at a scale of 375/320, about 1.17. A
 layout that must fit the minimum screen must fit it at that scale.
@@ -552,8 +582,9 @@ undo and game log buttons (`data-testid="turn-score-column"`, #1337): the next-t
 the score over minus and plus. The next-turn button advances through the segments of the turn,
 `TableState.segment` (#1605): play and draw, then orders, then the next turn, or discard first when
 the hand holds more than 7 (`nextSegmentOf`); its `aria-label` and `title` say what a tap does ("Go to
-orders", "Go to discard", "Next turn"), and the segment's short name, "Play", "Orders" or "Discard",
-shows under it (`data-testid="turn-segment"`). An attempt started in play and draw moves the turn to
+orders", "Go to discard", "Next turn"), and under it the segments of the turn show as a list of three rows,
+"Play", "Orders" and "Discard" (`data-testid="turn-segment-list"`, #1790), the current one marked,
+`aria-current="step"` and `data-testid="turn-segment"`; the list is no control. An attempt started in play and draw moves the turn to
 orders, and no segment refuses a move. The game menu's Settings hold "Counters: On/Off"
 (`game-menu-turn-counters`, #1607), a setting of the device under `practice-turn-counters`, off by
 default. Beside it, "Apply card text to attributes: On/Off" (`game-menu-card-text-attributes`, #1668),
@@ -582,7 +613,59 @@ sentence "Remove this event from the game." (`removesItselfFromGame` in `playCos
 sentence start in any case, #1730), **Resolved → Remove from game** (`resolving-remove-from-game`) shows
 first: one `batch` (`resolvedRemoveFromGameAction`), that `move` and then `setRemovedFromGame`, which
 leaves the card at the end of the discard pile marked as the discard pile panel's Remove from game marks
-it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Recall** (#1764): an event with "Recall: N." in its `Keywords` (Miracle Working, Second Edition, Planned Provocation, Profound Discovery), or Vidiian Organ Bank while the player has two completed missions (its `recall` in `titles/recall.ts`), plays from the discard pile: a drag of it out of the discard pile panel shows the Play target (`playTargetEligible` with `fromDiscard`, never for a card marked removed from the game), and the move into the resolving zone is a play at its cost + N, "Played Miracle Working (cost 2, Miracle Working: Recall 1, played from your discard pile)" (`recallOf` in `playCost.ts`); a move of it from the discard pile anywhere else is no play. Vidiian Organ Bank with fewer than two completed missions is refused on the Play target (`recallRefused`): no move and no entry. While a recalled event resolves (`resolvingRecalled`, from the log), the panel shows Resolved → Remove from game and no Resolved → Discard, the last step of its resolve model leaves it removed from the game ("…, and Miracle Working was removed from the game", the entry's `removed`), and Cancel puts it back at the end of the discard pile, "Cancelled playing Miracle Working, and it went back to the discard pile" (`returnedTo`). **Cancel**
+it, in one entry, "Resolved Ferengi Tradition, and removed it from the game" (`LogMove.removedFromGame`). **Recall** (#1764): an event with "Recall: N." in its `Keywords` (Miracle Working, Second Edition, Planned Provocation, Profound Discovery), or Vidiian Organ Bank while the player has two completed missions (its `recall` in `titles/recall.ts`), plays from the discard pile: a drag of it out of the discard pile panel shows the Play target (`playTargetEligible` with `fromDiscard`, never for a card marked removed from the game), and the move into the resolving zone is a play at its cost + N, "Played Miracle Working (cost 2, Miracle Working: Recall 1, played from your discard pile)" (`recallOf` in `playCost.ts`); a move of it from the discard pile anywhere else is no play. Vidiian Organ Bank with fewer than two completed missions is refused on the Play target (`recallRefused`): no move and no entry. While a recalled event resolves (`resolvingRecalled`, from the log), the panel shows Resolved → Remove from game and no Resolved → Discard, the last step of its resolve model leaves it removed from the game ("…, and Miracle Working was removed from the game", the entry's `removed`), and Cancel puts it back at the end of the discard pile, "Cancelled playing Miracle Working, and it went back to the discard pile" (`returnedTo`). **When you play** (#1800): a personnel or a ship whose title has a model in `PLAY_MODELS`
+(`src/lib/playModels/`, by whole title, `playModelOf`) leaves its effect pending once played, derived from the
+effective log (`pendingPlayEffectOf` in `gameLog.ts`): the latest play of the turn's play and draw, while its
+record (`LogMove.effects`) lacks a step and the card stands in an away team, a crew or a ship row. No
+`TableState` field holds it, and `resolving` never holds the card. The resolving panel then takes the played card
+as its subject (`played` of `ResolvingPanel`): the card previews on a hold and never drags, the effect's text
+(`resolve-play-text`), the condition line (`resolve-condition`, "Condition met: …", "Condition not met: …" or
+"Condition not checked: …", from `CostFacts`; the player may resolve it anyway), the step, and **Skip**
+(`resolving-skip`) or, once a step was taken, **Done** (`resolving-done`), both `playEffectSkip`, which records every
+step left as skipped; no Discard, Remove from game or Cancel. View table and Escape collapse it to `resolving-mini`,
+and the next-turn button reads "Resolve <card> first". Each step amends the play's own entry, so the play and its
+effect are one entry and one undo, "Played Enabran Tain "Retired" Spymaster at Celtris III (cost 3); drew 7 cards,
+then discarded Tricorder and Phaser"; after a correction of the charge the steps write one `playEffect` entry of their
+own, addressed to the play, whose undo takes back the effect only. A malformed record is dropped, the move kept. The
+one kind is `'drawUpToThenDiscard'` (Enabran Tain): `resolve-step-draw-up-to`, a stepper (`resolve-draw-minus`,
+`resolve-draw-count`, `resolve-draw-plus`) from 0 to 7 or the draw deck, and Draw N (`resolve-draw`,
+`playEffectDraw`), then `resolve-step-discard`, 2 cards of the hand (`resolve-hand-card`) and Discard 2
+(`resolve-discard`, `playEffectDiscard`). The kind `'discardFromHand'` (#1808) has that discard step alone, and
+it is no "may": the personnel whose whole clause is "discard a card from hand" (Leeta Rebel Supporter, Jake Sisko
+Reporter Behind the Lines, Kira Nerys Reformed Collaborator, Odo Wayward Link, Tora Ziyal Beloved Daughter, Quark
+Resistance Informant and the others of `DISCARD_A_CARD_TITLES`) and Niala Intelligence Asset's two. The panel shows
+no Skip before it, and a `playEffectSkip` then is refused; with an empty hand Done (`resolving-done`) ends the
+effect, recorded "discarded no card". The kind `'examineTake'` (#1809: Requisitions Drone, Lenara Kahn Wormhole
+Theorist, Keiko O'Brien Botanist, Harry Kim Remorseful Survivor, Sobi Felicium Dealer) has one step,
+`resolve-step-examine`: the top 4 of the draw deck, fewer when it is short (`examineCount`), as `resolve-examine-card`,
+those the model's test refuses disabled (`examineTakes`: Lenara an event, Keiko a cost of 4 or more, Harry Kim an
+interrupt or a Temporal card), a tap takes one (Sobi one for each different Commodity of the core, `examineTakeMax`;
+Requisitions Drone must take one, `examineTakeMin`), the rest in the order controls of the bottom step
+(`resolve-order`), and **Take 1, place 3 on bottom** (`resolve-examine-apply`, `playEffectExamine`), which moves the
+taken to the hand and the rest to the bottom of the draw deck in that order, "…; took Tricorder, placed 3 on the
+bottom". The cards stay in the draw deck until the button. The kind `'downloadTake'` (#1810: Opaka Kai of Bajor, Jean-Luc
+Picard Vintner, Mavek Science Officer, Cal Hudson Attache to the Demilitarized Zone, Niles and the other plain "you may
+download <a test>" texts) has one step, `resolve-step-download-cards`: the cards of the draw deck that pass the model's
+test (`downloadTakes`: a title, a persona of a personnel or ship by its name, a type, an affiliation, an icon, a keyword,
+a species and a skill), the list of `DownloadChoicePanel` (`download-choice-card`), at most `upTo` on (Picard 3, most 1),
+`resolve-download-cards-summary`, and **Download** (`resolve-download-cards`, `playEffectDownload`), which takes them
+into the hand and shuffles the draw deck in the order the page chose (`withShuffleOrders`), "…; downloaded Kira Nerys,
+shuffled the draw deck"; with no match it shows `resolve-download-cards-none` and no button. Mavek's "if your
+non-Cardassian is at this mission" reads the other personnel of the slot the card stands at (`otherSpeciesHere`). The
+kind `'downloadPlace'` (#1811) downloads one card to a place the played card sets, in the same step: Gelnon Aloof
+Tactician a Jem'Hadar aboard one of the player's [Dom] ships, the ships of his mission first (`resolve-download-ship`,
+`data-ship-id`; `resolve-download-no-ship` with none), U.S.S. Enterprise Where She Belongs a [TOS] personnel of cost 4 or
+more played aboard itself at its printed cost −4, never below 0, and Reconnaissance Drone a non-Drone personnel placed on
+top of the draw deck after the shuffle (`DownloadPlace`, `downloadPlaceShipsOf`, `playEffectDownload` with `shipId`).
+The Enterprise's play is charged with its source, "(cost 1, U.S.S. Enterprise Where She Belongs: played aboard this ship
+at cost −4)": a second move of the play's own entry, so the counters count it, the chip shows both plays and one undo
+takes back both; after a correction of the charge it is one `move` entry of its own whose `effectOf` holds the step.
+Its cost choice "Ignore its next ability: −4", once taken, ends the download (`ignoredByCostChoice`). The kind `'score'` (#1812: Annexation Drone, DaiMon Solok
+Cargo Runner, Opaka Collaborator, Kira Taban Husband and Father, Eris Harbinger of the Dominion, Klaa Dauntless Hunter,
+and Brunt Acting Grand Nagus's score clause) has one step, `resolve-step-score`, with its condition (a `'table'`
+condition of `PlayConditionFacts`; Kira Taban's is "Condition not checked: needs the opponent's score") and **Score 5**
+(`resolve-score`, `playEffectScore`), which adds the points with `adjustScore`'s clamp, "…; scored 5 points"; Skip
+shows with or without "you may". **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -608,10 +691,12 @@ button, `data-testid="draw-opening-hand"`, in place of the next-turn button and 
 score below it as before. A tap dispatches `drawOpeningHand`, which moves the top 7 of the draw deck (fewer
 when it is short) to the hand at no cost, in one log entry, "Drew the opening hand (7 cards)", and
 clears the flag; one undo brings it back. An empty draw deck disables it. A hand draw meanwhile is an
-ordinary charged draw and keeps the flag; `nextTurn` clears it. The next-turn button has its row to itself, and the segment's name sits on a row of its own below it
-(`data-testid="turn-segment-row"`, #1679), which the compact column keeps. With counters on, the
-counter of the turn's counters, `data-testid="turn-counters"`, shares the segment's row in play and
-draw only, "Play 0/7": "<spent>/<limit>", with `data-over="true"` past the limit. In Orders and
+ordinary charged draw and keeps the flag; `nextTurn` clears it. Every control of the column has a row of its own (#1679, #1790): the next-turn button, the
+three rows of the segment list, the row of the counter (`data-testid="turn-counters-row"`), the
+score, and minus and plus side by side. With counters on, the counter of the turn's counters,
+`data-testid="turn-counters"`, fills its row in play and draw only, "0/7": "<spent>/<limit>", with
+`data-over="true"` past the limit; the row keeps its height without it, so the score does not move,
+and the Draw 7 block is as tall as the next-turn button, the list and that row. In Orders and
 Discard neither the counter nor its list shows, and nothing marks counters left unspent. Everything is derived from the log
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that
 `gameReducer` makes for `correctCharge` and `adjustCounterLimit` with no change to the table, and
@@ -664,7 +749,7 @@ shuffles the draw deck in the order the page chose, in one `eventsDownloaded` en
 choice. Each card it names leaves a pending discount of −3 for the play of that card alone, origin the entry
 and the card's place in it, dismissed one by one. The New Resistance in the core (#1763, `titles/tableUse.ts`, the use effect `'revealTop'`, amount 0) offers, on the play of a Dissident personnel while the draw deck holds a card, "Reveal the top card" (`charge-use`), once a play and one copy however many are in the core; a tap dispatches `useCard`, which moves no card and makes one `chargeCorrected` entry with `revealed`, "Revealed Damar Cardassian Liberator (The New Resistance): a Dissident" (or "not a Dissident"), and the page opens the draw deck's reveal panel on that card. A revealed Dissident personnel leaves a pending discount with `fromDrawDeck`: its move from the draw deck to the table is a play (`moveCharge` charges no other move out of the draw deck), at its cost −3, never below 0, once; the turn or a Dismiss ends it, and a hand play never takes it. `COST_BACKLOG=1 yarn test costModelBacklog` prints
 the titles whose text changes a cost or grants counters and that have no model yet, by the number of
-shipped decks that play them, most played first (#1692); its detection, `changesCost`, lives in `src/lib/costModels/coverage.ts`. With Counters on, the game menu's Settings show under Counters how many of the dealt deck's cost-affecting titles, of the `Deck:` section and each title once, have a model, `data-testid="cost-model-coverage"` ("Cost models: 12 of 15 titles", "Cost models: all 6 titles", nothing for a deck with none, #1697), and a tap lists the titles with none, `cost-model-coverage-missing`; the table marks no card. The counter's label names the grants, "Counters 0 of 8
+shipped decks that play them, most played first (#1692); its detection, `changesCost`, lives in `src/lib/costModels/coverage.ts`. `PLAY_BACKLOG=1 yarn test playModelBacklog` prints the same list for the "when you play" models (#1801): the personnel and ship titles whose "When you play this …" clause does more than change the cost and that have no model in `PLAY_MODELS`, most played first; its detection, `hasPlayEffect`, and `playModelCoverage` live in `src/lib/playModels/coverage.ts`, and a clause that only changes the cost stays with `changesCost`. With Counters on, the game menu's Settings show under Counters how many of the dealt deck's cost-affecting titles, of the `Deck:` section and each title once, have a model, `data-testid="cost-model-coverage"` ("Cost models: 12 of 15 titles", "Cost models: all 6 titles", nothing for a deck with none, #1697), and a tap lists the titles with none, `cost-model-coverage-missing`; the table marks no card. The counter's label names the grants, "Counters 0 of 8
 (Surprise Party +1)", and the list the parts, `turn-counters-limit-parts`, "7 + 1 Surprise Party". A charge shows its chip, `charge-chip`,
 for `CHARGE_CHIP_MS` with Free, minus and plus; a tap on the counter opens `turn-counters-list`, the
 turn's charges and the limit. They show on the full table only, not in the attempt layout. A desktop
@@ -673,10 +758,13 @@ buttons; on the desktop full table each corner button is as wide and as tall as 
 (`w-full h-7`, #1497), and the attempt layout keeps the small `btn-icon-sm` ones. Its mission row keeps the same `TOUCH_CONTROLS_COLUMN` on the left and
 `MENU_BUTTON_GUTTER` on the right (`DESKTOP_FULL_TABLE_RESERVE` in `desktopMissionSlotBudget`). The
 bottom row holds no turn or score on either device. They keep `data-testid="turn-counter"`, now inside the next-turn button, and
-`"score-counter"`. In fullscreen on iPadOS the column
-keeps its "Turn" and "Score" labels where it has the height, and goes compact, with no labels and
-smaller buttons, only when the full column does not fit 8 px above the bottom row
-(`turnScoreColumnCompact` in `tableScale.ts`, #1395).
+`"score-counter"`. The column sizes its rows from the free height above the bottom edge
+(`turnScoreColumnLayout` in `tableScale.ts`, #1395, #1790): the tap rows (the next-turn button, the
+counter, minus and plus) are the largest between 32 and 44 px that fit 8 px above the bottom edge,
+less the bottom inset, a list row about 9/16 of that, text 12 px or more; 32 px with the labels at
+667×375, 44 px at 800×600 and on a 1280×800 desktop. Where the floor does not fit, the "Turn" and
+"Score" labels go first, and only then, in fullscreen on iPadOS, the column goes compact, with smaller
+rows.
 
 In fullscreen on iPadOS, WebKit draws its own close X and shrink button over the top-left corner,
 and no CSS reaches them. The corner column moves below them (`top-14`, #1207), and the table hides
@@ -707,7 +795,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twenty-two fixtures. Each one deals the same table on every load.
+The practice table has twenty-four fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -770,10 +858,27 @@ The practice table has twenty-two fixtures. Each one deals the same table on eve
   (slot 2, the crewed ship), Volan III and Qo'noS, a headquarters; These Are The Voyages, At What Cost? and
   Ferengi Tradition in the draw deck, and K'mtar at the end of the hand, so a play of him offers the download.
   The three events shift the ids after them. It keeps its game under `practiceGame:fixture=kmtar`.
+- `?fixture=tain` (#1800) deals the `?fixture=piles` table, the same cards and the same ids, with five missions
+  whose non-headquarters ones require Intelligence (`PRACTICE_TAIN_TSV`): Celtris III (slot 0, the away team of
+  20), Farius Prime, Argus Array (slot 2, the crewed ship), Sector 21396 and Cardassia Prime, a headquarters, and
+  Enabran Tain "Retired" Spymaster at the end of the hand, so a play of him opens his "when you play" effect with
+  its condition met. After him Requisitions Drone, Lenara Kahn Wormhole Theorist and Keiko O'Brien Botanist end the
+  hand (#1809), whose plays examine the top 4 of the draw deck, then Annexation Drone and DaiMon Solok Cargo Runner
+  (#1812), whose plays score 5 points (every non-headquarters mission is an [AQ] mission, so the Drone's condition
+  holds; Solok's does not). It keeps its game under `practiceGame:fixture=tain`.
+- `?fixture=downloads` (#1810) deals the `?fixture=piles` table, the same cards and the same ids, with Opaka Kai
+  of Bajor and Jean-Luc Picard Vintner *VP at the end of the hand, whose plays download into hand, and Furel
+  Resistance Fighter and Lupaza Resistance Fighter, two [Baj] personnel, on top of the draw deck
+  (`PRACTICE_DOWNLOADS_TSV`, `extraDrawTop`); the draw deck holds [TNG] personnel for Picard. After them (#1811)
+  Gelnon Aloof Tactician, U.S.S. Enterprise Where She Belongs, Reconnaissance Drone and Jem'Hadar Attack Ship, a [Dom]
+  ship to play before Gelnon, end the hand, and James T. Kirk Original Thinker, a [TOS] personnel of cost 5, and
+  Ixtana'Rax Honored Elder, a Jem'Hadar, follow Furel and Lupaza on top of the draw deck. It keeps its game
+  under `practiceGame:fixture=downloads`.
 - `?fixture=dissident` (#1763) deals the `?fixture=piles` table, the same cards and the same ids, with The
   New Resistance at the end of the core, Leeta Rebel Supporter, a Dissident of cost 0, at the end of the hand,
   and Damar Cardassian Liberator, a Dissident of cost 4, on top of the draw deck (`PRACTICE_DISSIDENT_TSV`,
-  `extraDrawTop` of `resetWithPiles`), so a play of Leeta offers the reveal and Damar then plays at cost 1. It
+  `extraDrawTop` of `resetWithPiles`), so a play of Leeta offers the reveal and Damar then plays at cost 1. A play
+  of Leeta also opens her "when you play" discard step (#1808). It
   keeps its game under `practiceGame:fixture=dissident`.
 - `?fixture=attempt` (#1169) deals the `?fixture=piles` table, the same cards and the same
   ids, and then starts an attempt at Bilana System (mission 2) with the crewed ship, with the

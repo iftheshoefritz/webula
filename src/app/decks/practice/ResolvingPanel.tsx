@@ -8,6 +8,11 @@
 // drop target. It follows the card list panel's `hidden` convention: during a drag it stays mounted, with
 // no visibility and no pointer events, so every target on the table can be reached.
 //
+// Its subject is the card whose play text is resolving: the event of `TableState.resolving`, or else the
+// personnel or ship whose "when you play" effect is pending (#1800, `pendingPlayEffectOf`). A played card
+// stands on the table, so its card here previews on a hold and does not drag, and the panel shows the effect's
+// text, its condition, and Done and Skip in place of Resolved → Discard, Remove from game and Cancel.
+//
 // The backdrop and the panel sit below the charge chip (`LAYER_RESOLVING_PANEL`), so the chip of the
 // play and its choices stay reachable, and below the game menu splash, which covers them.
 
@@ -28,6 +33,7 @@ import { PANEL_SURFACE_CLASSNAME } from './CardListPanel';
 import { LandedRing, useLandedNonce } from './LandedZoneContext';
 import { PersonnelCandidate, PersonnelCandidateGroup } from './personnelChoice';
 import { printedCost } from '../../../lib/playCost';
+import { DownloadOption } from './DownloadChoicePanel';
 
 // The height of the panel's card: the native height of the image at most, and what the screen leaves
 // once the panel's padding and the insets are off, so the card and its buttons fit 667×375.
@@ -50,7 +56,52 @@ export type ResolveStep =
   | { step: 'bottom'; count: number; hand: CardInstance[]; onPlace: (ids: string[]) => void }
   | { step: 'discardDraw'; draw: number; hand: CardInstance[]; onDiscardDraw: (id: string) => void }
   | { step: 'download'; groups: PersonnelCandidateGroup[]; available: (id: string) => boolean; onDownload: (personnelId: string) => void }
-  | { step: 'exchange'; hand: CardInstance[]; groups: PersonnelCandidateGroup[]; onExchange: (handId: string, tableId: string) => void };
+  | { step: 'exchange'; hand: CardInstance[]; groups: PersonnelCandidateGroup[]; onExchange: (handId: string, tableId: string) => void }
+  // The "may draw up to N" step of a played card (#1800): a stepper from 0 to `max`, at most what the deck holds.
+  | { step: 'drawUpTo'; max: number; deck: number; onDraw: (count: number) => void }
+  // The "discard N cards from hand" step of a played card (#1800): `count` cards of `hand`.
+  | { step: 'discardFromHand'; count: number; hand: CardInstance[]; onDiscard: (ids: string[]) => void }
+  // The score of a played card (#1812): `points` to the score.
+  | { step: 'score'; points: number; onScore: () => void }
+  // The examine of the top of the draw deck of a played card (#1809): the `examined` cards, of which the player
+  // takes from `min` to `max` that pass `takes`, and orders the rest for the bottom of the draw deck.
+  | {
+      step: 'examineTake';
+      examined: CardInstance[];
+      min: number;
+      max: number;
+      takes: (instance: CardInstance) => boolean;
+      testText?: string;
+      onApply: (take: string[], bottom: string[]) => void;
+    }
+  // The download into hand of a played card (#1810): the `cards` of the draw deck that pass the model's test
+  // (`testText`), of which the player downloads 1 to `max`.
+  // A download to a place (#1811) adds `placeText`, where the card goes, and for a place aboard a ship the `ships`
+  // the player picks from, the first picked at first; `onDownload` then gets the ship's id.
+  | {
+      step: 'downloadCards';
+      cards: CardInstance[];
+      max: number;
+      testText: string;
+      placeText?: string;
+      ships?: CardInstance[];
+      onDownload: (ids: string[], shipId?: string) => void;
+    };
+
+/** The played card of a pending "when you play" effect (#1800), the panel's other subject. */
+export interface PlayedSubject {
+  // The effect's text, "You may draw up to seven cards, then discard two cards from hand."
+  text: string;
+  // "Condition met: …", or null for a model with no condition.
+  condition: string | null;
+  // Whether a step was taken already: Done then ends the effect, and before it Skip does.
+  started: boolean;
+  // Whether Done or Skip shows: not before a first step that is no "may" (#1808), while the hand holds a card.
+  endable: boolean;
+  // Whether the step is a "may", so the button before it reads Skip rather than Done.
+  skippable: boolean;
+  onEnd: () => void;
+}
 
 // The small card of View table, the size of a pile card at scale 1.
 export const RESOLVING_MINI_WIDTH = 56; // px
@@ -103,6 +154,36 @@ function ResolvingCard({
   );
 }
 
+// The played card of a "when you play" effect (#1800): it stands on the table, so here it previews on a hold
+// and a tap, and never drags. No `data-card-id`: the table's card carries it.
+function PlayedCard({ instance, onTap, imageStyle, testId }: { instance: CardInstance; onTap?: () => void; imageStyle: React.CSSProperties; testId: string }) {
+  const hold = useCardHold(instance.id);
+  const name = cardDisplayName(instance.card);
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      data-played-card={instance.id}
+      onClick={onTap}
+      {...hold}
+      className="block shrink-0 rounded-md focus:outline-hidden"
+      style={NO_CALLOUT_STYLE}
+      aria-label={onTap ? `Show ${name}` : name}
+    >
+      <img
+        draggable={false}
+        src={cardImageUrl(instance.card)}
+        onError={showCardMissing}
+        width={CARD_IMAGE_WIDTH}
+        height={CARD_IMAGE_HEIGHT}
+        alt={name}
+        className="rounded-md shadow-md"
+        style={{ ...NO_CALLOUT_STYLE, ...imageStyle }}
+      />
+    </button>
+  );
+}
+
 // A personnel of the draw step: a toggle with its name and printed cost, and a hold that previews it. The
 // download step (#1746) shows `note` in place of the cost, and disables a personnel with no copy to download.
 function PersonnelOption({
@@ -152,26 +233,32 @@ function HandOption({
   onToggle,
   pickedLabel,
   badge = true,
+  testId = 'resolve-hand-card',
+  disabled = false,
 }: {
   instance: CardInstance;
   order: number | null;
   onToggle: () => void;
   pickedLabel?: string;
   badge?: boolean;
+  testId?: string;
+  disabled?: boolean;
 }) {
   const hold = useCardHold(instance.id);
   const name = cardDisplayName(instance.card);
   return (
     <button
       type="button"
-      data-testid="resolve-hand-card"
+      data-testid={testId}
       data-card-choice={instance.id}
+      data-available={disabled ? 'false' : undefined}
+      disabled={disabled}
       aria-pressed={order !== null}
       aria-label={order !== null ? `${name}, ${pickedLabel ?? `${order + 1} of the cards to put on the bottom`}` : name}
       onClick={onToggle}
       {...hold}
       style={NO_CALLOUT_STYLE}
-      className={`relative shrink-0 rounded-md border-2 ${order !== null ? 'border-blue-400' : 'border-transparent'}`}
+      className={`relative shrink-0 rounded-md border-2 disabled:cursor-default disabled:opacity-40 ${order !== null ? 'border-blue-400' : 'border-transparent'}`}
     >
       <img
         draggable={false}
@@ -228,6 +315,42 @@ function DrawStep({ step }: { step: Extract<ResolveStep, { step: 'draw' }> }) {
   );
 }
 
+// The order of the cards for the bottom of the draw deck (#1739), with buttons that move one earlier or later:
+// the first goes nearest the top, the last to the very bottom. The examine of a played card (#1809) shares it.
+function BottomOrder({ ids, nameOf, onShift }: { ids: string[]; nameOf: (id: string) => string; onShift: (from: number, to: number) => void }) {
+  return (
+    <ol data-testid="resolve-order" className="flex flex-col gap-1 overflow-y-auto text-xs text-text-primary">
+      {ids.map((id, i) => (
+        <li key={id} data-testid="resolve-order-card" data-card-choice={id} className="flex items-center gap-1">
+          <span className="w-4 shrink-0 text-text-muted">{i + 1}.</span>
+          <span className="min-w-0 flex-1 truncate">{nameOf(id)}</span>
+          <button
+            type="button"
+            data-testid="resolve-order-up"
+            aria-label="Nearer the top"
+            className="btn-icon-sm"
+            disabled={i === 0}
+            onClick={() => onShift(i, i - 1)}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            data-testid="resolve-order-down"
+            aria-label="Nearer the bottom"
+            className="btn-icon-sm"
+            disabled={i === ids.length - 1}
+            onClick={() => onShift(i, i + 1)}
+          >
+            ↓
+          </button>
+        </li>
+      ))}
+      <li className="text-[11px] text-text-muted">The last goes to the very bottom.</li>
+    </ol>
+  );
+}
+
 // The bottom step (#1739): the hand as a row that scrolls sideways, a tap picks a card up to `count`, the
 // picked cards in their order with buttons that move one earlier or later, and Place on bottom once
 // exactly `count` are picked. The first of the order goes nearest the top, the last to the very bottom.
@@ -250,37 +373,7 @@ function BottomStep({ step }: { step: Extract<ResolveStep, { step: 'bottom' }> }
           return <HandOption key={c.id} instance={c} order={at >= 0 ? at : null} onToggle={() => toggle(c.id)} />;
         })}
       </div>
-      {picked.length > 0 && (
-        <ol data-testid="resolve-order" className="flex flex-col gap-1 overflow-y-auto text-xs text-text-primary">
-          {picked.map((id, i) => (
-            <li key={id} data-testid="resolve-order-card" data-card-choice={id} className="flex items-center gap-1">
-              <span className="w-4 shrink-0 text-text-muted">{i + 1}.</span>
-              <span className="min-w-0 flex-1 truncate">{cardDisplayName(inHand.get(id)!.card)}</span>
-              <button
-                type="button"
-                data-testid="resolve-order-up"
-                aria-label="Nearer the top"
-                className="btn-icon-sm"
-                disabled={i === 0}
-                onClick={() => shift(i, i - 1)}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                data-testid="resolve-order-down"
-                aria-label="Nearer the bottom"
-                className="btn-icon-sm"
-                disabled={i === picked.length - 1}
-                onClick={() => shift(i, i + 1)}
-              >
-                ↓
-              </button>
-            </li>
-          ))}
-          <li className="text-[11px] text-text-muted">The last goes to the very bottom.</li>
-        </ol>
-      )}
+      {picked.length > 0 && <BottomOrder ids={picked} nameOf={(id) => cardDisplayName(inHand.get(id)!.card)} onShift={shift} />}
       <button
         type="button"
         data-testid="resolve-place-bottom"
@@ -454,6 +547,225 @@ function DiscardDrawStep({ step }: { step: Extract<ResolveStep, { step: 'discard
   );
 }
 
+// The "may draw up to N" step of a played card (#1800): a stepper from 0 to the most the deck allows, and
+// Draw N. Its count is its own state, so a new subject, which remounts it, starts at the most.
+function DrawUpToStep({ step }: { step: Extract<ResolveStep, { step: 'drawUpTo' }> }) {
+  const most = Math.min(step.max, step.deck);
+  const [count, setCount] = useState(most);
+  const n = Math.max(0, Math.min(count, most));
+  return (
+    <div data-testid="resolve-step-draw-up-to" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">
+        Draw up to {step.max} cards{step.deck < step.max ? ` (the draw deck holds ${step.deck})` : ''}
+      </p>
+      <div className="flex items-center justify-center gap-2">
+        <button type="button" data-testid="resolve-draw-minus" aria-label="One fewer" className="btn-icon-sm" disabled={n <= 0} onClick={() => setCount(n - 1)}>
+          −
+        </button>
+        <span data-testid="resolve-draw-count" className="w-6 text-center text-lg font-semibold text-text-primary">
+          {n}
+        </span>
+        <button type="button" data-testid="resolve-draw-plus" aria-label="One more" className="btn-icon-sm" disabled={n >= most} onClick={() => setCount(n + 1)}>
+          +
+        </button>
+      </div>
+      <button type="button" data-testid="resolve-draw" className="btn-primary w-full whitespace-nowrap text-sm" onClick={() => step.onDraw(n)}>
+        Draw {n}
+      </button>
+    </div>
+  );
+}
+
+// The "discard N cards from hand" step of a played card (#1800): the hand as a row, a tap picks a card up to
+// `count`, and Discard once exactly `count` are picked. An empty hand discards nothing.
+function DiscardFromHandStep({ step }: { step: Extract<ResolveStep, { step: 'discardFromHand' }> }) {
+  const [order, setOrder] = useState<string[]>([]);
+  const inHand = new Set(step.hand.map((c) => c.id));
+  const picked = order.filter((id) => inHand.has(id));
+  const toggle = (id: string) =>
+    setOrder((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : ids.filter((i) => inHand.has(i)).length < step.count ? [...ids, id] : ids));
+  const what = step.count === 1 ? 'card' : 'cards';
+  return (
+    <div data-testid="resolve-step-discard" className="flex min-h-0 min-w-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">
+        {step.count === 0 ? 'Your hand is empty: nothing to discard.' : `Discard ${step.count} ${what} from your hand`}
+      </p>
+      <div data-testid="resolve-hand" className="flex min-w-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
+        {step.hand.map((c) => (
+          <HandOption
+            key={c.id}
+            instance={c}
+            order={picked.includes(c.id) ? picked.indexOf(c.id) : null}
+            badge={false}
+            pickedLabel="to discard"
+            onToggle={() => toggle(c.id)}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        data-testid="resolve-discard"
+        className="btn-primary w-full whitespace-nowrap text-sm"
+        disabled={picked.length !== step.count}
+        onClick={() => step.onDiscard(picked)}
+      >
+        Discard {step.count}
+      </button>
+    </div>
+  );
+}
+
+// The score of a played card (#1812): the points, and one button that adds them to the score.
+function ScoreStep({ step }: { step: Extract<ResolveStep, { step: 'score' }> }) {
+  return (
+    <div data-testid="resolve-step-score" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">Score {step.points} points</p>
+      <button type="button" data-testid="resolve-score" className="btn-primary w-full whitespace-nowrap text-sm" onClick={step.onScore}>
+        Score {step.points}
+      </button>
+    </div>
+  );
+}
+
+// The examine of a played card (#1809): the examined cards as a row, a tap takes a card that passes the test up
+// to `max` (a second tap puts it back), the rest in the order for the bottom, and one button that applies both.
+// Its picks are its own state, so a new subject, which remounts it, starts with none taken.
+function ExamineTakeStep({ step }: { step: Extract<ResolveStep, { step: 'examineTake' }> }) {
+  const examinedIds = step.examined.map((c) => c.id);
+  const [taken, setTaken] = useState<string[]>([]);
+  const [order, setOrder] = useState<string[]>(examinedIds);
+  const byId = new Map(step.examined.map((c) => [c.id, c]));
+  const picked = taken.filter((id) => byId.has(id));
+  // The rest in the chosen order, then any examined card the order does not hold yet.
+  const rest = [...order, ...examinedIds.filter((id) => !order.includes(id))].filter((id) => byId.has(id) && !picked.includes(id));
+  const toggle = (id: string) => {
+    if (picked.includes(id)) {
+      setTaken(picked.filter((i) => i !== id));
+      setOrder([...rest, id]);
+    } else if (step.max === 1) {
+      setTaken([id]);
+      setOrder([...rest.filter((i) => i !== id), ...picked]);
+    } else if (picked.length < step.max) {
+      setTaken([...picked, id]);
+      setOrder(rest.filter((i) => i !== id));
+    }
+  };
+  const shift = (from: number, to: number) => setOrder(arrayMove(rest, from, to));
+  const n = step.examined.length;
+  const take = step.max === 0 ? 'no card to take' : step.max === 1 ? `take ${step.testText ?? 'one'}` : `take up to ${step.max}`;
+  return (
+    <div data-testid="resolve-step-examine" className="flex min-h-0 min-w-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">
+        {n === 0 ? 'Your draw deck is empty: nothing to examine.' : `The top ${n === 1 ? 'card' : `${n} cards`} of your draw deck: ${take}`}
+      </p>
+      <div data-testid="resolve-examined" className="flex min-w-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
+        {step.examined.map((c) => (
+          <HandOption
+            key={c.id}
+            instance={c}
+            testId="resolve-examine-card"
+            order={picked.includes(c.id) ? picked.indexOf(c.id) : null}
+            badge={false}
+            pickedLabel="to take into hand"
+            disabled={!step.takes(c) || step.max === 0}
+            onToggle={() => toggle(c.id)}
+          />
+        ))}
+      </div>
+      {rest.length > 0 && <BottomOrder ids={rest} nameOf={(id) => cardDisplayName(byId.get(id)!.card)} onShift={shift} />}
+      <button
+        type="button"
+        data-testid="resolve-examine-apply"
+        className="btn-primary w-full text-sm leading-tight"
+        disabled={picked.length < step.min || picked.length > step.max}
+        onClick={() => step.onApply(picked, rest)}
+      >
+        {picked.length ? `Take ${picked.length}, place ${rest.length} on bottom` : `Place ${rest.length} on bottom`}
+      </button>
+    </div>
+  );
+}
+
+// The download of a played card (#1810): the list of `DownloadChoicePanel` (#1762), the matching cards of the
+// draw deck, at most `max` on, and one button that downloads them. With no match it says so and shows no
+// button: Skip ends the effect. Its picks are its own state, so a new subject, which remounts it, starts with none.
+function DownloadCardsStep({ step }: { step: Extract<ResolveStep, { step: 'downloadCards' }> }) {
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [chosenShip, setChosenShip] = useState<string | null>(null);
+  const picked = chosen.filter((id) => step.cards.some((c) => c.id === id));
+  const ships = step.ships;
+  const ship = ships ? (ships.find((s) => s.id === chosenShip) ?? ships[0]) : undefined;
+  const noShip = !!ships && ships.length === 0;
+  const toggle = (id: string) =>
+    setChosen(picked.includes(id) ? picked.filter((i) => i !== id) : step.max === 1 ? [id] : picked.length < step.max ? [...picked, id] : picked);
+  return (
+    <div data-testid="resolve-step-download-cards" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">
+        Download {step.testText} from your draw deck{step.placeText ? `, ${step.placeText}` : ''}
+      </p>
+      {noShip ? (
+        <p data-testid="resolve-download-no-ship" className="text-xs text-text-muted">
+          You have no ship to place it aboard.
+        </p>
+      ) : step.cards.length === 0 ? (
+        <p data-testid="resolve-download-cards-none" className="text-xs text-text-muted">
+          No card of your draw deck is {step.testText.replace(/^up to \w+ /, '')}.
+        </p>
+      ) : (
+        <>
+          <p data-testid="resolve-download-cards-summary" className="text-xs text-text-muted">
+            {picked.length} of {step.max} chosen
+          </p>
+          <div className="flex min-h-0 flex-col gap-1 overflow-y-auto overscroll-contain pr-1">
+            {step.cards.map((c) => (
+              <DownloadOption
+                key={c.id}
+                card={c}
+                on={picked.includes(c.id)}
+                disabled={step.max > 1 && !picked.includes(c.id) && picked.length >= step.max}
+                onToggle={() => toggle(c.id)}
+              />
+            ))}
+          </div>
+          {ships && ships.length > 1 && (
+            <div data-testid="resolve-download-ships" className="flex flex-wrap gap-1">
+              {ships.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  data-testid="resolve-download-ship"
+                  data-ship-id={s.id}
+                  aria-pressed={s.id === ship?.id}
+                  className={`min-h-11 rounded border px-2 text-sm text-text-primary ${
+                    s.id === ship?.id ? 'border-blue-400 bg-blue-500/20' : 'border-white/10'
+                  }`}
+                  onClick={() => setChosenShip(s.id)}
+                >
+                  {s.card ? cardDisplayName(s.card) : 'Ship'}
+                </button>
+              ))}
+            </div>
+          )}
+          {ships && ships.length === 1 && ship && (
+            <p data-testid="resolve-download-ship-only" className="text-xs text-text-muted">
+              Aboard {ship.card ? cardDisplayName(ship.card) : 'the ship'}
+            </p>
+          )}
+          <button
+            type="button"
+            data-testid="resolve-download-cards"
+            className="btn-primary w-full text-sm leading-tight"
+            disabled={picked.length === 0}
+            onClick={() => (ship ? step.onDownload(picked, ship.id) : step.onDownload(picked))}
+          >
+            Download {picked.length || ''}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ResolvingPanel({
   instance,
   hidden,
@@ -463,6 +775,7 @@ export function ResolvingPanel({
   onCancel,
   onViewTable,
   step,
+  played,
 }: {
   instance: CardInstance;
   // During a drag: mounted, with no visibility and no pointer events.
@@ -473,11 +786,14 @@ export function ResolvingPanel({
   onDiscard?: () => void;
   // Shown only for an event that removes itself from the game (`removesItselfFromGame`).
   onRemoveFromGame?: () => void;
-  onCancel: () => void;
+  // Absent for a played card (#1800), which has no Cancel: Skip and undo cover it.
+  onCancel?: () => void;
   onViewTable: () => void;
   // The step of the event's resolve model (#1739), or none for an event the player resolves by hand.
   // Cancel shows only before the draw: once it drew, Cancel would leave the free draws in the hand.
   step?: ResolveStep;
+  // The played card of a pending "when you play" effect (#1800), in place of a resolving event.
+  played?: PlayedSubject;
 }) {
   // Escape collapses the panel to the small card, and never discards the event; during a drag it does
   // nothing, as a card list panel's does.
@@ -501,18 +817,48 @@ export function ResolvingPanel({
         className={`relative flex flex-row items-center gap-3 rounded-lg ${PANEL_SURFACE_CLASSNAME} p-3`}
         style={safeAreaMargins('top', 'right', 'bottom', 'left')}
       >
-        <ResolvingCard
-          instance={instance}
-          testId="resolving-card"
-          imageStyle={{
-            height: step ? STEP_CARD_HEIGHT : PANEL_CARD_HEIGHT,
-            width: 'auto',
-            aspectRatio: `${CARD_IMAGE_WIDTH} / ${CARD_IMAGE_HEIGHT}`,
-          }}
-        />
-        {step && (
-          <div className="flex min-h-0 w-64 max-w-[38vw] flex-col self-stretch" style={{ maxHeight: PANEL_CARD_HEIGHT }}>
-            {step.step === 'draw' ? (
+        {played ? (
+          <PlayedCard
+            instance={instance}
+            testId="resolving-card"
+            imageStyle={{ height: STEP_CARD_HEIGHT, width: 'auto', aspectRatio: `${CARD_IMAGE_WIDTH} / ${CARD_IMAGE_HEIGHT}` }}
+          />
+        ) : (
+          <ResolvingCard
+            instance={instance}
+            testId="resolving-card"
+            imageStyle={{
+              height: step ? STEP_CARD_HEIGHT : PANEL_CARD_HEIGHT,
+              width: 'auto',
+              aspectRatio: `${CARD_IMAGE_WIDTH} / ${CARD_IMAGE_HEIGHT}`,
+            }}
+          />
+        )}
+        {(step || played) && (
+          <div className="flex min-h-0 w-64 max-w-[38vw] flex-col gap-2 self-stretch" style={{ maxHeight: PANEL_CARD_HEIGHT }}>
+            {played && (
+              <>
+                <p data-testid="resolve-play-text" className="text-xs text-text-secondary">
+                  {played.text}
+                </p>
+                {played.condition && (
+                  <p data-testid="resolve-condition" className="text-xs text-text-muted">
+                    {played.condition}
+                  </p>
+                )}
+              </>
+            )}
+            {!step ? null : step.step === 'drawUpTo' ? (
+              <DrawUpToStep key={`draw-up-to-${instance.id}`} step={step} />
+            ) : step.step === 'score' ? (
+              <ScoreStep step={step} />
+            ) : step.step === 'examineTake' ? (
+              <ExamineTakeStep key={`examine-${instance.id}`} step={step} />
+            ) : step.step === 'downloadCards' ? (
+              <DownloadCardsStep key={`download-cards-${instance.id}`} step={step} />
+            ) : step.step === 'discardFromHand' ? (
+              <DiscardFromHandStep key={`discard-${instance.id}`} step={step} />
+            ) : step.step === 'draw' ? (
               <DrawStep key={`draw-${instance.id}`} step={step} />
             ) : step.step === 'discardDraw' ? (
               <DiscardDrawStep key={`discard-draw-${instance.id}`} step={step} />
@@ -527,6 +873,16 @@ export function ResolvingPanel({
         )}
         <div className="flex w-32 flex-col gap-2">
           <p className="text-xs text-text-muted">Resolving</p>
+          {played?.endable && (
+            <button
+              type="button"
+              data-testid={played.started || !played.skippable ? 'resolving-done' : 'resolving-skip'}
+              className={played.started || !played.skippable ? button : secondary}
+              onClick={played.onEnd}
+            >
+              {played.started || !played.skippable ? 'Done' : 'Skip'}
+            </button>
+          )}
           {onRemoveFromGame && (
             <button
               type="button"
@@ -542,7 +898,7 @@ export function ResolvingPanel({
               Resolved → Discard
             </button>
           )}
-          {step?.step !== 'bottom' && (
+          {onCancel && step?.step !== 'bottom' && (
             <button type="button" data-testid="resolving-cancel" className={secondary} onClick={onCancel}>
               Cancel
             </button>
@@ -558,19 +914,24 @@ export function ResolvingPanel({
 
 // The small card of View table, at the right side of the screen, above the table: a tap brings the panel
 // back, a hold previews the event, and it drags out like the panel's card.
-export function ResolvingMini({ instance, onOpen }: { instance: CardInstance; onOpen: () => void }) {
+// A played card (#1800) does not drag: it stands on the table.
+export function ResolvingMini({ instance, onOpen, played = false }: { instance: CardInstance; onOpen: () => void; played?: boolean }) {
   return (
     <div
       className={`fixed ${LAYER_RESOLVING_MINI} flex flex-col items-center gap-0.5 rounded-md bg-black/60 p-1`}
       style={{ right: 8, top: '30%', ...safeAreaMargins('right') }}
     >
       <span className="text-[9px] uppercase tracking-wide leading-3 text-text-secondary">Resolving</span>
-      <ResolvingCard
-        instance={instance}
-        testId="resolving-mini"
-        onTap={onOpen}
-        imageStyle={{ width: RESOLVING_MINI_WIDTH, height: MINI_HEIGHT }}
-      />
+      {played ? (
+        <PlayedCard instance={instance} testId="resolving-mini" onTap={onOpen} imageStyle={{ width: RESOLVING_MINI_WIDTH, height: MINI_HEIGHT }} />
+      ) : (
+        <ResolvingCard
+          instance={instance}
+          testId="resolving-mini"
+          onTap={onOpen}
+          imageStyle={{ width: RESOLVING_MINI_WIDTH, height: MINI_HEIGHT }}
+        />
+      )}
     </div>
   );
 }

@@ -177,15 +177,17 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     expect(screen.queryByTestId('charge-chip')).toBeNull();
   });
 
-  it('shows the counter on the segment row in play and draw only, and none in orders or discard (#1679)', async () => {
+  it('shows the counter on a row of its own in play and draw only, and none in orders or discard (#1679, #1790)', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
     await switchOn();
     await drawOpeningHand();
     const column = screen.getByTestId('turn-score-column');
-    const segmentRow = within(column).getByTestId('turn-segment-row');
-    expect(segmentRow).toHaveTextContent('Play0/7');
+    const counterRow = within(column).getByTestId('turn-counters-row');
+    expect(counterRow).toHaveTextContent('0/7');
+    expect(within(column).getByTestId('turn-segment-list')).not.toContainElement(screen.getByTestId('turn-counters'));
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
     const next = within(column).getByRole('button', { name: 'Go to orders' });
     expect(next).not.toContainElement(screen.getByTestId('turn-counters'));
     await act(async () => {
@@ -195,13 +197,16 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     await act(async () => {
       fireEvent.click(next);
     });
-    expect(segmentRow).toHaveTextContent('Orders');
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Orders');
+    // The row stays, empty, so the score does not move.
+    expect(within(column).getByTestId('turn-counters-row')).toBe(counterRow);
+    expect(counterRow).toBeEmptyDOMElement();
     expect(screen.queryByTestId('turn-counters')).toBeNull();
     expect(screen.queryByTestId('turn-counters-list')).toBeNull();
     await act(async () => {
       fireEvent.click(next);
     });
-    expect(segmentRow).toHaveTextContent('Play0/7');
+    expect(counterRow).toHaveTextContent('0/7');
   });
 
   it('draws the opening hand of 7 at no cost, and shows the turn controls after it (#1736)', async () => {

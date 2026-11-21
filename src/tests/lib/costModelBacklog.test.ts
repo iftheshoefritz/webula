@@ -1,8 +1,7 @@
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
 import { COST_REGISTRY } from '../../lib/costModels/registry';
 import { cardTitleOf } from '../../lib/cardTitle';
 import { changesCost, CostCardRow, isCostAffecting } from '../../lib/costModels/coverage';
+import { backlogOf, cardRows, deckTitles, shippedDecks } from './backlogData';
 
 // The backlog of the cost registry (#1692, step 1 of #1609): the titles whose game text changes a
 // cost, grants counters or plays a card at a changed cost, with no model in `COST_REGISTRY`, by the
@@ -11,53 +10,17 @@ import { changesCost, CostCardRow, isCostAffecting } from '../../lib/costModels/
 
 type CardRow = CostCardRow;
 
-function cardRows(): CardRow[] {
-  const [head, ...rows] = readFileSync(join(process.cwd(), 'public', 'cards_with_processed_columns.txt'), 'utf-8')
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => line.split('\t').map((cell) => cell.replace(/^"|"$/g, '').replace(/""/g, '"')));
-  const col = (h: string) => head.indexOf(h);
-  return rows.map((r) => ({ name: r[col('Name')], type: r[col('Type')], gametext: r[col('gametext')] ?? '' }));
-}
-
-/** The titles of a deck's `Deck:` section, its draw deck, by `cardTitleOf`. */
-function deckTitles(text: string): Set<string> {
-  const titles = new Set<string>();
-  let inDeck = false;
-  for (const line of text.split(/\r?\n/)) {
-    if (/^\S.*:\s*$/.test(line)) {
-      inDeck = line.trim() === 'Deck:';
-      continue;
-    }
-    const m = inDeck && line.match(/^\d+\t(.+)$/);
-    if (m) titles.add(cardTitleOf(m[1]));
-  }
-  return titles;
-}
-
-function shippedDecks(): string[] {
-  const dirs = [join(process.cwd(), 'public', 'beginner-decks'), join(process.cwd(), 'championship-decks')];
-  return dirs.flatMap((dir) =>
-    readdirSync(dir)
-      .filter((f) => f.endsWith('.txt'))
-      .map((f) => readFileSync(join(dir, f), 'utf-8'))
-  );
-}
-
 /** The backlog: each cost-changing title with no model, with the number of decks that play it, most played first. */
 function costModelBacklog(
   cards: CardRow[],
   decks: string[],
   registry: ReadonlyMap<string, unknown> = COST_REGISTRY
 ): { title: string; decks: number }[] {
-  const titles = new Set(
-    cards.filter(isCostAffecting).map((c) => cardTitleOf(c.name))
+  return backlogOf(
+    cards.filter(isCostAffecting).map((c) => cardTitleOf(c.name)),
+    decks,
+    (t) => registry.has(t)
   );
-  const deckSets = decks.map(deckTitles);
-  return [...titles]
-    .filter((t) => !registry.has(t))
-    .map((title) => ({ title, decks: deckSets.filter((s) => s.has(title)).length }))
-    .sort((a, b) => b.decks - a.decks || a.title.localeCompare(b.title));
 }
 
 describe('the cost model backlog', () => {

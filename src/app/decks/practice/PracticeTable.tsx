@@ -3,6 +3,7 @@
 import React, {
   Suspense,
   useEffect,
+  useContext,
   useEffectEvent,
   useMemo,
   useReducer,
@@ -60,8 +61,13 @@ import {
   PRACTICE_DISSIDENT_DRAW_TOP,
   PRACTICE_DISSIDENT_HAND,
   PRACTICE_DISSIDENT_TSV,
+  PRACTICE_DOWNLOADS_DRAW_TOP,
+  PRACTICE_DOWNLOADS_HAND,
+  PRACTICE_DOWNLOADS_TSV,
   PRACTICE_RECALL_TSV,
   PRACTICE_KMTAR_TSV,
+  PRACTICE_TAIN_HAND,
+  PRACTICE_TAIN_TSV,
   PRACTICE_MISSIONS_HAND,
   PRACTICE_MISSIONS_TSV,
   PRACTICE_BOT_COSTS_TSV,
@@ -187,7 +193,10 @@ import {
   actionReveal,
   resolveStepOf,
   resolvingRecalled,
+  pendingPlayEffectOf,
+  downloadPlaceShipsOf,
 } from './gameLog';
+import { discardCount, downloadTakes, examineCount, examineTakeMax, examineTakeMin, examineTakes, playConditionLine } from '../../../lib/playModels';
 import {
   CardHoldProvider,
   NO_CALLOUT_STYLE,
@@ -217,7 +226,8 @@ import {
   useMissionScale,
   useShipRowCount,
   useTableScale,
-  turnScoreColumnCompact,
+  turnScoreColumnLayout,
+  type TurnScoreColumnLayout,
 } from './tableScale';
 import { usePanelBottomInset } from './panelBottomInset';
 import { useToolbarScrollRoom } from './toolbarScrollRoom';
@@ -233,6 +243,8 @@ import { attributesOnTableOf } from './attributesOnTable';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
+import { PILE_CARD_EDGE, pileCastShadow, pileDepth, pileLayers } from './pileDepth';
+import { TABLE_3D_CLASS, TABLE_3D_KEY, Table3DContext, layoutPosition, planeTiltStyle, type Point } from './table3d';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
@@ -441,6 +453,8 @@ function GameMenu({
   onToggleCardText,
   resolveEvents,
   onToggleResolveEvents,
+  table3d,
+  onToggleTable3d,
   botGame,
   botPileName,
   touch,
@@ -486,6 +500,9 @@ function GameMenu({
   // The setting "Resolve events in a panel" (#1727).
   resolveEvents: boolean;
   onToggleResolveEvents: () => void;
+  // The 3D table (`table3d.ts`), a setting of the device, on by default.
+  table3d: boolean;
+  onToggleTable3d: () => void;
   // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
   botPileName: string;
@@ -609,6 +626,15 @@ function GameMenu({
                 className={SPLASH_ITEM_CLASS}
               >
                 Resolve events in a panel: {resolveEvents ? 'On' : 'Off'}
+              </button>
+              <button
+                type="button"
+                onClick={onToggleTable3d}
+                aria-pressed={table3d}
+                data-testid="game-menu-table-3d"
+                className={SPLASH_ITEM_CLASS}
+              >
+                3D table: {table3d ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -798,8 +824,10 @@ function GameMenu({
 // (`TOUCH_CONTROLS_COLUMN`), below the corner buttons: the turn over the next-turn button, then the
 // score over minus and plus. A desktop shows the same column, in the look of its corner buttons
 // (#1451). They are table content, not part of `corner-buttons`, so a card list
-// panel and the hand arc cover them as they covered the counters of the bottom row. `compact`
-// (`turnScoreColumnCompact`) hides the labels and draws smaller buttons.
+// panel and the hand arc cover them as they covered the counters of the bottom row. Each control has
+// a row of its own (#1790): the next-turn button, the segments of the turn as a marked list, the
+// counter of the turn, the score, and minus and plus; `turnScoreColumnLayout` sizes the rows from the
+// free height, may hide the labels, and in fullscreen on iPadOS may go compact.
 // The content column's `p-4`, grown by the safe-area insets (#1383, #1384): only the sides with an
 // inset get an inline padding, so the DOM is unchanged where every inset is 0.
 function contentPadding(insets: SafeAreaInsets): React.CSSProperties | undefined {
@@ -831,6 +859,8 @@ function controlsColumnTop(cornerButtons: number, systemControlsInset: boolean, 
 // The short names of the segments of a turn in the column (#1605), and what a tap of the next-turn
 // button does from each.
 const TURN_SEGMENT_NAMES: Record<TurnSegment, string> = { playAndDraw: 'Play', orders: 'Orders', discard: 'Discard' };
+// The order of the segment list (#1790).
+const TURN_SEGMENTS: TurnSegment[] = ['playAndDraw', 'orders', 'discard'];
 const ADVANCE_LABELS: Record<ReturnType<typeof nextSegmentOf>, string> = {
   playAndDraw: 'Next turn',
   orders: 'Go to orders',
@@ -845,7 +875,7 @@ function TurnScoreColumn({
   score,
   onNextTurn,
   onAdjustScore,
-  compact,
+  layout,
   top,
   touch,
   counters,
@@ -860,8 +890,8 @@ function TurnScoreColumn({
   score: number;
   onNextTurn: () => void;
   onAdjustScore: (delta: number) => void;
-  // `turnScoreColumnCompact`.
-  compact: boolean;
+  // `turnScoreColumnLayout`.
+  layout: TurnScoreColumnLayout;
   // `controlsColumnTop`.
   top: number;
   // The round `btn-system` look of the touch corner buttons, or the desktop's `btn-icon` (#1451).
@@ -875,10 +905,12 @@ function TurnScoreColumn({
   // disables it on an empty draw deck. Null once the opening hand is drawn.
   openingHand?: { onDraw: () => void; empty: boolean } | null;
 }) {
-  const label = compact ? 'sr-only' : 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted';
-  const number = compact ? 'text-sm leading-5 font-semibold' : 'text-lg leading-6 font-semibold';
+  const { compact, tapRow, listRow, tapText, listText, numberLine } = layout;
+  const label = layout.labels ? 'block text-[10px] uppercase tracking-wide leading-3 text-text-muted' : 'sr-only';
+  const number = compact ? 'text-sm font-semibold' : 'text-lg font-semibold';
   const look = touch ? 'btn-system' : 'btn-icon';
-  const button = `${look} w-full ${compact ? 'h-6 text-xs' : 'h-7'} disabled:opacity-50 disabled:cursor-not-allowed`;
+  const button = `${look} w-full disabled:opacity-50 disabled:cursor-not-allowed`;
+  const tapStyle: React.CSSProperties = { height: tapRow, fontSize: tapText };
   return (
     <div
       data-testid="turn-score-column"
@@ -892,7 +924,8 @@ function TurnScoreColumn({
     >
       {/* One button shows the turn and advances it (#1449), through the segments of the turn (#1605).
           The visible label sits above it, and `turn-counter` keeps a screen-reader "Turn" of its own,
-          so its text still reads "Turn N". The segment's row shows under it, in compact too. */}
+          so its text still reads "Turn N". The segment list and the counter's row show under it, each
+          on rows of their own (#1790), in compact too. */}
       {openingHand ? (
         // The opening hand (#1736): one free draw of 7 in place of the turn block, as tall as it, so
         // the score below does not move.
@@ -902,14 +935,16 @@ function TurnScoreColumn({
           </span>
           <button
             data-testid="draw-opening-hand"
-            className={`${button} text-xs font-semibold text-text-primary`}
+            className={`${button} font-semibold text-text-primary`}
+            style={tapStyle}
             onClick={openingHand.onDraw}
             disabled={openingHand.empty}
             title="Draw the opening hand of 7 cards, at no cost"
           >
             Draw 7
           </button>
-          <div className="h-4" aria-hidden="true" />
+          {/* The segment list and the counter's row, `gap-1` apart. */}
+          <div style={{ height: 3 * listRow + 4 + tapRow }} aria-hidden="true" />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-1">
@@ -918,6 +953,7 @@ function TurnScoreColumn({
           </span>
           <button
             className={`${button} flex items-center justify-center gap-1`}
+            style={tapStyle}
             onClick={onNextTurn}
             disabled={!!blockedBy}
             aria-label={blockedBy ?? ADVANCE_LABELS[next]}
@@ -925,29 +961,53 @@ function TurnScoreColumn({
           >
             <span data-testid="turn-counter" className="text-text-primary">
               <span className="sr-only">Turn </span>
-              <span className={compact ? 'text-xs font-semibold' : 'text-sm font-semibold'}>{turn}</span>
+              <span className="font-semibold" style={{ fontSize: tapText + 2 }}>
+                {turn}
+              </span>
             </span>
             <FaForward className="shrink-0" />
           </button>
-          {/* The segment's row, below the next-turn button (#1679): its name, and in play and draw the
-              counter of the turn (#1607) beside it, "Play 0/7". Orders and Discard show no counter. */}
-          <div data-testid="turn-segment-row" className="flex h-4 w-full items-center justify-center gap-1">
-            <span data-testid="turn-segment" data-segment={segment} className="block text-[10px] leading-3 text-text-secondary">
-              {TURN_SEGMENT_NAMES[segment]}
-            </span>
+          {/* The segments of the turn, one row each, the current one marked (#1790). The list is no
+              control: the next-turn button advances the segment. `turn-segment` is the current row. */}
+          <ol data-testid="turn-segment-list" className="flex w-full flex-col" aria-label="Segments of the turn">
+            {TURN_SEGMENTS.map((s) => {
+              const current = s === segment;
+              return (
+                <li
+                  key={s}
+                  data-testid={current ? 'turn-segment' : undefined}
+                  data-segment={s}
+                  aria-current={current ? 'step' : undefined}
+                  className={`flex w-full items-center justify-center rounded ${
+                    current ? 'bg-white/15 font-semibold text-text-primary' : 'text-text-muted'
+                  }`}
+                  style={{ height: listRow, fontSize: listText }}
+                >
+                  {TURN_SEGMENT_NAMES[s]}
+                </li>
+              );
+            })}
+          </ol>
+          {/* The counter of the turn (#1607), in play and draw, "0/7" alone; its label and the list
+              name the grants. The row keeps its height without it, so the score does not move. */}
+          <div data-testid="turn-counters-row" className="flex w-full" style={{ height: tapRow }}>
             {counters && segment === 'playAndDraw' && (
-              <TurnCounterButton counters={counters} className={`${look} h-4`} onOpen={onOpenCounters} />
+              <TurnCounterButton counters={counters} className={look} style={tapStyle} onOpen={onOpenCounters} />
             )}
           </div>
         </div>
       )}
       <div className="flex flex-col items-center gap-1">
         <div data-testid="score-counter" className="text-center text-text-primary">
-          <span className={label}>Score</span> <span className={number}>{score}</span>
+          <span className={label}>Score</span>{' '}
+          <span className={number} style={{ lineHeight: `${numberLine}px` }}>
+            {score}
+          </span>
         </div>
         <div className="flex w-full items-center gap-1">
           <button
             className={button}
+            style={tapStyle}
             onClick={() => onAdjustScore(-SCORE_STEP)}
             disabled={score <= SCORE_MIN}
             aria-label="Decrease score"
@@ -956,6 +1016,7 @@ function TurnScoreColumn({
           </button>
           <button
             className={button}
+            style={tapStyle}
             onClick={() => onAdjustScore(SCORE_STEP)}
             disabled={score >= SCORE_MAX}
             aria-label="Increase score"
@@ -1152,6 +1213,130 @@ type DownloadPile = keyof typeof DOWNLOAD_HAND;
 const HAND_DECK = { hand: 'drawDeck', dilemmaHand: 'dilemmaPile' } as const;
 const isDownloadPile = (location: FlatPanelLocation): location is DownloadPile => location in DOWNLOAD_HAND;
 
+// One part of the tilted table (`table3d.ts`): the board of missions and ships, or the bottom row.
+// Both take the same tilt about the same hinge, the middle of the bottom edge of `hingeBox` (the
+// bottom row's measured box), so they lie in one plane. The element sits inside its part's measured
+// box, so the sizes of the table do not change. `mat` draws the playmat in the plane behind it, from
+// `matTop` px above it down past the bottom row, across the bottom row's width: the bottom row,
+// a later stacking context, paints over it. With the setting off, or `enabled` false, the part draws
+// flat.
+function TablePlane({
+  hingeBox,
+  enabled = true,
+  mat = false,
+  matTop = 0,
+  className,
+  testId,
+  children,
+}: {
+  hingeBox: HTMLElement | null;
+  enabled?: boolean;
+  mat?: boolean;
+  matTop?: number;
+  className?: string;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  const on = useContext(Table3DContext) && enabled;
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [geometry, setGeometry] = useState<{ hinge: Point; pos: Point; width: number; height: number; row: { left: number; right: number } } | null>(null);
+  useEffect(() => {
+    if (!on || !el || !hingeBox) return;
+    const measure = () => {
+      const row = hingeBox.getBoundingClientRect();
+      const padLeft = parseFloat(getComputedStyle(hingeBox).paddingLeft) || 0;
+      setGeometry({
+        hinge: { x: (row.left + padLeft + row.right) / 2, y: row.bottom },
+        pos: layoutPosition(el),
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+        row: { left: row.left + padLeft, right: row.right },
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    observer.observe(hingeBox);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [on, el, hingeBox]);
+  if (!on) return <div className={className}>{children}</div>;
+  const style = geometry ? planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y) : undefined;
+  return (
+    <div ref={setEl} data-testid={testId} className={`relative ${className ?? ''}`} style={style}>
+      {mat && geometry && (
+        <div
+          aria-hidden="true"
+          data-testid="board-mat"
+          className="board-mat pointer-events-none absolute -z-10 rounded-2xl"
+          style={{
+            top: -(matTop + 8),
+            bottom: -(geometry.hinge.y - (geometry.pos.y + geometry.height) + 8),
+            left: Math.min(0, geometry.row.left - geometry.pos.x) - 8,
+            right: Math.min(0, geometry.pos.x + geometry.width - geometry.row.right) - 8,
+          }}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+
+// The cards of a pile under its top card (`pileDepth.ts`): each a real card of the game, a little
+// lower and askew, so the pile looks as thick as it is. A face-down pile shows card backs, and the
+// discard pile the faces of its own cards under the top one (`faces`, from the top down). They sit
+// behind the top card in the pile's own box. The card back has its own black border, so only a
+// face takes the table's border (`cardBorderStyle`). They sit with no pointer events, so they change no drop target,
+// no drag and no size. With the setting off it draws nothing.
+function PileDepth({ count, rowScale, faces }: { count: number; rowScale: number; faces?: string[] }) {
+  const on = useContext(Table3DContext);
+  const layers = on ? pileLayers(count, rowScale) : [];
+  if (layers.length === 0) return null;
+  const cardWidth = pileCardSize(rowScale).width;
+  // Spread the faces over the layers, so the bottom layer shows the pile's bottom card.
+  const faceOf = (k: number) =>
+    faces && faces.length > 0
+      ? faces[Math.min(faces.length - 1, Math.round((k * (faces.length - 1)) / Math.max(1, layers.length - 1)))]
+      : '/cardimages/cardback.jpg';
+  return (
+    <div aria-hidden="true" data-testid="pile-depth" data-depth={pileDepth(count, rowScale)} data-layers={layers.length} className="pointer-events-none absolute inset-0">
+      {/* The bottom card first, so each card above it paints over it. */}
+      {layers
+        .map((layer, k) => (
+          <img
+            key={k}
+            src={faceOf(k)}
+            onError={showCardMissing}
+            alt=""
+            draggable={false}
+            className="absolute inset-0 w-full h-full rounded-lg object-cover"
+            style={{
+              ...(faces ? cardBorderStyle(cardWidth) : {}),
+              transform: `translate(${layer.x}px, ${layer.y}px) rotate(${layer.rotate}deg)`,
+              filter: `brightness(${layer.brightness})`,
+              boxShadow: k === layers.length - 1 ? `${PILE_CARD_EDGE}, ${pileCastShadow(count, rowScale)}` : PILE_CARD_EDGE,
+            }}
+          />
+        ))
+        .reverse()}
+    </div>
+  );
+}
+
+// A pile stands on the table: its bottom card sits on the bottom row's baseline, level with the
+// bottoms of the cards in the core and the brig, and its top card rises by the pile's height
+// (`pileDepth`). The pile's box keeps its place in the row; its contents (the cards under the top,
+// the top card, its drop halves, its drag and its count) move up together, so a drop aims at the
+// top card where it shows. With the 3D table off, or an empty pile, nothing moves.
+function usePileLift(count: number, rowScale: number): React.CSSProperties | undefined {
+  const on = useContext(Table3DContext);
+  const depth = on ? pileDepth(count, rowScale) : 0;
+  return depth > 0 ? { transform: `translateY(${-depth}px)` } : undefined;
+}
+
 // The discard pile's top card, draggable off the pile (#606 review): a dilemma dragged from here
 // onto a mission card lands under that mission, since its source is not the dilemma hand (see
 // `handleDragEnd`'s dilemma routing below). A separate component, mounted only while a top card
@@ -1207,11 +1392,14 @@ function DiscardPileCard({
 function DiscardPile({
   topCard,
   count,
+  under = [],
   onOpen,
   rowScale = 1,
 }: {
   topCard: CardInstance | undefined;
   count: number;
+  // The cards under the top card, from the top down: the 3D pile shows their faces.
+  under?: CardInstance[];
   onOpen: () => void;
   // The bottom-row scale (`computeBottomRowScale`, #1465).
   rowScale?: number;
@@ -1220,6 +1408,7 @@ function DiscardPile({
   const draggedType = useDraggedCardType();
   const highlight = highlightState('discard', draggedType, isOver);
   const landedNonce = useLandedNonce('discard');
+  const lift = usePileLift(count, rowScale);
 
   // A ring shows that the discard pile accepts the card under the pointer (`isOver`), or accepts
   // the dragged card's type generally (`valid`, #608).
@@ -1233,7 +1422,12 @@ function DiscardPile({
     >
       <LandedRing nonce={landedNonce} />
       {topCard ? (
-        <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} rowScale={rowScale} />
+        <div data-testid="pile-lift" className="relative" style={lift}>
+          <div className="pointer-events-none absolute inset-0">
+            <PileDepth count={count} rowScale={rowScale} faces={under.map((c) => cardImageUrl(c.card))} />
+          </div>
+          <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} rowScale={rowScale} />
+        </div>
       ) : (
         <div
           style={pileCardSize(rowScale)}
@@ -1473,6 +1667,7 @@ function DilemmaPileButton({
 }) {
   const size = pileCardSize(rowScale);
   const landedNonce = useLandedNonce('dilemmaPile');
+  const lift = usePileLift(count, rowScale);
   const halves = (
     <>
       <PileHalf
@@ -1503,8 +1698,10 @@ function DilemmaPileButton({
       data-landed={landedNonce !== null || undefined}
     >
       <LandedRing nonce={landedNonce} />
+      <div data-testid="pile-lift" className="absolute inset-0" style={lift}>
       {count > 0 ? (
         <>
+          <PileDepth count={count} rowScale={rowScale} />
           <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} cardWidth={size.width} />
           <CountBadge count={count} landedNonce={landedNonce} />
         </>
@@ -1515,6 +1712,7 @@ function DilemmaPileButton({
       )}
 
       {topCard ? <PileTopCardDrag topCard={topCard}>{halves}</PileTopCardDrag> : halves}
+      </div>
     </div>
   );
 }
@@ -1542,6 +1740,7 @@ function DrawPileButton({
 }) {
   const size = pileCardSize(rowScale);
   const landedNonce = useLandedNonce('drawDeck');
+  const lift = usePileLift(count, rowScale);
   const halves = (
     <>
       <PileHalf
@@ -1575,8 +1774,10 @@ function DrawPileButton({
       data-landed={landedNonce !== null || undefined}
     >
       <LandedRing nonce={landedNonce} />
+      <div data-testid="pile-lift" className="absolute inset-0" style={lift}>
       {count > 0 ? (
         <>
+          <PileDepth count={count} rowScale={rowScale} />
           <PileArt alt="Face-down draw deck" shuffleCount={shuffleCount} cardWidth={size.width} />
           <CountBadge count={count} landedNonce={landedNonce} />
         </>
@@ -1587,6 +1788,7 @@ function DrawPileButton({
       )}
 
       {topCard ? <PileTopCardDrag topCard={topCard}>{halves}</PileTopCardDrag> : halves}
+      </div>
     </div>
   );
 }
@@ -2104,9 +2306,15 @@ function PracticeDrawContent() {
   // `?fixture=kmtar` (#1762) deals the piles table with five missions whose non-headquarters ones require
   // Diplomacy, and K'mtar at the end of the hand.
   const isKmtarFixture = fixture === 'kmtar';
+  // `?fixture=tain` (#1800) deals the piles table with five missions whose non-headquarters ones require
+  // Intelligence, and Enabran Tain "Retired" Spymaster at the end of the hand, for his "when you play" effect.
+  const isTainFixture = fixture === 'tain';
   // `?fixture=dissident` (#1763) deals the piles table with The New Resistance in the core, a Dissident at the
   // end of the hand and another on top of the draw deck.
   const isDissidentFixture = fixture === 'dissident';
+  // `?fixture=downloads` (#1810) deals the piles table with Opaka Kai of Bajor and Jean-Luc Picard Vintner at the
+  // end of the hand, whose plays download into hand, and two [Baj] personnel on top of the draw deck.
+  const isDownloadsFixture = fixture === 'downloads';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2133,7 +2341,9 @@ function PracticeDrawContent() {
     isCompletionFixture ||
     isMissionsFixture ||
     isKmtarFixture ||
+    isTainFixture ||
     isDissidentFixture ||
+    isDownloadsFixture ||
     isAttemptFixture ||
     isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -2162,6 +2372,8 @@ function PracticeDrawContent() {
   const [cardTextOn, setCardTextOn] = useLocalStorage<boolean>(CARD_TEXT_ATTRIBUTES_KEY, false);
   // Whether a played event that resolves goes to the resolving zone (#1727); the Play target reads it.
   const [resolveEventsOn, setResolveEventsOn] = useLocalStorage<boolean>(RESOLVE_EVENTS_KEY, false);
+  // The 3D table (`table3d.ts`), a setting of the device, on by default.
+  const [table3dOn, setTable3dOn] = useLocalStorage<boolean>(TABLE_3D_KEY, true);
   // The brief chip of the last charge: the index of its entry in the log. It is page state, so a
   // reload does not bring it back. A newer charge replaces it, undo and redo remove it, and it shows
   // only while its entry is of the current turn, so the next turn removes it too.
@@ -2189,6 +2401,13 @@ function PracticeDrawContent() {
   const dispatch = (action: GameAction) => {
     const chosen = withShuffleOrders(table, action, game.log, cardTextOn);
     if (actionCharged(chosen)) setChargeChip({ entry: game.log.length });
+    // The Enterprise's play aboard itself (#1811) is charged inside the play's own entry, or a new one after a
+    // correction, so the chip shows both plays.
+    else if (chosen.type === 'playEffectDownload') {
+      const pending = pendingPlayEffectOf(game);
+      if (pending?.model.kind === 'downloadPlace' && pending.model.place.kind === 'playAboardThis')
+        setChargeChip({ entry: pending.target.entry === game.log.length - 1 ? pending.target.entry : game.log.length });
+    }
     else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) setChargeChip(null);
     // A play that reveals the opponent's dilemma pile (#1738) opens the reveal panel at the bottom of the
     // pile, on the cards it put there, where the player orders them. The panel draws over every other
@@ -2461,7 +2680,10 @@ function PracticeDrawContent() {
   // Issue #1728: the resolving event shows in the modal panel, or after View table or Escape as a small
   // card. Page state, not part of the save: an event that starts resolving, a restore, a reload and an
   // undo that brings the event back all open the panel. Adjusted during render on the change of the id.
-  const resolvingId = table.resolving?.id ?? null;
+  // The subject is the card whose play text is resolving: the event, or else the personnel or ship whose
+  // "when you play" effect is pending (#1800), derived from the log.
+  const pendingPlay = table.resolving ? null : pendingPlayEffectOf(game);
+  const resolvingId = table.resolving?.id ?? (pendingPlay ? `played-${pendingPlay.target.entry}-${pendingPlay.target.move}-${pendingPlay.target.card}` : null);
   const [resolvingCollapsed, setResolvingCollapsed] = useState(false);
   const [prevResolvingId, setPrevResolvingId] = useState(resolvingId);
   if (resolvingId !== prevResolvingId) {
@@ -2521,6 +2743,76 @@ function PracticeDrawContent() {
                   onExchange: (handId, tableId) => dispatch({ type: 'resolveExchange', handId, tableId }),
                 }
               : undefined;
+  // The steps of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
+  const playedStep: ResolveStep | undefined =
+    pendingPlay?.model.kind === 'drawUpToThenDiscard'
+      ? pendingPlay.step.step === 'draw'
+        ? { step: 'drawUpTo', max: pendingPlay.model.drawUpTo, deck: table.drawDeck.length, onDraw: (count) => dispatch({ type: 'playEffectDraw', count }) }
+        : {
+            step: 'discardFromHand',
+            count: discardCount(pendingPlay.model, table.hand.length),
+            hand: table.hand,
+            onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
+          }
+      : pendingPlay?.model.kind === 'discardFromHand'
+        ? {
+            step: 'discardFromHand',
+            count: discardCount(pendingPlay.model, table.hand.length),
+            hand: table.hand,
+            onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
+          }
+      : pendingPlay?.model.kind === 'score'
+        ? { step: 'score', points: pendingPlay.model.points, onScore: () => dispatch({ type: 'playEffectScore' }) }
+      : pendingPlay?.model.kind === 'examineTake'
+        ? (() => {
+            // The examine of #1809: the top of the draw deck, which stays there until the button.
+            const model = pendingPlay.model;
+            const examined = table.drawDeck.slice(0, examineCount(model, table.drawDeck.length));
+            const max = examineTakeMax(model, costFactsOf(table, []));
+            return {
+              step: 'examineTake' as const,
+              examined,
+              min: examineTakeMin(model, examined.map((c) => c.card), max),
+              max,
+              takes: (c: CardInstance) => examineTakes(model, c.card),
+              ...(model.testText ? { testText: model.testText } : {}),
+              onApply: (take: string[], bottom: string[]) => dispatch({ type: 'playEffectExamine', take, bottom }),
+            };
+          })()
+        : pendingPlay?.model.kind === 'downloadPlace'
+          ? (() => {
+              // The download to a place of #1811: one card of the draw deck that passes the model's test, and the
+              // ship it goes aboard, the played card's mission first.
+              const model = pendingPlay.model;
+              const place = model.place;
+              return {
+                step: 'downloadCards' as const,
+                cards: table.drawDeck.filter((c) => downloadTakes(model, c.card)),
+                max: 1,
+                testText: model.testText,
+                placeText:
+                  place.kind === 'drawDeckTop'
+                    ? 'then place it on top of your draw deck'
+                    : place.kind === 'playAboardThis'
+                      ? `and play it at cost −${place.discount} aboard this ship`
+                      : `and place it aboard ${place.text}`,
+                ...(place.kind === 'drawDeckTop' ? {} : { ships: downloadPlaceShipsOf(table, pendingPlay) }),
+                onDownload: (ids: string[], shipId?: string) => dispatch({ type: 'playEffectDownload', ids, ...(shipId ? { shipId } : {}) }),
+              };
+            })()
+        : pendingPlay?.model.kind === 'downloadTake'
+          ? (() => {
+              // The download of #1810: the cards of the draw deck that pass the model's test, in deck order.
+              const model = pendingPlay.model;
+              return {
+                step: 'downloadCards' as const,
+                cards: table.drawDeck.filter((c) => downloadTakes(model, c.card)),
+                max: model.upTo,
+                testText: model.testText,
+                onDownload: (ids: string[]) => dispatch({ type: 'playEffectDownload', ids }),
+              };
+            })()
+          : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -2738,9 +3030,13 @@ function PracticeDrawContent() {
               ? missionsFixtureExtras()
               : isKmtarFixture
                 ? kmtarFixtureExtras()
+                : isTainFixture
+                  ? tainFixtureExtras()
                 : isDissidentFixture
                   ? dissidentFixtureExtras()
-                  : null
+                  : isDownloadsFixture
+                    ? downloadsFixtureExtras()
+                    : null
       : null;
     const extraKeys = new Set(
       extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand, ...(extras.drawTop ?? []), ...(extras.discard ?? [])].map((c: any) => c.collectorsinfo) : []
@@ -2858,6 +3154,17 @@ function PracticeDrawContent() {
     core: [] as any[],
     lateHand: extractDrawDeck(deckFromTsv(PRACTICE_KMTAR_TSV, data)).filter((r: any) => r.originalName === PRACTICE_KMTAR_HAND),
   });
+  // The cards `?fixture=tain` adds to the end of the hand (#1800): Enabran Tain "Retired" Spymaster, then the
+  // three personnel that examine the top of the draw deck (#1809).
+  const tainFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_TAIN_TSV, data));
+    return {
+      hand: [] as any[],
+      crew: [] as any[],
+      core: [] as any[],
+      lateHand: PRACTICE_TAIN_HAND.flatMap((name) => rows.filter((r: any) => r.originalName === name)),
+    };
+  };
   // The cards `?fixture=dissident` adds (#1763): The New Resistance to the core, Leeta to the end of the hand,
   // and Damar on top of the draw deck.
   const dissidentFixtureExtras = () => {
@@ -2871,6 +3178,19 @@ function PracticeDrawContent() {
       drawTop: named(PRACTICE_DISSIDENT_DRAW_TOP),
     };
   };
+  // The cards `?fixture=downloads` adds (#1810): Opaka and Picard to the end of the hand, and two [Baj] personnel
+  // on top of the draw deck.
+  const downloadsFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_DOWNLOADS_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return {
+      hand: [] as any[],
+      crew: [] as any[],
+      core: [] as any[],
+      lateHand: named(PRACTICE_DOWNLOADS_HAND),
+      drawTop: named(PRACTICE_DOWNLOADS_DRAW_TOP),
+    };
+  };
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
   const botCostsFixtureExtras = () => ({
     hand: [] as any[],
@@ -2882,11 +3202,13 @@ function PracticeDrawContent() {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
     if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
     if (isKmtarFixture) return deckFromTsv(PRACTICE_KMTAR_TSV, data);
+    if (isTainFixture) return deckFromTsv(PRACTICE_TAIN_TSV, data);
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isRecallFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data), ...deckFromTsv('1\tMiracle Working', data) };
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
+    if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = {
       ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
@@ -2973,7 +3295,9 @@ function PracticeDrawContent() {
           isCompletionFixture ||
           isMissionsFixture ||
           isKmtarFixture ||
+          isTainFixture ||
           isDissidentFixture ||
+          isDownloadsFixture ||
           isAttemptFixture ||
           isBotFixture,
         attemptFixturePhase,
@@ -3254,7 +3578,12 @@ function PracticeDrawContent() {
   // Moves the turn to its next segment, or at the end of the turn raises the turn counter by one and
   // unstops every stopped personnel card on the table (#718, #1605).
   // The turn waits while an event resolves (#1728): the reducer ignores the action then too.
-  const turnBlockedBy = table.resolving ? `Resolve ${cardDisplayName(table.resolving.card)} first` : null;
+  // A pending "when you play" effect holds it too (#1800).
+  const turnBlockedBy = table.resolving
+    ? `Resolve ${cardDisplayName(table.resolving.card)} first`
+    : pendingPlay
+      ? `Resolve ${pendingPlay.name} first`
+      : null;
   const nextTurn = () => {
     if (turnBlockedBy) return;
     dispatch({ type: 'advanceSegment' });
@@ -4148,7 +4477,7 @@ function PracticeDrawContent() {
       {debugTaps && <TapDebugOverlay standalone={fullscreen.standalone} />}
 
       {/* Game layer: fixed inset-0 always fills the visible area as the toolbar shows and hides */}
-      <div ref={setGameLayer} data-testid="practice-game-layer" className="fixed inset-0 bg-gradient-page font-body text-text-primary flex flex-col">
+      <div ref={setGameLayer} data-testid="practice-game-layer" className={`fixed inset-0 bg-gradient-page ${table3dOn ? TABLE_3D_CLASS : ''} font-body text-text-primary flex flex-col`}>
         {/* The warning of a Load deck that dropped cards the card data does not have (#1616). */}
         {missingCards > 0 && (
           <div
@@ -4207,6 +4536,8 @@ function PracticeDrawContent() {
           onToggleCardText={() => setCardTextOn((on) => !on)}
           resolveEvents={resolveEventsOn}
           onToggleResolveEvents={() => setResolveEventsOn((on) => !on)}
+          table3d={table3dOn}
+          onToggleTable3d={() => setTable3dOn((on) => !on)}
           botGame={table.opponent === 'bot'}
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
@@ -4456,6 +4787,7 @@ function PracticeDrawContent() {
             <RangeUsedProvider value={rangeUsedInfo}>
             <TableCardUseProvider value={tableCardUses}>
             <MissionSpendProvider value={missionSpendOffers}>
+            <Table3DContext value={table3dOn}>
             {/* Each padding grows by the safe-area inset of its side (#1383, #1384), so the bottom
                 row clears the home indicator, the table clears the notch, and the background stays
                 full-bleed under both. The scale hooks read the bottom padding from the computed
@@ -4551,6 +4883,7 @@ function PracticeDrawContent() {
                   paddingRight: MENU_BUTTON_GUTTER,
                 }}
               >
+                <TablePlane testId="tilted-board" hingeBox={bottomRow} mat matTop={underMissionHeadroom(missionScale, finePointer)}>
                 <MissionRow
                   missions={missions}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
@@ -4566,6 +4899,7 @@ function PracticeDrawContent() {
                   desktop={finePointer}
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE)}
                 />
+                </TablePlane>
               </div>
               <TurnScoreColumn
                 turn={turn}
@@ -4574,7 +4908,7 @@ function PracticeDrawContent() {
                 score={score}
                 onNextTurn={nextTurn}
                 onAdjustScore={adjustScore}
-                compact={turnScoreColumnCompact({
+                layout={turnScoreColumnLayout({
                   systemControls: fullscreen.isFullscreen && fullscreen.systemControlsInset,
                   top: turnScoreTop + safeArea.top,
                   // The column reaches the bottom edge, since the closed hand left the bottom row (#1489).
@@ -4605,14 +4939,18 @@ function PracticeDrawContent() {
                   already used. */}
               <div
                 ref={setBottomRow}
-                className="mt-auto flex flex-row items-end gap-2"
+                className="mt-auto flex flex-row items-end"
                 style={{ paddingLeft: TOUCH_CONTROLS_COLUMN }}
               >
+                {/* The bottom row lies on the tilted table with the board (`TablePlane`), but not in
+                    the attempt layout, whose board stays flat. */}
+                <TablePlane testId="tilted-bottom-row" hingeBox={bottomRow} enabled={!attemptLayoutShows} className="flex-1 min-w-0 flex flex-row items-end gap-2">
                 <div className="flex flex-row items-end gap-2">
                   <div className="flex flex-col items-center gap-1">
                     <DiscardPile
                       topCard={discard[discard.length - 1]}
                       count={discard.length}
+                      under={discard.slice(0, -1).reverse()}
                       onOpen={() => openOnlyFlatZone('discard')}
                       rowScale={bottomRowScale}
                     />
@@ -4701,6 +5039,7 @@ function PracticeDrawContent() {
                     />
                   </div>
                 </div>
+                </TablePlane>
               </div>
 
               {/* The two hands (#1489). Each draws its closed fan and its open arc in the game layer,
@@ -5002,6 +5341,7 @@ function PracticeDrawContent() {
                 />
               )}
             </div>
+            </Table3DContext>
             {/* The Play target (#1729), only while the pointer is above its line. */}
             {playEligible && playTargetAt !== null && <PlayTarget line={playTargetAt} container={gameLayer} />}
             {/* The resolving event (#1728): the panel, below the charge chip and the splash, or its small
@@ -5028,6 +5368,28 @@ function PracticeDrawContent() {
             )}
             {table.resolving && resolvingCollapsed && (
               <ResolvingMini instance={table.resolving} onOpen={() => setResolvingCollapsed(false)} />
+            )}
+            {/* The played card of a pending "when you play" effect (#1800): Done or Skip, and no Cancel. */}
+            {pendingPlay && !resolvingCollapsed && (
+              <ResolvingPanel
+                instance={pendingPlay.instance}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onViewTable={() => setResolvingCollapsed(true)}
+                step={playedStep}
+                played={{
+                  text: pendingPlay.model.text,
+                  condition: pendingPlay.condition ? playConditionLine(pendingPlay.model, pendingPlay.condition) : null,
+                  started: pendingPlay.steps.length > 0,
+                  // A first step that is no "may" (#1808) has no Skip; with an empty hand Done ends it.
+                  endable: pendingPlay.steps.length > 0 || pendingPlay.step.may || table.hand.length === 0,
+                  skippable: pendingPlay.step.may,
+                  onEnd: () => dispatch({ type: 'playEffectSkip' }),
+                }}
+              />
+            )}
+            {pendingPlay && resolvingCollapsed && (
+              <ResolvingMini instance={pendingPlay.instance} played onOpen={() => setResolvingCollapsed(false)} />
             )}
             </MissionSpendProvider>
             </TableCardUseProvider>

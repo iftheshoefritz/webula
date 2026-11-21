@@ -82,7 +82,8 @@ export const limitPartsText = (counters: TurnCounters): string | null => {
 // A counted choice (#1695) shows as a stepper: its label, the count, and minus and plus, which set the
 // cost of the next count. A choice of personnel (#1712) opens the page's picker. Below the choice, one
 // button per use a card on the table offers for the play (#1713), disabled once used or while its card
-// is no longer where the use needs it.
+// is no longer where the use needs it. Only the title gives way to a narrow chip: the cost keeps its
+// width after it (#1797), and a hover shows the whole title.
 function ChargeRow({
   charge,
   onCorrect,
@@ -112,8 +113,13 @@ function ChargeRow({
     <div data-testid="charge-row" className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
         <span className="min-w-0 flex-1 text-sm text-text-primary">
-          <span className="block truncate">
-            {label} <span data-testid="charge-cost" className="font-semibold">{charge.cost}</span>
+          <span className="flex min-w-0 items-baseline gap-1">
+            <span data-testid="charge-label" title={label} className="min-w-0 truncate">
+              {label}
+            </span>{' '}
+            <span data-testid="charge-cost" className="shrink-0 font-semibold">
+              {charge.cost}
+            </span>
           </span>
           {source && (
             <span
@@ -386,7 +392,12 @@ export function TurnCountersList({
               const text = pendingDiscountText(discount);
               return (
                 <div key={targetKey(discount.origin)} data-testid="pending-discount" className="flex items-center gap-1.5">
-                  <span className="min-w-0 flex-1 truncate text-sm text-text-primary">{text}</span>
+                  <span className="flex min-w-0 flex-1 items-baseline gap-1 text-sm text-text-primary">
+                    <span data-testid="pending-discount-label" title={text} className="min-w-0 truncate">
+                      {discount.title}: {discount.label}
+                    </span>{' '}
+                    <span className="shrink-0">−{discount.amount}</span>
+                  </span>
                   <button
                     type="button"
                     data-testid="pending-discount-dismiss"
@@ -462,10 +473,13 @@ export function TurnCountersList({
 export function TurnCounterButton({
   counters,
   className,
+  style,
   onOpen,
 }: {
   counters: TurnCounters;
   className: string;
+  // The height and the text size of the column's tap rows (#1790).
+  style?: React.CSSProperties;
   onOpen: () => void;
 }) {
   const { spent, limit } = counters;
@@ -485,7 +499,8 @@ export function TurnCounterButton({
       onClick={onOpen}
       aria-label={text}
       title={text}
-      className={`${className} min-w-0 flex-1 px-0 text-[10px] font-semibold tabular-nums ${
+      style={style}
+      className={`${className} min-w-0 flex-1 px-0 font-semibold tabular-nums ${
         over ? 'text-amber-300' : 'text-text-primary'
       }`}
     >

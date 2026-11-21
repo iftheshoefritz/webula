@@ -281,6 +281,69 @@ export const PRACTICE_KMTAR_TSV = `${PRACTICE_DECK_TSV.split('\n')
 // The card of `PRACTICE_KMTAR_TSV` that joins the end of the hand.
 export const PRACTICE_KMTAR_HAND = "Alexander Rozhenko K'mtar";
 
+// The deck of `?fixture=tain` (#1800): the practice deck with five missions in place of its own, each
+// non-headquarters one requiring Intelligence, in slot order Celtris III (the planet of the away team), Farius
+// Prime, Argus Array (the space mission of the crewed ship), Sector 21396 and Cardassia Prime, a headquarters,
+// and Enabran Tain "Retired" Spymaster at the end of the hand, so his play opens his "when you play" effect.
+// After him Requisitions Drone, Lenara Kahn Wormhole Theorist and Keiko O'Brien Botanist (#1809), whose plays
+// examine the top four cards of the draw deck. Then Annexation Drone and DaiMon Solok Cargo Runner (#1812), whose
+// plays score 5 points: every non-headquarters mission is an [AQ] mission, so Annexation Drone's condition holds.
+export const PRACTICE_TAIN_TSV = `${PRACTICE_DECK_TSV.split('\n')
+  .slice(0, -5)
+  .join('\n')}
+1\tEnabran Tain "Retired" Spymaster
+1\tRequisitions Drone
+1\tLenara Kahn Wormhole Theorist
+1\tKeiko O'Brien Botanist
+1\tAnnexation Drone
+1\tDaiMon Solok Cargo Runner
+1\tCeltris III Construct Elaborate Trap
+1\tFarius Prime Approach Criminal Organization
+1\tArgus Array Redirect Subspace Telescope
+1\tSector 21396 Commandeer Prototype
+1\tCardassia Prime Hardscrabble World`;
+
+// The cards of `PRACTICE_TAIN_TSV` that join the end of the hand, in this order.
+export const PRACTICE_TAIN_HAND = [
+  'Enabran Tain "Retired" Spymaster',
+  'Requisitions Drone',
+  'Lenara Kahn Wormhole Theorist',
+  "Keiko O'Brien Botanist",
+  'Annexation Drone',
+  'DaiMon Solok Cargo Runner',
+];
+
+// The cards `?fixture=downloads` (#1810) adds to the `?fixture=piles` table: Opaka Kai of Bajor and Jean-Luc
+// Picard Vintner *VP (the piles deck holds his other version) at the end of the hand, whose plays download into
+// hand, and two [Baj] personnel, Furel and Lupaza, on top of the draw deck, for Opaka's download. After them
+// (#1811) Gelnon Aloof Tactician, U.S.S. Enterprise Where She Belongs and Reconnaissance Drone, whose plays download
+// to a place, and Jem'Hadar Attack Ship, a [Dom] ship for Gelnon, end the hand; James T. Kirk Original Thinker, a
+// [TOS] personnel of cost 5, and Ixtana'Rax, a Jem'Hadar, follow them on top of the draw deck.
+export const PRACTICE_DOWNLOADS_TSV = `1\tOpaka Kai of Bajor
+1\tJean-Luc Picard Vintner *VP
+1\tFurel Resistance Fighter
+1\tLupaza Resistance Fighter
+1\tGelnon Aloof Tactician
+1\tU.S.S. Enterprise Where She Belongs
+1\tReconnaissance Drone
+1\tJem'Hadar Attack Ship
+1\tJames T. Kirk Original Thinker
+1\tIxtana'Rax Honored Elder`;
+export const PRACTICE_DOWNLOADS_HAND = [
+  'Opaka Kai of Bajor',
+  'Jean-Luc Picard Vintner *VP',
+  'Gelnon Aloof Tactician',
+  'U.S.S. Enterprise Where She Belongs',
+  'Reconnaissance Drone',
+  "Jem'Hadar Attack Ship",
+];
+export const PRACTICE_DOWNLOADS_DRAW_TOP = [
+  'Furel Resistance Fighter',
+  'Lupaza Resistance Fighter',
+  'James T. Kirk Original Thinker',
+  "Ixtana'Rax Honored Elder",
+];
+
 export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)
   .join('\n')}
