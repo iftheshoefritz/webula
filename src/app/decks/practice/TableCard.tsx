@@ -93,16 +93,28 @@ export function cardBorderStyle(cardWidth: number): CSSProperties {
   return { outline: `${border}px solid black`, outlineOffset: -border };
 }
 // The black border along the bottom of an art crop (#1795), as wide as the border the card image
-// prints along its top and sides, which the crop shows and its bottom cuts off. A border on the
-// `<img>` takes its strip from the bottom of the crop's box, so the crop keeps its size and the art
-// keeps its scale (`object-cover object-top`) and loses a strip at its bottom.
-export function cropBottomBorderStyle(cardWidth: number): CSSProperties {
-  return { borderBottom: `${cropBottomBorderWidth(cardWidth)}px solid black` };
-}
-// Whether a table card's crop cuts off the bottom of its card: every crop but a mission's, whose
-// box shows the whole landscape card.
-export function cutsOffBottom(card: { type?: unknown }, uncropped: boolean): boolean {
-  return !uncropped && card.type !== 'mission';
+// prints along its top and sides, which the crop shows and its bottom cuts off. It covers a strip at
+// the bottom of the crop's box, so the crop keeps its size and the art its scale (`object-cover
+// object-top`). Where it meets the printed side borders, its inner corners are rounded, as the card
+// rounds the corners of its art and text box: a quarter circle as wide as the border joins the inner
+// edge of each side to the top of the strip. Every crop draws it, a mission's on touch too; only a
+// whole card (`uncropped`) shows its own printed bottom border.
+export function CropBottomBorder({ cardWidth }: { cardWidth: number }) {
+  const border = cropBottomBorderWidth(cardWidth);
+  const corner = (side: 'left' | 'right'): CSSProperties => ({
+    [side]: 0,
+    bottom: border,
+    width: 2 * border,
+    height: border,
+    background: `radial-gradient(circle at ${side === 'left' ? '100%' : '0'} 0, transparent ${border - 0.5}px, black ${border}px)`,
+  });
+  return (
+    <div data-testid="crop-bottom-border" aria-hidden="true" className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-x-0 bottom-0 bg-black" style={{ height: border }} />
+      <div data-testid="crop-bottom-border-corner" className="absolute" style={corner('left')} />
+      <div data-testid="crop-bottom-border-corner" className="absolute" style={corner('right')} />
+    </div>
+  );
 }
 // The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
 export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
@@ -244,8 +256,9 @@ export function TableCardImage({
           src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
           alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
           className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped || instance.removedFromGame ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), ...(cutsOffBottom(card, uncropped) ? cropBottomBorderStyle(width) : {}) }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
         />
+        {!uncropped && <CropBottomBorder cardWidth={width} />}
         {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. It sits
             in the clipped box, so its band, on the bottom of the crop (#1236), keeps to the crop's
             rounded corners. */}

@@ -109,7 +109,7 @@ export const PERSONNEL_MAX_ICONS = 4;
 
 // The black border a card image prints along each edge, about 17 px on a card 357 px wide. An art
 // crop cuts the card off above its bottom edge, so it draws a border of that width along its bottom
-// (#1795, `cropBottomBorderStyle` in `TableCard.tsx`), and the crop's bottom matches its top and sides.
+// (#1795, `CropBottomBorder` in `TableCard.tsx`), and the crop's bottom matches its top and sides.
 const PRINTED_BORDER_SHARE = 17 / 357;
 export function cropBottomBorderWidth(width: number): number {
   return Math.max(2, Math.round(width * PRINTED_BORDER_SHARE));

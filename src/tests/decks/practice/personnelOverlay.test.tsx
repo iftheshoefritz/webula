@@ -260,7 +260,8 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
     const band = screen.getByTestId('personnel-attributes');
     const width = Number(band.getAttribute('width'));
     expect(band.style.bottom).toBe(`${cropBottomBorderWidth(width)}px`);
-    expect(container.querySelector('img')!.style.borderBottom).toBe(`${cropBottomBorderWidth(width)}px solid black`);
+    const strip = container.querySelector('[data-testid="crop-bottom-border"]')!.firstElementChild as HTMLElement;
+    expect(strip.style.height).toBe(`${cropBottomBorderWidth(width)}px`);
     expect(band.getAttribute('style') ?? '').not.toMatch(/top/);
     const height = Number(band.getAttribute('height'));
     for (const rect of Array.from(band.querySelectorAll('rect'))) {
@@ -271,11 +272,28 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
     expect(clip.className).toMatch(/rounded-md/);
   });
 
-  it("draws no crop border on a mission, whose box shows the whole card, nor on a whole card (#1795)", () => {
+  it('rounds the inner corners where the bottom border meets the sides (#1795)', () => {
+    const { container } = render(<TableCard instance={makeCard(0)} />);
+    const width = Number(screen.getByTestId('personnel-attributes').getAttribute('width'));
+    const border = cropBottomBorderWidth(width);
+    const [left, right] = Array.from(container.querySelectorAll<HTMLElement>('[data-testid="crop-bottom-border-corner"]'));
+    for (const corner of [left, right]) {
+      expect(corner.style.bottom).toBe(`${border}px`);
+      expect(corner.style.width).toBe(`${2 * border}px`);
+      expect(corner.style.height).toBe(`${border}px`);
+      expect(corner.style.background).toMatch(/radial-gradient/);
+    }
+    expect(left.style.left).toBe('0px');
+    expect(left.style.background).toMatch(/100% 0/);
+    expect(right.style.right).toBe('0px');
+    expect(right.style.background).toMatch(/circle at 0 0/);
+  });
+
+  it('draws the crop border on a cropped mission, and none on a whole card (#1795)', () => {
     const { container, rerender } = render(<TableCard instance={makeCard(0, { type: 'mission' })} />);
-    expect(container.querySelector('img')!.style.borderBottom).toBe('');
+    expect(container.querySelector('[data-testid="crop-bottom-border"]')).toBeTruthy();
     rerender(<TableCard instance={makeCard(0)} uncropped />);
-    expect(container.querySelector('img')!.style.borderBottom).toBe('');
+    expect(container.querySelector('[data-testid="crop-bottom-border"]')).toBeNull();
   });
 
   it('greys the overlay of a stopped personnel at full opacity, and greys and fades its art (#1339)', () => {
