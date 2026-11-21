@@ -89,7 +89,7 @@ describe('?fixture=costs (#1727)', () => {
     const saved = JSON.parse(localStorage.getItem('practiceGame:fixture=costs')!);
     const nameOf = (key: string) => saved.dealtDeck[key].row.originalName;
     const hand: { id: string; key: string }[] = saved.table.hand;
-    expect(hand.slice(-10).map((c) => nameOf(c.key))).toEqual([
+    expect(hand.slice(-11).map((c) => nameOf(c.key))).toEqual([
       'These Are The Voyages',
       'At What Cost?',
       'Ferengi Tradition',
@@ -100,17 +100,18 @@ describe('?fixture=costs (#1727)', () => {
       'Vidiian Organ Bank',
       'Bridon',
       'Danara Pel Loving Life',
+      'Peak Performance',
     ]);
     // The cards before #1727 end with the crew's Annexation Drone and the core's Delivery Boy, and the
-    // ten later cards come right after them, the Galors of #1744, Days of Atonement of #1745, Second Edition
-    // of #1746, and Vidiian Organ Bank with its two [Vid] personnel of #1765 last.
+    // eleven later cards come right after them, the Galors of #1744, Days of Atonement of #1745, Second Edition
+    // of #1746, Vidiian Organ Bank with its two [Vid] personnel of #1765, and Peak Performance of #1796 last.
     const cards = savedCards(saved.table);
     const numbers = cards.map((c) => idNumber(c.id)).sort((a, b) => a - b);
     const last = numbers[numbers.length - 1];
-    expect(hand.slice(-10).map((c) => idNumber(c.id))).toEqual([last - 9, last - 8, last - 7, last - 6, last - 5, last - 4, last - 3, last - 2, last - 1, last]);
+    expect(hand.slice(-11).map((c) => idNumber(c.id))).toEqual([last - 10, last - 9, last - 8, last - 7, last - 6, last - 5, last - 4, last - 3, last - 2, last - 1, last]);
     const byNumber = new Map(cards.map((c) => [idNumber(c.id), nameOf(c.key)]));
-    expect(byNumber.get(last - 10)).toBe('Delivery Boy');
-    expect(byNumber.get(last - 11)).toBe('Annexation Drone');
+    expect(byNumber.get(last - 11)).toBe('Delivery Boy');
+    expect(byNumber.get(last - 12)).toBe('Annexation Drone');
     expect(saved.table.resolving).toBeNull();
   });
 });

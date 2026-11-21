@@ -28,7 +28,7 @@ import { collisionDetection } from './collisionDetection';
 import { PLAY_TARGET_ID, playTargetEligible, playTargetLine } from './playTarget';
 import { costFactsOf } from './costFacts';
 import { PlayTarget } from './PlayTarget';
-import { recallRefused, removesItselfFromGame, resolvesOnPlay } from '../../../lib/playCost';
+import { recallRefused, removesItselfFromGame, resolvesOnPlay, resolvesThenCore } from '../../../lib/playCost';
 import { useEscapeLayer } from './useEscapeLayer';
 import { FaLayerGroup, FaMobileAlt, FaForward, FaTimes } from 'react-icons/fa';
 import {
@@ -1106,11 +1106,12 @@ function computeMoveTargetForInstance(
 ): MoveTarget | null {
   if (!over) return null;
 
-  // The Play target (#1729) plays an event that resolves at once into the resolving zone.
+  // The Play target (#1729) plays an event that resolves at once into the resolving zone, and a core event
+  // with a "When you play this event" clause (#1796) too.
   // A Recall play the table refuses (#1764), Vidiian Organ Bank with fewer than two completed missions,
   // makes no move: the card stays in the discard pile.
   if (over.id === PLAY_TARGET_ID) {
-    if (!resolvesOnPlay(instance.card)) return null;
+    if (!resolvesOnPlay(instance.card)) return resolvesThenCore(instance.card) ? 'resolving' : null;
     const fromDiscard = table.discard.some((c) => c.id === instance.id) && !instance.removedFromGame;
     return fromDiscard && recallRefused('discard', 'resolving', instance.card, costFactsOf(table)) ? null : 'resolving';
   }
@@ -4193,7 +4194,10 @@ function PracticeDrawContent() {
     const actions: Extract<TableAction, { type: 'move' }>[] = [];
     const targetOver = rowTarget ? { ...over!, id: 'dilemmaStack' } : over;
     orderedGroup.forEach((instance) => {
-      const target = computeMoveTargetForInstance(targetOver, instance, table, armedTargetId);
+      const routed = computeMoveTargetForInstance(targetOver, instance, table, armedTargetId);
+      // A drop on the core of a core event with a "When you play this event" clause (#1796) plays it into
+      // the resolving zone, as a drop on the Play target does, whenever that target may show.
+      const target = routed === 'core' && playEligible && resolvesThenCore(instance.card) ? 'resolving' : routed;
       if (target) actions.push({ type: 'move', id: instance.id, to: target, position });
     });
     // Each move appends its card to the stack. A reorder onto the card that sat at the marked place
@@ -5353,11 +5357,16 @@ function PracticeDrawContent() {
                 instance={table.resolving}
                 hidden={draggingInstance !== null}
                 escapeActive={!gameMenuOpen}
+                onCore={
+                  resolvesThenCore(table.resolving.card)
+                    ? () => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'core' })
+                    : undefined
+                }
                 onDiscard={
-                  resolvingIsRecalled ? undefined : () => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })
+                  resolvingIsRecalled || resolvesThenCore(table.resolving.card) ? undefined : () => table.resolving && dispatch({ type: 'move', id: table.resolving.id, to: 'discard' })
                 }
                 onRemoveFromGame={
-                  removesItselfFromGame(table.resolving.card) || resolvingIsRecalled
+                  (removesItselfFromGame(table.resolving.card) && !resolvesThenCore(table.resolving.card)) || resolvingIsRecalled
                     ? () => table.resolving && dispatch(resolvedRemoveFromGameAction(table.resolving.id))
                     : undefined
                 }

@@ -55,6 +55,16 @@ const PLAY_PLACES: ReadonlySet<CostPlace> = new Set<CostPlace>(['shipRow', 'crew
 export const resolvesOnPlay = (card: { type?: unknown; gametext?: unknown } | null | undefined): boolean =>
   String(card?.type ?? '').toLowerCase() === 'event' && !/\bplays (in|on)\b/i.test(String(card?.gametext ?? ''));
 
+// Whether `card` is an event that plays in the core and has a "When you play this event" clause (#1796): its
+// play resolves in the resolving zone, as an event that resolves at once does, and Resolved → Core then puts
+// it in the core. A clause that only changes the event's own cost ("When you play this event, it is cost -1 …",
+// Thirst for Knowledge; a sentence with "is cost") is the cost registry's, so it does not count. Every other
+// core event plays straight into the core.
+export const resolvesThenCore = (card: { type?: unknown; gametext?: unknown } | null | undefined): boolean =>
+  String(card?.type ?? '').toLowerCase() === 'event' &&
+  /\bplays in your core\b/i.test(String(card?.gametext ?? '')) &&
+  /\bwhen you play this event\b(?![^.]*\bis cost\b)/i.test(String(card?.gametext ?? ''));
+
 // Whether `card` is an event that removes itself from the game once it resolves (#1730): its text has the
 // sentence "Remove this event from the game.", at the start of the text or after the end of another
 // sentence. The card data lowercases the text, so the match ignores case and reads the sentence start

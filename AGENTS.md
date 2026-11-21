@@ -601,7 +601,7 @@ holds a card, a modal panel shows it (#1728, `ResolvingPanel.tsx`, `data-testid=
 event a whole card (`resolving-card`, `data-zone="resolving"`, its `data-card-id`) that previews on a hold
 and drags out, the panel hidden during the drag as a card list panel is; the panel is no drop target. Its
 layer, `LAYER_RESOLVING_PANEL`, is below the charge chip, so the play's choices stay reachable, and below
-the splash. **Resolved → Discard** (`resolving-discard`) is a plain `move` to the discard pile. For an event whose text has the
+the splash. **Resolved → Discard** (`resolving-discard`) is a plain `move` to the discard pile. An event that plays in the core and has a "When you play this event" clause (`resolvesThenCore` in `playCost.ts`, #1796; a sentence of it with "is cost" only changes its cost and does not count) plays into the resolving zone too: the Play target shows for it, and with "Resolve events in a panel" on, a drop of it from the hand on the core in play and draw is the same play. Its panel shows **Resolved → Core** (`resolving-core`) in place of Resolved → Discard and Remove from game, a plain `move` to the core, uncharged, "Resolved Peak Performance, and it went to the core". Every other core event plays straight into the core. For an event whose text has the
 sentence "Remove this event from the game." (`removesItselfFromGame` in `playCost.ts`, matched at a
 sentence start in any case, #1730), **Resolved → Remove from game** (`resolving-remove-from-game`) shows
 first: one `batch` (`resolvedRemoveFromGameAction`), that `move` and then `setRemovedFromGame`, which
@@ -819,7 +819,7 @@ The practice table has twenty-four fixtures. Each one deals the same table on ev
   card's, so the cards of the fixture before them keep theirs (`PRACTICE_COSTS_LATE_HAND`), and after
   them Ferengi Tradition (#1730), an event that removes itself from the game, then Alliance Galor and Type III
   Galor (#1744), two ships that discard the top of the draw deck, then Days of Atonement (#1745), an event that
-  discards a card from hand to draw two, then Second Edition (#1746), which downloads a copy of a commanded personnel (Marris and Simmons have copies in the draw deck), then Vidiian Organ Bank, Bridon and Danara Pel Loving Life (#1765): play Bridon onto the ship first, so the exchange has a [Vid] personnel on each side. They hold the last ids. The draw deck
+  discards a card from hand to draw two, then Second Edition (#1746), which downloads a copy of a commanded personnel (Marris and Simmons have copies in the draw deck), then Vidiian Organ Bank, Bridon and Danara Pel Loving Life (#1765): play Bridon onto the ship first, so the exchange has a [Vid] personnel on each side, then Peak Performance (#1796), a core event with a "When you play this event" clause. They hold the last ids. The draw deck
   holds the rest, for a Download. It keeps its game under `practiceGame:fixture=costs`.
 - `?fixture=resolving` (#1728) deals the `?fixture=costs` table, the same cards and the same ids, with
   These Are The Voyages already moved from the hand into the resolving zone, charged 1 and logged "Played
