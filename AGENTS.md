@@ -815,7 +815,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has twenty-eight fixtures. Each one deals the same table on every load.
+The practice table has thirty fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -1008,6 +1008,12 @@ The practice table has twenty-eight fixtures. Each one deals the same table on e
   of the stack. Its label names the attribute the most of the crew share ("Named Integrity"), the reveal
   keeps its roll of one personnel, and its Resolve preview names the others it stops. It keeps its game
   under `practiceGame:fixture=bot-resolve-60s`.
+- `?fixture=bot-select-again` (#1847) deals the `?fixture=bot-label` table and attempt with one Hard of
+  Heart (`38V004`), a planet dilemma that selects 2 personnel at random, in place of Well-Prepared Defenses,
+  revealed on top of the stack, and starts the bot attempt at Moab IV with its away team of 20
+  (`awayTeamSlot` 0), with Let's Try That Again, Shall We? at the end of the core and Dessert Disaster at
+  the end of the hand (`PRACTICE_BOT_SELECT_AGAIN_TSV`), so the preview shows the controls of the kept
+  roll. It keeps its game under `practiceGame:fixture=bot-select-again`.
 
 The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of the screen
 (`data-testid="hand-closed-fan"`, #1489), drawn on top of the bottom row in its own layer,
@@ -1280,6 +1286,20 @@ chosen stack on `Attempt.botStack`, and a `flip` that reveals a stack card in `'
 with `PlayState.botChoice` (#1574), and one that has the opponent name a skill, an attribute or a title
 labels "Named <it>"; neither label holds the dilemma's title. A title with no model, a Chula title, or a play that makes no label shows none.
 A tap dismisses it for the rest of the attempt. It is page state, so a reload shows it again.
+
+Two player cards change the kept roll of the revealed top card while it is unresolved, its row marks
+show and its `RevealSnapshot.picks` is non-empty (#1847, `tableReducer.ts`). **Select again**
+(`data-testid="dilemma-select-again"`), under Resolve, shows while the core holds Let's Try That Again,
+Shall We? and the dilemma's own kind is planet (`dilemmatype` `p`, never a dual dilemma, wherever it is
+faced; `selectAgainEventOf`): a tap dispatches `selectAgain`, which moves the event to the discard pile
+and replaces the picks with a fresh roll that `withShuffleOrders` makes as it does for a `flip`, in one
+`selectedAgain` entry, "Let's Try That Again, Shall We?: Hard of Heart selected again, and …". **Dessert
+Disaster** (`dilemma-replace-pick`) shows while the hand holds it, a picked personnel has no staffing icon
+(neither `[Cmd]` nor `[Stf]`) and an unstopped, unpicked `[Stf]` personnel is in the attempting row
+(`replacePickOptionsOf`): a tap lists each swap, `dilemma-replace-pick-choice` with `data-from` and
+`data-to`, "Replace Data with Worf", and a tap on one dispatches `replacePick`, which swaps the id in the
+picks and moves the interrupt to the discard pile, in one `pickReplaced` entry. The preview, the row
+marks and the Resolve read the new picks, and one undo takes back either.
 
 Beside the label, over the text box of the revealed top card, the same card shows the preview of the
 bot's Resolve, `data-testid="dilemma-resolve-preview"` ("Stops <name>", "Kills 2 random personnel",

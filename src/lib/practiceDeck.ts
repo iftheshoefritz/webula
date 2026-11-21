@@ -226,6 +226,12 @@ export const PRACTICE_BOT_COSTS_TSV = `1\tPtol`;
 // Self-Replicating Roadblock, an event that names a dilemma when it is placed on a mission card.
 export const PRACTICE_BOT_ROADBLOCK_TSV = `1\tSelf-Replicating Roadblock`;
 
+// The cards `?fixture=bot-select-again` (#1847) adds to the `?fixture=bot` table: Let's Try That Again,
+// Shall We? at the end of the core, and Dessert Disaster at the end of the hand, the two player cards that
+// change the kept roll of a planet dilemma that selects at random.
+export const PRACTICE_BOT_SELECT_AGAIN_TSV = `1\tLet's Try That Again, Shall We?
+1\tDessert Disaster`;
+
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the
 // core, for the arrows of the attribute bands. Soliton Wave (#1827), which makes each ship in play

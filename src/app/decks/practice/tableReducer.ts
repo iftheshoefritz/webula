@@ -11,6 +11,7 @@ import type { PileSteps } from '../../../lib/dilemmaBot/pile/resolve';
 import { moveSpanTotal, printedRange, printedSpan } from './shipRange';
 import { drawSpend } from './drawSpend';
 import type { RuleWarning } from './playRules';
+import { cardTitleOf } from '../../../lib/cardTitle';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -372,6 +373,13 @@ export type TableAction =
   // `picks` is the roll the page made for the reveal snapshot this flip takes (#1594,
   // `withShuffleOrders` in `gameLog.ts`), which the snapshot keeps, so the reducer stays pure.
   | { type: 'flip'; id: string; picks?: string[][] }
+  // Let's Try That Again, Shall We? (#1847, `selectAgainEventOf`): the event `eventId` of the core goes
+  // to the discard pile and the reveal snapshot's roll is `picks`, a fresh roll the page made
+  // (`withShuffleOrders`), so the reducer stays pure.
+  | { type: 'selectAgain'; eventId: string; picks?: string[][] }
+  // Dessert Disaster (#1847, `replacePickOptionsOf`): the interrupt `cardId` of the hand goes to the
+  // discard pile and `to`, a [Stf] personnel of the row, takes the place of `from` in the snapshot's roll.
+  | { type: 'replacePick'; cardId: string; from: string; to: string }
   // Turns a double-sided mission over (#765): toggles its `flipped` flag. Does nothing to a
   // mission with no `backimagefile`, or to a card that is not a mission card in its slot.
   | { type: 'flipMission'; id: string }
@@ -953,6 +961,44 @@ export function resolvableSnapshot(table: TableState, dilemmaId: string): boolea
   return revealedTopCard(table)?.id === dilemmaId && snapshot?.dilemmaId === dilemmaId && !snapshot.resolved;
 }
 
+// The player cards that change the kept roll of a bot game's revealed top card (#1847).
+export const SELECT_AGAIN_TITLE = "Let's Try That Again, Shall We?";
+export const REPLACE_PICK_TITLE = 'Dessert Disaster';
+
+const titled = (card: CardInstance, title: string) => !!card.card?.originalName && cardTitleOf(card.card.originalName) === title;
+const hasStaffingIcon = (card: CardInstance) => /\[(cmd|stf)\]/.test(String(card.card?.icons ?? '').toLowerCase());
+
+// The unresolved reveal snapshot of the face-up top card with a non-empty roll, or undefined.
+function rolledSnapshotOf(table: TableState): RevealSnapshot | undefined {
+  const snapshot = table.attempt?.revealSnapshot;
+  const top = revealedTopCard(table);
+  if (!top || !snapshot || snapshot.dilemmaId !== top.id || snapshot.resolved || !snapshot.picks?.some((p) => p.length)) return undefined;
+  return snapshot;
+}
+
+// The copy of Let's Try That Again in the core that can select again (#1847), or undefined: the revealed
+// top card's own kind is planet (`dilemmatype` `p`, never a dual dilemma), and its roll is kept.
+export function selectAgainEventOf(table: TableState): CardInstance | undefined {
+  if (!rolledSnapshotOf(table) || revealedTopCard(table)?.card?.dilemmatype !== 'p') return undefined;
+  return table.core.find((c) => titled(c, SELECT_AGAIN_TITLE));
+}
+
+// The swaps Dessert Disaster offers (#1847), or null: the copy in the hand, the picked personnel with no
+// staffing icon, and the unstopped, unpicked [Stf] personnel of the attempting row, by id.
+export function replacePickOptionsOf(table: TableState): { cardId: string; from: string[]; to: string[] } | null {
+  const snapshot = rolledSnapshotOf(table);
+  const interrupt = snapshot && table.hand.find((c) => titled(c, REPLACE_PICK_TITLE));
+  const { attempt } = table;
+  if (!snapshot || !interrupt || !attempt) return null;
+  const picked = new Set(snapshot.picks!.flat());
+  const row = (attemptingCards(table, attempt.missionIndex, attempt.shipId) ?? []).filter((c) => c.card?.type === 'personnel');
+  const from = row.filter((c) => picked.has(c.id) && !hasStaffingIcon(c)).map((c) => c.id);
+  const to = row
+    .filter((c) => !picked.has(c.id) && !c.stopped && String(c.card?.icons ?? '').toLowerCase().includes('[stf]'))
+    .map((c) => c.id);
+  return from.length && to.length ? { cardId: interrupt.id, from, to } : null;
+}
+
 const RESOLVE_MOVES: Record<Exclude<ResolveOp, 'stop'>, Zone> = {
   kill: 'discard',
   remove: 'discard',
@@ -1077,6 +1123,24 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       // The discarded stack is appended after the move, so a card that goes to the discard pile
       // itself lands there first and its cards follow it.
       return discardedOn.length ? { ...moved, discard: [...moved.discard, ...discardedOn] } : moved;
+    }
+
+    case 'selectAgain': {
+      const event = selectAgainEventOf(state);
+      if (!event || event.id !== action.eventId || !action.picks?.some((p) => p.length)) return state;
+      const moved = tableReducer(state, { type: 'move', id: event.id, to: 'discard' });
+      const attempt = moved.attempt!;
+      return { ...moved, attempt: { ...attempt, revealSnapshot: { ...attempt.revealSnapshot!, picks: action.picks } } };
+    }
+
+    case 'replacePick': {
+      const options = replacePickOptionsOf(state);
+      if (!options || options.cardId !== action.cardId || !options.from.includes(action.from) || !options.to.includes(action.to)) return state;
+      const moved = tableReducer(state, { type: 'move', id: action.cardId, to: 'discard' });
+      const attempt = moved.attempt!;
+      const snapshot = attempt.revealSnapshot!;
+      const picks = snapshot.picks!.map((p) => p.map((id) => (id === action.from ? action.to : id)));
+      return { ...moved, attempt: { ...attempt, revealSnapshot: { ...snapshot, picks } } };
     }
 
     case 'flip': {
