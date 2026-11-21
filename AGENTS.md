@@ -815,7 +815,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has thirty fixtures. Each one deals the same table on every load.
+The practice table has thirty-one fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -1008,6 +1008,11 @@ The practice table has thirty fixtures. Each one deals the same table on every l
   of the stack. Its label names the attribute the most of the crew share ("Named Integrity"), the reveal
   keeps its roll of one personnel, and its Resolve preview names the others it stops. It keeps its game
   under `practiceGame:fixture=bot-resolve-60s`.
+- `?fixture=bot-resolve-jailbreak` (#1846) deals the `?fixture=bot-label` table and attempt with Jailbreak
+  (`67V009`), a dual dilemma of 60S, in place of Well-Prepared Defenses, revealed on top of the stack. The
+  reveal keeps its roll of two personnel; when neither has Physics or Cunning>13 its Resolve preview reads
+  "… places 2 on top of the draw deck", and the press puts them on top of the draw deck, logged "put on top
+  of the draw deck …". It keeps its game under `practiceGame:fixture=bot-resolve-jailbreak`.
 - `?fixture=bot-select-again` (#1847) deals the `?fixture=bot-label` table and attempt with one Hard of
   Heart (`38V004`), a planet dilemma that selects 2 personnel at random, in place of Well-Prepared Defenses,
   revealed on top of the stack, and starts the bot attempt at Moab IV with its away team of 20
