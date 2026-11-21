@@ -90,7 +90,7 @@ describe('pileLayers', () => {
   });
 });
 
-describe('the 3D table setting', () => {
+describe('the 3D table', () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem('currentDeck', JSON.stringify(deck));
@@ -105,10 +105,7 @@ describe('the 3D table setting', () => {
     });
   });
 
-  it('draws the pile layers and the tilted board by default, and the setting turns both off', async () => {
-    await act(async () => {
-      render(<PracticeDrawPage />);
-    });
+  const expect3D = () => {
     const drawDeck = screen.getByTestId('draw-pile');
     const side = drawDeck.querySelector('[data-testid="pile-depth"]');
     expect(side).not.toBeNull();
@@ -122,21 +119,28 @@ describe('the 3D table setting', () => {
 
     expect(screen.getByTestId('tilted-board')).toBeInTheDocument();
     expect(screen.getByTestId('practice-game-layer')).toHaveClass('table-3d');
+  };
+
+  it('draws the pile layers and the tilted board, and Settings has no 3D table item', async () => {
+    await act(async () => {
+      render(<PracticeDrawPage />);
+    });
+    expect3D();
 
     const menuButton = screen.getByRole('button', { name: 'Game menu' });
     if (menuButton.getAttribute('aria-expanded') !== 'true') fireEvent.click(menuButton);
     fireEvent.click(screen.getByTestId('game-menu-settings-item'));
-    const toggle = screen.getByTestId('game-menu-table-3d');
-    expect(toggle).toHaveTextContent('3D table: On');
+    expect(screen.getByTestId('game-menu-resolve-events')).toBeInTheDocument();
+    expect(screen.queryByTestId('game-menu-table-3d')).toBeNull();
+    expect(screen.queryByText(/3D table/)).toBeNull();
+  });
+
+  it('draws in 3D for a device that stored the old setting off', async () => {
+    localStorage.setItem('practice-3d-table', 'false');
     await act(async () => {
-      fireEvent.click(toggle);
+      render(<PracticeDrawPage />);
     });
-    expect(toggle).toHaveTextContent('3D table: Off');
-    expect(localStorage.getItem('practice-3d-table')).toBe('false');
-    expect(screen.getByTestId('draw-pile').querySelector('[data-testid="pile-depth"]')).toBeNull();
-    expect(screen.queryByTestId('tilted-board')).toBeNull();
-    expect((screen.getByTestId('draw-pile').querySelector('[data-testid="pile-lift"]') as HTMLElement).style.transform).toBe('');
-    expect(screen.getByTestId('practice-game-layer')).not.toHaveClass('table-3d');
+    expect3D();
   });
 });
 
