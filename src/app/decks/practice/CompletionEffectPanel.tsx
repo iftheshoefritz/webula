@@ -13,7 +13,9 @@ import {
   downloadCandidates,
   hqSlotsFor,
   involvedPersonnel,
+  involvedSpecies,
   placeAtHqActions,
+  scoreActions,
   toDeckBottomActions,
   totalCost,
 } from './completionEffects';
@@ -21,6 +23,9 @@ import { ScrollIndicator } from './ScrollIndicator';
 import type { CardInstance, TableAction, TableState } from './tableReducer';
 import { useEscapeLayer } from './useEscapeLayer';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
+
+// The card data is lowercased: "human/vulcan" shows as "Human/Vulcan".
+const speciesLabel = (species: string): string => species.replace(/(^|[\s/'-])([a-z])/g, (_, sep: string, c: string) => sep + c.toUpperCase());
 
 // The panel of a mission's completion effect (#1757): it names the mission and quotes its effect, and
 // offers its choice. Confirm completes the mission with the effect, Skip completes it with none, and
@@ -63,6 +68,8 @@ export function CompletionEffectPanel({
   const hqs = effect.kind === 'discardToHq' ? hqSlotsFor(table, picked) : [];
   const hq = hqChoice !== null && hqs.includes(hqChoice) ? hqChoice : hqs[0];
   const ships = table.missions[missionIndex]?.ships ?? [];
+  const species = effect.kind === 'score' ? involvedSpecies(table, missionIndex) : [];
+  const scores = effect.kind === 'score' && species.length >= (effect.minSpecies ?? 0);
   const toggle = (id: string) =>
     setChosen((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : single ? [id] : [...ids, id]));
 
@@ -76,6 +83,8 @@ export function CompletionEffectPanel({
         return picked.length === 1 ? discardActions(chosen) : null;
       case 'toDeckBottom':
         return picked.length && !overCap ? toDeckBottomActions(chosen) : null;
+      case 'score':
+        return scores ? scoreActions(effect) : null;
       default:
         return null;
     }
@@ -119,7 +128,16 @@ export function CompletionEffectPanel({
             Total cost {total} of {effect.cap}
           </p>
         )}
-        {effect.kind !== 'download' && (
+        {effect.kind === 'score' && (
+          <p data-testid="completion-effect-species" data-count={species.length} className={`text-sm ${scores ? 'text-text-primary' : 'text-amber-400'}`}>
+            {involvedPersonnel(table, missionIndex).length === 0
+              ? 'No personnel involved.'
+              : scores
+                ? `${species.length} different species involved: ${species.map(speciesLabel).join(', ')}.`
+                : `Only ${species.length} different species ${species.length === 1 ? 'was' : 'were'} involved${species.length ? `: ${species.map(speciesLabel).join(', ')}` : ''}; ${effect.minSpecies} are needed.`}
+          </p>
+        )}
+        {effect.kind !== 'download' && effect.kind !== 'score' && (
           <div className="relative flex min-h-0 flex-col">
             <div ref={scrollRef} className={`min-h-0 overscroll-contain ${panelScrollClassName(scrolls)}`}>
               {candidates.length === 0 ? (
@@ -194,7 +212,13 @@ export function CompletionEffectPanel({
             onClick={() => actions && onComplete(actions)}
             className="btn-icon min-h-11 w-auto px-3 text-sm disabled:opacity-40"
           >
-            {effect.kind === 'download' ? 'Download' : effect.kind === 'discardOrDestroy' ? 'Discard' : 'Confirm'}
+            {effect.kind === 'download'
+              ? 'Download'
+              : effect.kind === 'discardOrDestroy'
+                ? 'Discard'
+                : effect.kind === 'score'
+                  ? `Score ${effect.points}`
+                  : 'Confirm'}
           </button>
         </div>
       </div>
