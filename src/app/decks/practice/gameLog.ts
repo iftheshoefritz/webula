@@ -47,6 +47,10 @@ import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import {
   discardCount,
   drawUpToCount,
+  examineCount,
+  examineTakeMax,
+  examineTakeMin,
+  examineTakes,
   PlayConditionState,
   PlayConditionStatus,
   PlayModel,
@@ -123,6 +127,9 @@ export interface LogMove {
 export type PlayEffectStepRecord =
   | { step: 'draw'; count: number }
   | { step: 'discard'; cards: string[] }
+  // The examine of the top of the draw deck (#1809): the names of the cards it took into hand, and how many it
+  // placed on the bottom.
+  | { step: 'examine'; taken: string[]; bottom: number }
   | { step: PlayStepName; skipped: true };
 
 // What a played card's "when you play" effect did so far (#1800): whether its condition held when the first
@@ -385,6 +392,7 @@ export type GameAction =
   // `count` cards free, the discard of the hand cards `ids`, and a skip of every step left (Skip and Done).
   | { type: 'playEffectDraw'; count: number }
   | { type: 'playEffectDiscard'; ids: string[] }
+  | { type: 'playEffectExamine'; take: string[]; bottom: string[] }
   | { type: 'playEffectSkip' }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
@@ -803,7 +811,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' } | { type: 'playEffectDraw' } | { type: 'playEffectDiscard' } | { type: 'playEffectSkip' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'resolveDraw' } | { type: 'resolveBottom' } | { type: 'resolveDiscardDraw' } | { type: 'resolveDownload' } | { type: 'resolveExchange' } | { type: 'missionSpend' } | { type: 'playEffectDraw' } | { type: 'playEffectDiscard' } | { type: 'playEffectExamine' } | { type: 'playEffectSkip' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -908,6 +916,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'missionSpend') return missionSpendState(state, action);
   if (action.type === 'playEffectDraw') return playEffectDrawState(state, action);
   if (action.type === 'playEffectDiscard') return playEffectDiscardState(state, action);
+  if (action.type === 'playEffectExamine') return playEffectExamineState(state, action);
   if (action.type === 'playEffectSkip') return playEffectSkipState(state);
   // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event.
   if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && pendingPlayEffectOf(state)) return state;
@@ -1069,6 +1078,7 @@ export function withShuffleOrders(table: TableState, action: GameAction, log: Lo
     action.type === 'resolveExchange' ||
     action.type === 'playEffectDraw' ||
     action.type === 'playEffectDiscard' ||
+    action.type === 'playEffectExamine' ||
     action.type === 'playEffectSkip'
   ) {
     return action;
@@ -2569,13 +2579,14 @@ function missionSpendState(
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
-const PLAY_STEP_NAMES: ReadonlySet<string> = new Set<PlayStepName>(['draw', 'discard']);
+const PLAY_STEP_NAMES: ReadonlySet<string> = new Set<PlayStepName>(['draw', 'discard', 'examine']);
 
 const isPlayEffectStep = (step: unknown): step is PlayEffectStepRecord => {
-  const s = step as { step?: unknown; count?: unknown; cards?: unknown; skipped?: unknown } | null | undefined;
+  const s = step as { step?: unknown; count?: unknown; cards?: unknown; taken?: unknown; bottom?: unknown; skipped?: unknown } | null | undefined;
   if (!s || typeof s.step !== 'string' || !PLAY_STEP_NAMES.has(s.step)) return false;
   if (s.skipped === true) return true;
   if (s.step === 'draw') return isIndex(s.count);
+  if (s.step === 'examine') return isIndex(s.bottom) && Array.isArray(s.taken) && s.taken.every((c) => typeof c === 'string');
   return Array.isArray(s.cards) && s.cards.every((c) => typeof c === 'string');
 };
 
@@ -2605,7 +2616,13 @@ export function playEffectText(record: PlayEffectRecord): string {
   const taken = record.steps.filter((s) => !('skipped' in s));
   const skipped = record.steps.filter((s) => 'skipped' in s);
   const parts = record.steps.map((s) =>
-    'skipped' in s ? `skipped the ${s.step}` : s.step === 'draw' ? `drew ${cardsCountText(s.count)}` : `discarded ${s.cards.length ? cardsText(s.cards) : 'no card'}`
+    'skipped' in s
+      ? `skipped the ${s.step}`
+      : s.step === 'draw'
+        ? `drew ${cardsCountText(s.count)}`
+        : s.step === 'examine'
+          ? `took ${s.taken.length ? cardsText(s.taken) : 'no card'}, placed ${s.bottom} on the bottom`
+          : `discarded ${s.cards.length ? cardsText(s.cards) : 'no card'}`
   );
   const text = !taken.length && skipped.length ? 'skipped its play text' : parts.join(', then ');
   return `${text}${record.condition === 'notMet' ? ' (condition not met)' : record.condition === 'unchecked' ? ' (condition not checked)' : ''}`;
@@ -2765,6 +2782,28 @@ function playEffectDiscardState(state: GameState, action: { ids: string[] }): Ga
   if (ids.length !== action.ids.length || ids.length !== n || !ids.every((id) => state.table.hand.some((c) => c.id === id))) return state;
   const table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), state.table);
   return withPlayEffectSteps(state, pending, [{ step: 'discard', cards: ids.map((id) => cardName(state.table, id)) }], table);
+}
+
+// The examine of the pending effect (#1809): `take` and `bottom` are the top cards of the draw deck the model
+// examines, each once, every one of them; `take` holds no more than the model allows, at least one for a "take
+// one" that has a card to take, and only cards that pass its test. The taken go to the hand, then the rest to
+// the bottom of the draw deck in `bottom` order, the first nearest the top.
+function playEffectExamineState(state: GameState, action: { take: string[]; bottom: string[] }): GameState {
+  const pending = pendingPlayEffectOf(state);
+  if (!pending || pending.step.step !== 'examine' || pending.model.kind !== 'examineTake') return state;
+  const model = pending.model;
+  if (!Array.isArray(action.take) || !Array.isArray(action.bottom)) return state;
+  const top = state.table.drawDeck.slice(0, examineCount(model, state.table.drawDeck.length));
+  const ids = [...action.take, ...action.bottom];
+  if (new Set(ids).size !== ids.length || ids.length !== top.length || !top.every((c) => ids.includes(c.id))) return state;
+  const max = examineTakeMax(model, costFactsOf(state.table, []));
+  const examined = top.map((c) => c.card);
+  if (action.take.length > max || action.take.length < examineTakeMin(model, examined, max)) return state;
+  const byId = new Map(top.map((c) => [c.id, c]));
+  if (!action.take.every((id) => examineTakes(model, byId.get(id)!.card))) return state;
+  const taken = action.take.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'hand' }), state.table);
+  const table = action.bottom.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), taken);
+  return withPlayEffectSteps(state, pending, [{ step: 'examine', taken: action.take.map((id) => cardName(state.table, id)), bottom: action.bottom.length }], table);
 }
 
 // Skip and Done of the pending effect (#1800): every step left is recorded as skipped, so the panel does not

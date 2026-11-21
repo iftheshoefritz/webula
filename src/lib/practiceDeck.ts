@@ -285,18 +285,28 @@ export const PRACTICE_KMTAR_HAND = "Alexander Rozhenko K'mtar";
 // non-headquarters one requiring Intelligence, in slot order Celtris III (the planet of the away team), Farius
 // Prime, Argus Array (the space mission of the crewed ship), Sector 21396 and Cardassia Prime, a headquarters,
 // and Enabran Tain "Retired" Spymaster at the end of the hand, so his play opens his "when you play" effect.
+// After him Requisitions Drone, Lenara Kahn Wormhole Theorist and Keiko O'Brien Botanist (#1809), whose plays
+// examine the top four cards of the draw deck.
 export const PRACTICE_TAIN_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)
   .join('\n')}
 1\tEnabran Tain "Retired" Spymaster
+1\tRequisitions Drone
+1\tLenara Kahn Wormhole Theorist
+1\tKeiko O'Brien Botanist
 1\tCeltris III Construct Elaborate Trap
 1\tFarius Prime Approach Criminal Organization
 1\tArgus Array Redirect Subspace Telescope
 1\tSector 21396 Commandeer Prototype
 1\tCardassia Prime Hardscrabble World`;
 
-// The card of `PRACTICE_TAIN_TSV` that joins the end of the hand.
-export const PRACTICE_TAIN_HAND = 'Enabran Tain "Retired" Spymaster';
+// The cards of `PRACTICE_TAIN_TSV` that join the end of the hand, in this order.
+export const PRACTICE_TAIN_HAND = [
+  'Enabran Tain "Retired" Spymaster',
+  'Requisitions Drone',
+  'Lenara Kahn Wormhole Theorist',
+  "Keiko O'Brien Botanist",
+];
 
 export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)

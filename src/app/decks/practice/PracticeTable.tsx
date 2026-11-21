@@ -192,7 +192,7 @@ import {
   resolvingRecalled,
   pendingPlayEffectOf,
 } from './gameLog';
-import { discardCount, playConditionLine } from '../../../lib/playModels';
+import { discardCount, examineCount, examineTakeMax, examineTakeMin, examineTakes, playConditionLine } from '../../../lib/playModels';
 import {
   CardHoldProvider,
   NO_CALLOUT_STYLE,
@@ -2739,7 +2739,23 @@ function PracticeDrawContent() {
             hand: table.hand,
             onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
           }
-      : undefined;
+      : pendingPlay?.model.kind === 'examineTake'
+        ? (() => {
+            // The examine of #1809: the top of the draw deck, which stays there until the button.
+            const model = pendingPlay.model;
+            const examined = table.drawDeck.slice(0, examineCount(model, table.drawDeck.length));
+            const max = examineTakeMax(model, costFactsOf(table, []));
+            return {
+              step: 'examineTake' as const,
+              examined,
+              min: examineTakeMin(model, examined.map((c) => c.card), max),
+              max,
+              takes: (c: CardInstance) => examineTakes(model, c.card),
+              ...(model.testText ? { testText: model.testText } : {}),
+              onApply: (take: string[], bottom: string[]) => dispatch({ type: 'playEffectExamine', take, bottom }),
+            };
+          })()
+        : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -3079,13 +3095,17 @@ function PracticeDrawContent() {
     core: [] as any[],
     lateHand: extractDrawDeck(deckFromTsv(PRACTICE_KMTAR_TSV, data)).filter((r: any) => r.originalName === PRACTICE_KMTAR_HAND),
   });
-  // The card `?fixture=tain` adds to the end of the hand (#1800): Enabran Tain "Retired" Spymaster.
-  const tainFixtureExtras = () => ({
-    hand: [] as any[],
-    crew: [] as any[],
-    core: [] as any[],
-    lateHand: extractDrawDeck(deckFromTsv(PRACTICE_TAIN_TSV, data)).filter((r: any) => r.originalName === PRACTICE_TAIN_HAND),
-  });
+  // The cards `?fixture=tain` adds to the end of the hand (#1800): Enabran Tain "Retired" Spymaster, then the
+  // three personnel that examine the top of the draw deck (#1809).
+  const tainFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_TAIN_TSV, data));
+    return {
+      hand: [] as any[],
+      crew: [] as any[],
+      core: [] as any[],
+      lateHand: PRACTICE_TAIN_HAND.flatMap((name) => rows.filter((r: any) => r.originalName === name)),
+    };
+  };
   // The cards `?fixture=dissident` adds (#1763): The New Resistance to the core, Leeta to the end of the hand,
   // and Damar on top of the draw deck.
   const dissidentFixtureExtras = () => {

@@ -623,7 +623,15 @@ own, addressed to the play, whose undo takes back the effect only. A malformed r
 one kind is `'drawUpToThenDiscard'` (Enabran Tain): `resolve-step-draw-up-to`, a stepper (`resolve-draw-minus`,
 `resolve-draw-count`, `resolve-draw-plus`) from 0 to 7 or the draw deck, and Draw N (`resolve-draw`,
 `playEffectDraw`), then `resolve-step-discard`, 2 cards of the hand (`resolve-hand-card`) and Discard 2
-(`resolve-discard`, `playEffectDiscard`). **Cancel**
+(`resolve-discard`, `playEffectDiscard`). The kind `'examineTake'` (#1809: Requisitions Drone, Lenara Kahn Wormhole
+Theorist, Keiko O'Brien Botanist, Harry Kim Remorseful Survivor, Sobi Felicium Dealer) has one step,
+`resolve-step-examine`: the top 4 of the draw deck, fewer when it is short (`examineCount`), as `resolve-examine-card`,
+those the model's test refuses disabled (`examineTakes`: Lenara an event, Keiko a cost of 4 or more, Harry Kim an
+interrupt or a Temporal card), a tap takes one (Sobi one for each different Commodity of the core, `examineTakeMax`;
+Requisitions Drone must take one, `examineTakeMin`), the rest in the order controls of the bottom step
+(`resolve-order`), and **Take 1, place 3 on bottom** (`resolve-examine-apply`, `playEffectExamine`), which moves the
+taken to the hand and the rest to the bottom of the draw deck in that order, "…; took Tricorder, placed 3 on the
+bottom". The cards stay in the draw deck until the button. **Cancel**
 (`resolving-cancel`) dispatches `cancelResolving`: the event goes to the end of the hand, uncharged, in one
 `playCancelled` entry, "Cancelled playing These Are The Voyages", that names the charge of the last move
 into the zone; `effectiveLog` then reads that play as no play, so its counters come back, a pending
@@ -820,7 +828,8 @@ The practice table has twenty-three fixtures. Each one deals the same table on e
   whose non-headquarters ones require Intelligence (`PRACTICE_TAIN_TSV`): Celtris III (slot 0, the away team of
   20), Farius Prime, Argus Array (slot 2, the crewed ship), Sector 21396 and Cardassia Prime, a headquarters, and
   Enabran Tain "Retired" Spymaster at the end of the hand, so a play of him opens his "when you play" effect with
-  its condition met. It keeps its game under `practiceGame:fixture=tain`.
+  its condition met. After him Requisitions Drone, Lenara Kahn Wormhole Theorist and Keiko O'Brien Botanist end the
+  hand (#1809), whose plays examine the top 4 of the draw deck. It keeps its game under `practiceGame:fixture=tain`.
 - `?fixture=dissident` (#1763) deals the `?fixture=piles` table, the same cards and the same ids, with The
   New Resistance at the end of the core, Leeta Rebel Supporter, a Dissident of cost 0, at the end of the hand,
   and Damar Cardassian Liberator, a Dissident of cost 4, on top of the draw deck (`PRACTICE_DISSIDENT_TSV`,
