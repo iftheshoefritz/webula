@@ -66,7 +66,7 @@ import {
   playStepsOf,
 } from '../../../lib/playModels';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
-import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
+import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, exchangeMatches, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, firstTurnGrantsOf, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, slotQuadrantOf, turnPlayOf } from './costFacts';
@@ -328,7 +328,7 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // The one step of Second Edition (#1746): a copy of `personnel` downloaded from the draw deck, the deck
   // shuffled, `count` cards drawn free (1 for an [AU] personnel), and the event to the discard pile.
   | { kind: 'resolveDownloaded'; event: string; personnel: string; count: number; removed?: true }
-  | { kind: 'resolveExchanged'; event: string; fromHand: string; fromTable: string; removed?: true }
+  | { kind: 'resolveExchanged'; event: string; fromHand: string; fromTable: string; removed?: true; replaced?: true }
   // A spend of counters a mission's text allows (#1754): Earth's "spend a counter to draw two cards",
   // `drew` cards drawn, or Nimbus III's "spend three counters to download …", `downloaded` the card that
   // went into its away team. `cost` is the charge, which the chip and the list correct as any other.
@@ -1701,6 +1701,9 @@ export function logEntryText(entry: LogEntry): string {
       const event = typeof entry.event === 'string' && entry.event ? entry.event : 'the event';
       const fromHand = typeof entry.fromHand === 'string' && entry.fromHand ? entry.fromHand : 'a personnel';
       const fromTable = typeof entry.fromTable === 'string' && entry.fromTable ? entry.fromTable : 'a personnel';
+      // The Crossing (#1826): "Replaced Archer with Reed, Archer went to the discard pile, and The Crossing went
+      // to the discard pile".
+      if (entry.replaced === true) return `Replaced ${fromTable} with ${fromHand}, ${fromTable} went to the discard pile, and ${event} ${eventWent(entry)}`;
       return `Exchanged ${fromHand} for ${fromTable}, and ${event} ${eventWent(entry)}`;
     }
     case 'missionSpend': {
@@ -2561,7 +2564,9 @@ function resolveDownloadState(state: GameState, action: { personnelId: string; o
 // The one step of Vidiian Organ Bank (#1765): `handId` must be a personnel of the model's affiliation in the
 // hand and `tableId` one the player commands, unstopped, never the brig (`exchangeCandidatesOf`). The table's
 // goes to the hand, the hand's to the end of the away team or crew the other left (a card from the hand is
-// never stopped), and the event to the discard pile, in one entry. No move is charged.
+// never stopped), and the event to the discard pile, in one entry. No move is charged. The Crossing (#1826) asks
+// for two personnel of the same affiliation (`exchangeMatches`), and its replaced personnel goes to the discard
+// pile in place of the hand.
 function resolveExchangeState(state: GameState, action: { handId: string; tableId: string }): GameState {
   const event = state.table.resolving;
   if (!event || resolveStepOf(state) !== 'exchange') return state;
@@ -2570,11 +2575,14 @@ function resolveExchangeState(state: GameState, action: { handId: string; tableI
   if (!model || model.kind !== 'exchange') return state;
   const { hand, groups } = exchangeCandidatesOf(state.table, model.affiliation);
   const group = groups.find((g) => g.cards.some((c) => c.id === action.tableId));
-  if (!group || !hand.some((c) => c.id === action.handId)) return state;
+  const fromHand = hand.find((c) => c.id === action.handId);
+  const onTable = group?.cards.find((c) => c.id === action.tableId);
+  if (!group || !fromHand || !onTable || !exchangeMatches(fromHand, onTable.card, model.affiliation)) return state;
+  const replaced = model.replacedTo === 'discard';
   const to: MoveTarget = group.key.startsWith('crew-')
     ? { zone: 'crew', shipId: group.key.slice('crew-'.length) }
     : { zone: 'missionPile', missionIndex: Number(group.key.slice('awayTeam-'.length)), pile: 'awayTeam' };
-  const left = tableReducer(state.table, { type: 'move', id: action.tableId, to: 'hand' });
+  const left = tableReducer(state.table, { type: 'move', id: action.tableId, to: replaced ? 'discard' : 'hand' });
   const joined = tableReducer(left, { type: 'move', id: action.handId, to });
   const recalled = resolvingRecalled(state);
   const table = finishResolving(joined, event.id, recalled);
@@ -2585,6 +2593,7 @@ function resolveExchangeState(state: GameState, action: { handId: string; tableI
     fromHand: cardName(state.table, action.handId),
     fromTable: cardName(state.table, action.tableId),
     ...(recalled ? { removed: true as const } : {}),
+    ...(replaced ? { replaced: true as const } : {}),
     turn: table.turn,
     segment: table.segment,
   };

@@ -371,6 +371,22 @@ export const PRACTICE_DOWNLOADS_DRAW_TOP = [
   "Ixtana'Rax Honored Elder",
 ];
 
+// The cards `?fixture=60s` (#1826) adds to the `?fixture=piles` table, of the set 60S: Blue Skies to the end of the
+// core, which caps the counters at 7; Tavana Reinvigorated Soldier, Qartum Delegation Transport, The Crossing and
+// Saavik Seeking Possibilities, a Federation personnel for The Crossing's replace at Moab IV, to the end of the
+// hand; and The Warrior's Anthem and Latinum Storage, for the downloads of Tavana and Qartum, on top of the draw
+// deck.
+export const PRACTICE_60S_TSV = `1\tBlue Skies
+1\tTavana Reinvigorated Soldier
+1\tQartum Delegation Transport
+1\tThe Crossing
+1\tSaavik Seeking Possibilities
+1\tThe Warrior's Anthem
+1\tLatinum Storage`;
+export const PRACTICE_60S_CORE = ['Blue Skies'];
+export const PRACTICE_60S_HAND = ['Tavana Reinvigorated Soldier', 'Qartum Delegation Transport', 'The Crossing', 'Saavik Seeking Possibilities'];
+export const PRACTICE_60S_DRAW_TOP = ["The Warrior's Anthem", 'Latinum Storage'];
+
 export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
   .slice(0, -5)
   .join('\n')}
