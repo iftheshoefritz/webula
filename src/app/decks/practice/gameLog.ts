@@ -43,6 +43,7 @@ import { drawSpend, drawSpendText } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
 import { ruleWarningsIn, ruleWarningsOf, ruleWarningText, type RuleWarning } from './playRules';
 import { revealPicksOf } from './attempt';
+import { completionEffectOf, involvedSpecies } from './completionEffects';
 import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import {
@@ -161,6 +162,9 @@ export interface CompletionLog {
   moves?: LogMove[];
   shuffled?: LogPlace;
   flipped?: true;
+  // Cheron (#1828): the different species involved, counted at the completion, and the points it scored.
+  species?: number;
+  scored?: number;
 }
 
 export interface LogRange {
@@ -212,6 +216,7 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       spend?: number;
       changes?: string[];
       drewCards?: number;
+      downloaded?: string;
     }
   // The dilemmas still in the stack that Attempt done moved under the mission (#1170), when any.
   | { kind: 'attemptEnded'; mission: string; moved?: string[] }
@@ -233,6 +238,7 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       spend?: number;
       changes?: string[];
       drewCards?: number;
+      downloaded?: string;
       drew: number;
       stacked: number;
       random?: true;
@@ -459,11 +465,19 @@ export interface RedoStep {
 }
 
 // The draw and the spend an attempt started with (#1759), and the cards Rigel X drew into the hand.
-const attemptStartFields = (before: TableState, after: TableState): { draw?: number; spend?: number; drewCards?: number } => {
-  const drewCards = after.hand.length - before.hand.length;
+// `downloadId`: the card Caldos IV downloaded as the attempt began (#1828), which is no draw.
+const attemptStartFields = (
+  before: TableState,
+  after: TableState,
+  downloadId?: string
+): { draw?: number; spend?: number; drewCards?: number; downloaded?: string } => {
+  const downloaded = downloadId ? before.drawDeck.find((c) => c.id === downloadId) : undefined;
+  const got = downloaded && after.hand.some((c) => c.id === downloadId) ? downloaded : undefined;
+  const drewCards = after.hand.length - before.hand.length - (got ? 1 : 0);
   return {
     ...(after.attempt ? { draw: after.attempt.draw, spend: after.attempt.spend } : {}),
     ...(drewCards > 0 ? { drewCards } : {}),
+    ...(got ? { downloaded: cardDisplayName(got.card) } : {}),
   };
 };
 
@@ -476,6 +490,7 @@ const attemptNumbersText = (entry: {
   spend?: number;
   changes?: string[];
   drewCards?: number;
+  downloaded?: string;
 }): string => {
   const n = drawSpend(entry.personnel, entry.subtract);
   const draw = typeof entry.draw === 'number' ? entry.draw : n;
@@ -485,6 +500,7 @@ const attemptNumbersText = (entry: {
     ...(typeof entry.drewCards === 'number' && entry.drewCards > 0
       ? [`drew ${entry.drewCards} ${entry.drewCards === 1 ? 'card' : 'cards'}`]
       : []),
+    ...(typeof entry.downloaded === 'string' ? [`downloaded ${entry.downloaded}, shuffled the draw deck`] : []),
   ];
   return `${entry.personnel} personnel − ${entry.subtract} = ${drawSpendText(draw, spend)}${notes.length ? ` (${notes.join('; ')})` : ''}`;
 };
@@ -697,7 +713,10 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
     case 'setMissionCompleted': {
       const slot = before.missions[action.missionIndex];
       if (!slot?.mission || !!slot.completed === action.completed) return null;
-      return { kind: 'missionCompleted', mission: missionName(before, action.missionIndex), completed: action.completed };
+      const entry = { kind: 'missionCompleted' as const, mission: missionName(before, action.missionIndex), completed: action.completed };
+      // A completion whose effect checks the species involved (#1828, Cheron) records the count, Skip too.
+      const scoring = action.completed ? completionEffectOf(before, action.missionIndex) : undefined;
+      return scoring?.kind === 'score' ? { ...entry, effect: { species: involvedSpecies(before, action.missionIndex).length } } : entry;
     }
     case 'startAttempt':
       if (after === before) return null;
@@ -707,7 +726,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ...(action.shipId ? { ship: cardName(before, action.shipId) } : {}),
         personnel: action.personnel,
         subtract: action.subtract,
-        ...attemptStartFields(before, after),
+        ...attemptStartFields(before, after, action.downloadId),
         ...(action.changes?.length ? { changes: [...action.changes] } : {}),
       };
     case 'endAttempt':
@@ -739,7 +758,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ...(action.shipId ? { ship: cardName(before, action.shipId) } : {}),
         personnel: action.personnel,
         subtract: action.subtract,
-        ...attemptStartFields(before, after),
+        ...attemptStartFields(before, after, action.downloadId),
         ...(action.changes?.length ? { changes: [...action.changes] } : {}),
         drew: action.drawn.length,
         stacked: stacked.size,
@@ -850,10 +869,13 @@ function completionEntry(
   const shuffled = shuffle && cardsAt(afterMoves, shuffle.location).length >= 2 ? logPlace(afterMoves, shuffle.location) : undefined;
   const flip = rest.find((a): a is Extract<TableAction, { type: 'flipMission' }> => a.type === 'flipMission');
   const flipped = flip ? !!after.missions[completion.missionIndex]?.mission?.flipped : false;
+  const scored = after.score - done.score;
   const effect: CompletionLog = {
+    ...plain.effect,
     ...(logMoves.length ? { moves: logMoves } : {}),
     ...(shuffled ? { shuffled } : {}),
     ...(flipped ? { flipped: true as const } : {}),
+    ...(scored > 0 ? { scored } : {}),
   };
   return Object.keys(effect).length ? { ...plain, effect } : plain;
 }
@@ -1214,6 +1236,11 @@ export function withShuffleOrders(
     });
     return { ...action, actions };
   }
+  if ((action.type === 'startAttempt' || action.type === 'botAttempt') && action.downloadId && !action.downloadOrder) {
+    // Caldos IV's download (#1828) shuffles the draw deck in an order the page chooses.
+    const { downloadId } = action;
+    return { ...action, downloadOrder: shuffledIds(table.drawDeck.filter((c) => c.id !== downloadId)) };
+  }
   const chosen = withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts(), cardText, checkRules);
   return chosen.length === 1 ? chosen[0] : { type: 'batch', actions: chosen };
 }
@@ -1572,6 +1599,11 @@ export function logEntryText(entry: LogEntry): string {
       const marked = `Marked ${entry.mission} ${entry.completed ? 'complete' : 'not complete'}`;
       const effect = entry.effect;
       if (!effect) return marked;
+      // Cheron (#1828): "Completed Cheron Aid Planetary Recovery: 4 different species involved; scored 5 points".
+      if (typeof effect.species === 'number' && entry.completed) {
+        const scored = typeof effect.scored === 'number' && effect.scored > 0 ? `scored ${effect.scored} ${effect.scored === 1 ? 'point' : 'points'}` : 'no points';
+        return `Completed ${entry.mission}: ${effect.species} different species involved; ${scored}`;
+      }
       const moves = (effect.moves ?? []).map(moveText).map((m, i, all) => (i > 0 && all[i - 1].verb === m.verb ? m.text : `${m.verb} ${m.text}`));
       const parts = [
         ...(moves.length ? [moves.join('; ')] : []),

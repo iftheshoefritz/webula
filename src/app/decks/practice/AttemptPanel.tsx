@@ -3,7 +3,7 @@ import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { useEscapeLayer } from './useEscapeLayer';
 import { drawSpend, drawSpendText } from './drawSpend';
 import { safeModalMaxHeight, safeModalWidth } from './useSafeAreaInsets';
-import { AttemptMissionRules, attemptChangeText } from './attemptMissions';
+import { AttemptMissionRules, attemptChangeText, changesNumbers } from './attemptMissions';
 import type { AttemptStartExtras } from './tableReducer';
 
 // An empty or invalid field reads as 0.
@@ -94,6 +94,9 @@ export function AttemptDialog({
   const changedDraw = Math.max(0, changes.reduce((sum, c) => sum + c.draw, n));
   const changedSpend = Math.max(0, changes.reduce((sum, c) => sum + c.spend, n));
   const drawCards = offers.reduce((sum, o) => sum + (taken.includes(o.key) ? (o.drawCards ?? 0) : 0), 0);
+  // Caldos IV's download (#1828): the log names the card, so it is no change of the numbers.
+  const downloadId = offers.find((o) => taken.includes(o.key) && o.downloadId)?.downloadId;
+  const numberChanges = changes.filter(changesNumbers);
   const shownDraw = drawText ?? String(changedDraw);
   const shownSpend = spendText ?? String(changedSpend);
   // `wholeNumber` reads empty text as 0, so the check is on the text: the field keeps only digits.
@@ -104,7 +107,8 @@ export function AttemptDialog({
     ? {
         ...(bot ? {} : { draw: d, spend: sp }),
         ...(drawCards ? { drawCards } : {}),
-        changes: changes.map(attemptChangeText),
+        ...(downloadId ? { downloadId } : {}),
+        ...(numberChanges.length ? { changes: numberChanges.map(attemptChangeText) } : {}),
       }
     : undefined;
   return (

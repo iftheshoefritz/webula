@@ -260,10 +260,12 @@ describe('the dilemmas a play places elsewhere', () => {
       'All-Consuming Evil',
       'Causal Recursion',
       'Chula: The Game',
+      'Face Your Fate',
       'Hard Time',
       'Inferiority',
       'Ingenious Jury-rig',
       'Insurrection',
+      'Ki-ty-ha',
       'Ostensible Malfunction',
       'Overwhelmed',
       'Pattern Loss',
@@ -279,6 +281,7 @@ describe('the dilemmas a play places elsewhere', () => {
       'The Clown: On His Throne',
       'Timescape',
       'Tragic Turn',
+      'Unwinnable Duel',
       'Zero Hour',
     ]);
   });

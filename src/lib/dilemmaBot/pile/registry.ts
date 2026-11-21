@@ -5,6 +5,7 @@ import { CHAMPIONSHIP_BATCH_1_MODELS } from './titles/championshipBatch1';
 import { CHAMPIONSHIP_BATCH_2_MODELS } from './titles/championshipBatch2';
 import { CHAMPIONSHIP_BATCH_3_MODELS } from './titles/championshipBatch3';
 import { CHULA_MODELS } from './titles/chula';
+import { SET_60S_MODELS } from './titles/set60S';
 import { THINK_TANK_MODELS } from './titles/thinkTank';
 
 import { setModelLookup } from './define';
@@ -16,7 +17,7 @@ export { CORE_EVENTS, discardCap } from './define';
 // file of titles adds its list here. Each entry names its family, so `familyReport` can count how far the
 // families reach.
 
-const MODELS: DilemmaModel[] = [...THINK_TANK_MODELS, ...CARDASSIAN_GQ_MODELS, ...CHULA_MODELS, ...BEGINNER_DECK_MODELS, ...CHAMPIONSHIP_BATCH_1_MODELS, ...CHAMPIONSHIP_BATCH_2_MODELS, ...CHAMPIONSHIP_BATCH_3_MODELS];
+const MODELS: DilemmaModel[] = [...THINK_TANK_MODELS, ...CARDASSIAN_GQ_MODELS, ...CHULA_MODELS, ...BEGINNER_DECK_MODELS, ...CHAMPIONSHIP_BATCH_1_MODELS, ...CHAMPIONSHIP_BATCH_2_MODELS, ...CHAMPIONSHIP_BATCH_3_MODELS, ...SET_60S_MODELS];
 
 /**
  * The title of the model that covers a deck line's card name, less its version suffix (`cardTitleOf`,

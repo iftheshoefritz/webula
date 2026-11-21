@@ -54,6 +54,7 @@ import {
   PRACTICE_ATTRIBUTES_CORE,
   PRACTICE_ATTRIBUTES_TSV,
   PRACTICE_COMPLETION_TSV,
+  PRACTICE_SET67_TSV,
   PRACTICE_KMTAR_HAND,
   PRACTICE_DISSIDENT_CORE,
   PRACTICE_DISSIDENT_DRAW_TOP,
@@ -2342,6 +2343,8 @@ function PracticeDrawContent() {
   // `?fixture=completion` (#1757) deals the piles table with the five missions whose completion acts on the
   // player's cards, and Population 9 Billion - All Borg in the draw deck.
   const isCompletionFixture = fixture === 'completion';
+  // `?fixture=set67` (#1828) deals the piles table with Cheron, Caldos IV and Crescent Nebula, the missions of set 67.
+  const isSet67Fixture = fixture === 'set67';
   // `?fixture=missions` (#1754) deals the piles table with Earth, Lush and Beautiful Home and Nimbus III,
   // Staff Backwater Embassy, a [TOS] personnel at the end of the hand, and Korrd and Caithlin Dar.
   const isMissionsFixture = fixture === 'missions';
@@ -2389,6 +2392,7 @@ function PracticeDrawContent() {
     isCostsFixture ||
     isAttributesFixture ||
     isCompletionFixture ||
+    isSet67Fixture ||
     isMissionsFixture ||
     isKmtarFixture ||
     isTainFixture ||
@@ -3318,6 +3322,7 @@ function PracticeDrawContent() {
   };
   const fixtureDeck = (): DeckList => {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
+    if (isSet67Fixture) return deckFromTsv(PRACTICE_SET67_TSV, data);
     if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
     if (isKmtarFixture) return deckFromTsv(PRACTICE_KMTAR_TSV, data);
     if (isTainFixture) return deckFromTsv(PRACTICE_TAIN_TSV, data);
@@ -3413,6 +3418,7 @@ function PracticeDrawContent() {
           isCostsFixture ||
           isAttributesFixture ||
           isCompletionFixture ||
+          isSet67Fixture ||
           isMissionsFixture ||
           isKmtarFixture ||
           isTainFixture ||

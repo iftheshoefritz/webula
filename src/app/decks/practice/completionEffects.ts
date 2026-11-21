@@ -10,7 +10,7 @@ import { reportsToMatches } from '../../../lib/hqPlayability';
 import type { GameAction } from './gameLog';
 import { attemptingCards, findInstanceAnywhere, type CardInstance, type TableAction, type TableState } from './tableReducer';
 
-export type CompletionEffectKind = 'download' | 'discardToHq' | 'discardOrDestroy' | 'toDeckBottom' | 'flip';
+export type CompletionEffectKind = 'download' | 'discardToHq' | 'discardOrDestroy' | 'toDeckBottom' | 'flip' | 'score';
 
 export interface CompletionEffect {
   title: string;
@@ -25,6 +25,10 @@ export interface CompletionEffect {
   cap?: number;
   /** The smallest printed cost of a personnel that may be discarded instead of the ships. */
   min?: number;
+  /** The points a score scores (#1828, Cheron), the step of the "when you play" `score` kind. */
+  points?: number;
+  /** The fewest different species involved for a score. */
+  minSpecies?: number;
 }
 
 const EFFECTS: CompletionEffect[] = [
@@ -57,6 +61,14 @@ const EFFECTS: CompletionEffect[] = [
     kind: 'toDeckBottom',
     cap: 12,
     text: "When you complete this mission, place up to 12 total cost of your personnel involved beneath their owners' decks.",
+  },
+  {
+    title: 'Cheron Aid Planetary Recovery',
+    label: 'Cheron',
+    kind: 'score',
+    points: 5,
+    minSpecies: 4,
+    text: 'When you complete this mission, if four or more different species were involved, score 5 points.',
   },
   {
     title: 'Gateway Flee in Terror',
@@ -97,6 +109,23 @@ export function involvedPersonnel(table: TableState, missionIndex: number): Card
     return found && onTable && isPersonnel(found.instance) ? [found.instance] : [];
   });
 }
+
+/**
+ * Cheron (#1828): the different species of the personnel involved, each personnel's whole `species` value
+ * lowercased, so a Human/Vulcan is a species of its own, neither Human nor Vulcan. A personnel with no
+ * species counts none.
+ */
+export function involvedSpecies(table: TableState, missionIndex: number): string[] {
+  const species = involvedPersonnel(table, missionIndex).map((c) => String(c.card?.species ?? '').trim().toLowerCase());
+  return [...new Set(species.filter(Boolean))];
+}
+
+/** Cheron: whether enough different species were involved to score. */
+export const scoreHolds = (table: TableState, missionIndex: number, effect: CompletionEffect): boolean =>
+  involvedSpecies(table, missionIndex).length >= (effect.minSpecies ?? 0);
+
+/** Cheron: the score of a completion whose species check holds. */
+export const scoreActions = (effect: CompletionEffect): TableAction[] => [{ type: 'adjustScore', delta: effect.points ?? 0 }];
 
 /** Saturn: the copies of the download's title in the draw deck. */
 export const downloadCandidates = (table: TableState, effect: CompletionEffect): CardInstance[] =>

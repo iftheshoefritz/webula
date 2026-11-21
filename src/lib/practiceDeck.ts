@@ -258,6 +258,19 @@ export const PRACTICE_COMPLETION_TSV = `${PRACTICE_DECK_TSV.split('\n')
 1\tSaturn Continue Invasion
 1\tGateway Flee in Terror`;
 
+// The deck of `?fixture=set67` (#1828): the practice deck with the three missions of set 67 (60S), Cheron Aid
+// Planetary Recovery in slot 0 (the planet of the away team of 20, of more than four species), Caldos IV
+// Upgrade Colony in slot 1 and Crescent Nebula Take Out the Trash in slot 2 (the space mission of the crewed
+// ship), so every other non-[Fed] mission requires Intelligence.
+export const PRACTICE_SET67_TSV = `${PRACTICE_DECK_TSV.split('\n')
+  .slice(0, -5)
+  .join('\n')}
+1\tCheron Aid Planetary Recovery
+1\tCaldos IV Upgrade Colony
+1\tCrescent Nebula Take Out the Trash
+1\tMetron Arena Resolve Standing Conflict
+1\tCurnab Sector Prevent Historical Disruption (MAH)`;
+
 // The deck of `?fixture=missions` (#1754): the practice deck with Earth, Lush and Beautiful Home in slot
 // 0 (the headquarters of the away team) and Nimbus III, Staff Backwater Embassy in slot 1, the missions
 // whose text lets the player spend counters, and Korrd and Caithlin Dar for Nimbus III's download.
