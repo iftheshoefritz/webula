@@ -99,6 +99,11 @@ export function cardBorderStyle(cardWidth: number): CSSProperties {
 export function cropBottomBorderStyle(cardWidth: number): CSSProperties {
   return { borderBottom: `${cropBottomBorderWidth(cardWidth)}px solid black` };
 }
+// Whether a table card's crop cuts off the bottom of its card: every crop but a mission's, whose
+// box shows the whole landscape card.
+export function cutsOffBottom(card: { type?: unknown }, uncropped: boolean): boolean {
+  return !uncropped && card.type !== 'mission';
+}
 // The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
 export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
 
@@ -239,7 +244,7 @@ export function TableCardImage({
           src={isFaceDown ? '/cardimages/cardback.jpg' : faceUpImageSrc(instance)}
           alt={isFaceDown ? 'Face-down card' : cardDisplayName(card)}
           className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped || instance.removedFromGame ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
-          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), ...(uncropped ? {} : cropBottomBorderStyle(width)) }}
+          style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), ...(cutsOffBottom(card, uncropped) ? cropBottomBorderStyle(width) : {}) }}
         />
         {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. It sits
             in the clipped box, so its band, on the bottom of the crop (#1236), keeps to the crop's

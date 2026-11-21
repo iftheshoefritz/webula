@@ -271,6 +271,13 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
     expect(clip.className).toMatch(/rounded-md/);
   });
 
+  it("draws no crop border on a mission, whose box shows the whole card, nor on a whole card (#1795)", () => {
+    const { container, rerender } = render(<TableCard instance={makeCard(0, { type: 'mission' })} />);
+    expect(container.querySelector('img')!.style.borderBottom).toBe('');
+    rerender(<TableCard instance={makeCard(0)} uncropped />);
+    expect(container.querySelector('img')!.style.borderBottom).toBe('');
+  });
+
   it('greys the overlay of a stopped personnel at full opacity, and greys and fades its art (#1339)', () => {
     const { container } = render(<TableCard instance={makeCard(0, {}, { stopped: true })} />);
 
