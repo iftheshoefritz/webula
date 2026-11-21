@@ -80,9 +80,9 @@ describe('personnelIconCodes', () => {
 });
 
 describe('personnelOverlayLayout', () => {
-  // The attempt row's 69, a panel card at scale 1, at the minimum screen, 667x375:
-  // round(72 x 375/320 x 1.5) = 126, and a large one.
-  it.each([69, 108, 126, 200])('fits four icons above three boxes inside the border at width %s', (width) => {
+  // The attempt row's 76 at the minimum screen (#1544), a panel card at scale 1, at the minimum
+  // screen, 667x375: round(72 x 375/320 x 1.5) = 126, and a large one.
+  it.each([76, 108, 126, 200])('fits four icons above three boxes inside the border at width %s', (width) => {
     const cropHeight = artCropHeight(width);
     const border = cardBorderWidth(width);
     const { iconTop, iconSize, iconGap, iconLeft, bandTop, bandHeight, boxLefts, boxWidth } = personnelOverlayLayout(
@@ -95,8 +95,8 @@ describe('personnelOverlayLayout', () => {
     expect(iconLeft).toBeGreaterThan(border);
     const columnBottom = iconTop + PERSONNEL_MAX_ICONS * iconSize + (PERSONNEL_MAX_ICONS - 1) * iconGap;
     expect(columnBottom).toBeLessThanOrEqual(bandTop);
-    // The band ends at the bottom edge of the crop (#1236).
-    expect(bandTop + bandHeight).toBe(cropHeight);
+    // The band ends on the card's black border along the bottom of the crop (#1236, #1795).
+    expect(bandTop + bandHeight).toBe(cropHeight - border);
     // The three boxes sit inside the card's border, on its centre, and do not touch.
     expect(boxLefts[0]).toBeGreaterThan(border);
     expect(boxLefts[2] + boxWidth).toBeLessThan(width - border);
@@ -250,11 +250,12 @@ describe('Practice table: the personnel overlay on a table card (#1176)', () => 
     expect(screen.getByTestId('personnel-overlay')).toBeTruthy();
   });
 
-  it('anchors the band to the bottom of the crop, clipped to its rounded corners (#1236)', () => {
+  it("sits the band on the card's border along the bottom of the crop, clipped to its rounded corners (#1236, #1795)", () => {
     render(<TableCard instance={makeCard(0)} />);
 
     const band = screen.getByTestId('personnel-attributes');
-    expect(band.getAttribute('class')).toMatch(/\bbottom-0\b/);
+    const width = Number(band.getAttribute('width'));
+    expect(band.style.bottom).toBe(`${cardBorderWidth(width)}px`);
     expect(band.getAttribute('style') ?? '').not.toMatch(/top/);
     const height = Number(band.getAttribute('height'));
     for (const rect of Array.from(band.querySelectorAll('rect'))) {
@@ -322,6 +323,17 @@ describe('Practice table: the ship band (#1336)', () => {
     expect(screen.getByRole('img', { name: 'Range 7, Weapons 8, Shields 9' })).toBeTruthy();
     expect(screen.queryByTestId('personnel-icons')).toBeNull();
     expect(screen.queryByTestId('personnel-overlay')).toBeNull();
+  });
+
+  it.each([49, 69, 126, 200])("raises the band by the card's border at width %s (#1795)", (width) => {
+    const cropHeight = artCropHeight(width);
+    const border = cardBorderWidth(width);
+    const { bandTop, bandHeight, bandBottom } = shipOverlayLayout(width, cropHeight, border);
+    expect(bandBottom).toBe(border);
+    expect(bandTop + bandHeight).toBe(cropHeight - border);
+
+    renderShipOverlay(width);
+    expect(screen.getByTestId('ship-attributes').style.bottom).toBe(`${border}px`);
   });
 
   it.each([49, 69, 126, 200, 238])('keeps the height rule of the band at width %s', (width) => {
