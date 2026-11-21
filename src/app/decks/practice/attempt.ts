@@ -534,6 +534,9 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   'bot-resolve-overcome': { title: 'Conflict of Interests', collectorsInfo: '26V002', mission: '33V030', spend: 4 },
   // Well-Prepared Defenses, cost 2 and no skill, at Sigma Iotia II, which prevents and overcomes it (#1761).
   'bot-resolve-prevent': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017', mission: '23V027', awayTeamSlot: 0 },
+  // Hard of Heart, a planet dilemma that selects 2 at random, at Moab IV's away team, with Let's Try That
+  // Again in the core and Dessert Disaster in the hand (#1847).
+  'bot-select-again': { title: 'Hard of Heart', collectorsInfo: '38V004', awayTeamSlot: 0 },
 };
 
 export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA, spend?: number, awayTeamSlot?: number): {

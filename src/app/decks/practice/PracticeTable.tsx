@@ -78,6 +78,7 @@ import {
   PRACTICE_MISSIONS_TSV,
   PRACTICE_BOT_COSTS_TSV,
   PRACTICE_BOT_ROADBLOCK_TSV,
+  PRACTICE_BOT_SELECT_AGAIN_TSV,
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
   PRACTICE_COSTS_CORE,
@@ -119,6 +120,9 @@ import {
   Zone,
   createCardInstances,
   findInstanceAnywhere,
+  replacePickOptionsOf,
+  selectAgainEventOf,
+  SELECT_AGAIN_TITLE,
   initialTableState,
   seedInstanceIds,
   tableReducer,
@@ -1936,6 +1940,10 @@ function DilemmaStackPile({
   resolved = false,
   resolvePending = false,
   onResolve,
+  selectAgain = null,
+  onSelectAgain,
+  replacePicks = [],
+  onReplacePick,
   choseNone = false,
 }: {
   stack: CardInstance[];
@@ -1958,8 +1966,16 @@ function DilemmaStackPile({
   // The player's choice is not made yet (#1593): the preview reads the task, and the button is disabled.
   resolvePending?: boolean;
   onResolve?: () => void;
+  // Let's Try That Again in the core (#1847): its name, or null when it cannot select again.
+  selectAgain?: string | null;
+  onSelectAgain?: () => void;
+  // Dessert Disaster's swaps (#1847): each selected personnel and [Stf] personnel it may put in its place.
+  replacePicks?: { from: string; to: string; text: string }[];
+  onReplacePick?: (from: string, to: string) => void;
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
+  // The list of Dessert Disaster's swaps, open or closed. A new snapshot has its own swaps.
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
@@ -2073,6 +2089,60 @@ function DilemmaStackPile({
           >
             {resolved ? 'Resolved' : 'Resolve'}
           </button>
+          {selectAgain && !resolved && (
+            <button
+              type="button"
+              data-testid="dilemma-select-again"
+              onClick={onSelectAgain}
+              onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              aria-label={`${selectAgain}: select again`}
+              title="Destroy it to ignore the results and select again"
+              className="rounded-md bg-black/90 ring-1 ring-white/70 shadow-md px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-text-primary focus:outline-hidden"
+              style={NO_CALLOUT_STYLE}
+            >
+              Select again
+            </button>
+          )}
+          {replacePicks.length > 0 && !resolved && (
+            <>
+              <button
+                type="button"
+                data-testid="dilemma-replace-pick"
+                aria-expanded={replaceOpen}
+                onClick={() => setReplaceOpen((open) => !open)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="rounded-md bg-black/90 ring-1 ring-white/70 shadow-md px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-text-primary focus:outline-hidden"
+                style={NO_CALLOUT_STYLE}
+              >
+                Dessert Disaster
+              </button>
+              {replaceOpen &&
+                replacePicks.map((choice) => (
+                  <button
+                    key={`${choice.from}-${choice.to}`}
+                    type="button"
+                    data-testid="dilemma-replace-pick-choice"
+                    data-from={choice.from}
+                    data-to={choice.to}
+                    onClick={() => {
+                      setReplaceOpen(false);
+                      onReplacePick?.(choice.from, choice.to);
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="rounded-md bg-black/90 ring-1 ring-white/40 px-1 py-0.5 text-left text-[9px] leading-tight text-text-primary focus:outline-hidden"
+                    style={NO_CALLOUT_STYLE}
+                  >
+                    {choice.text}
+                  </button>
+                ))}
+            </>
+          )}
         </div>
       )}
       {/* #1080: 24 px, the size of the pile buttons, with an opaque fill and a solid ring so it
@@ -2310,7 +2380,7 @@ function PracticeDrawContent() {
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
   // `?fixture=bot-costs` (#1738) deals the `?fixture=bot` table with Ptol at the end of the hand.
   // `?fixture=bot-roadblock` (#1789) deals it with Self-Replicating Roadblock at the end of the hand instead.
-  const botExtraTsv = fixture === 'bot-costs' ? PRACTICE_BOT_COSTS_TSV : fixture === 'bot-roadblock' ? PRACTICE_BOT_ROADBLOCK_TSV : null;
+  const botExtraTsv = fixture === 'bot-costs' ? PRACTICE_BOT_COSTS_TSV : fixture === 'bot-roadblock' ? PRACTICE_BOT_ROADBLOCK_TSV : fixture === 'bot-select-again' ? PRACTICE_BOT_SELECT_AGAIN_TSV : null;
   const isBotCostsFixture = botExtraTsv !== null;
   const isBotFixture = fixture === 'bot' || isBotCostsFixture || botRevealFixture !== null;
   const isFixture =
@@ -2923,6 +2993,14 @@ function PracticeDrawContent() {
       met: [...new Set(checks.filter((c) => !c.subject).flatMap((c) => c.met))],
     };
   }, [botLabelCardId, table.attempt?.revealSnapshot, botResolve, prevented]);
+  // Issue #1847: Let's Try That Again in the core rolls the kept selection again, and Dessert Disaster in
+  // the hand swaps a selected personnel with no staffing icon for a [Stf] one, while the row marks show.
+  const selectAgainEvent = botRowMarks ? selectAgainEventOf(table) : undefined;
+  const replaceOptions = botRowMarks ? replacePickOptionsOf(table) : null;
+  const pickName = (id: string) => cardDisplayName(findInstanceAnywhere(table, id)?.instance.card);
+  const replacePicks = (replaceOptions?.from ?? []).flatMap((from) =>
+    replaceOptions!.to.map((to) => ({ from, to, text: `Replace ${pickName(from)} with ${pickName(to)}` }))
+  );
   const resolveRevealedDilemma = () => {
     const top = dilemmaStack[0];
     const pressed = botResolveOf(table, undefined, selectedCardIds, preventionOf(table, game.log));
@@ -3231,12 +3309,13 @@ function PracticeDrawContent() {
     };
   };
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
-  const botCostsFixtureExtras = () => ({
-    hand: [] as any[],
-    crew: [] as any[],
-    core: [] as any[],
-    lateHand: extractDrawDeck(deckFromTsv(botExtraTsv ?? '', data)),
-  });
+  // `?fixture=bot-select-again` (#1847): Let's Try That Again at the end of the core, Dessert Disaster at
+  // the end of the hand.
+  const botCostsFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(botExtraTsv ?? '', data));
+    const inCore = (r: any) => r.originalName === SELECT_AGAIN_TITLE;
+    return { hand: [] as any[], crew: [] as any[], core: rows.filter(inCore), lateHand: rows.filter((r: any) => !inCore(r)) };
+  };
   const fixtureDeck = (): DeckList => {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
     if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
@@ -4932,6 +5011,10 @@ function PracticeDrawContent() {
                       resolved={botResolved}
                       resolvePending={botResolvePending}
                       onResolve={resolveRevealedDilemma}
+                      selectAgain={selectAgainEvent ? cardDisplayName(selectAgainEvent.card) : null}
+                      onSelectAgain={() => selectAgainEvent && dispatch({ type: 'selectAgain', eventId: selectAgainEvent.id })}
+                      replacePicks={replacePicks}
+                      onReplacePick={(from, to) => replaceOptions && dispatch({ type: 'replacePick', cardId: replaceOptions.cardId, from, to })}
                     />
                     )
                   }
