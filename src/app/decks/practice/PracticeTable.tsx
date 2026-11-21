@@ -25,7 +25,7 @@ import {
   useDroppable,
 } from '@dnd-kit/core';
 import { collisionDetection } from './collisionDetection';
-import { PLAY_TARGET_ID, playTargetEligible, playTargetLine } from './playTarget';
+import { PLAY_TARGET_ID, playTargetEligible, playTargetLine } from './playTargetRules';
 import { costFactsOf } from './costFacts';
 import { PlayTarget } from './PlayTarget';
 import { recallRefused, removesItselfFromGame, resolvesOnPlay } from '../../../lib/playCost';

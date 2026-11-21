@@ -64,7 +64,7 @@ jest.mock('@dnd-kit/core', () => {
 import React from 'react';
 import { render, act, screen } from '@testing-library/react';
 import PracticeDrawPage from '../../../app/decks/practice/PracticeTable';
-import { PLAY_TARGET_MARGIN, playTargetEligible, playTargetLine } from '../../../app/decks/practice/playTarget';
+import { PLAY_TARGET_MARGIN, playTargetEligible, playTargetLine } from '../../../app/decks/practice/playTargetRules';
 import { CardInstance } from '../../../app/decks/practice/tableReducer';
 
 const event = (gametext: string): CardInstance => ({ id: 'e', key: 'e', card: { type: 'event', gametext } as any, faceUp: true } as any);

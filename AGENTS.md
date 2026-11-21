@@ -320,9 +320,10 @@ merge are in `scripts/stats/*.mjs`, which use no network, and `src/tests/scripts
 tests them.
 
 `.github/workflows/stats-recorder.yml` (#1432) runs the script every day at 02:43 UTC over the last
-3 days and opens or updates one pull request from the branch `stats/update`, which each run rebuilds
-from `main`. Before it collects, it merges the stats of the previous `stats/update` into the new
-branch with `scripts/merge_stats.mjs`, so a day stays on the branch until the pull request merges.
+3 days and pushes the result to the branch `stats/update`, which each run rebuilds from `main`. It
+opens no pull request (#1791): the owner, or `/drive-issues`, merges `stats/update` when `/stats`
+needs new stats. Before it collects, it merges the stats of the previous `stats/update` into the new
+branch with `scripts/merge_stats.mjs`, so a day stays on the branch until it merges.
 A dispatch with `since` and `until` runs a backfill slice. `.github/workflows/README.md`
 describes it.
 
@@ -1112,7 +1113,7 @@ A tap anywhere on the ship, the counter of the cards on it too, opens its crew p
 
 A drag out of the core onto a ship has failed once. See #701.
 
-The **Play** target (#1729, `PlayTarget.tsx`, `playTarget.ts`) plays an event that resolves at once.
+The **Play** target (#1729, `PlayTarget.tsx`, `playTargetRules.ts`) plays an event that resolves at once.
 It shows during a drag only when "Resolve events in a panel" is on, the segment is play and draw, no
 attempt is in progress, `resolving` is empty, and the drag carries one card, from the hand, for which
 `resolvesOnPlay` is true (`playTargetEligible`), and only while the pointer is above the line:

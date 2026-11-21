@@ -16,7 +16,7 @@ import {
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { costFactsOf } from '../../../app/decks/practice/costFacts';
-import { playTargetEligible } from '../../../app/decks/practice/playTarget';
+import { playTargetEligible } from '../../../app/decks/practice/playTargetRules';
 import { ResolvingPanel } from '../../../app/decks/practice/ResolvingPanel';
 import { hasRecall, moveCharge, recallOf, recallRefused } from '../../../lib/playCost';
 import { costModelOf } from '../../../lib/costModels/registry';
