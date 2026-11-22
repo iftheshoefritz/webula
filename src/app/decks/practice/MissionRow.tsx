@@ -116,6 +116,7 @@ import deltaQuadrantIcon from '../../../../public/icons/quadrant_delta_hd.png';
 import gammaQuadrantIcon from '../../../../public/icons/quadrant_gamma_hd.png';
 import { CANCEL_RADIUS } from './releaseCancel';
 import { CARD_BACK_URL } from './offlineCache';
+import { cropBottomBorderWidth } from './PersonnelOverlay';
 
 // Issue #717: every pixel size below is tuned against a scale of 1, the 568x320 viewport
 // `BADGE_STRIP_HEIGHT_BASE`'s comment describes. The smallest supported screen is now 667x375
@@ -482,18 +483,20 @@ export function missionSpanLayout(scale: number): {
   // ring and the numeral do not blur against each other.
   const backing = width - 2 * Math.round((width - width * MISSION_SPAN_BACKING) / 2);
   const ring = backing - 2 * Math.max(1, Math.round(width * MISSION_SPAN_BACKING_EDGE));
-  const top = Math.round(axisOnCard - backing / 2);
-  // The card's border is an outline over the image. The plate reaches half a pixel into it, which
-  // covers the image when the strips sit half a pixel above the card.
-  const borderTop = scaled(TABLE_CARD_ART_HEIGHT, scale) - cardBorderWidth(width);
-  const plateBottom = borderTop + 0.5 - top;
+  const printedTop = Math.round(axisOnCard - backing / 2);
+  // The crop's black bottom border (#1795, `CropBottomBorder`) stays clear: the plate stops on its
+  // top, and the row rises as far as its discs would reach into it. The discs are as large as the
+  // printed chrome, so the raised disc and the border still cover the printed one between them.
+  const borderTop = scaled(TABLE_CARD_ART_HEIGHT, scale) - cropBottomBorderWidth(width);
+  const top = Math.min(printedTop, borderTop - backing);
+  const plateBottom = borderTop - top;
   const numeral = backing * MISSION_SPAN_NUMERAL;
   const bandLeft = width * MISSION_SPAN_CHROME_X;
   return {
     top,
     width,
     height: Math.max(backing, plateBottom),
-    axis: axisOnCard - top,
+    axis: axisOnCard - printedTop,
     backing,
     backingLeft: (width - backing) / 2,
     ring,
