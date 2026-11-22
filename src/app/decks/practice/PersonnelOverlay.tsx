@@ -4,8 +4,8 @@
 // #1141, `MissionSpan` in `MissionRow.tsx`). The art crop cuts off the column of icons the card
 // prints left of its skill box and the integrity, cunning and strength it prints along its bottom,
 // so the crop draws them again from the card data: the icons in a column at the left of the art,
-// below the affiliation icon the crop already shows, and the three attributes in a band whose bottom
-// is the bottom edge of the crop (#1236). On a larger crop the band is drawn as the card prints it
+// below the affiliation icon the crop already shows, and the three attributes in a band that sits on
+// the black border a crop draws along its bottom (#1236, #1795). On a larger crop the band is drawn as the card prints it
 // (#1219): three boxes, each a black frame with a silver line along its top and its bottom, filled
 // with the colour of the affiliation, and in it the word in white small capitals, "Integrity",
 // "Cunning" or "Strength", and the number right of it. On a small crop, where those words are too
@@ -107,6 +107,14 @@ const CAP_HEIGHT = 0.72; // the height of a capital or a digit, of the font size
 
 export const PERSONNEL_MAX_ICONS = 4;
 
+// The black border a card image prints along each edge, about 17 px on a card 357 px wide. An art
+// crop cuts the card off above its bottom edge, so it draws a border of that width along its bottom
+// (#1795, `CropBottomBorder` in `TableCard.tsx`), and the crop's bottom matches its top and sides.
+const PRINTED_BORDER_SHARE = 17 / 357;
+export function cropBottomBorderWidth(width: number): number {
+  return Math.max(2, Math.round(width * PRINTED_BORDER_SHARE));
+}
+
 export const ATTRIBUTES = ['integrity', 'cunning', 'strength'] as const;
 const attributeName = (attribute: string): string => attribute[0].toUpperCase() + attribute.slice(1);
 const attributeAbbreviation = (attribute: string): string => attributeName(attribute).slice(0, 3);
@@ -174,8 +182,9 @@ const capitalsWidth = (word: string, fontSize: number): number => fontSize * GLY
 
 // The geometry of the overlay on a crop `cropHeight` tall of a card `width` wide, whose border is
 // `border` wide. Every length is a share of the width, so the overlay scales with the card. The band
-// ends at the bottom of the crop (#1236), over the card's border there, so no art or frame shows
-// under it.
+// ends `bandBottom` above the bottom of the crop, on the black border the crop draws there
+// (`cropBottomBorderWidth`, #1795), so no art shows under the band (#1236). Where four icons would
+// run into the band, the icons shrink to fit above it; the band never does.
 export function personnelOverlayLayout(
   width: number,
   cropHeight: number,
@@ -187,6 +196,7 @@ export function personnelOverlayLayout(
   iconGap: number;
   bandTop: number;
   bandHeight: number;
+  bandBottom: number;
   boxLefts: number[];
   boxWidth: number;
   line: number;
@@ -202,13 +212,19 @@ export function personnelOverlayLayout(
   const abbreviated = Math.round(width * BOX_HEIGHT) * BOX_FONT < ABBREVIATE_BELOW_FONT;
   const boxHeight = Math.max(7, Math.round(width * (abbreviated ? SMALL_BOX_HEIGHT : BOX_HEIGHT)));
   const fontSize = Math.round(boxHeight * BOX_FONT * 10) / 10;
+  const bandBottom = cropBottomBorderWidth(width);
+  const bandTop = cropHeight - bandBottom - boxHeight;
+  const iconTop = Math.round(width * ICON_COLUMN_TOP);
+  const iconGap = Math.max(1, Math.round(width * ICON_GAP));
+  const iconRoom = Math.floor((bandTop - iconTop - (PERSONNEL_MAX_ICONS - 1) * iconGap) / PERSONNEL_MAX_ICONS);
   return {
-    iconTop: Math.round(width * ICON_COLUMN_TOP),
+    iconTop,
     iconLeft: Math.max(border + 1, Math.round(width * ICON_COLUMN_LEFT)),
-    iconSize: Math.round(width * ICON_SIZE),
-    iconGap: Math.max(1, Math.round(width * ICON_GAP)),
-    bandTop: cropHeight - boxHeight,
+    iconSize: Math.min(Math.round(width * ICON_SIZE), iconRoom),
+    iconGap,
+    bandTop,
     bandHeight: boxHeight,
+    bandBottom,
     boxLefts: [0, 1, 2].map((index) => first + index * (boxWidth + gap)),
     boxWidth,
     // The silver lines, and the black between them and the fill: each about a fourteenth of the
@@ -326,8 +342,8 @@ function AttributeBoxFrame({
 }) {
   return (
     <>
-      {/* The shadow the box casts to the right. It stops at the bottom of the band, which is the
-          bottom of the crop (#1236). */}
+      {/* The shadow the box casts to the right. It stops at the bottom of the band, on the black
+          border along the bottom of the crop (#1236, #1795). */}
       <rect x={left + line} y={line} width={width} height={height - line} fill="rgba(0,0,0,0.6)" />
       {/* The black frame, a silver line along its top and its bottom, and the fill inside. */}
       <rect x={left} y={0} width={width} height={height} fill="#000" />
@@ -407,7 +423,7 @@ function AttributeBand({
   width: number;
   labelTier?: ShipLabelTier;
 }) {
-  const { bandHeight, boxLefts, boxWidth, line, pad, fontSize } = layout;
+  const { bandHeight, bandBottom, boxLefts, boxWidth, line, pad, fontSize } = layout;
   // The baseline that puts the capitals and the digits on the middle of the box, with as much fill
   // above them as below: `central` centres the em box, whose descender space pushes them up.
   const baseline = bandHeight / 2 + (fontSize * CAP_HEIGHT) / 2;
@@ -416,7 +432,8 @@ function AttributeBand({
       data-testid={`${prefix}-attributes`}
       role="img"
       aria-label={attributes.map(({ name, value, ariaValue }) => `${name} ${ariaValue ?? value}`).join(', ')}
-      className="absolute left-0 bottom-0 overflow-visible"
+      className="absolute left-0 overflow-visible"
+      style={{ bottom: bandBottom }}
       width={width}
       height={bandHeight}
       fontFamily={ATTRIBUTE_FONT_FAMILY}

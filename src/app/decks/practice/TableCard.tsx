@@ -29,7 +29,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CardInstance } from './tableReducer';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
-import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, WholeCardAttributeBoxes, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
+import PersonnelOverlay, { ShipOverlay, ShipRangeLeftBox, WholeCardAttributeBoxes, cropBottomBorderWidth, hasPersonnelOverlay, hasShipOverlay, shipRangeShown } from './PersonnelOverlay';
 import { useRangeUsed } from './RangeUsedContext';
 import type { RangeLeft } from './shipRange';
 import { cardImageUrl } from '../../../lib/cardImageUrl';
@@ -91,6 +91,38 @@ export function cardBorderWidth(cardWidth: number): number {
 export function cardBorderStyle(cardWidth: number): CSSProperties {
   const border = cardBorderWidth(cardWidth);
   return { outline: `${border}px solid black`, outlineOffset: -border };
+}
+// The black border along the bottom of an art crop (#1795), as wide as the border the card image
+// prints along its top and sides, which the crop shows and its bottom cuts off. It covers a strip at
+// the bottom of the crop's box, so the crop keeps its size and the art its scale (`object-cover
+// object-top`). Where it meets the printed side borders, its inner corners are rounded, as the card
+// rounds the corners of its art and text box: a quarter circle as wide as the border joins the inner
+// edge of each side to the top of the strip. Every crop draws it, a mission's on touch too; only a
+// whole card (`uncropped`) shows its own printed bottom border.
+// A pale hairline along the outer edge of that border. Below a crop is dark felt and the card's
+// shadow, so black against near-black shows no edge, and the eye takes the bright chrome above the
+// border for the card's bottom. The side borders have the lighter felt beyond them; this gives the
+// bottom one the same kind of outer edge, as `PILE_CARD_EDGE` does for the cards of a pile. It is
+// an inset shadow of a layer as round as the crop's box, so it bends up each rounded corner and
+// thins to nothing where the side begins.
+export const CROP_BOTTOM_EDGE = 'inset 0 -1px 0 rgba(205, 205, 215, 0.9)';
+export function CropBottomBorder({ cardWidth }: { cardWidth: number }) {
+  const border = cropBottomBorderWidth(cardWidth);
+  const corner = (side: 'left' | 'right'): CSSProperties => ({
+    [side]: 0,
+    bottom: border,
+    width: 2 * border,
+    height: border,
+    background: `radial-gradient(circle at ${side === 'left' ? '100%' : '0'} 0, transparent ${border - 0.5}px, black ${border}px)`,
+  });
+  return (
+    <div data-testid="crop-bottom-border" aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ borderRadius: 'inherit' }}>
+      <div className="absolute inset-x-0 bottom-0 bg-black" style={{ height: border }} />
+      <div data-testid="crop-bottom-border-corner" className="absolute" style={corner('left')} />
+      <div data-testid="crop-bottom-border-corner" className="absolute" style={corner('right')} />
+      <div data-testid="crop-bottom-edge" className="absolute inset-0" style={{ borderRadius: 'inherit', boxShadow: CROP_BOTTOM_EDGE }} />
+    </div>
+  );
 }
 // The border of a card that is 56 px wide (`w-14`), the card of a pile and of a drag.
 export const PILE_CARD_BORDER_STYLE = cardBorderStyle(56);
@@ -234,6 +266,7 @@ export function TableCardImage({
           className={`w-full h-full ${uncropped ? 'object-contain' : 'object-cover object-top'} ${instance.stopped || instance.removedFromGame ? STOPPED_IMAGE_CLASSNAME : ''} ${completed ? COMPLETED_IMAGE_CLASSNAME : ''}`}
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width) }}
         />
+        {!uncropped && <CropBottomBorder cardWidth={width} />}
         {/* #1176: a cropped personnel draws the icons and the attributes the crop cuts off. It sits
             in the clipped box, so its band, on the bottom of the crop (#1236), keeps to the crop's
             rounded corners. */}
