@@ -168,7 +168,7 @@ describe('the Play target on ?fixture=costs (#1729)', () => {
 
   afterEach(() => rectSpy.mockRestore());
 
-  it('shows above the line only, and a drop on it plays These Are The Voyages into the resolving panel', async () => {
+  it('shows above the line only, and a drop on it plays These Are The Voyages into the resolve prompt (#1870)', async () => {
     await renderTable(true);
     const id = handIdOf('These Are The Voyages');
     startDrag(id);
@@ -184,9 +184,54 @@ describe('the Play target on ?fixture=costs (#1729)', () => {
     dropOn(id, 'resolving', 100);
     expect(screen.queryByTestId('play-target')).toBeNull();
     expect(saved().table.resolving.id).toBe(id);
-    expect(screen.getByTestId('resolving-panel')).toBeInTheDocument();
+    // These Are The Voyages resolves in the prompt, with no panel (#1870).
+    expect(screen.getByTestId('resolve-prompt')).toBeInTheDocument();
+    expect(screen.queryByTestId('resolving-panel')).toBeNull();
     expect(screen.getByTestId('turn-counters')).toHaveTextContent('1/7');
     expect(screen.getByTestId('undo-button')).toHaveAttribute('aria-label', 'Undo: Played These Are The Voyages (cost 1)');
+  });
+
+  it('plays At What Cost? into the resolving panel, whose Resolved → Discard one undo takes back (#1728)', async () => {
+    await renderTable(true);
+    const id = handIdOf('At What Cost?');
+    startDrag(id);
+    moveTo(id, 100);
+    dropOn(id, 'resolving', 100);
+    expect(saved().table.resolving.id).toBe(id);
+    expect(screen.queryByTestId('resolve-prompt')).toBeNull();
+    expect(screen.getByTestId('resolving-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('resolving-discard')).toHaveTextContent('Resolved → Discard');
+    expect(screen.getByTestId('resolving-cancel')).toBeInTheDocument();
+    const card = screen.getByTestId('resolving-card');
+    expect(card).toHaveAttribute('data-zone', 'resolving');
+    expect(card.querySelector('[data-card-id]')).toHaveAttribute('data-card-id', id);
+    act(() => screen.getByTestId('resolving-discard').click());
+    expect(screen.queryByTestId('resolving-panel')).toBeNull();
+    expect(saved().table.resolving).toBeNull();
+    expect(saved().table.discard.map((c: any) => c.id)).toEqual([id]);
+    act(() => screen.getByTestId('undo-button').click());
+    expect(screen.getByTestId('resolving-panel')).toBeInTheDocument();
+    expect(saved().table.resolving.id).toBe(id);
+  });
+
+  it('collapses the panel to the small card with View table and with Escape, and a tap on it brings it back (#1728)', async () => {
+    await renderTable(true);
+    const id = handIdOf('At What Cost?');
+    startDrag(id);
+    moveTo(id, 100);
+    dropOn(id, 'resolving', 100);
+    act(() => screen.getByTestId('resolving-view-table').click());
+    expect(screen.queryByTestId('resolving-panel')).toBeNull();
+    const mini = screen.getByTestId('resolving-mini');
+    expect(mini).toHaveAttribute('data-zone', 'resolving');
+    act(() => mini.querySelector('button')!.click());
+    expect(screen.getByTestId('resolving-panel')).toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(screen.queryByTestId('resolving-panel')).toBeNull();
+    expect(screen.getByTestId('resolving-mini')).toBeInTheDocument();
+    expect(saved().table.resolving.id).toBe(id);
   });
 
   it('leaves a drop on the discard pile uncharged', async () => {

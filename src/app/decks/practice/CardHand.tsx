@@ -214,20 +214,27 @@ function ClosedFanCard({ instance, width }: { instance: CardInstance; width: num
 // component, so a drag started from a selected card can pick up the rest of the hand's selection
 // (`handleDragStart`). A tap on the card itself toggles it the same way; a press and hold
 // previews it (`useCardHold`).
+// Issue #1870: in a choice of the hand (`pick` not undefined) a tap picks the card for the resolving event, its
+// place in the pick shows at the top left (the next card of the arc covers the top right), the selection ring
+// and ✓ hide, and the card does not drag; a hold still previews it.
 function DraggableFanCard({
   instance,
   width,
   selected,
   onToggleSelect,
+  pick,
 }: {
   instance: CardInstance;
   width: number;
   selected: boolean;
   onToggleSelect: () => void;
+  pick?: number | null;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id });
-  const holdListeners = useCardHold(instance.id, listeners);
+  const choosing = pick !== undefined;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: instance.id, disabled: choosing });
+  const holdListeners = useCardHold(instance.id, choosing ? undefined : listeners);
   const { card } = instance;
+  const ringed = selected && !choosing;
 
   return (
     <div className="relative pointer-events-auto">
@@ -236,14 +243,15 @@ function DraggableFanCard({
         {...holdListeners}
         {...attributes}
         data-card-id={instance.id}
-        className={`block focus:outline-hidden touch-none rounded-lg ${selected ? 'ring-2 ring-accent' : ''}`}
+        className={`block focus:outline-hidden touch-none rounded-lg ${ringed ? 'ring-2 ring-accent' : ''}`}
         style={{
           ...NO_CALLOUT_STYLE,
           transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
           opacity: isDragging ? 0.5 : 1,
         }}
         onClick={onToggleSelect}
-        aria-label={cardDisplayName(card)}
+        aria-label={pick != null ? `${cardDisplayName(card)}, ${pick + 1} of the cards to put on the bottom` : cardDisplayName(card)}
+        aria-pressed={choosing ? pick !== null : undefined}
       >
         <img
           draggable={false}
@@ -256,8 +264,16 @@ function DraggableFanCard({
           style={{ ...NO_CALLOUT_STYLE, ...cardBorderStyle(width), width }}
         />
       </button>
+      {pick != null && (
+        <span
+          data-testid="hand-pick-number"
+          className="pointer-events-none absolute left-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[11px] font-semibold text-white shadow"
+        >
+          {pick + 1}
+        </span>
+      )}
       {/* #1015: shown only while the card is selected, as in a card list panel. */}
-      {selected && (
+      {ringed && (
         <button
           type="button"
           onClick={onToggleSelect}
@@ -295,6 +311,7 @@ export default function CardHand({
   rowScale = 1,
   closedFanAnchor,
   closedFanSide = 'left',
+  choice,
 }: {
   instances: CardInstance[];
   open: boolean;
@@ -363,6 +380,10 @@ export default function CardHand({
   // part of the screen.
   closedFanAnchor?: string;
   closedFanSide?: ClosedFanSide;
+  // Issue #1870: a choice of cards of this hand for a resolving event, in tap order. With it a tap on a
+  // card calls `onToggle` and not `onToggleSelect`, each pick shows its number, the cards do not drag, and
+  // the "→ top"/"→ bottom" row and the box do not show.
+  choice?: { ids: string[]; onToggle: (id: string) => void };
 }) {
   // The closed fan's cards are pile cards (`pileCardSize`) at the bottom-row scale, and the fan
   // spans at most `CLOSED_FAN_CORE_CARDS` cards of the core (#1489).
@@ -383,11 +404,11 @@ export default function CardHand({
   const zoneLandedNonce = useLandedNonce(zone);
   const landedNonce = open ? null : zoneLandedNonce;
   const fanRef = React.useRef<HTMLDivElement | null>(null);
-  const boxSelect = useBoxSelect(fanRef, selectedIds, onSelectIds);
+  const boxSelect = useBoxSelect(fanRef, selectedIds, choice ? undefined : onSelectIds);
   const holdCallbacksRef = useLatest(useCardHoldCallbacks());
   const backdropHoldRef = React.useRef<((press?: PointerEvent) => void) | null>(null);
   React.useEffect(() => () => backdropHoldRef.current?.(), []);
-  const hasSelection = instances.some((instance) => selectedIds.includes(instance.id));
+  const hasSelection = !choice && instances.some((instance) => selectedIds.includes(instance.id));
   const arcBounds = useArcBounds(arcBetween, showFan);
   const closedBounds = useClosedFanBounds(closedFanAnchor, closedFanSide, closedFanWidth, [count, rowScale, open]);
   // An empty hand lays out one card, the place of the "Empty" marker during a drag.
@@ -644,7 +665,8 @@ export default function CardHand({
                         instance={instance}
                         width={arc.cardWidth}
                         selected={selectedIds.includes(instance.id)}
-                        onToggleSelect={() => onToggleSelect(instance.id)}
+                        onToggleSelect={() => (choice ? choice.onToggle(instance.id) : onToggleSelect(instance.id))}
+                        {...(choice ? { pick: choice.ids.includes(instance.id) ? choice.ids.indexOf(instance.id) : null } : {})}
                       />
                     </div>
                   );
@@ -730,7 +752,8 @@ export default function CardHand({
                       instance={instance}
                       width={openCardWidth}
                       selected={selectedIds.includes(instance.id)}
-                      onToggleSelect={() => onToggleSelect(instance.id)}
+                      onToggleSelect={() => (choice ? choice.onToggle(instance.id) : onToggleSelect(instance.id))}
+                      {...(choice ? { pick: choice.ids.includes(instance.id) ? choice.ids.indexOf(instance.id) : null } : {})}
                     />
                   )}
                 />

@@ -12,6 +12,7 @@
 // | Open hand backdrop                     | `z-[145]` | `CardHand.tsx`         |
 // | Open hand card fan                     | `z-[146]` | `CardHand.tsx`         |
 // | Resolving panel (#1728)                | `z-[147]` | `ResolvingPanel.tsx`   |
+// | Resolve prompt, its row and small card (#1870) | `z-[147]` | `ResolvePrompt.tsx`, `ResolvingPanel.tsx` |
 // | Charge chip (#1607)                    | `z-[148]` | `TurnCounters.tsx`     |
 // | Card list panel                        | `z-[150]` | `CardListPanel.tsx`    |
 // | Game menu splash                       | `z-[160]` | `PracticeTable.tsx`    |
@@ -40,6 +41,10 @@ export const LAYER_HAND_FAN = 'z-[146]';
 // The resolving panel (#1728), with its backdrop: over the hand, below the charge chip, so the play's
 // choices stay reachable, and below the splash.
 export const LAYER_RESOLVING_PANEL = 'z-[147]';
+// The prompt of a resolving event (#1870), its row of candidates and its small card: over the open hand's
+// backdrop and arc, so each stays reachable while the arc is open, below the charge chip. It never shows with
+// the resolving panel, so the two share a value.
+export const LAYER_RESOLVE_PROMPT = 'z-[147]';
 // The brief chip of a charge (#1607), at the top of the screen: above the table and the open hand,
 // below a card list panel.
 export const LAYER_CHARGE_CHIP = 'z-[148]';
