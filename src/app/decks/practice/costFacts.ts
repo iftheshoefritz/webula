@@ -17,10 +17,10 @@ import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 const text = (v: unknown): string => String(v ?? '').toLowerCase();
 
 /** The icons of an affiliation field that is a list of icons, "[fed][sf]"; a sentence gives none (#1696). */
-const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(affiliation) ? (affiliation.match(/\[[a-z0-9]+\]/g) ?? []) : []);
+export const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(affiliation) ? (affiliation.match(/\[[a-z0-9]+\]/g) ?? []) : []);
 
 /** Every "Region: <name>." clause of a mission's keywords, lowercased (#1696). */
-const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
+export const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
 
 const personnelTraitsOf = (cards: CardInstance[]): CommandedTraits[] =>
   cards.flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y' }] : []));
@@ -109,7 +109,7 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined, quadra
 export const slotQuadrantOf = (table: TableState, missionIndex: number | undefined): string | undefined =>
   missionIndex === undefined ? undefined : text(table.missions[missionIndex]?.mission?.card?.quadrant) || undefined;
 
-const keywordsOf = (c: CardInstance): string[] => [
+export const keywordsOf = (c: CardInstance): string[] => [
   ...new Set(
     text(c.card?.keywords)
       .split('.')
@@ -131,7 +131,7 @@ const commandedEventsOf = (table: TableState): CardInstance[] =>
 const eventsOf = (table: TableState): CostEventCard[] =>
   commandedEventsOf(table).map((c) => ({ title: cardTitleOf(cardDisplayName(c.card)), keywords: keywordsOf(c) }));
 
-const printedCostOf = (c: CardInstance): number => {
+export const printedCostOf = (c: CardInstance): number => {
   const cost = Number.parseInt(String(c.card?.cost ?? ''), 10);
   return Number.isFinite(cost) ? cost : 0;
 };
