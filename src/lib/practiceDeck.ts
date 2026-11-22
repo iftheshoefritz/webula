@@ -420,3 +420,34 @@ export const PRACTICE_MISSIONS_TSV = `${PRACTICE_DECK_TSV.split('\n')
 
 // The card of `PRACTICE_MISSIONS_TSV` that joins the end of the hand.
 export const PRACTICE_MISSIONS_HAND = 'Robert Tomlinson';
+
+// `?fixture=playable` (#1856): the `?fixture=piles` deck with Earth Cradle of the Federation, a headquarters,
+// in slot 2 (`FIXTURE_SHIP_SLOT`), so the crewed U.S.S. Relativity stands on its ship row. Robert Tomlinson,
+// a [TOS] personnel, joins that crew (`PRACTICE_PLAYABLE_CREW`), so U.S.S. Reliant's "While you command a
+// [TOS] personnel" holds; Haakona, a [Rom] ship, stands on the ship row of slot 3 (`PRACTICE_PLAYABLE_SHIP`);
+// and Deanna Troi Ship's Counselor, a [Fed][TNG] personnel Earth takes, Tomek Displaced Alien, who plays
+// aboard a [Rom] ship, U.S.S. Reliant Searching for Lifeless Planets and Shuttlepod One Reliable Transport,
+// which plays with an Enterprise and so has no place here, join the end of the hand (`PRACTICE_PLAYABLE_HAND`).
+export const PRACTICE_PLAYABLE_TSV = `${PRACTICE_DECK_TSV.split('\n')
+  .slice(0, -5)
+  .join('\n')}
+1\tRobert Tomlinson
+1\tHaakona
+1\tDeanna Troi Ship's Counselor
+1\tTomek Displaced Alien
+1\tU.S.S. Reliant Searching for Lifeless Planets
+1\tShuttlepod One Reliable Transport
+1\tMoab IV Avert Danger
+1\tAngel I Track Survivors
+1\tEarth Cradle of the Federation
+1\tMetron Arena Resolve Standing Conflict
+1\tCurnab Sector Prevent Historical Disruption (MAH)`;
+export const PRACTICE_PLAYABLE_CREW = ['Robert Tomlinson'];
+export const PRACTICE_PLAYABLE_SHIP = 'Haakona';
+export const PRACTICE_PLAYABLE_SHIP_SLOT = 3;
+export const PRACTICE_PLAYABLE_HAND = [
+  "Deanna Troi Ship's Counselor",
+  'Tomek Displaced Alien',
+  'U.S.S. Reliant Searching for Lifeless Planets',
+  'Shuttlepod One Reliable Transport',
+];

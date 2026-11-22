@@ -519,6 +519,7 @@ export type TableAction =
   // cards and the crewed ship's crew after its personnel, and `extraCore` (#1666,
   // `?fixture=attributes`) the core after its events. `extraDrawTop` (#1763, `?fixture=dissident`) goes on
   // top of the draw deck, and `extraDiscard` (#1764, `?fixture=recall`) into the discard pile.
+  // `extraShips` (#1856, `?fixture=playable`) puts each ship, with no crew, at the end of its slot's ship row.
   | {
       type: 'resetWithPiles';
       cards: CardInstance[];
@@ -531,6 +532,7 @@ export type TableAction =
       extraCore?: CardInstance[];
       extraDrawTop?: CardInstance[];
       extraDiscard?: CardInstance[];
+      extraShips?: { slot: number; ship: CardInstance }[];
     };
 
 export const FIXTURE_HAND = 7;
@@ -1537,6 +1539,11 @@ export function tableReducer(state: TableState, action: TableAction): TableState
           };
         }
         return slot;
+      }).map((slot, i) => {
+        const extraShips = (action.extraShips ?? []).filter((s) => s.slot === i);
+        return extraShips.length
+          ? { ...slot, ships: [...slot.ships, ...extraShips.map(({ ship }) => ({ ...ship, face: SHIP_ROW_FACE }))] }
+          : slot;
       });
       return {
         ...dealt,

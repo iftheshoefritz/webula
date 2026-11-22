@@ -267,7 +267,7 @@ The code says "reports to" for the same idea. "Reports to" is not a rulebook ter
 | game text that lets a card play aboard a ship | `DECK_PLAYABILITY` in `src/lib/deckPlayability.ts` |
 | the headquarters options of the loaded deck | `getReportsToOptions` in `src/lib/reportsToOptions.ts` |
 | the search fields | `reportsto:` (`rt:`) and `playable:currentDeck` |
-| where a card may be played on the practice table (play at a headquarters, play aboard a ship, play at a mission) | `playPlacesOfRow` in `src/lib/playPlaces/` (a `PlayPlaces` of away teams, crews and ship rows), `playPlacesOf` in `src/app/decks/practice/playPlaces.ts`. A `{Title}` in the text names a persona: it matches a card whose title is the reference or starts with it and a space, so `{Earth}` is Earth Cradle of the Federation |
+| where a card may be played on the practice table (play at a headquarters, play aboard a ship, play at a mission) | `playPlacesOfRow` in `src/lib/playPlaces/` (a `PlayPlaces` of away teams, crews and ship rows), `playPlacesOf` in `src/app/decks/practice/playPlaces.ts`. A `{Title}` in the text names a persona: it matches a card whose title is the reference or starts with it and a space, so `{Earth}` is Earth Cradle of the Federation. During a drag from the hand in play and draw the targets it names show `data-highlight="eligible"` and the others `dimmed` (#1856); nothing is enforced |
 
 `reportsto` and `playable` are computed search fields. They are not columns of the
 data file.

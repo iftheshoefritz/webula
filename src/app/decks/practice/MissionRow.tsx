@@ -99,8 +99,8 @@ import TableCard, {
   fullCardHeight,
 } from './TableCard';
 import { offsetFor } from './overlapOffset';
-import { useDraggedCardType } from './DraggedCardTypeContext';
-import { highlightClassName, highlightState } from './zoneAccepts';
+import { useDraggedCardType, usePlayPlaces } from './DraggedCardTypeContext';
+import { highlightClassName, highlightState, playPlaceEligible } from './zoneAccepts';
 import { LandedRing, landedBumpClassName, useLandedNonce } from './LandedZoneContext';
 import CountBadge from './CountBadge';
 import { LAYER_COUNT_BADGE } from '../../../lib/layers';
@@ -205,6 +205,7 @@ export function shipIdFromCrewDropId(id: string): string | null {
 
 function ShipCard({
   ship,
+  missionIndex,
   onShipClick,
   width,
   artHeight,
@@ -212,6 +213,7 @@ function ShipCard({
   desktop,
 }: {
   ship: CardInstance;
+  missionIndex: number;
   onShipClick: (id: string) => void;
   width: number;
   artHeight: number;
@@ -220,7 +222,8 @@ function ShipCard({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: crewDropId(ship.id) });
   const draggedType = useDraggedCardType();
-  const highlight = highlightState('ship', draggedType, isOver);
+  const eligible = playPlaceEligible(usePlayPlaces(), draggedType, { kind: 'ship', slot: missionIndex, shipId: ship.id });
+  const highlight = highlightState('ship', draggedType, isOver, eligible);
   // A move into the crew and a move onto the ship each have their own landed key
   // (`landedZoneKey.ts`), and both play their cue on this ship.
   const crewLandedNonce = useLandedNonce(crewDropId(ship.id));
@@ -1329,9 +1332,12 @@ export function ShipRow({
   const { setNodeRef, isOver } = useDroppable({ id: shipRowDropId(missionIndex) });
   const draggedType = useDraggedCardType();
   // An empty row shows nothing, not even the faint `valid` ring, until a ship is over it (#947).
-  // The mission card is the visible target for a ship; the row stays a drop target.
-  const rawHighlight = highlightState('shipRow', draggedType, isOver);
-  const highlight = ships.length === 0 && rawHighlight === 'valid' ? undefined : rawHighlight;
+  // The mission card is the visible target for a ship; the row stays a drop target. It does show
+  // `eligible` (#1856), so a ship's play place shows on an empty row too, and never `dimmed`.
+  const eligible = playPlaceEligible(usePlayPlaces(), draggedType, { kind: 'shipRow', slot: missionIndex });
+  const rawHighlight = highlightState('shipRow', draggedType, isOver, eligible);
+  const highlight =
+    ships.length === 0 && (rawHighlight === 'valid' || rawHighlight === 'dimmed') ? undefined : rawHighlight;
   const landedNonce = useLandedNonce(shipRowDropId(missionIndex));
   const shipCardWidth = scaled(SMALL_CARD_WIDTH, scale);
   const shipCardArtHeight = shipRowLineHeight(scale, desktop);
@@ -1358,7 +1364,9 @@ export function ShipRow({
       data-zone={shipRowDropId(missionIndex)}
       data-highlight={highlight}
       data-landed={landedNonce !== null || undefined}
-      className={`relative w-full flex flex-col items-center justify-start rounded ${highlightClassName(highlight)}`}
+      className={`relative w-full flex flex-col items-center justify-start rounded ${
+        highlight === 'dimmed' ? '' : highlightClassName(highlight)
+      }`}
       style={{ height: shipRowHeight, gap: SHIP_ROW_GAP }}
     >
       {ships.length > 0 &&
@@ -1381,6 +1389,7 @@ export function ShipRow({
                 >
                   <ShipCard
                     ship={ship}
+                    missionIndex={missionIndex}
                     onShipClick={handleShipTap}
                     width={shipCardWidth}
                     artHeight={shipCardArtHeight}
@@ -1421,6 +1430,7 @@ function MissionHalfTarget({
   split,
   draggedType,
   eitherOver,
+  eligible,
   reach = 0,
   side,
 }: {
@@ -1432,6 +1442,8 @@ function MissionHalfTarget({
   split: boolean;
   draggedType: string | null;
   eitherOver: boolean;
+  // Whether the mission card is a play place of the dragged card (#1856), or undefined with none.
+  eligible?: boolean;
   // How far, in px, the half reaches past the card: the bottom half down over the badge strip
   // (#924), the top half up over the dilemmas under the mission (#990).
   reach?: number;
@@ -1442,7 +1454,7 @@ function MissionHalfTarget({
   // half and the column only.
   side?: { gap: number; width: number };
 }) {
-  const highlight = highlightState('mission', draggedType, split ? isOver : eitherOver);
+  const highlight = highlightState('mission', draggedType, split ? isOver : eitherOver, eligible);
   if (side) {
     const partClassName = `absolute ${split ? highlightClassName(highlight) : ''}`;
     return (
@@ -1552,7 +1564,9 @@ export function MissionCard({
   // For any other type the whole card highlights while the pointer is over either half.
   const split = draggedType === 'dilemma';
   const eitherOver = onIsOver || underIsOver;
-  const highlight = highlightState('mission', draggedType, eitherOver);
+  // A play place of the dragged hand card (#1856) glows, and any other mission card dims.
+  const eligible = playPlaceEligible(usePlayPlaces(), draggedType, { kind: 'mission', slot: missionIndex });
+  const highlight = highlightState('mission', draggedType, eitherOver, eligible);
   const { mission, awayTeam, underMission } = slot;
   // The cards placed on the mission card (#813), such as the events at the mission.
   const onLandedNonce = useLandedNonce(mission ? `on-${mission.id}` : '');
@@ -1687,6 +1701,7 @@ export function MissionCard({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                eligible={eligible}
                 reach={onReach}
                 side={placedOnColumn}
               />
@@ -1699,6 +1714,7 @@ export function MissionCard({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                eligible={eligible}
                 reach={underReach}
               />
               {/* The strips of the placed cards (#1099) and the span (#1133), on the upright card's box.
@@ -1777,6 +1793,7 @@ export function MissionCard({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                eligible={eligible}
                 reach={onReach}
               />
               <MissionHalfTarget
@@ -1788,6 +1805,7 @@ export function MissionCard({
                 split={split}
                 draggedType={draggedType}
                 eitherOver={eitherOver}
+                eligible={eligible}
                 reach={underReach}
               />
               {/* An empty slot of the whole-card table keeps its away team count, on the outline. */}

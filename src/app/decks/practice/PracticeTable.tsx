@@ -77,6 +77,11 @@ import {
   PRACTICE_TAIN_TSV,
   PRACTICE_MISSIONS_HAND,
   PRACTICE_MISSIONS_TSV,
+  PRACTICE_PLAYABLE_CREW,
+  PRACTICE_PLAYABLE_HAND,
+  PRACTICE_PLAYABLE_SHIP,
+  PRACTICE_PLAYABLE_SHIP_SLOT,
+  PRACTICE_PLAYABLE_TSV,
   PRACTICE_BOT_COSTS_TSV,
   PRACTICE_BOT_ROADBLOCK_TSV,
   PRACTICE_BOT_SELECT_AGAIN_TSV,
@@ -251,14 +256,15 @@ import { viewerCardSize } from './viewerCardSize';
 import { useFinePointer } from './useFinePointer';
 import { SAFE_INSET_CSS, type SafeAreaInsets, safeAreaMargins, useSafeAreaInsets } from './useSafeAreaInsets';
 import { offsetFor } from './overlapOffset';
-import { DraggedCardTypeProvider, useDraggedCardType } from './DraggedCardTypeContext';
+import { DraggedCardTypeProvider, PlayPlacesProvider, useDraggedCardType } from './DraggedCardTypeContext';
 import { RangeUsedProvider } from './RangeUsedContext';
 import { TableCardUse, TableCardUseProvider } from './TableCardUseContext';
 import { shipRangesOnTable } from './shipRange';
 import { attributesOnTableOf } from './attributesOnTable';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
-import { highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
+import { dragPlayPlaces, highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
+import { playPlacesOf } from './playPlaces';
 import { PILE_CARD_EDGE, pileCastShadow, pileDepth, pileLayers } from './pileDepth';
 import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point } from './table3d';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
@@ -2367,6 +2373,9 @@ function PracticeDrawContent() {
   // `?fixture=missions` (#1754) deals the piles table with Earth, Lush and Beautiful Home and Nimbus III,
   // Staff Backwater Embassy, a [TOS] personnel at the end of the hand, and Korrd and Caithlin Dar.
   const isMissionsFixture = fixture === 'missions';
+  // `?fixture=playable` (#1856) deals the piles table with Earth Cradle of the Federation on the crewed ship's
+  // slot, a [Rom] ship on another, and four cards at the end of the hand, for the play-place highlight.
+  const isPlayableFixture = fixture === 'playable';
   // `?fixture=kmtar` (#1762) deals the piles table with five missions whose non-headquarters ones require
   // Diplomacy, and K'mtar at the end of the hand.
   const isKmtarFixture = fixture === 'kmtar';
@@ -2413,6 +2422,7 @@ function PracticeDrawContent() {
     isCompletionFixture ||
     isSet67Fixture ||
     isMissionsFixture ||
+    isPlayableFixture ||
     isKmtarFixture ||
     isTainFixture ||
     isDissidentFixture ||
@@ -3122,7 +3132,15 @@ function PracticeDrawContent() {
   ) => {
     // The cards `?fixture=costs` adds (#1654), dealt to the hand and the crew and not to the piles deal,
     // or those of `?fixture=attributes` (#1666), dealt to the crew and the core.
-    const extras: { hand: any[]; crew: any[]; core: any[]; lateHand: any[]; drawTop?: any[]; discard?: any[] } | null = fixturePiles
+    const extras: {
+      hand: any[];
+      crew: any[];
+      core: any[];
+      lateHand: any[];
+      drawTop?: any[];
+      discard?: any[];
+      ships?: { slot: number; row: any }[];
+    } | null = fixturePiles
       ? isCostsFixture
         ? costsFixtureExtras()
         : isAttributesFixture
@@ -3131,6 +3149,8 @@ function PracticeDrawContent() {
             ? botCostsFixtureExtras()
             : isMissionsFixture
               ? missionsFixtureExtras()
+              : isPlayableFixture
+                ? playableFixtureExtras()
               : isKmtarFixture
                 ? kmtarFixtureExtras()
                 : isTainFixture
@@ -3146,7 +3166,17 @@ function PracticeDrawContent() {
                       : null
       : null;
     const extraKeys = new Set(
-      extras ? [...extras.hand, ...extras.crew, ...extras.core, ...extras.lateHand, ...(extras.drawTop ?? []), ...(extras.discard ?? [])].map((c: any) => c.collectorsinfo) : []
+      extras
+        ? [
+            ...extras.hand,
+            ...extras.crew,
+            ...extras.core,
+            ...extras.lateHand,
+            ...(extras.drawTop ?? []),
+            ...(extras.discard ?? []),
+            ...(extras.ships ?? []).map((s) => s.row),
+          ].map((c: any) => c.collectorsinfo)
+        : []
     );
     const cards = extractDrawDeck(deck).filter((c: any) => !extraKeys.has(c.collectorsinfo));
     // The extra cards' instances, made after the deal's own, so the ids of every other card are those of
@@ -3163,6 +3193,9 @@ function PracticeDrawContent() {
         ...(extras.drawTop?.length ? { extraDrawTop: createCardInstances(extras.drawTop) } : {}),
         // Last of all (#1764), so every other card keeps the id of the costs deal.
         ...(extras.discard?.length ? { extraDiscard: createCardInstances(extras.discard) } : {}),
+        ...(extras.ships?.length
+          ? { extraShips: extras.ships.map(({ slot, row }) => ({ slot, ship: createCardInstances([row])[0] })) }
+          : {}),
       };
     };
     const deal: TableAction = {
@@ -3259,6 +3292,19 @@ function PracticeDrawContent() {
     core: [] as any[],
     lateHand: extractDrawDeck(deckFromTsv(PRACTICE_MISSIONS_TSV, data)).filter((r: any) => r.originalName === PRACTICE_MISSIONS_HAND),
   });
+  // The cards `?fixture=playable` adds (#1856): a [TOS] personnel to the crew, a [Rom] ship on a ship row, and
+  // four cards at the end of the hand.
+  const playableFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_PLAYABLE_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return {
+      hand: [] as any[],
+      crew: named(PRACTICE_PLAYABLE_CREW),
+      core: [] as any[],
+      lateHand: named(PRACTICE_PLAYABLE_HAND),
+      ships: named([PRACTICE_PLAYABLE_SHIP]).map((row) => ({ slot: PRACTICE_PLAYABLE_SHIP_SLOT, row })),
+    };
+  };
   // The card `?fixture=kmtar` adds to the end of the hand (#1762): K'mtar.
   const kmtarFixtureExtras = () => ({
     hand: [] as any[],
@@ -3343,6 +3389,7 @@ function PracticeDrawContent() {
     if (isCompletionFixture) return deckFromTsv(PRACTICE_COMPLETION_TSV, data);
     if (isSet67Fixture) return deckFromTsv(PRACTICE_SET67_TSV, data);
     if (isMissionsFixture) return deckFromTsv(PRACTICE_MISSIONS_TSV, data);
+    if (isPlayableFixture) return deckFromTsv(PRACTICE_PLAYABLE_TSV, data);
     if (isKmtarFixture) return deckFromTsv(PRACTICE_KMTAR_TSV, data);
     if (isTainFixture) return deckFromTsv(PRACTICE_TAIN_TSV, data);
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
@@ -3439,6 +3486,7 @@ function PracticeDrawContent() {
           isCompletionFixture ||
           isSet67Fixture ||
           isMissionsFixture ||
+          isPlayableFixture ||
           isKmtarFixture ||
           isTainFixture ||
           isDissidentFixture ||
@@ -4140,6 +4188,15 @@ function PracticeDrawContent() {
       fromHand: hand.some((c) => c.id === draggingInstance.id),
       fromDiscard: table.discard.some((c) => c.id === draggingInstance.id),
     });
+
+  // Where the dragged card may be played (#1856): only for one card from the hand in play and draw, and
+  // null when the model names no place, so the highlight stays as before. The table does not change
+  // mid-drag, so it is computed once a drag.
+  const dragPlaces = useMemo(() => {
+    if (!draggingInstance || table.segment !== 'playAndDraw') return null;
+    if (draggingGroup.length > 1 || !table.hand.some((c) => c.id === draggingInstance.id)) return null;
+    return dragPlayPlaces(playPlacesOf(draggingInstance.card, table));
+  }, [draggingInstance, draggingGroup, table]);
 
   // The pointer is the press point plus the drag's delta. The line is the higher of the bottom row's
   // top and the closed hand fan's top, less `PLAY_TARGET_MARGIN`, read on each move: the fan shows
@@ -4961,6 +5018,7 @@ function PracticeDrawContent() {
                 highlight during a drag (#608). `draggingInstance` already tracks it for the drag
                 overlay below. */}
             <DraggedCardTypeProvider value={draggingInstance?.card.type ?? null}>
+            <PlayPlacesProvider value={dragPlaces}>
             <LandedZoneProvider value={landedZones}>
             <CardHoldProvider value={cardHold}>
             <PlaceOnHoldProvider value={placeOnHold}>
@@ -5586,6 +5644,7 @@ function PracticeDrawContent() {
             </PlaceOnHoldProvider>
             </CardHoldProvider>
             </LandedZoneProvider>
+            </PlayPlacesProvider>
             </DraggedCardTypeProvider>
 
             <DragOverlay modifiers={overlayModifiers}>
