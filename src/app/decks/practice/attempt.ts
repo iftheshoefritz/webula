@@ -29,7 +29,9 @@ import { ATTRIBUTE_REGISTRY, personnelAttributesOnTable, shipAttributesOnTable }
 import { shipRangeOnTable } from './shipRange';
 import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
 import { addedRequirements, requirementTextWith } from '../../../lib/requirementRules';
-import { namedAtMission, roadblockReturnOf } from './selfReplicatingRoadblock';
+import { ROADBLOCK_TITLE, roadblockReturnOf } from './selfReplicatingRoadblock';
+import { tableViewOf } from './tableView';
+import type { TableView, ViewMission, ViewTableCard } from '../../../lib/tableView';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
 export type AttemptPanel = { kind: 'awayTeam'; missionIndex: number } | { kind: 'crew'; shipId: string };
@@ -72,7 +74,7 @@ function revealedPlayOf(table: TableState, snapshot: RevealSnapshot | undefined 
           cards: [
             ...snapshot.personnel.map((p) => {
               const found = findInstanceAnywhere(table, p.id)?.instance;
-              return { card: found && personnelRowOnTable(table, found, cardText), stopped: p.stopped, id: p.id };
+              return { card: found && personnelRowOnTable(table, found, found.card, cardText), stopped: p.stopped, id: p.id };
             }),
             ...live.cards.filter((c) => c.card?.type !== 'personnel'),
           ],
@@ -302,66 +304,94 @@ export function revealPicksOf(table: TableState, rand: Rand): string[][] | undef
 
 // A personnel's row with its Integrity, Cunning and Strength on the table (#1665), the attribute
 // models of #1664 added to the printed values, when `cardText` is on; the row as it is otherwise, and
-// for any card that is not a personnel.
-function personnelRowOnTable(table: TableState, card: CardInstance, cardText: boolean): CardInstance['card'] {
-  if (!cardText || card.card?.type !== 'personnel') return card.card;
-  return { ...card.card, ...personnelAttributesOnTable(table, card, true) };
+// for any card that is not a personnel. The attribute models read the `TableState` and its instance.
+function personnelRowOnTable(table: TableState, card: CardInstance | undefined, row: CardInstance['card'], cardText: boolean): CardInstance['card'] {
+  if (!cardText || !card || row?.type !== 'personnel') return row;
+  return { ...row, ...personnelAttributesOnTable(table, card, true) };
 }
 
 // A ship's row with its Range, Weapons and Shields on the table (#1665) when `cardText` is on.
-function shipRowOnTable(table: TableState, ship: CardInstance, cardText: boolean): CardInstance['card'] {
-  if (!cardText || !ship.card) return ship.card;
+function shipRowOnTable(table: TableState, ship: CardInstance | undefined, row: CardInstance['card'], cardText: boolean): CardInstance['card'] {
+  if (!cardText || !ship || !row) return row;
   return {
-    ...ship.card,
+    ...row,
     range: shipRangeOnTable(table, ship, true),
     ...shipAttributesOnTable(table, ship, true),
   };
 }
+
+// The attempted mission's row with its requirements as the cards in play change them (#1828, Crescent
+// Nebula), so the bot's search, label and Resolve read them. The printed row when nothing changes them.
+function missionRowOnTable(view: TableView, missionIndex: number): CardInstance['card'] | undefined {
+  const card = view.missions[missionIndex]?.card?.row;
+  if (!card) return card;
+  const added = addedRequirements(view.missions.map((m) => m.card?.row))[missionIndex];
+  return added.length ? { ...card, skills: requirementTextWith(String(card.skills ?? ''), added) } : card;
+}
+
+// The attempting row of the view, as `attemptingCards` reads the table: the away team at a planet
+// mission with no ship, the ship's crew at a space mission, and nothing otherwise.
+function attemptingViewCards(mission: ViewMission | undefined, shipId?: string): ViewTableCard[] {
+  if (!mission) return [];
+  if (shipId === undefined) return mission.type === 'p' ? mission.awayTeam : [];
+  return mission.type === 's' ? mission.ships.find((s) => s.id === shipId)?.crew ?? [] : [];
+}
+
+// The cards of every away team and crew of the view, slot by slot, the away team first, then each ship's crew.
+const commandedViewCards = (view: TableView): ViewTableCard[] =>
+  view.missions.flatMap((m) => [...m.awayTeam, ...m.ships.flatMap((ship) => ship.crew)]);
+
+// The titles the Self-Replicating Roadblocks on the mission card named (#1789), each once.
+const namedAt = (mission: ViewMission | undefined): string[] =>
+  Array.from(new Set((mission?.placedOn ?? []).flatMap((c) => (c.title === ROADBLOCK_TITLE && c.named ? [c.named] : []))));
 
 // What `pileAttemptOf` reads of the table for an attempt at `missionIndex` with `shipId` (#1508): the
 // bot's stack as the attempt starts, and the label of each dilemma the player faces (#1519). With
 // `cardText`, the setting "Apply card text to attributes" (#1668) as the attempt froze it, the
 // attempting personnel and ship carry their attributes on the table (#1665), so the card text adds
 // to the printed value before the dilemmas' modifiers; off, the printed values.
-// The attempted mission's row with its requirements as the cards in play change them (#1828, Crescent
-// Nebula), so the bot's search, label and Resolve read them. The printed row when nothing changes them.
-function missionRowOnTable(table: TableState, missionIndex: number): CardInstance['card'] | undefined {
-  const card = table.missions[missionIndex]?.mission?.card;
-  if (!card) return card;
-  const added = addedRequirements(table.missions.map((s) => s.mission?.card))[missionIndex];
-  return added.length ? { ...card, skills: requirementTextWith(String(card.skills ?? ''), added) } : card;
-}
-
+// A projection of the table view (#1879): every table fact comes from `tableViewOf`, built once.
 export function pileTableInputOf(table: TableState, missionIndex: number, shipId?: string, cardText = false): PileTableInput {
-  const slot = table.missions[missionIndex];
-  const ship = slot?.ships.find((s) => s.id === shipId);
+  const view = tableViewOf(table);
+  const mission = view.missions[missionIndex];
+  const ship = mission?.ships.find((s) => s.id === shipId);
+  // The instances the attribute models read, by id, only with `cardText` on.
+  const instances = cardText ? attemptingCards(table, missionIndex, shipId) ?? [] : [];
+  const instanceOf = (id: string) => instances.find((c) => c.id === id);
+  const shipInstance = cardText && ship ? table.missions[missionIndex]?.ships.find((s) => s.id === ship.id) : undefined;
   return {
-    cards: (attemptingCards(table, missionIndex, shipId) ?? []).map((c) =>
-      cardText ? { ...c, card: personnelRowOnTable(table, c, true) } : c
-    ),
-    mission: missionRowOnTable(table, missionIndex),
-    ship: ship && shipRowOnTable(table, ship, cardText),
-    placedOn: (slot?.mission?.placedOn ?? []).map((c) => c.card),
-    returnedHere: namedAtMission(table, missionIndex),
-    underMission: (slot?.underMission ?? []).map((c) => c.card),
-    missions: table.missions.map((s) => ({ mission: s.mission?.card, completed: s.completed, under: s.underMission.map((c) => c.card) })),
-    hand: table.hand.map((c) => c.card),
-    discard: table.discard.map((c) => c.card),
-    turn: table.turn,
-    score: table.score,
-    facts: botTableFactsOf(table, cardText),
-    core: table.core.map((c) => c.card),
-    commanded: table.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])]).map((c) => c.card),
-    shipsAtMission: (slot?.ships ?? []).map((ship) => ({ staffed: (ship.crew ?? []).some((c) => c.card?.type === 'personnel') })),
-    drawDeck: table.drawDeck.map((c) => c.card),
+    cards: attemptingViewCards(mission, shipId).map((c) => ({
+      id: c.id,
+      card: personnelRowOnTable(table, instanceOf(c.id), c.row, cardText),
+      stopped: c.stopped,
+    })),
+    mission: missionRowOnTable(view, missionIndex),
+    ship: ship && shipRowOnTable(table, shipInstance, ship.row, cardText),
+    placedOn: (mission?.placedOn ?? []).map((c) => c.row),
+    returnedHere: namedAt(mission),
+    underMission: (mission?.underMission ?? []).map((c) => c.row),
+    missions: view.missions.map((m, i) => ({
+      mission: m.card?.row,
+      completed: table.missions[i].completed,
+      under: m.underMission.map((c) => c.row),
+    })),
+    hand: view.hand.map((c) => c.row),
+    discard: view.discard.map((c) => c.row),
+    turn: view.turn,
+    score: view.score,
+    facts: botTableFactsOfView(view, cardText),
+    core: view.core.map((c) => c.row),
+    commanded: commandedViewCards(view).map((c) => c.row),
+    shipsAtMission: (mission?.ships ?? []).map((s) => ({ staffed: s.crew.some((c) => c.type === 'personnel') })),
+    drawDeck: view.drawDeck.map((c) => c.row),
     // The bot's pile as it stands (#1552): in a bot game the drawn dilemmas the bot left out of the
     // stack are already at its bottom (#1299). Vault of Tomorrow names the dilemma it takes from it.
-    dilemmaPile: table.dilemmaPile.map((c) => c.card),
+    dilemmaPile: view.dilemmaPile.map((c) => c.row),
     // The bot deck's affiliations (#1520); absent for the Chula pile.
-    ...(table.botPile?.affiliations ? { botAffiliations: table.botPile.affiliations } : {}),
+    ...(view.botPile?.affiliations ? { botAffiliations: view.botPile.affiliations } : {}),
     // The bot deck's missions and Song cards (#1846): absent for the Chula pile and a save from before.
-    ...(table.botPile?.missions ? { botMissions: table.botPile.missions } : {}),
-    ...(table.botPile?.songCards ? { botSongCards: table.botPile.songCards } : {}),
+    ...(view.botPile?.missions ? { botMissions: view.botPile.missions } : {}),
+    ...(view.botPile?.songCards ? { botSongCards: view.botPile.songCards } : {}),
   };
 }
 
@@ -374,18 +404,22 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
 // no mission and does not count.
 // With `cardText` on (#1667), `attributeTitles` names the titles of the attribute registry, whose
 // attributes the rows of `pileTableInputOf` already carry, so the bot drops their parsed attributes.
+// A projection of the table view (#1879).
 export function botTableFactsOf(table: TableState, cardText = false): BotTableFacts {
+  return botTableFactsOfView(tableViewOf(table), cardText);
+}
+
+function botTableFactsOfView(view: TableView, cardText: boolean): BotTableFacts {
   const sphere = sphere117Holds(
-    table.missions.some((s) => s.ships.some((ship) => isSphere117(ship.card))),
-    table.missions.flatMap((s) => (s.mission?.card ? [String(s.mission.card.quadrant ?? '')] : [])),
+    view.missions.some((m) => m.ships.some((ship) => isSphere117(ship.row))),
+    view.missions.flatMap((m) => (m.card?.row ? [String(m.card.row.quadrant ?? '')] : [])),
   );
   return {
-    completedMissions: table.missions.flatMap((s) => (s.completed && s.mission?.card ? [String(s.mission.card.missiontype)] : [])),
-    discardPile: table.discard.flatMap((c) => (c.card ? [{ ...partnerTraitsOf(c.card), type: String(c.card.type) }] : [])),
-    coreEvents: table.core.filter((c) => c.card?.type === 'event').length,
-    commanded: table.missions
-      .flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])])
-      .flatMap((c) => (c.card?.type === 'personnel' ? [partnerTraitsOf(c.card)] : []))
+    completedMissions: view.missions.flatMap((m) => (m.completed && m.card?.row ? [String(m.card.row.missiontype)] : [])),
+    discardPile: view.discard.flatMap((c) => (c.row ? [{ ...partnerTraitsOf(c.row), type: String(c.row.type) }] : [])),
+    coreEvents: view.core.filter((c) => c.row?.type === 'event').length,
+    commanded: commandedViewCards(view)
+      .flatMap((c) => (c.row?.type === 'personnel' ? [partnerTraitsOf(c.row)] : []))
       .map((traits) => (sphere ? asSphere117Dissident(traits) : traits)),
     ...(cardText ? { attributeTitles: [...ATTRIBUTE_REGISTRY.keys()] } : {}),
   };

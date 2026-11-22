@@ -1,7 +1,7 @@
 // The table view of a `TableState` (#1875): every mission slot with its away team, its ships and their crews,
 // the stopped personnel too, the core, the piles, the brig and the events the player commands. The plays and
 // the pending discounts of the turn come from the log, so the caller passes them. `costFactsOf` projects the
-// cost models' `CostFacts` from it (#1876).
+// cost models' `CostFacts` from it (#1876), and the bot's table input is a projection of it (#1879).
 
 import { requirementTextsOf } from '../../../lib/requirementRules';
 import { cardDisplayName } from '../../../lib/cardCount';
@@ -40,6 +40,7 @@ const viewCardOf = (c: CardInstance): ViewCard => ({
   cost: printedCostOf(c),
   row: c.card,
   placedOn: (c.placedOn ?? []).map(viewCardOf),
+  ...(c.named ? { named: c.named } : {}),
 });
 
 const pileCardOf = (c: CardInstance): ViewPileCard => ({ ...viewCardOf(c), ...(c.removedFromGame ? { removedFromGame: true } : {}) });
