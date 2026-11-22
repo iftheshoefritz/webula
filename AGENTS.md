@@ -728,7 +728,8 @@ counters left unspent. Everything is derived from the log
 `effectiveLog` applies the corrections before the log is read. Before the printed cost, a play asks
 the cost registry (#1654, `moveCharge`); a download only takes a card into the hand, and its later play
 costs what any play does. The cost registry (`src/lib/costModels/`, one model per
-title, of `CostFacts` that `costFactsOf` builds) gives Borg Nanoprobes cost −2 while a Borg is
+title, of `CostFacts` that `costFactsOf` projects from the table view, `tableViewOf`, #1876; the models
+evaluate the shared conditions of `src/lib/tableView.ts` over their facts through `costFactsSource`) gives Borg Nanoprobes cost −2 while a Borg is
 commanded and Goran his "may", a button `charge-choice` ("Discard a card: −2") that dispatches
 `correctCharge` with its `source`. A play names where it lands, the mission slot and the ship it boards
 (`CostPlay.missionIndex` and `shipId`, from the landed zone in `withCharge`, #1702), and each slot of

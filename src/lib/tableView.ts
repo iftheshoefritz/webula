@@ -1,8 +1,9 @@
 // The table view (#1875, part 1 of #1862): one plain description of the player's table that the cost, play,
 // range, attribute and bot readers will share, its selectors, and the conditions of the card texts built from
 // them. It imports no React and nothing of the practice table (#1298); `tableViewOf` in
-// `src/app/decks/practice/tableView.ts` builds it from a `TableState`. No reader reads it yet: parts 2 to 5 of
-// #1862 move `CostFacts`, `RangeTable`, `AttributeTable`, `PileTableInput` and `BotTableFacts` onto it.
+// `src/app/decks/practice/tableView.ts` builds it from a `TableState`. `costFactsOf` projects `CostFacts` from it,
+// and the cost models evaluate its conditions over their `CostFacts` (#1876); parts 3 to 5 of #1862 move
+// `RangeTable`, `AttributeTable`, `PileTableInput` and `BotTableFacts` onto it.
 //
 // "Command" keeps the two meanings the readers of today give it (`docs/ubiquitous-language.md`): the cost and
 // play models count only the unstopped personnel, and the range, attribute and bot readers count the stopped
@@ -117,6 +118,107 @@ export interface TableView {
   pending: PendingDiscount[];
 }
 
+// The sources (#1876). A selector and a condition read a table through a `TableSource`: a `TableView`, or an
+// adapter over the `CostFacts` a cost model holds (`costFactsSource` in `costModels/factsSource.ts`), which
+// has no place for `commanded` and no view to build. Each source gives the raw lists; the selectors below
+// filter them, so the trait matching is one function for both.
+
+/** A personnel as every source holds it: its printed traits, and what the source knows of its place. */
+export interface SourcePersonnel extends Omit<PartnerTraits, 'type'> {
+  type?: string;
+  unique?: boolean;
+  id?: string;
+  title?: string;
+  stopped?: boolean;
+  missionIndex?: number;
+  shipId?: string;
+}
+
+/** A ship of a ship row as every source holds it. */
+export interface SourceShip {
+  id: string;
+  title: string;
+  affiliation: string;
+  icons: string[];
+  keywords?: string[];
+  missionIndex?: number;
+}
+
+/** An event the player commands as every source holds it. */
+export interface SourceEvent {
+  title: string;
+  keywords: string[];
+  id?: string;
+}
+
+/** A mission slot as every source holds it. */
+export interface SourceMission {
+  index: number;
+  empty: boolean;
+  completed: boolean;
+  flipped?: boolean;
+  name: string;
+  requirements: string;
+  points: number;
+  type: string;
+  icons: string[];
+  quadrant: string;
+  regions: string[];
+}
+
+/** A card of the core: its title, its type and keywords, lowercased (each as printed, not de-duplicated), its printed cost and the number of cards placed on it. */
+export interface SourceCoreCard {
+  id?: string;
+  title: string;
+  type: string;
+  keywords: string[];
+  cost: number;
+  placed: number;
+}
+
+export interface TableSource {
+  /**
+   * The personnel of every away team and crew, by slot; with `unstopped`, the unstopped ones only. `at` is the
+   * slot the query asks for, which the selector filters on; a source may read another list for it.
+   */
+  personnelOf: (unstopped: boolean, at?: number) => SourcePersonnel[];
+  shipsOf: () => SourceShip[];
+  eventsOf: () => SourceEvent[];
+  /** Every mission slot, the empty ones too, by index. */
+  missionsOf: () => SourceMission[];
+  coreOf: () => SourceCoreCard[];
+  /** The plays of the turn so far, oldest first. */
+  playsOf: () => CostTurnPlay[];
+}
+
+/** What a selector or a condition reads: a table view, or another source. */
+export type TableReader = TableView | TableSource;
+
+const text = (v: unknown): string => String(v ?? '').toLowerCase();
+
+const coreKeywordsOf = (row: ViewRow): string[] =>
+  text(row?.keywords)
+    .split('.')
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+/** The source of a table view. */
+export const viewSource = (view: TableView): TableSource => ({
+  personnelOf: (unstopped) =>
+    view.missions.flatMap(slotTableCards).filter((p) => p.type === 'personnel' && (!unstopped || !p.stopped)),
+  shipsOf: () => view.missions.flatMap((m) => m.ships),
+  eventsOf: () => view.events,
+  missionsOf: () => view.missions,
+  coreOf: () =>
+    view.core.map((c) => ({ id: c.id, title: c.title, type: c.type, keywords: coreKeywordsOf(c.row), cost: c.cost, placed: c.placedOn.length })),
+  playsOf: () => view.plays,
+});
+
+const isSource = (r: TableReader): r is TableSource => typeof (r as TableSource).personnelOf === 'function';
+
+/** The source of `r`. */
+export const sourceOf = (r: TableReader): TableSource => (isSource(r) ? r : viewSource(r));
+
 // The selectors.
 
 /** An icon as the card data holds it, "[pa]", from "[Pa]" or "pa". */
@@ -140,11 +242,20 @@ interface TraitQuery {
   at?: number;
 }
 
-const passesTraits = (c: ViewTableCard, q: TraitQuery): boolean =>
+interface Traits {
+  affiliation: string;
+  species?: string[];
+  skills?: number[];
+  keywords?: string[];
+  icons: string[];
+  missionIndex?: number;
+}
+
+const passesTraits = (c: Traits, q: TraitQuery): boolean =>
   (q.affiliation === undefined || c.affiliation === q.affiliation.toLowerCase()) &&
-  (q.species === undefined || c.species.includes(q.species.toLowerCase())) &&
-  (q.skill === undefined || (c.skills[SKILL_INDEX[q.skill.toLowerCase()]] ?? 0) > 0) &&
-  (q.keyword === undefined || c.keywords.includes(q.keyword.toLowerCase())) &&
+  (q.species === undefined || (c.species ?? []).includes(q.species.toLowerCase())) &&
+  (q.skill === undefined || ((c.skills ?? [])[SKILL_INDEX[q.skill.toLowerCase()]] ?? 0) > 0) &&
+  (q.keyword === undefined || (c.keywords ?? []).includes(q.keyword.toLowerCase())) &&
   (q.icon === undefined || c.icons.includes(iconToken(q.icon))) &&
   (q.at === undefined || c.missionIndex === q.at);
 
@@ -154,24 +265,26 @@ export interface PersonnelQuery extends TraitQuery {
    * (#1751); `false` keeps them, as the range, attribute and bot readers do.
    */
   unstopped: boolean;
-  /** Aboard this ship: its crew only. */
+  /** Aboard this ship: its crew only. A `CostFacts` source knows no crew, so it finds none. */
   aboard?: string;
   /** Any other test. */
-  where?: (p: ViewTableCard) => boolean;
+  where?: (p: SourcePersonnel) => boolean;
 }
 
 export interface ShipQuery extends Omit<TraitQuery, 'species' | 'skill'> {
-  where?: (s: ViewShip) => boolean;
+  where?: (s: SourceShip) => boolean;
 }
 
 export interface EventQuery {
   keyword?: string;
-  where?: (e: ViewEvent) => boolean;
+  where?: (e: SourceEvent) => boolean;
 }
 
 export interface MissionQuery {
   /** Keep the slots with no mission card; left out by default. */
   includeEmpty?: boolean;
+  /** The slot of this index only. */
+  index?: number;
   completed?: boolean;
   /** `true`: only headquarters; `false`: none. */
   headquarters?: boolean;
@@ -179,48 +292,76 @@ export interface MissionQuery {
   type?: string;
   /** "a", "g", "d" or "q". */
   quadrant?: string;
-  where?: (m: ViewMission) => boolean;
+  where?: (m: SourceMission) => boolean;
+}
+
+export interface CoreQuery {
+  /** The title, as `cardTitleOf` gives it in the case of the card data: "Energize". */
+  title?: string;
 }
 
 /** The personnel and the equipment of a slot: its away team, then each crew of its ship row. */
 const slotTableCards = (m: ViewMission): ViewTableCard[] => [...m.awayTeam, ...m.ships.flatMap((s) => s.crew)];
 
 /** The personnel of every away team and crew that pass `q`, by slot; never the brig. */
-export function personnel(view: TableView, q: PersonnelQuery): ViewTableCard[] {
-  return view.missions
-    .flatMap(slotTableCards)
-    .filter(
-      (p) =>
-        p.type === 'personnel' &&
-        (!q.unstopped || !p.stopped) &&
-        (q.aboard === undefined || p.shipId === q.aboard) &&
-        passesTraits(p, q) &&
-        (!q.where || q.where(p))
-    );
+export function personnel(view: TableView, q: PersonnelQuery): ViewTableCard[];
+export function personnel(reader: TableReader, q: PersonnelQuery): SourcePersonnel[];
+export function personnel(reader: TableReader, q: PersonnelQuery): SourcePersonnel[] {
+  return sourceOf(reader)
+    .personnelOf(q.unstopped, q.at)
+    .filter((p) => (q.aboard === undefined || p.shipId === q.aboard) && passesTraits(p, q) && (!q.where || q.where(p)));
 }
 
 /** The ships of every ship row that pass `q`, by slot. */
-export function ships(view: TableView, q: ShipQuery = {}): ViewShip[] {
-  return view.missions.flatMap((m) => m.ships).filter((s) => passesTraits(s, q) && (!q.where || q.where(s)));
+export function ships(view: TableView, q?: ShipQuery): ViewShip[];
+export function ships(reader: TableReader, q?: ShipQuery): SourceShip[];
+export function ships(reader: TableReader, q: ShipQuery = {}): SourceShip[] {
+  return sourceOf(reader)
+    .shipsOf()
+    .filter((s) => passesTraits(s, q) && (!q.where || q.where(s)));
 }
 
 /** The events the player commands that pass `q`: the core's, and those placed on mission cards and ships. */
-export function events(view: TableView, q: EventQuery = {}): ViewEvent[] {
-  return view.events.filter((e) => (q.keyword === undefined || e.keywords.includes(q.keyword.toLowerCase())) && (!q.where || q.where(e)));
+export function events(view: TableView, q?: EventQuery): ViewEvent[];
+export function events(reader: TableReader, q?: EventQuery): SourceEvent[];
+export function events(reader: TableReader, q: EventQuery = {}): SourceEvent[] {
+  return sourceOf(reader)
+    .eventsOf()
+    .filter((e) => (q.keyword === undefined || e.keywords.includes(q.keyword.toLowerCase())) && (!q.where || q.where(e)));
 }
 
 /** The mission slots that pass `q`; the empty ones only with `includeEmpty`. */
-export function missions(view: TableView, q: MissionQuery = {}): ViewMission[] {
-  return view.missions.filter(
-    (m) =>
-      (q.includeEmpty || !m.empty) &&
-      (q.completed === undefined || m.completed === q.completed) &&
-      (q.headquarters === undefined || (m.type === 'h') === q.headquarters) &&
-      (q.type === undefined || m.type === q.type.toLowerCase()) &&
-      (q.quadrant === undefined || m.quadrant === q.quadrant.toLowerCase()) &&
-      (!q.where || q.where(m))
-  );
+export function missions(view: TableView, q?: MissionQuery): ViewMission[];
+export function missions(reader: TableReader, q?: MissionQuery): SourceMission[];
+export function missions(reader: TableReader, q: MissionQuery = {}): SourceMission[] {
+  return sourceOf(reader)
+    .missionsOf()
+    .filter(
+      (m) =>
+        (q.includeEmpty || !m.empty) &&
+        (q.index === undefined || m.index === q.index) &&
+        (q.completed === undefined || m.completed === q.completed) &&
+        (q.headquarters === undefined || (m.type === 'h') === q.headquarters) &&
+        (q.type === undefined || m.type === q.type.toLowerCase()) &&
+        (q.quadrant === undefined || m.quadrant === q.quadrant.toLowerCase()) &&
+        (!q.where || q.where(m))
+    );
 }
+
+/** The mission slot of index `index`, empty or not, or undefined. */
+export const missionAt = (reader: TableReader, index: number | undefined): SourceMission | undefined =>
+  index === undefined ? undefined : missions(reader, { includeEmpty: true, index })[0];
+
+/** The cards of the core that pass `q`, in core order: "copies in the core" of a title (#1876). */
+export function core(reader: TableReader, q: CoreQuery = {}): SourceCoreCard[] {
+  return sourceOf(reader)
+    .coreOf()
+    .filter((c) => q.title === undefined || c.title === q.title);
+}
+
+/** The plays of the turn so far that pass `test`, oldest first (#1876). */
+export const playsThisTurn = (reader: TableReader, test: (play: CostTurnPlay) => boolean = () => true): CostTurnPlay[] =>
+  sourceOf(reader).playsOf().filter(test);
 
 /** What a condition counts: one selector and its query. */
 export type Selection =
@@ -230,21 +371,22 @@ export type Selection =
   | ({ of: 'missions' } & MissionQuery);
 
 /** The entries `s` selects. */
-export function select(view: TableView, s: Selection): (ViewTableCard | ViewEvent | ViewMission)[] {
+export function select(reader: TableReader, s: Selection): (SourcePersonnel | SourceShip | SourceEvent | SourceMission)[] {
   switch (s.of) {
     case 'personnel':
-      return personnel(view, s);
+      return personnel(reader, s);
     case 'ships':
-      return ships(view, s);
+      return ships(reader, s);
     case 'events':
-      return events(view, s);
+      return events(reader, s);
     case 'missions':
-      return missions(view, s);
+      return missions(reader, s);
   }
 }
 
-/** How many entries `s` selects. */
-export const count = (view: TableView, s: Selection): number => select(view, s).length;
+/** How many entries `s` selects, or the selections of a list together. */
+export const count = (reader: TableReader, s: Selection | Selection[]): number =>
+  (Array.isArray(s) ? s : [s]).reduce((n, one) => n + select(reader, one).length, 0);
 
 // The conditions.
 
@@ -260,8 +402,8 @@ export interface ConditionAt {
  * some read the table ("you command 3 Treachery personnel"), so it takes the view.
  */
 export interface Condition {
-  holds: (view: TableView, at?: ConditionAt) => boolean;
-  text: (view: TableView, at?: ConditionAt) => string;
+  holds: (view: TableReader, at?: ConditionAt) => boolean;
+  text: (view: TableReader, at?: ConditionAt) => string;
 }
 
 /** `text` replaces the default words of a condition. */
@@ -280,7 +422,7 @@ const condition = (
  * "If you command <at least `min`> <what>" (`ifCommand` in `costModels/titles/commanded.ts`): "you command a
  * Borg", or with `min` above 1 the number commanded, "you command 3 [Fed] personnel".
  */
-export function commands(selection: Selection, what: string, options: ConditionOptions & { min?: number } = {}): Condition {
+export function commands(selection: Selection | Selection[], what: string, options: ConditionOptions & { min?: number } = {}): Condition {
   const min = options.min ?? 1;
   return condition(
     (view) => count(view, selection) >= min,
@@ -325,7 +467,7 @@ export function commandsEvents(options: ConditionOptions & { keyword?: string; w
 const requirementWords = (text: string): string[] => text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
 
 /** Whether the requirement text of `mission` names `skill` as a word, either side of an "or" (`missionRequires` of `completedMission.ts`). */
-export const requiresSkill = (mission: Pick<ViewMission, 'requirements'>, skill: string): boolean =>
+export const requiresSkill = (mission: Pick<SourceMission, 'requirements'>, skill: string): boolean =>
   requirementWords(mission.requirements).includes(skill.toLowerCase());
 
 /**
@@ -354,7 +496,7 @@ export function missionRequires(skill: string, options: ConditionOptions & { eac
  * default words are new: "you completed 2 missions".
  */
 export function completedMissions(options: ConditionOptions & { min?: number; max?: number; query?: MissionQuery } = {}): Condition {
-  const n = (view: TableView) => missions(view, { ...options.query, completed: true }).length;
+  const n = (view: TableReader) => missions(view, { ...options.query, completed: true }).length;
   const min = options.min ?? 1;
   const max = options.max ?? Infinity;
   return condition(
@@ -369,7 +511,7 @@ export function completedMissions(options: ConditionOptions & { min?: number; ma
  * mission requires one of `skills`. Its words name the first such mission and skill.
  */
 export function completedMissionRequiring(skills: string[], options: ConditionOptions = {}): Condition {
-  const first = (view: TableView): [ViewMission, string] | null => {
+  const first = (view: TableReader): [SourceMission, string] | null => {
     for (const m of missions(view, { completed: true })) {
       const skill = skills.find((s) => requiresSkill(m, s));
       if (skill) return [m, skill];
@@ -391,11 +533,11 @@ type Counted = string | ((n: number) => string);
 const phraseOf = (what: Counted, n: number): string => (typeof what === 'string' ? what : what(n));
 
 /** The personnel of `q` at the played card's slot, less the card itself; none with no slot. */
-const here = (view: TableView, q: PersonnelQuery, at: ConditionAt | undefined): ViewTableCard[] =>
+const here = (view: TableReader, q: PersonnelQuery, at: ConditionAt | undefined): SourcePersonnel[] =>
   at?.missionIndex === undefined ? [] : personnel(view, { ...q, at: at.missionIndex }).filter((p) => p.id !== at.id);
 
 /** The crew of `q` aboard the played card's ship, less the card itself; none with no ship. */
-const aboard = (view: TableView, q: PersonnelQuery, at: ConditionAt | undefined): ViewTableCard[] =>
+const aboard = (view: TableReader, q: PersonnelQuery, at: ConditionAt | undefined): SourcePersonnel[] =>
   at?.shipId === undefined ? [] : personnel(view, { ...q, aboard: at.shipId }).filter((p) => p.id !== at.id);
 
 /**
@@ -416,6 +558,18 @@ export function aboardThisShip(q: PersonnelQuery, what: Counted, options: Condit
   return condition(
     (view, at) => aboard(view, q, at).length > 0,
     (view, at) => `${phraseOf(what, aboard(view, q, at).length)} aboard this ship`,
+    options
+  );
+}
+
+/**
+ * "The first <what> … each turn" (#1876): no card played earlier this turn passes `test`, whatever it cost.
+ * "first Android this turn".
+ */
+export function firstThisTurn(test: (play: CostTurnPlay) => boolean, what: string, options: ConditionOptions = {}): Condition {
+  return condition(
+    (view) => playsThisTurn(view, test).length === 0,
+    () => `first ${what} this turn`,
     options
   );
 }

@@ -1,5 +1,7 @@
 import { CostFacts, CostModel, CostPlay, ModelCost } from '../model';
-import { both, ifCommand, species, Test } from './commanded';
+import { commands } from '../../tableView';
+import { minusWhen } from '../factsSource';
+import { both, commandedPersonnel, species, Test } from './commanded';
 
 // The personnel that cost less while the player commands a named group (#1701): two [Pa] Klingons,
 // each both a Klingon by species and of the [Pa] icon, or a Khan Noonien Singh, any card of that
@@ -14,9 +16,10 @@ const titled =
   (p) =>
     p.name === title || p.name.startsWith(`${title} `);
 
-const twoPaKlingons = (off: number) => ifCommand(2, paKlingon, off, '[Pa] Klingons');
+const twoPaKlingons = (off: number) => minusWhen(commands(commandedPersonnel({ where: paKlingon }), '[Pa] Klingons', { min: 2 }), off);
 const khanTest = titled('khan noonien singh');
-const khan = ifCommand(1, khanTest, 2, 'Khan Noonien Singh');
+const commandsKhan = commands(commandedPersonnel({ where: khanTest }), 'Khan Noonien Singh');
+const khan = minusWhen(commandsKhan, 2);
 
 /** Whether a mission's name is of the title {Ceti Alpha V}, any version, in any case. */
 const isCetiAlphaV = (name: string): boolean => {
@@ -34,8 +37,8 @@ const khanAtCetiAlphaV =
   (play: CostPlay, facts: CostFacts): ModelCost | null => {
     const slot = play.missionIndex === undefined ? undefined : facts.missions?.[play.missionIndex];
     if (!slot || !isCetiAlphaV(slot.name)) return null;
-    const commands = ifCommand(1, khanTest, 0, 'Khan Noonien Singh')(play, facts);
-    return commands ? { cost: cost(play.printed), reason: `${commands.reason}, at Ceti Alpha V` } : null;
+    const khanCommanded = minusWhen(commandsKhan, 0)(play, facts);
+    return khanCommanded ? { cost: cost(play.printed), reason: `${khanCommanded.reason}, at Ceti Alpha V` } : null;
   };
 
 export const NAMED_GROUP_MODELS: CostModel[] = [
@@ -51,7 +54,7 @@ export const NAMED_GROUP_MODELS: CostModel[] = [
   // "When you play this personnel, if you command two [Pa] Klingons, this personnel is cost -2." (#1737)
   { title: 'Mara Science Officer', label: 'Mara', family: 'ownCost', playCost: twoPaKlingons(2) },
   // "When you play this personnel, if you command {Kahless}, this personnel's cost is -1." (#1737)
-  { title: 'Khar', family: 'ownCost', playCost: ifCommand(1, titled('kahless'), 1, 'Kahless') },
+  { title: 'Khar', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ where: titled('kahless') }), 'Kahless'), 1) },
   // "When you play this personnel, if you command {Khan Noonien Singh}, he is cost -2."
   { title: 'Rodriguez', family: 'ownCost', playCost: khan },
   { title: 'Kati', family: 'ownCost', playCost: khan },
