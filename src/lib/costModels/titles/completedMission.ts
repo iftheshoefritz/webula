@@ -1,25 +1,16 @@
-import { CostFacts, CostMission, CostModel, ModelCost } from '../model';
+import { completedMissionRequiring } from '../../tableView';
+import { minusWhen } from '../factsSource';
+import { CostModel } from '../model';
 
 // The personnel that cost −4 when the player has completed a mission requiring one of two skills
 // (#1694). A requirement "requires" a skill when the skill appears in it as a word, either side of an
 // "or".
 
-const wordsOf = (text: string): string[] => text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-
-/** Whether `mission`'s requirement text names `skill` as a word. */
-export const missionRequires = (mission: CostMission, skill: string): boolean => wordsOf(mission.requirements).includes(skill.toLowerCase());
+/** Whether `mission`'s requirement text names `skill` as a word: the shared `requiresSkill`. */
+export { requiresSkill as missionRequires } from '../../tableView';
 
 /** "If you have completed a mission requiring <one of `skills`>, cost −4." */
-function ifCompletedRequiring(...skills: string[]): (play: { printed: number }, facts: CostFacts) => ModelCost | null {
-  return (play, facts) => {
-    for (const mission of facts.missions ?? []) {
-      if (!mission.completed) continue;
-      const skill = skills.find((s) => missionRequires(mission, s));
-      if (skill) return { cost: play.printed - 4, reason: `you completed ${mission.name} (requires ${skill})` };
-    }
-    return null;
-  };
-}
+const ifCompletedRequiring = (...skills: string[]) => minusWhen(completedMissionRequiring(skills), 4);
 
 // Each reads "When you play this personnel, if you have completed a mission requiring <X> or <Y>,
 // he (she) is cost -4."

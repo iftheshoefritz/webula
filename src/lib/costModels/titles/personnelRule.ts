@@ -1,3 +1,5 @@
+import { events, missionAt } from '../../tableView';
+import { costFactsSource } from '../factsSource';
 import { CostModel } from '../model';
 
 // The personnel whose text prices the play of another card while they are on the table (#1756). The
@@ -15,8 +17,9 @@ export const PERSONNEL_RULE_MODELS: CostModel[] = [
     family: 'personnelRule',
     personnelCostOfPlay: (play, facts) => {
       if (play.type !== 'event' || play.onMissionIndex === undefined) return null;
-      if (!(facts.events ?? []).some((e) => e.title === 'For the Cause')) return null;
-      const dmz = (facts.missions?.[play.onMissionIndex]?.regions ?? []).includes('demilitarized zone');
+      const source = costFactsSource(facts);
+      if (events(source, { where: (e) => e.title === 'For the Cause' }).length === 0) return null;
+      const dmz = (missionAt(source, play.onMissionIndex)?.regions ?? []).includes('demilitarized zone');
       return dmz
         ? { cost: play.printed - 2, reason: 'event on a Demilitarized Zone mission, you command For the Cause' }
         : { cost: play.printed - 1, reason: 'event on a mission, you command For the Cause' };

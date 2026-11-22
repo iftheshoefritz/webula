@@ -1,3 +1,5 @@
+import { count, firstThisTurn, missionAt, missions, personnel } from '../../tableView';
+import { costFactsSource } from '../factsSource';
 import { CostFacts, CostModel, CostPlay, CostTurnPlay, ModelCost, differentAffiliations } from '../model';
 
 // The missions whose text prices the play of another card (#1752). The registry asks the mission of each
@@ -6,14 +8,12 @@ import { CostFacts, CostModel, CostPlay, CostTurnPlay, ModelCost, differentAffil
 // cost, and a cancelled play is no play. A play the log recorded before #1752 has no species, skills or
 // quadrant, and passes no test that reads them.
 
-/** Whether no card played earlier this turn passes `test`. */
-const firstOfTurn = (test: (play: CostTurnPlay) => boolean, facts: CostFacts): boolean => !(facts.plays ?? []).some(test);
 
 const isEvent = (play: Pick<CostPlay, 'type'>): boolean => play.type === 'event';
 
 const hasKeyword = (play: CostPlay, ...keywords: string[]): boolean => (play.keywords ?? []).some((k) => keywords.includes(k));
 
-const completed = (facts: CostFacts, slot: number): boolean => facts.missions?.[slot]?.completed === true;
+const completed = (facts: CostFacts, slot: number): boolean => missionAt(costFactsSource(facts), slot)?.completed === true;
 
 const minus = (play: CostPlay, amount: number, reason: string): ModelCost => ({ cost: play.printed - amount, reason });
 
@@ -36,13 +36,18 @@ const isDiplomacyPersonnel = (play: Pick<CostPlay, 'type' | 'skills'>): boolean 
   isPersonnel(play) && (play.skills ?? []).includes('diplomacy');
 
 /** The quadrant of the slot a play lands at, lowercased, or ''. */
-const landingQuadrant = (play: CostPlay, facts: CostFacts): string =>
-  play.missionIndex === undefined ? '' : (facts.missions?.[play.missionIndex]?.quadrant ?? '');
+const landingQuadrant = (play: CostPlay, facts: CostFacts): string => missionAt(costFactsSource(facts), play.missionIndex)?.quadrant ?? '';
 
 const isDeltaPersonnel = (play: Pick<CostTurnPlay, 'type' | 'quadrant'>): boolean => isPersonnel(play) && play.quadrant === 'd';
 
 const isVidiianPersonnel = (play: Pick<CostTurnPlay, 'type' | 'affiliation'>): boolean =>
   isPersonnel(play) && play.affiliation === 'vidiian';
+
+// "The first … each turn" (`firstThisTurn`), with the words of each reason.
+const firstDeltaPersonnel = firstThisTurn(isDeltaPersonnel, 'personnel at a [DQ] mission');
+const firstAndroid = firstThisTurn(isAndroid, 'Android');
+const firstDiplomacyPersonnel = firstThisTurn(isDiplomacyPersonnel, 'Diplomacy personnel');
+const firstVidiianPersonnel = firstThisTurn(isVidiianPersonnel, '[Vid] personnel');
 
 export const MISSION_RULE_MODELS: CostModel[] = [
   keywordEvent('Braslota System Advanced Battle Simulation', 'Braslota System', 'maneuver'),
@@ -72,8 +77,8 @@ export const MISSION_RULE_MODELS: CostModel[] = [
       completed(facts, slot) &&
       isPersonnel(play) &&
       landingQuadrant(play, facts) === 'd' &&
-      firstOfTurn(isDeltaPersonnel, facts)
-        ? minus(play, 1, 'first personnel at a [DQ] mission this turn')
+      firstDeltaPersonnel.holds(costFactsSource(facts))
+        ? minus(play, 1, firstDeltaPersonnel.text(costFactsSource(facts)))
         : null,
   },
   // "While this mission is complete, the first Android played each turn is cost 1."
@@ -82,8 +87,8 @@ export const MISSION_RULE_MODELS: CostModel[] = [
     label: 'Exo III',
     family: 'missionRule',
     missionCostOfPlay: (play, facts, slot) =>
-      completed(facts, slot) && isAndroid(play) && firstOfTurn(isAndroid, facts)
-        ? { cost: 1, reason: 'first Android this turn' }
+      completed(facts, slot) && isAndroid(play) && firstAndroid.holds(costFactsSource(facts))
+        ? { cost: 1, reason: firstAndroid.text(costFactsSource(facts)) }
         : null,
   },
   // "While there are three personnel of different affiliations on this planet, the first Diplomacy
@@ -94,11 +99,11 @@ export const MISSION_RULE_MODELS: CostModel[] = [
     label: 'Parliament',
     family: 'missionRule',
     missionCostOfPlay: (play, facts, slot) => {
-      const here = (facts.missions?.[slot]?.personnel ?? []).filter((p) => !p.stopped);
+      const here = personnel(costFactsSource(facts), { unstopped: true, at: slot });
       return differentAffiliations(here.map((p) => p.affiliation)) >= 3 &&
         isDiplomacyPersonnel(play) &&
-        firstOfTurn(isDiplomacyPersonnel, facts)
-        ? minus(play, 2, 'first Diplomacy personnel this turn, 3 affiliations at Parliament')
+        firstDiplomacyPersonnel.holds(costFactsSource(facts))
+        ? minus(play, 2, `${firstDiplomacyPersonnel.text(costFactsSource(facts))}, 3 affiliations at Parliament`)
         : null;
     },
   },
@@ -117,11 +122,11 @@ export const MISSION_RULE_MODELS: CostModel[] = [
     label: 'Quatal Prime',
     family: 'missionRule',
     missionCostOfPlay: (play, facts) => {
-      const missions = (facts.missions ?? []).filter((m) => m.name);
+      const slots = missions(costFactsSource(facts));
       return isEvent(play) &&
         play.onMissionIndex !== undefined &&
-        missions.length > 0 &&
-        missions.every((m) => (m.regions ?? []).includes('demilitarized zone'))
+        slots.length > 0 &&
+        slots.every((m) => m.regions.includes('demilitarized zone'))
         ? minus(play, 1, 'event on a mission, every mission in the Demilitarized Zone')
         : null;
     },
@@ -141,7 +146,7 @@ export const MISSION_RULE_MODELS: CostModel[] = [
     label: 'Cardassia Prime',
     family: 'missionRule',
     missionCostOfPlay: (play, facts, slot) =>
-      facts.missions?.[slot]?.flipped &&
+      missionAt(costFactsSource(facts), slot)?.flipped &&
       play.missionIndex === slot &&
       isPersonnel(play) &&
       hasKeyword(play, 'dissident') &&
@@ -156,9 +161,12 @@ export const MISSION_RULE_MODELS: CostModel[] = [
     title: 'Vidiia Locus of Infection',
     label: 'Vidiia',
     family: 'missionRule',
-    missionCostOfPlay: (play, facts) =>
-      isVidiianPersonnel(play) && facts.commanded.length < 7 && firstOfTurn(isVidiianPersonnel, facts)
-        ? minus(play, 2, `first [Vid] personnel this turn, ${facts.commanded.length} personnel commanded`)
-        : null,
+    missionCostOfPlay: (play, facts) => {
+      const source = costFactsSource(facts);
+      const n = count(source, { of: 'personnel', unstopped: true });
+      return isVidiianPersonnel(play) && n < 7 && firstVidiianPersonnel.holds(source)
+        ? minus(play, 2, `${firstVidiianPersonnel.text(source)}, ${n} personnel commanded`)
+        : null;
+    },
   },
 ];

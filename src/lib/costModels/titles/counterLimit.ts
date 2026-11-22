@@ -1,7 +1,8 @@
 import { CostFacts, CostMission, CostModel } from '../model';
 import { cardTitleOf } from '../../cardTitle';
 import { SKILLS } from '../../missionRequirements';
-import { missionRequires } from './completedMission';
+import { personnel, requiresSkill } from '../../tableView';
+import { costFactsSource } from '../factsSource';
 
 // The cards that change the counters the player may spend this turn, batch 11 (#1704). A "may" is a
 // choice, as Tricia Jenkins's is; a text that acts at the start of the turn offers a choice of the turn
@@ -10,22 +11,18 @@ import { missionRequires } from './completedMission';
 
 /**
  * Whether the player commands a personnel of title `title`, lowercased, stopped or not, never in the brig. It
- * tests that the personnel's own ability is on the table, not an "if you command" condition, so it reads
- * `missions[].personnel`, which keeps the stopped personnel `commanded` leaves out (#1751).
+ * tests that the personnel's own ability is on the table, not an "if you command" condition, so it counts the
+ * stopped personnel that "you command" leaves out (#1751).
  */
-const commands = (title: string, facts: CostFacts): boolean =>
-  (facts.missions ?? []).some((m) => (m.personnel ?? []).some((p) => cardTitleOf(p.name) === title));
-
-/** The number of unique Borg personnel the player commands, each name once. */
-const uniqueBorgOf = (facts: CostFacts): number =>
-  new Set(facts.commanded.filter((p) => p.unique && p.species.includes('borg')).map((p) => cardTitleOf(p.name))).size;
+const withAbility = (title: string, facts: CostFacts): boolean =>
+  personnel(costFactsSource(facts), { unstopped: false, where: (p) => cardTitleOf(p.name) === title }).length > 0;
 
 /**
  * Whether a skill is named in the requirements of two different missions (#1755), on either side of an
- * "or", as `missionRequires` reads it: "Honor or Law" and "Law" share Law. Attributes are no skills.
+ * "or", as `requiresSkill` reads it: "Honor or Law" and "Law" share Law. Attributes are no skills.
  */
-export const missionsShareSkill = (missions: CostMission[]): boolean =>
-  SKILLS.some((skill) => missions.filter((m) => missionRequires(m, skill)).length >= 2);
+export const missionsShareSkill = (missions: Pick<CostMission, 'requirements'>[]): boolean =>
+  SKILLS.some((skill) => missions.filter((m) => requiresSkill(m, skill)).length >= 2);
 
 export const COUNTER_LIMIT_MODELS: CostModel[] = [
   // Ledos (#1755): "At the start of your first turn, if you command fewer than two headquarters missions and
@@ -80,7 +77,7 @@ export const COUNTER_LIMIT_MODELS: CostModel[] = [
     label: 'Gaila',
     family: 'limit',
     turnChoices: (facts) =>
-      commands('gaila arms dealer', facts) &&
+      withAbility('gaila arms dealer', facts) &&
       (facts.missions ?? []).some((m) => cardTitleOf(m.name) === 'Ferenginar Financial Hub')
         ? [{ label: 'Equipment from Ferenginar: +4', limit: 4 }]
         : [],
@@ -93,7 +90,7 @@ export const COUNTER_LIMIT_MODELS: CostModel[] = [
     label: 'Par Lenor',
     family: 'limit',
     turnChoices: (facts) =>
-      commands('par lenor lascivious emissary', facts)
+      withAbility('par lenor lascivious emissary', facts)
         ? (facts.coreCards ?? []).flatMap((c) =>
             c.type === 'event' && c.keywords.includes('rule') && c.cost > 0 ? [{ label: `Destroy ${c.title}: +${c.cost}`, limit: c.cost }] : []
           )
@@ -122,7 +119,9 @@ export const COUNTER_LIMIT_MODELS: CostModel[] = [
     title: 'Unimatrix Zero',
     family: 'limit',
     playCost: (play, facts) => {
-      const n = uniqueBorgOf(facts);
+      // Each unique Borg personnel you command, each name once.
+      const borg = personnel(costFactsSource(facts), { unstopped: true, species: 'borg', where: (p) => !!p.unique });
+      const n = new Set(borg.map((p) => cardTitleOf(p.name))).size;
       return n > 0 ? { cost: play.printed - n, reason: `you command ${n} unique Borg` } : null;
     },
     limitGrant: (facts) => (facts.core.includes('Unimatrix Zero') ? { amount: 1, reason: 'in your core' } : null),

@@ -1,4 +1,7 @@
+import { commands } from '../../tableView';
+import { minusWhen } from '../factsSource';
 import { CostFacts, CostModel, CostPlay, ModelCost } from '../model';
+import { commandedPersonnel } from './commanded';
 
 // The cards that change their own cost (#1654).
 
@@ -22,8 +25,7 @@ export const OWN_COST_MODELS: CostModel[] = [
   {
     title: 'Borg Nanoprobes',
     family: 'ownCost',
-    playCost: (play, facts) =>
-      facts.commanded.some((p) => p.species.includes('borg')) ? { cost: play.printed - 2, reason: 'you command a Borg' } : null,
+    playCost: minusWhen(commands(commandedPersonnel({ species: 'borg' }), 'a Borg'), 2),
   },
   // "When you play this personnel, you may discard an equipment or event card from hand to make this
   // personnel cost -2." A "may": the printed cost, and the choice while the hand holds such a card.

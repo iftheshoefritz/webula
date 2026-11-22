@@ -3,89 +3,23 @@
 // at every mission, never the brig; a stopped personnel meets no "you command" condition, #1751), the titles of the core, the hand by title and type, and each mission slot
 // (#1694) with its personnel and ships (#1702), the discard pile, the ships of the ship rows and the
 // score (#1700), and the cards placed on each core card (#1703). The plays of the turn (#1703) and the pending
-// discounts of the turn come from the log (`pendingDiscountsOf` in `gameLog.ts`).
+// discounts of the turn come from the log (`pendingDiscountsOf` in `gameLog.ts`). `costFactsOf` is a projection
+// of the table view (#1876, `tableViewOf`): it reads nothing of `TableState` beside it.
 
-import { requirementTextsOf } from '../../../lib/requirementRules';
-import { cardDisplayName } from '../../../lib/cardCount';
-import { cardTitleOf } from '../../../lib/cardTitle';
 import { DECK_TOP_FACTS } from '../../../lib/costModels/model';
-import type { CommandedTraits, CostCoreCard, CostEventCard, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
+import type { CommandedTraits, CostFacts, CostMission, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { skillWordsOf } from '../../../lib/playCost';
-import type { CardInstance, MissionSlot, TableState } from './tableReducer';
+import { personnel, ships } from '../../../lib/tableView';
+import type { TableView, ViewCard, ViewMission, ViewPileCard, ViewRow, ViewTableCard } from '../../../lib/tableView';
+import type { CardInstance, TableState } from './tableReducer';
+import { tableViewOf } from './tableView';
+
+export { iconsOf, keywordsOf, printedCostOf, regionsOf } from './tableView';
 
 const text = (v: unknown): string => String(v ?? '').toLowerCase();
 
-/** The icons of an affiliation field that is a list of icons, "[fed][sf]"; a sentence gives none (#1696). */
-export const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(affiliation) ? (affiliation.match(/\[[a-z0-9]+\]/g) ?? []) : []);
-
-/** Every "Region: <name>." clause of a mission's keywords, lowercased (#1696). */
-export const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
-
-const personnelTraitsOf = (cards: CardInstance[]): CommandedTraits[] =>
-  cards.flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y' }] : []));
-
-const slotCards = (s: MissionSlot): CardInstance[] => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])];
-
-/** The personnel at a slot: its away team and every crew of its ship row (#1702), each with its id, title and stopped state (#1713). */
-const slotPersonnelOf = (s: MissionSlot): CommandedTraits[] =>
-  slotCards(s).flatMap((c) =>
-    c.card?.type === 'personnel'
-      ? [{ ...personnelTraitsOf([c])[0], id: c.id, title: cardTitleOf(cardDisplayName(c.card)), stopped: !!c.stopped }]
-      : []
-  );
-
-const costShipOf = (c: CardInstance): CostShip[] =>
-  c.card
-    ? [
-        {
-          id: c.id,
-          title: cardTitleOf(cardDisplayName(c.card)),
-          affiliation: text(c.card.affiliation),
-          icons: text(c.card.icons).match(/\[[a-z0-9]+\]/g) ?? [],
-        },
-      ]
-    : [];
-
-function costMissionOf(slot: MissionSlot, requirements: string): CostMission {
-  const card = slot.mission?.card;
-  const points = Number.parseInt(String(card?.points ?? ''), 10);
-  return {
-    completed: slot.completed === true,
-    name: card ? cardDisplayName(card) : '',
-    requirements: card ? requirements : '',
-    points: Number.isFinite(points) ? points : 0,
-    type: text(card?.missiontype).charAt(0),
-    icons: iconsOf(text(card?.affiliation).trim()),
-    quadrant: text(card?.quadrant),
-    dilemmasUnder: slot.underMission.filter((c) => text(c.card?.type) === 'dilemma').length,
-    regions: regionsOf(text(card?.keywords)),
-    personnel: slotPersonnelOf(slot),
-    ships: slot.ships.flatMap(costShipOf),
-    ...(slot.mission?.flipped ? { flipped: true } : {}),
-  };
-}
-
-const handCardOf = (c: CardInstance) => ({
-  id: c.id,
-  title: c.card ? cardTitleOf(cardDisplayName(c.card)) : '',
-  type: String(c.card?.type ?? '').toLowerCase(),
-});
-
-const coreCardOf = (c: CardInstance): CostCoreCard => {
-  return {
-    id: c.id,
-    title: cardTitleOf(cardDisplayName(c.card)),
-    type: text(c.card?.type),
-    keywords: text(c.card?.keywords)
-      .split('.')
-      .map((k) => k.trim())
-      .filter(Boolean),
-    cost: printedCostOf(c),
-  };
-};
-
-const speciesOf = (card: CardInstance['card'] | null | undefined): string[] =>
+const speciesOf = (card: ViewRow): string[] =>
   text(card?.species)
     .split('/')
     .map((s) => s.trim())
@@ -109,70 +43,82 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined, quadra
 export const slotQuadrantOf = (table: TableState, missionIndex: number | undefined): string | undefined =>
   missionIndex === undefined ? undefined : text(table.missions[missionIndex]?.mission?.card?.quadrant) || undefined;
 
-export const keywordsOf = (c: CardInstance): string[] => [
-  ...new Set(
-    text(c.card?.keywords)
-      .split('.')
-      .map((k) => k.trim())
-      .filter(Boolean)
-  ),
-];
+const traitsOf = (p: ViewTableCard): CommandedTraits => ({ ...partnerTraitsOf(p.row), unique: p.unique });
 
-/**
- * The events the player commands (#1749): those of the core, and those placed on the mission cards and the
- * ships of every slot. Not the brig, and not an event placed on a card of the core.
- */
-const commandedEventsOf = (table: TableState): CardInstance[] =>
-  [
-    ...table.core,
-    ...table.missions.flatMap((s) => [...(s.mission?.placedOn ?? []), ...s.ships.flatMap((ship) => ship.placedOn ?? [])]),
-  ].filter((c) => text(c.card?.type) === 'event');
+const pileCardOf = (c: ViewPileCard) => ({ id: c.id, title: c.title, type: c.type });
 
-const eventsOf = (table: TableState): CostEventCard[] =>
-  commandedEventsOf(table).map((c) => ({ title: cardTitleOf(cardDisplayName(c.card)), keywords: keywordsOf(c) }));
+/** The personnel and the equipment of a slot: its away team, then each crew of its ship row. */
+const slotCards = (m: ViewMission): ViewTableCard[] => [...m.awayTeam, ...m.ships.flatMap((s) => s.crew)];
 
-export const printedCostOf = (c: CardInstance): number => {
-  const cost = Number.parseInt(String(c.card?.cost ?? ''), 10);
-  return Number.isFinite(cost) ? cost : 0;
-};
+function costMissionOf(view: TableView, m: ViewMission): CostMission {
+  return {
+    completed: m.completed,
+    name: m.name,
+    requirements: m.requirements,
+    points: m.points,
+    type: m.type,
+    icons: m.icons,
+    quadrant: m.quadrant,
+    dilemmasUnder: m.underMission.filter((c) => c.type === 'dilemma').length,
+    regions: m.regions,
+    // Each with its id, its title and its stopped state (#1713).
+    personnel: personnel(view, { unstopped: false, at: m.index }).map((p) => ({ ...traitsOf(p), id: p.id, title: p.title, stopped: p.stopped })),
+    ships: m.ships.map((s) => ({ id: s.id, title: s.title, affiliation: text(s.row.affiliation), icons: text(s.row.icons).match(/\[[a-z0-9]+\]/g) ?? [] })),
+    ...(m.flipped ? { flipped: true } : {}),
+  };
+}
+
+/** A card of the core with a row; a core card with no row is left out of `CostFacts`. */
+const hasRow = (c: ViewCard): boolean => !!c.row;
 
 /**
  * The printed costs of the cards the player commands (#1768): the unstopped personnel and the equipment of
  * every away team and crew (a stopped personnel meets no "while you command" condition, #1751), every ship of
- * every ship row, and the events of `eventsOf`. Never the brig.
+ * every ship row, and the events the player commands. Never the brig.
  */
-const commandedCostsOf = (table: TableState): number[] =>
+const commandedCostsOf = (view: TableView): number[] =>
   [
-    ...table.missions.flatMap((s) =>
-      slotCards(s).filter((c) => (c.card?.type === 'personnel' && !c.stopped) || text(c.card?.type) === 'equipment')
-    ),
-    ...table.missions.flatMap((s) => s.ships.filter((c) => c.card)),
-    ...commandedEventsOf(table),
-  ].map(printedCostOf);
+    ...view.missions.flatMap(slotCards).filter((c) => (c.type === 'personnel' && !c.stopped) || c.type === 'equipment'),
+    ...ships(view),
+    ...view.events,
+  ].map((c) => c.cost);
+
+/** `CostFacts` projected from the table view. */
+export function costFactsOfView(view: TableView): CostFacts {
+  const core = view.core.filter(hasRow);
+  return {
+    // A stopped personnel is still commanded, but meets no "if/while/for each … you command" condition (#1751).
+    commanded: personnel(view, { unstopped: true }).map(traitsOf),
+    core: core.map((c) => c.title),
+    coreCards: core.map((c) => ({
+      id: c.id,
+      title: c.title,
+      type: c.type,
+      keywords: text(c.row.keywords)
+        .split('.')
+        .map((k) => k.trim())
+        .filter(Boolean),
+      cost: c.cost,
+    })),
+    corePlaced: core.map((c) => c.placedOn.length),
+    hand: view.hand.map(pileCardOf),
+    discard: view.discard.filter((c) => !c.removedFromGame).map(pileCardOf),
+    ships: ships(view).map((s) => s.title),
+    score: view.score,
+    missions: view.missions.map((m) => costMissionOf(view, m)),
+    pending: view.pending,
+    plays: view.plays,
+    events: view.events.map((e) => ({ title: e.title, keywords: e.keywords })),
+    commandedCosts: commandedCostsOf(view),
+    drawDeckTop: view.drawDeck.slice(0, DECK_TOP_FACTS).map((c) => ({ id: c.id, type: c.type, species: speciesOf(c.row) })),
+    // The bot's dilemma pile is the opponent's (#1738); in a game with no bot the pile is the player's own.
+    ...(view.dilemmaPileIsBot
+      ? { opponentDilemmaPile: view.dilemmaPile.map((c) => ({ id: c.id, dilemmaType: text(c.row?.dilemmatype) })) }
+      : {}),
+  };
+}
 
 // `plays` are the cards played earlier this turn (#1703), from the log.
 export function costFactsOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): CostFacts {
-  const core = table.core.filter((c) => c.card);
-  return {
-    // A stopped personnel is still commanded, but meets no "if/while/for each … you command" condition (#1751).
-    commanded: table.missions.flatMap((s) => personnelTraitsOf(slotCards(s).filter((c) => !c.stopped))),
-    core: core.map((c) => cardTitleOf(cardDisplayName(c.card))),
-    coreCards: core.map(coreCardOf),
-    corePlaced: core.map((c) => c.placedOn?.length ?? 0),
-    hand: table.hand.map(handCardOf),
-    discard: table.discard.filter((c) => !c.removedFromGame).map(handCardOf),
-    ships: table.missions.flatMap((s) => s.ships.flatMap((c) => (c.card ? [cardTitleOf(cardDisplayName(c.card))] : []))),
-    score: table.score,
-    // The requirements as the cards in play change them (#1828, Crescent Nebula), as the bot reads them.
-    missions: requirementTextsOf(table.missions.map((m) => m.mission?.card)).map((r, i) => costMissionOf(table.missions[i], text(r))),
-    pending,
-    plays,
-    events: eventsOf(table),
-    commandedCosts: commandedCostsOf(table),
-    drawDeckTop: table.drawDeck.slice(0, DECK_TOP_FACTS).map((c) => ({ id: c.id, type: text(c.card?.type), species: speciesOf(c.card) })),
-    // The bot's dilemma pile is the opponent's (#1738); in a game with no bot the pile is the player's own.
-    ...(table.opponent === 'bot'
-      ? { opponentDilemmaPile: table.dilemmaPile.map((c) => ({ id: c.id, dilemmaType: text(c.card?.dilemmatype) })) }
-      : {}),
-  };
+  return costFactsOfView(tableViewOf(table, pending, plays));
 }

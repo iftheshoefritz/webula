@@ -1,16 +1,11 @@
-import { CostFacts, CostModel, CostPlay, CostTurnPlay } from '../model';
+import { core, firstThisTurn } from '../../tableView';
+import { costFactsSource } from '../factsSource';
+import { CostModel, CostPlay } from '../model';
 
 // The standing rules (#1703): cards of the core whose text prices the play of another card while they
 // stand there. The facts are the table before the move, so the card being played never prices itself.
 // Each copy in the core has its effect. "The first … each turn" reads the cards played earlier this turn
 // (`CostFacts.plays`), whether or not the rule was in the core then, and whatever they cost.
-
-/** The number of copies of `title` in the core. */
-const copiesOf = (title: string, facts: CostFacts): number => facts.core.filter((t) => t === title).length;
-
-/** Whether no card played earlier this turn passes `test`. */
-const firstOfTurn = (test: (play: CostTurnPlay) => boolean, facts: CostFacts): boolean =>
-  !(facts.plays ?? []).some(test);
 
 const isUniquePersonnel = (play: Pick<CostPlay, 'type' | 'unique'>): boolean => play.type === 'personnel' && !!play.unique;
 
@@ -19,15 +14,19 @@ const isNonTngPersonnel = (play: Pick<CostPlay, 'type' | 'icons'>): boolean =>
 
 const times = (n: number): string => (n > 1 ? ` (${n} copies)` : '');
 
+const firstUniquePersonnel = firstThisTurn(isUniquePersonnel, 'unique personnel');
+const firstNonTngPersonnel = firstThisTurn(isNonTngPersonnel, 'non-[TNG] personnel');
+
 export const STANDING_RULE_MODELS: CostModel[] = [
   // "Plays in your core. The first unique personnel played each turn costs -2."
   {
     title: 'Disadvantage Into Advantage',
     family: 'standingRule',
     costOfPlay: (play, facts) => {
-      const n = copiesOf('Disadvantage Into Advantage', facts);
-      return n > 0 && isUniquePersonnel(play) && firstOfTurn(isUniquePersonnel, facts)
-        ? { cost: play.printed - 2 * n, reason: `first unique personnel this turn${times(n)}` }
+      const source = costFactsSource(facts);
+      const n = core(source, { title: 'Disadvantage Into Advantage' }).length;
+      return n > 0 && isUniquePersonnel(play) && firstUniquePersonnel.holds(source)
+        ? { cost: play.printed - 2 * n, reason: `${firstUniquePersonnel.text(source)}${times(n)}` }
         : null;
     },
   },
@@ -37,7 +36,7 @@ export const STANDING_RULE_MODELS: CostModel[] = [
     title: 'Spiteful Strategy',
     family: 'standingRule',
     costOfPlay: (play, facts) => {
-      const n = copiesOf('Spiteful Strategy', facts);
+      const n = core(costFactsSource(facts), { title: 'Spiteful Strategy' }).length;
       return n > 0 && play.type === 'event' ? { cost: play.printed + n, reason: `+${n} on an event${times(n)}` } : null;
     },
   },
@@ -48,9 +47,13 @@ export const STANDING_RULE_MODELS: CostModel[] = [
     title: 'Energize',
     family: 'standingRule',
     costOfPlay: (play, facts) => {
-      const placed = facts.core.reduce((sum, t, i) => (t === 'Energize' ? sum + (facts.corePlaced?.[i] ?? 0) : sum), 0);
-      return placed > 0 && isNonTngPersonnel(play) && firstOfTurn(isNonTngPersonnel, facts)
-        ? { cost: play.printed - 2 * placed, reason: `first non-[TNG] personnel this turn, ${placed} ${placed === 1 ? 'card' : 'cards'} on it` }
+      const source = costFactsSource(facts);
+      const placed = core(source, { title: 'Energize' }).reduce((sum, c) => sum + c.placed, 0);
+      return placed > 0 && isNonTngPersonnel(play) && firstNonTngPersonnel.holds(source)
+        ? {
+            cost: play.printed - 2 * placed,
+            reason: `${firstNonTngPersonnel.text(source)}, ${placed} ${placed === 1 ? 'card' : 'cards'} on it`,
+          }
         : null;
     },
   },
