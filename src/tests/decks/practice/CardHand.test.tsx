@@ -137,7 +137,7 @@ describe('CardHand', () => {
   });
 
   // #1489: the small fan spans at most two cards of the core, however many cards the hand holds.
-  it('keeps the closed fan within two core cards as the card count grows', () => {
+  it('keeps the closed fan within CLOSED_FAN_CORE_CARDS core cards as the card count grows', () => {
     const closedWidth = () =>
       parseFloat((screen.getByRole('button', { name: /tap to open$/i }) as HTMLElement).style.width);
     const { rerender } = render(<Harness instances={makeInstances(2)} />);

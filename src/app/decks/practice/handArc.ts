@@ -198,7 +198,10 @@ export function handArcLayout({
 // (`flatCardWidth`) however many cards the hand holds: the dilemma hand's at the right end of the
 // core and brig box; the hand's at its left end in the dilemma choice, and in the middle of the
 // screen everywhere else, where no dilemma hand shows (#1496). Its cards overlap more to fit that width.
-export const CLOSED_FAN_CORE_CARDS = 2;
+// Issue #1872 raised it from 2 to 3: at 2, a closed fan of 7 at 800 x 600 on a touch screen stepped
+// 3 px a card and read as one stack. A fan at one end of the box takes at most half of it
+// (`closedFanSpan`), so the two fans of the dilemma choice never overlap.
+export const CLOSED_FAN_CORE_CARDS = 3;
 // The width of a card of the small fan, as a part of the open arc's card width (#1872). Its height
 // follows from the card image's ratio.
 export const CLOSED_FAN_CARD_SHARE = 0.75;

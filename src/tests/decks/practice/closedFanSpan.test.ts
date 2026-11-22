@@ -27,6 +27,14 @@ describe('closedFanSpan', () => {
     expect(closedFanSpan('center', { left: 200, right: 260, width: 60 }, 100, 460)).toEqual({ left: 200, right: 260 });
   });
 
+  // Issue #1872: the two fans of the dilemma choice share the box, so each end takes at most half.
+  it('takes at most half of the anchor at either end, so the two fans never overlap', () => {
+    expect(closedFanSpan('left', rect, 300, 1000)).toEqual({ left: 200, right: 450 });
+    expect(closedFanSpan('right', rect, 300, 1000)).toEqual({ left: 450, right: 700 });
+    // The middle fan is alone, so it may take the whole box.
+    expect(closedFanSpan('center', rect, 300, 900)).toEqual({ left: 300, right: 600 });
+  });
+
   it('centres on the screen with no anchor, or one of no width (jsdom)', () => {
     expect(closedFanSpan('center', null, 100, 800)).toEqual({ left: 350, right: 450 });
     expect(closedFanSpan('center', { left: 0, right: 0, width: 0 }, 100, 800)).toEqual({ left: 350, right: 450 });

@@ -125,7 +125,10 @@ export function closedFanSpan(
   screenWidth: number,
 ): { left: number; right: number } {
   const box = rect && rect.width > 0 ? rect : { left: 0, right: screenWidth, width: screenWidth };
-  const width = rect && rect.width > 0 ? Math.min(maxWidth, rect.width) : maxWidth;
+  // A fan at one end shares the box with the other hand's fan at the other end (the dilemma choice),
+  // so it takes at most half of it (#1872).
+  const room = rect && rect.width > 0 ? (side === 'center' ? rect.width : rect.width / 2) : Infinity;
+  const width = Math.min(maxWidth, room);
   if (side === 'center') {
     const ideal = screenWidth / 2 - width / 2;
     const left = Math.max(box.left, Math.min(ideal, box.right - width));

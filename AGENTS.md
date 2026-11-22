@@ -1039,7 +1039,7 @@ The closed hand (or collapsed hand) is a small face-up fan at the bottom edge of
 the open arc's card (`CLOSED_FAN_CARD_SHARE`, #1872), showing about half of each card above the edge at its
 lowest top corner (`CLOSED_FAN_VISIBLE`, 0.5; #1542 had shown the whole card), never less than the touch floor
 (`arcTouchMinVisible`) on a touch screen, so its cards sit closer together and its top lower than the open
-arc's, and it spans at most `CLOSED_FAN_CORE_CARDS` (2) cards of the core however many cards the hand holds. The closed dilemma hand
+arc's, and it spans at most `CLOSED_FAN_CORE_CARDS` (3, #1872) cards of the core however many cards the hand holds, and a fan at one end of the box at most half of it. The closed dilemma hand
 (`dilemmaHand-closed-fan`) sits at the right end of the core and brig box (`flat-rows`), and the hand
 at its left end in the dilemma choice, the one place the dilemma hand shows. Everywhere else, on the
 full table and in the facing phase, the hand sits in the middle of the screen, slid inward to stay
