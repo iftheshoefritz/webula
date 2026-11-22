@@ -99,6 +99,13 @@ export function cardBorderStyle(cardWidth: number): CSSProperties {
 // rounds the corners of its art and text box: a quarter circle as wide as the border joins the inner
 // edge of each side to the top of the strip. Every crop draws it, a mission's on touch too; only a
 // whole card (`uncropped`) shows its own printed bottom border.
+// A pale hairline along the outer edge of that border. Below a crop is dark felt and the card's
+// shadow, so black against near-black shows no edge, and the eye takes the bright chrome above the
+// border for the card's bottom. The side borders have the lighter felt beyond them; this gives the
+// bottom one the same kind of outer edge, as `PILE_CARD_EDGE` does for the cards of a pile. It is
+// an inset shadow of a layer as round as the crop's box, so it bends up each rounded corner and
+// thins to nothing where the side begins.
+export const CROP_BOTTOM_EDGE = 'inset 0 -1px 0 rgba(205, 205, 215, 0.9)';
 export function CropBottomBorder({ cardWidth }: { cardWidth: number }) {
   const border = cropBottomBorderWidth(cardWidth);
   const corner = (side: 'left' | 'right'): CSSProperties => ({
@@ -109,10 +116,11 @@ export function CropBottomBorder({ cardWidth }: { cardWidth: number }) {
     background: `radial-gradient(circle at ${side === 'left' ? '100%' : '0'} 0, transparent ${border - 0.5}px, black ${border}px)`,
   });
   return (
-    <div data-testid="crop-bottom-border" aria-hidden="true" className="absolute inset-0 pointer-events-none">
+    <div data-testid="crop-bottom-border" aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ borderRadius: 'inherit' }}>
       <div className="absolute inset-x-0 bottom-0 bg-black" style={{ height: border }} />
       <div data-testid="crop-bottom-border-corner" className="absolute" style={corner('left')} />
       <div data-testid="crop-bottom-border-corner" className="absolute" style={corner('right')} />
+      <div data-testid="crop-bottom-edge" className="absolute inset-0" style={{ borderRadius: 'inherit', boxShadow: CROP_BOTTOM_EDGE }} />
     </div>
   );
 }
