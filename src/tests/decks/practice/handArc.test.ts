@@ -6,6 +6,7 @@ import {
   ARC_TOUCH_MIN_VISIBLE,
   ARC_TOUCH_OPTIONS,
   ArcLayout,
+  CLOSED_FAN_CARD_SHARE,
   CLOSED_FAN_CORE_CARDS,
   CLOSED_FAN_VISIBLE,
   arcTouchMinVisible,
@@ -335,10 +336,14 @@ describe('arcTouchMinVisible (#1383)', () => {
 // #1489: the closed hand, a small fan of pile cards over at most two core cards.
 describe('the closed fan', () => {
   const open = handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 150, right: 560, bottom: 375 });
-  const closedOptions = { count: 7, cardWidth: 56, maxStep: 60, left: 220, right: 220 + CLOSED_FAN_CORE_CARDS * 90, bottom: 375 };
+  // Issue #1872: a closed card is `CLOSED_FAN_CARD_SHARE` of the open card.
+  const closedWidth = Math.round(CLOSED_FAN_CARD_SHARE * 126);
+  const closedHeight = Math.round((closedWidth * 167) / 120);
+  const closedOptions = { count: 7, cardWidth: closedWidth, maxStep: 135, left: 220, right: 220 + CLOSED_FAN_CORE_CARDS * 90, bottom: 375 };
+  const half = Math.round(CLOSED_FAN_VISIBLE * closedHeight);
 
   it('is narrower than the open arc of the same hand', () => {
-    const closed = handArcLayout({ ...closedOptions, minVisible: Math.round(CLOSED_FAN_VISIBLE * 80) });
+    const closed = handArcLayout({ ...closedOptions, minVisible: half });
     const closedBox = arcVisibleBox(closed, 375);
     const openBox = arcVisibleBox(open, 375);
     expect(closedBox.right - closedBox.left).toBeLessThan(openBox.right - openBox.left);
@@ -346,31 +351,25 @@ describe('the closed fan', () => {
     expect(closedBox.top).toBeCloseTo(375 - closed.visibleHeight);
   });
 
-  // Issue #1542: on a touch screen at 667 x 375 the closed fan shows its cards whole, its top as high
-  // as the top of the touch arc before #1542 (lower 0.2), and no card leaves the bottom edge.
-  it.each([1, 7])('reaches the old touch arc top with %i cards, and keeps every card on the bottom edge', (count) => {
-    const touchFan = { sag: ARC_TOUCH_OPTIONS.sag, maxAngle: ARC_TOUCH_OPTIONS.maxAngle };
-    const closed = handArcLayout({
-      ...closedOptions,
-      count,
-      ...touchFan,
-      minVisible: Math.max(Math.round(CLOSED_FAN_VISIBLE * 80), ARC_TOUCH_MIN_VISIBLE),
-    });
-    const oldOpen = handArcLayout({ count, cardWidth: 127, maxStep: 135, left: 150, right: 560, bottom: 375, ...ARC_TOUCH_OPTIONS, lower: 0.2 });
-    expect(closed.visibleHeight).toBeGreaterThanOrEqual(oldOpen.visibleHeight - 10);
-    for (const card of closed.cards) {
-      const bottomEdge = Math.min(
-        corner(card, -closed.cardWidth / 2, closed.cardHeight / 2).y,
-        corner(card, closed.cardWidth / 2, closed.cardHeight / 2).y,
-      );
-      expect(bottomEdge).toBeGreaterThanOrEqual(375 - 0.01);
-    }
+  // Issue #1872: the closed fan shows about half of each card, lower than the open arc, and its cards
+  // sit closer together.
+  it.each([
+    ['with no floor', {}, 0],
+    ['on a touch screen', { sag: ARC_TOUCH_OPTIONS.sag, maxAngle: ARC_TOUCH_OPTIONS.maxAngle }, ARC_TOUCH_MIN_VISIBLE],
+  ])('shows about half of each card %s, lower and tighter than the open arc', (_label, fan, floor) => {
+    const closed = handArcLayout({ ...closedOptions, ...fan, minVisible: Math.max(half, floor) });
+    const openArc = handArcLayout({ count: 7, cardWidth: 126, maxStep: 135, left: 150, right: 560, bottom: 375, ...fan });
+    // The lowest top corner shows half the card, or the floor; the middle rises by the arc's sag.
+    expect(Math.min(...topClearances(closed, 375))).toBeCloseTo(Math.max(half, floor), 0);
+    expect(closed.visibleHeight).toBeLessThan(closed.cardHeight * 0.75);
+    expect(closed.visibleHeight).toBeLessThan(openArc.visibleHeight);
+    const step = (layout: typeof closed) => layout.cards[1].centerX - layout.cards[0].centerX;
+    expect(step(closed)).toBeLessThan(step(openArc));
   });
 
-  // At a bottom inset of 34 the floor, 78 px, is a whole pile card, so the card shows whole instead.
   it('keeps every card above the touch floor on a touch screen', () => {
-    const floor = arcTouchMinVisible(0);
-    const closed = handArcLayout({ ...closedOptions, sag: ARC_TOUCH_OPTIONS.sag, maxAngle: ARC_TOUCH_OPTIONS.maxAngle, minVisible: floor });
+    const floor = arcTouchMinVisible(34);
+    const closed = handArcLayout({ ...closedOptions, sag: ARC_TOUCH_OPTIONS.sag, maxAngle: ARC_TOUCH_OPTIONS.maxAngle, minVisible: Math.max(half, floor) });
     for (const clearance of topClearances(closed, 375)) expect(clearance).toBeGreaterThanOrEqual(floor - 0.01);
   });
 });

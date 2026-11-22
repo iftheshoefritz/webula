@@ -45,11 +45,12 @@ import {
   useCardHoldCallbacks,
 } from './useCardHold';
 import { cardBorderStyle } from './TableCard';
-import { flatCardWidth, pileCardSize } from './flatRowWidths';
+import { flatCardWidth } from './flatRowWidths';
 import { BoxSelectRect, useBoxSelect } from './useBoxSelect';
 import {
   ARC_DESKTOP_RAISE,
   ARC_TOUCH_OPTIONS,
+  CLOSED_FAN_CARD_SHARE,
   CLOSED_FAN_CORE_CARDS,
   CLOSED_FAN_VISIBLE,
   arcTouchMinVisible,
@@ -371,8 +372,7 @@ export default function CardHand({
   // The bottom safe-area inset (`useSafeAreaInsets`, #1383), the home indicator's. It raises the
   // touch arc's floor; the arc's `bottom` stays the bottom of the screen. Defaults to 0.
   safeAreaBottom?: number;
-  // The bottom-row scale (`computeBottomRowScale`, #1465): the closed fan's cards and its width grow
-  // by it. Defaults to 1.
+  // The bottom-row scale (`computeBottomRowScale`, #1465): the closed fan's width grows by it. Defaults to 1.
   rowScale?: number;
   // Issue #1489: the element the closed fan sits on (the box of the core and the brig), and the part
   // of it the fan takes (`closedFanSpan`): the dilemma hand the right end, the hand the left end in
@@ -385,9 +385,10 @@ export default function CardHand({
   // the "→ top"/"→ bottom" row and the box do not show.
   choice?: { ids: string[]; onToggle: (id: string) => void };
 }) {
-  // The closed fan's cards are pile cards (`pileCardSize`) at the bottom-row scale, and the fan
-  // spans at most `CLOSED_FAN_CORE_CARDS` cards of the core (#1489).
-  const { width: closedCardWidth, height: closedCardHeight } = pileCardSize(rowScale);
+  // The closed fan's cards are `CLOSED_FAN_CARD_SHARE` of the open arc's card (#1872), and the fan
+  // spans at most `CLOSED_FAN_CORE_CARDS` cards of the core at the bottom-row scale (#1489).
+  const closedCardWidth = Math.round(CLOSED_FAN_CARD_SHARE * openCardWidth);
+  const closedCardHeight = fullCardHeight(closedCardWidth);
   const closedFanWidth = CLOSED_FAN_CORE_CARDS * flatCardWidth(rowScale);
   const openCardHeight = fullCardHeight(openCardWidth);
   const count = instances.length;

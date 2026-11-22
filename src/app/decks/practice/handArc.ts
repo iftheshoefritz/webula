@@ -193,18 +193,23 @@ export function handArcLayout({
 }
 
 // Issue #1489: the closed hand, a small face-up fan at the bottom edge of the screen, on top of the
-// bottom row. It is the arc above with smaller cards, a pile card of the bottom row
-// (`pileCardSize`), sitting lower, and it spans at most `CLOSED_FAN_CORE_CARDS` cards of the core
+// bottom row. It is the arc above with smaller cards, `CLOSED_FAN_CARD_SHARE` of the open arc's
+// card (#1872), sitting lower, and it spans at most `CLOSED_FAN_CORE_CARDS` cards of the core
 // (`flatCardWidth`) however many cards the hand holds: the dilemma hand's at the right end of the
 // core and brig box; the hand's at its left end in the dilemma choice, and in the middle of the
 // screen everywhere else, where no dilemma hand shows (#1496). Its cards overlap more to fit that width.
 export const CLOSED_FAN_CORE_CARDS = 2;
-// How much of each card of the small fan shows above the bottom edge, as a part of the pile card's
-// height, at its lowest top corner. Issue #1542 raised it from 0.6 to 1: the whole card shows, its
-// bottom edge kept at the screen's by `handArcLayout`, so on a touch screen the fan's top is about
-// where the open arc's top was before #1542. On a touch screen it never shows less than the touch floor,
-// `arcTouchMinVisible`, so a card is still a touch target clear of the iOS edge gesture.
-export const CLOSED_FAN_VISIBLE = 1;
+// The width of a card of the small fan, as a part of the open arc's card width (#1872). Its height
+// follows from the card image's ratio.
+export const CLOSED_FAN_CARD_SHARE = 0.75;
+// How much of each card of the small fan shows above the bottom edge, as a part of its card's
+// height, at its lowest top corner. Issue #1542 raised it from 0.6 to 1, so the whole card showed and
+// the fan's top sat where the open arc's top had been. Issue #1872 sets it to 0.5: the owner wants the
+// closed hand to look like the open arc, each card half below the edge, fanned closer together and
+// with its top lower than the open arc's. On a touch screen it never shows less than the touch floor,
+// `arcTouchMinVisible`, so a card is still a touch target clear of the iOS edge gesture, and a phone
+// may show more than half.
+export const CLOSED_FAN_VISIBLE = 0.5;
 
 // The box around the visible part of an arc: from the left edge of its first card to the right edge
 // of its last, and from its highest point down to `bottom`. The closed hand is a drop target over this
