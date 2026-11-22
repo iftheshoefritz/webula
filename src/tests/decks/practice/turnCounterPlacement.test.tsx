@@ -176,7 +176,7 @@ describe('the turn and score controls in the left column on a touch screen (#133
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 2');
   });
 
-  it('shows the counters between Play and Orders, and keeps the row muted in orders (#1848)', async () => {
+  it('shows the counters between Play and Orders, and hides them past play and draw (#1848, #1873)', async () => {
     localStorage.setItem('practice-turn-counters', 'true');
     await renderPage();
     const column = screen.getByTestId('turn-score-column');
@@ -200,12 +200,42 @@ describe('the turn and score controls in the left column on a touch screen (#133
     expect(list.querySelector('[aria-current="step"] [data-testid="turn-segment-name"]')).toHaveClass('bg-white/15');
     expect(within(column).getByTestId('turn-counters-row')).not.toHaveClass('bg-white/15');
 
-    const row = within(column).getByTestId('turn-counters-row');
+    expect(within(column).queryByTestId('turn-counters-spacer')).toBeNull();
+
+    // In orders and discard the row is gone, Orders and Discard move up under Play, and a spacer
+    // below the list keeps the score in place (#1873).
+    const hidden = () => {
+      expect(within(column).queryByTestId('turn-counters-row')).toBeNull();
+      expect(within(column).queryByTestId('turn-counters')).toBeNull();
+      expect(list.children).toHaveLength(3);
+      const spacer = within(column).getByTestId('turn-counters-spacer');
+      expect(list.compareDocumentPosition(spacer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(spacer.compareDocumentPosition(order[5]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    };
+    const shown = (text: string) => {
+      expect(within(column).getByTestId('turn-counters')).toHaveTextContent(text);
+      expect(list.querySelector('[data-segment="playAndDraw"]')).toContainElement(within(column).getByTestId('turn-counters-row'));
+      expect(within(column).queryByTestId('turn-counters-spacer')).toBeNull();
+    };
+    // A draw makes the hand 8, so the turn goes through discard (#1605).
+    fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
+    shown('1/7');
     fireEvent.click(order[0]);
     expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Orders');
-    expect(within(column).getByTestId('turn-counters-row')).toBe(row);
-    expect(within(column).getByTestId('turn-counters')).toHaveAttribute('data-muted', 'true');
+    hidden();
+    // An undo back into play and draw shows them again.
+    fireEvent.click(screen.getByTestId('undo-button'));
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
+    shown('1/7');
+    fireEvent.click(within(column).getByRole('button', { name: 'Go to orders' }));
+    fireEvent.click(within(column).getByRole('button', { name: 'Go to discard' }));
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Discard');
+    hidden();
+    fireEvent.click(within(column).getByRole('button', { name: 'Next turn' }));
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
+    shown('0/7');
   });
+
 
   it('keeps the counters row mounted and empty with Counters off (#1848)', async () => {
     await renderPage();
