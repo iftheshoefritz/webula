@@ -13,6 +13,8 @@ import {
   ARC_TOUCH_MIN_VISIBLE,
   ARC_DESKTOP_RAISE,
   ARC_TOUCH_OPTIONS,
+  arcTouchMinVisible,
+  CLOSED_FAN_CARD_SHARE,
   CLOSED_FAN_CORE_CARDS,
   CLOSED_FAN_VISIBLE,
   handArcLayout,
@@ -135,7 +137,7 @@ describe('CardHand', () => {
   });
 
   // #1489: the small fan spans at most two cards of the core, however many cards the hand holds.
-  it('keeps the closed fan within two core cards as the card count grows', () => {
+  it('keeps the closed fan within CLOSED_FAN_CORE_CARDS core cards as the card count grows', () => {
     const closedWidth = () =>
       parseFloat((screen.getByRole('button', { name: /tap to open$/i }) as HTMLElement).style.width);
     const { rerender } = render(<Harness instances={makeInstances(2)} />);
@@ -637,9 +639,13 @@ describe('CardHand arc on a touch screen (#1149)', () => {
   });
 });
 
-// #1465: on a large screen the closed hand grows by the bottom-row scale, as the piles beside it do.
-describe('CardHand closed fan at a bottom-row scale', () => {
-  it('draws its cards and its button at the scale', () => {
+// #1872: the closed hand's cards are `CLOSED_FAN_CARD_SHARE` of the open card, and about half of
+// each shows above the bottom edge, never less than the touch floor on a touch screen.
+describe('CardHand closed fan card size', () => {
+  it.each([
+    ['a fine pointer', true, 0],
+    ['a touch screen', false, arcTouchMinVisible(0)],
+  ])('draws its cards at 75%% of the open card with %s', (_label, finePointer, floor) => {
     render(
       <CardHand
         instances={makeInstances(1)}
@@ -647,14 +653,18 @@ describe('CardHand closed fan at a bottom-row scale', () => {
         onOpen={() => {}}
         onClose={() => {}}
         dragging={false}
+        openCardWidth={168}
+        finePointer={finePointer}
         rowScale={1.5}
       />
     );
-    // A pile card at the scale, 84 x 120, of which `CLOSED_FAN_VISIBLE` (the whole card, #1542) shows
-    // above the bottom edge: the card image is 117 px tall at that width, so it all shows.
+    const width = Math.round(CLOSED_FAN_CARD_SHARE * 168);
+    const height = Math.round((width * 167) / 120);
     const button = screen.getByRole('button', { name: /hand, 1 card/ });
-    expect(button.style.width).toBe('84px');
-    expect(button.style.height).toBe(`${Math.min(Math.round(CLOSED_FAN_VISIBLE * 120), Math.round((84 * 167) / 120))}px`);
-    expect((button.querySelector('img') as HTMLImageElement).style.width).toBe('84px');
+    expect(button.style.width).toBe(`${width}px`);
+    const shown = parseFloat(button.style.height);
+    expect(shown).toBeGreaterThanOrEqual(Math.max(Math.round(CLOSED_FAN_VISIBLE * height), floor) - 1);
+    expect(shown).toBeLessThanOrEqual(Math.max(Math.round(CLOSED_FAN_VISIBLE * height), floor) + 1);
+    expect((button.querySelector('img') as HTMLImageElement).style.width).toBe(`${width}px`);
   });
 });

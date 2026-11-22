@@ -289,6 +289,15 @@ fi
 # TARGET_JS. A drop on it puts the card in the resolving panel, whose card has
 # `data-zone="resolving"`.
 VIA=()
+# A card of the open arc becomes a drag only after 20 px
+# (`HAND_ARC_DRAG_ACTIVATION_DISTANCE`, #1131), not after the 8 px first move,
+# so the arc is still open, over the core and the brig, when TARGET_JS reads the
+# table. So a drag of an arc card first glides 30 px up, which starts the drag
+# and closes the arc, and only then reads TARGET_JS (#1872).
+inArc=$(ev "(()=>document.querySelector('[data-card-id=\"$CARD\"]')?.closest('[data-testid\$=\"-arc\"]')?'YES':'NO')()")
+if [ "$inArc" = "YES" ]; then
+  VIA=(--via-eval "(()=>'$ax $((ay - 30))')()")
+fi
 if [ "$ZONE" = "resolving" ]; then
   VIA=(--via-eval "(()=>{const tops=['[data-zone=\"core\"]','[data-zone=\"discard\"]','[data-testid=\"hand-closed-fan\"]'].map((s)=>document.querySelector(s)?.getBoundingClientRect()).filter((r)=>r&&r.height>0).map((r)=>r.top);if(!tops.length)return 'NONE';return $ax+' '+Math.round(Math.min(...tops)/2)})()")
 fi

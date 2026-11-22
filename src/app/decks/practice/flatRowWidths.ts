@@ -7,7 +7,7 @@ import { TABLE_CARD_ART_HEIGHT, TABLE_CARD_WIDTH } from './TableCard';
 // fans on top of it since #1489, take none of it), and that box's width is
 // the space they share. Their dashed outlines always fill that box between them (#1425).
 
-// The size of the card of the draw deck, the dilemma pile, the discard pile and the closed hand at
+// The size of the card of the draw deck, the dilemma pile and the discard pile at
 // scale 1 (`PracticeTable.tsx`, `CardHand.tsx`).
 export const PILE_CARD_WIDTH = 56;
 export const PILE_CARD_HEIGHT = 80;
