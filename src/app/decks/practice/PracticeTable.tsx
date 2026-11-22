@@ -2868,7 +2868,11 @@ function PracticeDrawContent() {
   const bottomPicks = promptStep?.step === 'bottom' ? resolveChoice.filter((id) => table.hand.some((c) => c.id === id)) : [];
   const toggleBottomPick = (id: string) => {
     if (promptStep?.step !== 'bottom') return;
-    setResolveChoice(bottomPicks.includes(id) ? bottomPicks.filter((i) => i !== id) : bottomPicks.length < promptStep.count ? [...bottomPicks, id] : bottomPicks);
+    const max = promptStep.count;
+    setResolveChoice((ids) => {
+      const live = ids.filter((i) => table.hand.some((c) => c.id === i));
+      return live.includes(id) ? live.filter((i) => i !== id) : live.length < max ? [...live, id] : live;
+    });
   };
   // The steps of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
   const playedStep: ResolveStep | undefined =

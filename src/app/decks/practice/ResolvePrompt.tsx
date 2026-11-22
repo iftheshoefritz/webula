@@ -12,7 +12,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { LAYER_RESOLVE_PROMPT } from '../../../lib/layers';
 import { printedCost } from '../../../lib/playCost';
 import type { ResolveModel } from '../../../lib/resolveModels';
-import type { ResolveStep } from './ResolvingPanel';
+import { RESOLVING_MINI_WIDTH, type ResolveStep } from './ResolvingPanel';
 import { NO_CALLOUT_STYLE, useCardHold } from './useCardHold';
 import { useEscapeLayer } from './useEscapeLayer';
 import { SAFE_INSET_CSS, safeAreaMargins } from './useSafeAreaInsets';
@@ -146,7 +146,7 @@ function CandidateCard({ candidate, place, picked, onPick }: { candidate: Person
       style={{ ...NO_CALLOUT_STYLE, width: TABLE_CARD_WIDTH }}
       className={`flex shrink-0 flex-col rounded-md border-2 text-left ${picked ? 'border-blue-400 bg-blue-500/20' : 'border-transparent'}`}
     >
-      <TableCardImage instance={candidate.card} width={TABLE_CARD_WIDTH} height={TABLE_CARD_ART_HEIGHT} />
+      <TableCardImage instance={candidate.card} width={TABLE_CARD_WIDTH} height={TABLE_CARD_ART_HEIGHT} showFace />
       <span className="flex w-full items-baseline gap-1 px-0.5 text-[9px] leading-3 text-text-secondary" style={{ height: LABEL_HEIGHT }}>
         <span data-testid="resolve-candidate-place" className="line-clamp-2 min-w-0 flex-1">
           {place}
@@ -160,7 +160,7 @@ function CandidateCard({ candidate, place, picked, onPick }: { candidate: Person
 }
 
 // The row of the draw step's candidates, above the bottom row (`bottom`, the inset a card list panel keeps),
-// right of the left column. One row that scrolls sideways, so it fits 667×375 with any number of personnel.
+// right of the left column and left of the small card (`ResolvingMini`). One row that scrolls sideways, so it fits 667×375 with any number of personnel.
 export function ResolveCandidates({
   step,
   picked,
@@ -182,7 +182,8 @@ export function ResolveCandidates({
       style={{
         bottom,
         left: TOUCH_CONTROLS_COLUMN + 8,
-        right: 8,
+        // Clear of the small card at the right side, its width and its padding.
+        right: RESOLVING_MINI_WIDTH + 24,
         ...safeAreaMargins('left', 'right'),
         visibility: hidden ? 'hidden' : 'visible',
         pointerEvents: hidden ? 'none' : undefined,
