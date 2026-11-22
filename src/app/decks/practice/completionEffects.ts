@@ -6,7 +6,7 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import { reportsToMatches } from '../../../lib/hqPlayability';
+import { hqRowOf, reportsToMatches } from '../../../lib/hqPlayability';
 import type { GameAction } from './gameLog';
 import { attemptingCards, findInstanceAnywhere, type CardInstance, type TableAction, type TableState } from './tableReducer';
 
@@ -152,16 +152,6 @@ export function discardCandidates(table: TableState): CardInstance[] {
     return true;
   });
 }
-
-type HqRow = Parameters<typeof reportsToMatches>[0];
-
-// A card as `reportsToMatches` reads it: every field it tests a lowercased string, an absent one empty.
-const hqRowOf = (card: NonNullable<CardInstance['card']>): HqRow => {
-  const row: Record<string, unknown> = { ...card };
-  for (const field of ['name', 'type', 'unique', 'affiliation', 'icons', 'keywords', 'species', 'skills', 'gametext'])
-    row[field] = String(card[field as keyof typeof card] ?? '').toLowerCase();
-  return row as unknown as HqRow;
-};
 
 /** The headquarters slots where every card of `picks` could be played (`reportsToMatches`). */
 export function hqSlotsFor(table: TableState, picks: CardInstance[]): number[] {

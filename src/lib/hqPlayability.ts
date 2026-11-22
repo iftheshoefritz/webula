@@ -254,3 +254,18 @@ export function reportsToMatches(card: CardRow, match: string): boolean {
   const baseName = stripVersionSuffix(card.name);
   return !!CARD_SPECIFIC_HQ_LOCATIONS[baseName]?.some((loc) => match.startsWith(loc));
 }
+
+/**
+ * A card as `reportsToMatches` reads it: every field it tests a lowercased string, an absent one empty.
+ * The practice table's cards are lowercased already; a row of the raw card data is not.
+ */
+export function hqRowOf(card: Record<string, unknown>): CardRow {
+  const row: CardRow = { ...card };
+  for (const field of ['name', 'type', 'unique', 'affiliation', 'icons', 'keywords', 'species', 'skills', 'class', 'gametext'])
+    row[field] = String(card[field] ?? '').toLowerCase();
+  return row;
+}
+
+/** Whether a card's own text names the headquarters it may be played at, read through `reportsToMatches`. */
+export const hasCardSpecificHqLocation = (name: string): boolean =>
+  stripVersionSuffix(name.toLowerCase()) in CARD_SPECIFIC_HQ_LOCATIONS;
