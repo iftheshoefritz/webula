@@ -15,6 +15,9 @@ const MISSION_COSTS: Record<string, MissionCostChange> = {
   'wadi homeworld dominate gaming championship': { source: 'Wadi Homeworld', change: (m) => (m.title.startsWith('Chula') ? -1 : 0) },
 };
 
+/** The missions with a cost change here, by whole title, lowercased: the model backlog reads it. */
+export const MISSION_COST_TITLES: ReadonlySet<string> = new Set(Object.keys(MISSION_COSTS));
+
 /** The cost change of the mission whose row is `mission`, or undefined for any other mission. */
 export function missionCostOf(mission: { name?: string; originalName?: string } | null | undefined): MissionCostChange | undefined {
   const name = mission?.originalName ?? mission?.name;

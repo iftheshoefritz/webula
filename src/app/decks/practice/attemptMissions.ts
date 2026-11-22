@@ -74,6 +74,9 @@ const RULES: Record<string, (personnel: CardInstance[], place: AttemptMissionPla
   },
 };
 
+/** The missions with a rule here, by whole title, lowercased (#1759): the model backlog reads it. */
+export const ATTEMPT_MISSION_TITLES: ReadonlySet<string> = new Set(Object.keys(RULES));
+
 /**
  * The changes of the attempted mission: `mission` the mission card, `involved` the away team or the
  * crew. Only the unstopped personnel count, the ones the popup counts.

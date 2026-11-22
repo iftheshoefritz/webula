@@ -1,0 +1,153 @@
+import { writeFileSync } from 'fs';
+import { resolve } from 'path';
+import { ATTEMPT_MISSION_TITLES } from '../../app/decks/practice/attemptMissions';
+import { ATTRIBUTE_REGISTRY } from '../../app/decks/practice/attributeModels';
+import { COMPLETION_EFFECTS } from '../../app/decks/practice/completionEffects';
+import { SIGMA_IOTIA_TITLE, TRISTAN_ADAMS_TITLE } from '../../app/decks/practice/dilemmaPrevention';
+import { EARTH_TITLE, NIMBUS_TITLE } from '../../app/decks/practice/missionSpends';
+import { RANGE_SPAN_REGISTRY } from '../../app/decks/practice/rangeModels';
+import { ROADBLOCK_TITLE } from '../../app/decks/practice/selfReplicatingRoadblock';
+import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from '../../app/decks/practice/tableReducer';
+import { COST_REGISTRY } from '../../lib/costModels/registry';
+import { MISSION_COST_TITLES } from '../../lib/dilemmaBot/pile/missionCost';
+import { REGISTRY as DILEMMA_REGISTRY } from '../../lib/dilemmaBot/pile/registry';
+import {
+  clausesOf,
+  clauseTextsOf,
+  Concern,
+  coverageMarkdown,
+  coverageReport,
+  CoverageCard,
+  ModelledBy,
+  shippedDeckTitles,
+} from '../../lib/modelCoverage';
+import { placeCoverageOf } from '../../lib/playPlaces/coverage';
+import { PLAY_MODEL_TITLES } from '../../lib/playModels/coverage';
+import { RESOLVE_MODELS } from '../../lib/resolveModels';
+import { cardRows, shippedDecks } from './backlogData';
+
+// The unified model backlog (#1861, part of #1860): every title the shipped decks play, its text split
+// into clauses, each clause filed under a gameplay concern and checked against that concern's registry.
+// `MODEL_BACKLOG=1 yarn test modelBacklog` prints the report; `MODEL_BACKLOG=<path>.md` writes it there.
+// The test is silent otherwise.
+
+const lower = (titles: Iterable<string>) => new Set([...titles].map((t) => t.toLowerCase()));
+
+const PLAY = lower(PLAY_MODEL_TITLES);
+const RESOLVE = lower(RESOLVE_MODELS.map((m) => m.title));
+const MISSION = lower([
+  ...COMPLETION_EFFECTS.keys(),
+  ...ATTEMPT_MISSION_TITLES,
+  ...MISSION_COST_TITLES,
+  EARTH_TITLE,
+  NIMBUS_TITLE,
+  SIGMA_IOTIA_TITLE,
+]);
+/**
+ * The cards a module of their own models outside every registry, with the concerns of their clauses
+ * that module covers. A title here is one more sign of the piecemeal: its home is a file, not a registry.
+ */
+const BESPOKE: Record<string, Concern[]> = {
+  [ROADBLOCK_TITLE.toLowerCase()]: ['ongoing'],
+  [TRISTAN_ADAMS_TITLE.toLowerCase()]: ['ongoing', 'trigger'],
+  [SELECT_AGAIN_TITLE.toLowerCase()]: ['ongoing', 'eventResolve'],
+  [REPLACE_PICK_TITLE.toLowerCase()]: ['interrupt'],
+};
+
+/** Whether the registries of today model a clause of `concern` on `title`. */
+export const modelledToday: ModelledBy = (concern, title, card) => {
+  const key = title.toLowerCase();
+  if (BESPOKE[key]?.includes(concern)) return true;
+  switch (concern) {
+    case 'dilemma':
+      return DILEMMA_REGISTRY.get(title)?.status === 'play';
+    case 'cost':
+      return COST_REGISTRY.has(title);
+    case 'whenPlayed':
+      return PLAY.has(key);
+    case 'eventResolve':
+      return RESOLVE.has(key);
+    case 'attributes':
+      return ATTRIBUTE_REGISTRY.has(key) || RANGE_SPAN_REGISTRY.has(key);
+    case 'mission':
+      return MISSION.has(key) || COST_REGISTRY.has(title);
+    case 'place':
+      return placeCoverageOf({ ...card }) !== 'unread';
+    default:
+      return false;
+  }
+};
+
+const row = (name: string, type: string, gametext: string): CoverageCard => ({ name, type, gametext });
+
+describe('the clauses of a card text', () => {
+  it('starts a clause at each trigger or order, and drops where a card plays', () => {
+    expect(clauseTextsOf('Plays in your core. While you command a Borg, draw a card. Then shuffle. Order - Stop this personnel.')).toEqual([
+      'While you command a Borg, draw a card. Then shuffle.',
+      'Order - Stop this personnel.',
+    ]);
+  });
+
+  it('files each clause of a personnel under its concern', () => {
+    const concerns = clausesOf(
+      row(
+        'Someone',
+        'Personnel',
+        'When you play this personnel, draw two cards. She is cost -1. Order - Discard a card from hand to stop a personnel. While at a planet, Strength +2. When this personnel is stopped, score 5 points. You may play this personnel aboard your [Kli] ship.'
+      )
+    ).map((c) => c.concern);
+    expect(concerns).toEqual(['whenPlayed', 'cost', 'order', 'attributes', 'trigger', 'place']);
+  });
+
+  it('keeps a dilemma whole, and splits the cost sentence out of an event that resolves', () => {
+    expect(clausesOf(row('Pitfall', 'Dilemma', 'Randomly select a personnel to be killed. Then stop all.'))).toEqual([
+      { concern: 'dilemma', text: 'Randomly select a personnel to be killed. Then stop all.' },
+    ]);
+    expect(clausesOf(row('Boon', 'Event', 'This event is cost -2. Draw three cards.')).map((c) => c.concern)).toEqual(['cost', 'eventResolve']);
+    expect(clausesOf(row('Standing', 'Event', 'Plays in your core. Each of your personnel is Cunning +1.')).map((c) => c.concern)).toEqual(['attributes']);
+  });
+
+  it('files a mission text under the mission, its "you may play" under the place', () => {
+    expect(clausesOf(row('Base', 'Mission', 'You may play [Kli] personnel here.')).map((c) => c.concern)).toEqual(['place']);
+    expect(clausesOf(row('Rock', 'Mission', 'When you complete this mission, score 5 points.')).map((c) => c.concern)).toEqual(['mission']);
+  });
+});
+
+describe('the coverage report', () => {
+  it('reads every card section of a deck', () => {
+    const deck = 'Deck:\n2\tBeta *VP\nDilemmas:\n1\tDelta\nMissions:\n1\tAlpha\nSideboard:\n1\tOmega\n';
+    expect([...shippedDeckTitles(deck)].sort()).toEqual(['Alpha', 'Beta', 'Delta']);
+  });
+
+  it('ranks by decks, marks each clause, and says which titles are within reach', () => {
+    const cards = [
+      row('Common', 'Personnel', 'When you play this personnel, draw a card. Order - Stop this personnel.'),
+      row('Modelled', 'Event', 'Draw two cards.'),
+      row('Rare', 'Event', 'Draw two cards.'),
+    ];
+    const decks = ['Deck:\n1\tCommon\n1\tModelled\n', 'Deck:\n1\tCommon\n1\tRare\n'];
+    const report = coverageReport(cards, decks, (concern, title) => title === 'Modelled' || concern === 'whenPlayed');
+    expect(report.rows.map((r) => [r.title, r.decks, r.missing, r.withinReach])).toEqual([
+      ['Common', 2, ['order'], false],
+      ['Modelled', 1, [], true],
+      ['Rare', 1, ['eventResolve'], true],
+    ]);
+    const md = coverageMarkdown(report);
+    expect(md).toContain('| 2 | Common | Personnel | order | no |');
+    expect(md).not.toContain('| Modelled | Event');
+  });
+
+  it('finds the shipped models in the shipped decks', () => {
+    const report = coverageReport(cardRows(), shippedDecks(), modelledToday);
+    const of = (title: string) => report.rows.find((r) => r.title === title);
+    expect(of('These Are The Voyages')?.clauses.find((c) => c.concern === 'eventResolve')?.modelled).toBe(true);
+    expect(report.rows.filter((r) => r.type === 'Dilemma' && !r.missing.length).length).toBeGreaterThan(200);
+    for (let i = 1; i < report.rows.length; i++) expect(report.rows[i - 1].decks).toBeGreaterThanOrEqual(report.rows[i].decks);
+    const out = process.env.MODEL_BACKLOG;
+    if (out) {
+      const md = coverageMarkdown(report);
+      if (out.endsWith('.md')) writeFileSync(resolve(process.cwd(), out), md);
+      else console.log(md);
+    }
+  });
+});
