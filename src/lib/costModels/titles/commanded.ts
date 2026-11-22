@@ -1,112 +1,97 @@
 import { cardTitleOf } from '../../cardTitle';
-import { SKILL_INDEX } from '../../dilemmaBot/requirements';
+import { Condition, commands, commandsEach, commandsEvents, count, personnel, Selection } from '../../tableView';
+import { costFactsSource, minusWhen } from '../factsSource';
 import { CommandedTraits, CostFacts, CostModel, ModelCost } from '../model';
 
 // The cards that cost less while the player commands certain personnel (#1693). The facts are the
-// table before the move, so the card being played never counts itself.
+// table before the move, so the card being played never counts itself. The conditions are the shared ones
+// of `src/lib/tableView.ts` (#1876), read over the facts; "command" counts the unstopped personnel only (#1751).
 
 export type Test = (p: CommandedTraits) => boolean;
 
-const has = (skill: string): Test => (p) => (p.skills[SKILL_INDEX[skill]] ?? 0) > 0;
 export const both = (...tests: Test[]): Test => (p) => tests.every((t) => t(p));
 export const species = (s: string): Test => (p) => p.species.includes(s);
-const keyword = (k: string): Test => (p) => p.keywords.includes(k);
-const affiliation = (a: string): Test => (p) => p.affiliation === a;
 
-const countOf = (facts: CostFacts, test: Test): number => facts.commanded.filter(test).length;
+/** The unstopped personnel the player commands that pass `q`. */
+export const commandedPersonnel = (q: Omit<Extract<Selection, { of: 'personnel' }>, 'of' | 'unstopped'> = {}): Selection => ({
+  of: 'personnel',
+  unstopped: true,
+  ...q,
+});
 
-/** "If you command <at least `min`> <what> personnel, cost −`off`." */
-export function ifCommand(min: number, test: Test, off: number, what: string): (play: { printed: number }, facts: CostFacts) => ModelCost | null {
-  return (play, facts) => {
-    const n = countOf(facts, test);
-    if (n < min) return null;
-    return { cost: play.printed - off, reason: min === 1 ? `you command ${what}` : `you command ${n} ${what}` };
-  };
-}
-
-/** The events the player commands that hold `keyword`, or every event with none (#1749). */
-const eventCount = (facts: CostFacts, keyword?: string): number =>
-  (facts.events ?? []).filter((e) => !keyword || e.keywords.includes(keyword)).length;
-
-/** "If you command a [Pa] card" (#1749): an unstopped personnel or a ship with the icon. */
-const commandsIcon = (facts: CostFacts, icon: string): boolean =>
-  facts.commanded.some((p) => p.icons.includes(icon)) ||
-  (facts.missions ?? []).some((m) => (m.ships ?? []).some((s) => s.icons.includes(icon)));
-
-/** "Cost −1 for each <keyword> event you command" (#1749). */
-const forEachEvent =
-  (keyword: string, what: string) =>
+/** "Cost −1 for each <what> you command", at most −`limit`: the count of `selection`, with the words of `condition`. */
+const minusEach =
+  (selection: Selection, condition: Condition, limit = Infinity) =>
   (play: { printed: number }, facts: CostFacts): ModelCost | null => {
-    const n = eventCount(facts, keyword);
-    return n > 0 ? { cost: play.printed - n, reason: `you command ${n} ${what} ${n === 1 ? 'event' : 'events'}` } : null;
+    const source = costFactsSource(facts);
+    return condition.holds(source)
+      ? { cost: play.printed - Math.min(count(source, selection), limit), reason: condition.text(source) }
+      : null;
   };
 
-/** "Cost −1 for each <what> you command", at most −`limit`. */
-function forEach(test: Test, what: string, limit = Infinity): (play: { printed: number }, facts: CostFacts) => ModelCost | null {
-  return (play, facts) => {
-    const n = countOf(facts, test);
-    if (n === 0) return null;
-    return {
-      cost: play.printed - Math.min(n, limit),
-      reason: `you command ${n} ${what}${Number.isFinite(limit) && n > limit ? ` (limit ${limit})` : ''}`,
-    };
-  };
-}
+/** "Cost −1 for each <what> personnel you command" (`commandsEach`). */
+const minusPerCommanded = (selection: Selection, what: string, limit?: number) => minusEach(selection, commandsEach(selection, what, { limit }), limit);
+
+/** "Cost −1 for each <keyword> event you command" (#1749, `commandsEvents`). */
+const minusPerEvent = (keyword: string, what: string) => minusEach({ of: 'events', keyword }, commandsEvents({ keyword, what }));
 
 export const COMMANDED_MODELS: CostModel[] = [
   // "When you play this personnel, she is cost -1 for each Treachery personnel you command."
-  { title: 'Seska Pragmatic Agent', label: 'Seska', family: 'ownCost', playCost: forEach(has('treachery'), 'Treachery personnel') },
+  { title: 'Seska Pragmatic Agent', label: 'Seska', family: 'ownCost', playCost: minusPerCommanded(commandedPersonnel({ skill: 'treachery' }), 'Treachery personnel') },
   // "When you play this personnel, if you command a Treachery personnel, he is cost -1."
   {
     title: 'Elim Garak Crafty Underling',
     label: 'Elim Garak',
     family: 'ownCost',
-    playCost: ifCommand(1, has('treachery'), 1, 'a Treachery personnel'),
+    playCost: minusWhen(commands(commandedPersonnel({ skill: 'treachery' }), 'a Treachery personnel'), 1),
   },
   // "When you play this equipment, if you command a Ferengi Engineer personnel, it is cost -1."
-  { title: 'Keevan', family: 'ownCost', playCost: ifCommand(1, both(species('ferengi'), has('engineer')), 1, 'a Ferengi Engineer personnel') },
+  { title: 'Keevan', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ species: 'ferengi', skill: 'engineer' }), 'a Ferengi Engineer personnel'), 1) },
   // "When you play this personnel, she is cost -1 for each non-[Fed] personnel you command."
   {
     title: 'Lwaxana Troi Extraordinary Ambassador',
     family: 'ownCost',
-    playCost: forEach((p) => p.affiliation !== 'federation', 'non-[Fed] personnel'),
+    playCost: minusPerCommanded(commandedPersonnel({ where: (p) => p.affiliation !== 'federation' }), 'non-[Fed] personnel'),
   },
   // "When you play this personnel, if you command three [Fed] personnel, she is cost -5."
   {
     title: 'Lwaxana Troi Extravagant Ambassador',
     family: 'ownCost',
-    playCost: ifCommand(3, affiliation('federation'), 5, '[Fed] personnel'),
+    playCost: minusWhen(commands(commandedPersonnel({ affiliation: 'federation' }), '[Fed] personnel', { min: 3 }), 5),
   },
   // "When you play this personnel, if you command a unique personnel, she is cost -1."
-  { title: 'Six of Ten Invalidation Drone', label: 'Six of Ten', family: 'ownCost', playCost: ifCommand(1, (p) => p.unique === true, 1, 'a unique personnel') },
+  { title: 'Six of Ten Invalidation Drone', label: 'Six of Ten', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ where: (p) => p.unique === true }), 'a unique personnel'), 1) },
   // "When you play this personnel, if you command a Law personnel, he is cost -1."
-  { title: 'Weyoun "Defective" Clone', label: 'Weyoun', family: 'ownCost', playCost: ifCommand(1, has('law'), 1, 'a Law personnel') },
+  { title: 'Weyoun "Defective" Clone', label: 'Weyoun', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ skill: 'law' }), 'a Law personnel'), 1) },
   // "When you play this personnel, if you command an [AU][TNG] Officer personnel, she is cost -1."
   {
     title: 'Beverly Crusher Battleship Doctor',
     label: 'Beverly Crusher',
     family: 'ownCost',
-    playCost: ifCommand(1, both((p) => p.icons.includes('[au]') && p.icons.includes('[tng]'), has('officer')), 1, 'an [AU][TNG] Officer personnel'),
+    playCost: minusWhen(
+      commands(commandedPersonnel({ skill: 'officer', where: (p) => p.icons.includes('[au]') && p.icons.includes('[tng]') }), 'an [AU][TNG] Officer personnel'),
+      1
+    ),
   },
   // "When you play this personnel, for each Vedek you command, she is cost -1."
-  { title: 'Jadzia Dax Elder', label: 'Jadzia Dax', family: 'ownCost', playCost: forEach(keyword('vedek'), 'Vedek') },
+  { title: 'Jadzia Dax Elder', label: 'Jadzia Dax', family: 'ownCost', playCost: minusPerCommanded(commandedPersonnel({ keyword: 'vedek' }), 'Vedek') },
   // "When you play this personnel, if you command three [SF] Dissident personnel, he is cost -3."
   {
     title: 'Paul Mayweather Burdened with Command',
     label: 'Paul Mayweather',
     family: 'ownCost',
-    playCost: ifCommand(3, both(affiliation('starfleet'), keyword('dissident')), 3, '[SF] Dissident personnel'),
+    playCost: minusWhen(commands(commandedPersonnel({ affiliation: 'starfleet', keyword: 'dissident' }), '[SF] Dissident personnel', { min: 3 }), 3),
   },
   // "When you play this ship, it is cost -1 for each Borg you command (limit 5)."
-  { title: 'Assimilator Rogue Borg Vessel', label: 'Assimilator', family: 'ownCost', playCost: forEach(species('borg'), 'Borg', 5) },
+  { title: 'Assimilator Rogue Borg Vessel', label: 'Assimilator', family: 'ownCost', playCost: minusPerCommanded(commandedPersonnel({ species: 'borg' }), 'Borg', 5) },
   // "When you play this personnel, if you command an Intelligence personnel, he is cost -1."
-  { title: "Rekar Tool of the Tal'Shiar", label: 'Rekar', family: 'ownCost', playCost: ifCommand(1, has('intelligence'), 1, 'an Intelligence personnel') },
+  { title: "Rekar Tool of the Tal'Shiar", label: 'Rekar', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ skill: 'intelligence' }), 'an Intelligence personnel'), 1) },
   // "When you play this personnel, if you command an Officer personnel, this personnel is cost -1."
-  { title: "T'Pol Not a Slave", label: "T'Pol", family: 'ownCost', playCost: ifCommand(1, has('officer'), 1, 'an Officer personnel') },
+  { title: "T'Pol Not a Slave", label: "T'Pol", family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ skill: 'officer' }), 'an Officer personnel'), 1) },
   // "When you play this personnel, if you command an Anthropology personnel, he is cost -2." (#1749)
-  { title: 'Bareil Antos Petty Thief', label: 'Bareil Antos', family: 'ownCost', playCost: ifCommand(1, has('anthropology'), 2, 'an Anthropology personnel') },
+  { title: 'Bareil Antos Petty Thief', label: 'Bareil Antos', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ skill: 'anthropology' }), 'an Anthropology personnel'), 2) },
   // "When you play this personnel, if you command a Vorta, this personnel is cost -1."
-  { title: 'Deyos Ruthless Administrator', label: 'Deyos', family: 'ownCost', playCost: ifCommand(1, species('vorta'), 1, 'a Vorta') },
+  { title: 'Deyos Ruthless Administrator', label: 'Deyos', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ species: 'vorta' }), 'a Vorta'), 1) },
   // "When you play this personnel, if you command an Acquisition personnel, he is cost -3. While you command
   // four cards that have a cost of four or more, you may spend an additional counter each turn." The grant
   // (#1768) is read from the table as it stands, while Gint is unstopped and commanded, he counting himself.
@@ -114,43 +99,41 @@ export const COMMANDED_MODELS: CostModel[] = [
     title: 'Gint The First Grand Nagus',
     label: 'Gint',
     family: 'ownCost',
-    playCost: ifCommand(1, has('acquisition'), 3, 'an Acquisition personnel'),
+    playCost: minusWhen(commands(commandedPersonnel({ skill: 'acquisition' }), 'an Acquisition personnel'), 3),
     limitGrant: (facts) => {
-      if (!facts.commanded.some((p) => cardTitleOf(p.name) === 'gint the first grand nagus')) return null;
+      if (personnel(costFactsSource(facts), { unstopped: true, where: (p) => cardTitleOf(p.name) === 'gint the first grand nagus' }).length === 0) return null;
       const n = (facts.commandedCosts ?? []).filter((cost) => cost >= 4).length;
       return n >= 4 ? { amount: 1, reason: `you command ${n} cards of cost 4 or more` } : null;
     },
   },
   // "When you play this personnel, if you command an Honor personnel, she is cost -1."
-  { title: 'Grilka Glorious Lady', label: 'Grilka', family: 'ownCost', playCost: ifCommand(1, has('honor'), 1, 'an Honor personnel') },
+  { title: 'Grilka Glorious Lady', label: 'Grilka', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ skill: 'honor' }), 'an Honor personnel'), 1) },
   // "When you play this personnel, if you command three events, he is cost -1."
   {
     title: 'Gowron Celebrated Leader',
     label: 'Gowron',
     family: 'ownCost',
-    playCost: (play, facts) => {
-      const n = eventCount(facts);
-      return n >= 3 ? { cost: play.printed - 1, reason: `you command ${n} events` } : null;
-    },
+    playCost: minusWhen(commandsEvents({ min: 3 }), 1),
   },
   // "When you play this personnel, if you command a [Pa] card, she is cost -1."
   {
     title: 'Tasha Yar Requesting a Transfer',
     label: 'Tasha Yar',
     family: 'ownCost',
-    playCost: (play, facts) => (commandsIcon(facts, '[pa]') ? { cost: play.printed - 1, reason: 'you command a [Pa] card' } : null),
+    // An unstopped personnel or a ship with the icon (#1749).
+    playCost: minusWhen(commands([commandedPersonnel({ icon: '[pa]' }), { of: 'ships', icon: '[pa]' }], 'a [Pa] card'), 1),
   },
   // "When you play this personnel, for each Assault event you command, he is cost -1."
-  { title: 'Jorem', family: 'ownCost', playCost: forEachEvent('assault', 'Assault') },
+  { title: 'Jorem', family: 'ownCost', playCost: minusPerEvent('assault', 'Assault') },
   // "When you play this personnel, for each Maneuver event you command, he is cost -1."
-  { title: 'Mullen', family: 'ownCost', playCost: forEachEvent('maneuver', 'Maneuver') },
+  { title: 'Mullen', family: 'ownCost', playCost: minusPerEvent('maneuver', 'Maneuver') },
   // "When you play this personnel, for each Punishment event you command, he is cost -1."
-  { title: 'Nerot', family: 'ownCost', playCost: forEachEvent('punishment', 'Punishment') },
+  { title: 'Nerot', family: 'ownCost', playCost: minusPerEvent('punishment', 'Punishment') },
   // "When you play this ship, for each Alpha Jem'Hadar you command, this ship is cost -1."
   {
     title: "Subek'somac Alpha Attack Ship",
     label: "Subek'somac",
     family: 'ownCost',
-    playCost: forEach(both(keyword('alpha'), species("jem'hadar")), "Alpha Jem'Hadar"),
+    playCost: minusPerCommanded(commandedPersonnel({ keyword: 'alpha', species: "jem'hadar" }), "Alpha Jem'Hadar"),
   },
 ];

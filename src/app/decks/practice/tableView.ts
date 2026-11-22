@@ -1,7 +1,7 @@
-// The table view of a `TableState` (#1875), beside `costFactsOf`: every mission slot with its away team, its
-// ships and their crews, the stopped personnel too, the core, the piles, the brig and the events the player
-// commands. The plays and the pending discounts of the turn come from the log, so the caller passes them, as
-// it does to `costFactsOf`. No reader reads the view yet (#1862).
+// The table view of a `TableState` (#1875): every mission slot with its away team, its ships and their crews,
+// the stopped personnel too, the core, the piles, the brig and the events the player commands. The plays and
+// the pending discounts of the turn come from the log, so the caller passes them. `costFactsOf` projects the
+// cost models' `CostFacts` from it (#1876).
 
 import { requirementTextsOf } from '../../../lib/requirementRules';
 import { cardDisplayName } from '../../../lib/cardCount';
@@ -9,10 +9,29 @@ import { cardTitleOf } from '../../../lib/cardTitle';
 import type { CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import type { TableView, ViewCard, ViewEvent, ViewMission, ViewPileCard, ViewShip, ViewTableCard } from '../../../lib/tableView';
-import { iconsOf, keywordsOf, printedCostOf, regionsOf } from './costFacts';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
 const text = (v: unknown): string => String(v ?? '').toLowerCase();
+
+/** The icons of an affiliation field that is a list of icons, "[fed][sf]"; a sentence gives none (#1696). */
+export const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(affiliation) ? (affiliation.match(/\[[a-z0-9]+\]/g) ?? []) : []);
+
+/** Every "Region: <name>." clause of a mission's keywords, lowercased (#1696). */
+export const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
+
+export const keywordsOf = (c: CardInstance): string[] => [
+  ...new Set(
+    text(c.card?.keywords)
+      .split('.')
+      .map((k) => k.trim())
+      .filter(Boolean)
+  ),
+];
+
+export const printedCostOf = (c: CardInstance): number => {
+  const cost = Number.parseInt(String(c.card?.cost ?? ''), 10);
+  return Number.isFinite(cost) ? cost : 0;
+};
 
 const viewCardOf = (c: CardInstance): ViewCard => ({
   id: c.id,
@@ -25,7 +44,7 @@ const viewCardOf = (c: CardInstance): ViewCard => ({
 
 const pileCardOf = (c: CardInstance): ViewPileCard => ({ ...viewCardOf(c), ...(c.removedFromGame ? { removedFromGame: true } : {}) });
 
-/** A card of an away team, a crew or a ship row with a row; a card with no row is left out, as `costFactsOf` does. */
+/** A card of an away team, a crew or a ship row with a row; a card with no row is left out. */
 const tableCardOf = (c: CardInstance, missionIndex: number, shipId?: string): ViewTableCard[] =>
   c.card
     ? [
@@ -80,7 +99,7 @@ const eventOf = (c: CardInstance, place: ViewEvent['place'], missionIndex?: numb
     : [];
 
 /**
- * The events the player commands, as `commandedEventsOf` of `costFacts.ts` (#1749): the core's, then those
+ * The events the player commands (#1749): the core's, then those
  * placed on the mission cards and the ships of every slot. Not the brig, and not an event placed on a core card.
  */
 const eventsOf = (table: TableState): ViewEvent[] => [
@@ -92,7 +111,7 @@ const eventsOf = (table: TableState): ViewEvent[] => [
 ];
 
 export function tableViewOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): TableView {
-  // The requirements as the cards in play change them (#1828, Crescent Nebula), as `costFactsOf` reads them.
+  // The requirements as the cards in play change them (#1828, Crescent Nebula), as the bot reads them.
   const requirements = requirementTextsOf(table.missions.map((m) => m.mission?.card));
   return {
     missions: table.missions.map((slot, i) => missionOf(slot, i, text(requirements[i]))),
