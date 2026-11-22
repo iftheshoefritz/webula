@@ -18,6 +18,10 @@ export interface PersonnelCandidate {
 export interface PersonnelCandidateGroup {
   key: string;
   label: string;
+  // The place alone, for a card's label (#1870): "Moab IV Avert Danger", or "U.S.S. Relativity Federation
+  // Timeship at Bilana System Evaluate Soliton Wave". The card data names a card with its subtitle, so the
+  // label keeps it; `cardTitleOf` drops a version suffix such as "(BP)".
+  place?: string;
   cards: PersonnelCandidate[];
 }
 
@@ -36,14 +40,17 @@ export function personnelCandidateGroups(table: TableState, { includeStopped = f
     const cards = candidatesOf(slot.awayTeam, includeStopped);
     if (cards.length) {
       const mission = slot.mission ? cardDisplayName(slot.mission.card) : `mission ${missionIndex + 1}`;
-      groups.push({ key: `awayTeam-${missionIndex}`, label: `Away team at ${mission}`, cards });
+      groups.push({ key: `awayTeam-${missionIndex}`, label: `Away team at ${mission}`, place: cardTitleOf(mission), cards });
     }
   });
   table.missions.forEach((slot, missionIndex) => {
     const mission = slot.mission ? cardDisplayName(slot.mission.card) : `mission ${missionIndex + 1}`;
     for (const ship of slot.ships) {
       const cards = candidatesOf(ship.crew ?? [], includeStopped);
-      if (cards.length) groups.push({ key: `crew-${ship.id}`, label: `Crew of ${cardDisplayName(ship.card)} at ${mission}`, cards });
+      if (cards.length) {
+        const shipName = cardDisplayName(ship.card);
+        groups.push({ key: `crew-${ship.id}`, label: `Crew of ${shipName} at ${mission}`, place: `${cardTitleOf(shipName)} at ${cardTitleOf(mission)}`, cards });
+      }
     }
   });
   return groups;

@@ -19,7 +19,7 @@
 import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { LAYER_RESOLVING_MINI, LAYER_RESOLVING_PANEL } from '../../../lib/layers';
+import { LAYER_RESOLVE_PROMPT, LAYER_RESOLVING_MINI, LAYER_RESOLVING_PANEL } from '../../../lib/layers';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardImageUrl, showCardMissing } from '../../../lib/cardImageUrl';
 import { panelDraggableId } from './panelDragId';
@@ -945,10 +945,21 @@ export function ResolvingPanel({
 // The small card of View table, at the right side of the screen, above the table: a tap brings the panel
 // back, a hold previews the event, and it drags out like the panel's card.
 // A played card (#1800) does not drag: it stands on the table.
-export function ResolvingMini({ instance, onOpen, played = false }: { instance: CardInstance; onOpen: () => void; played?: boolean }) {
+// Beside the prompt (#1870, `raised`) it sits over the open hand's backdrop and arc, so a tap reaches it.
+export function ResolvingMini({
+  instance,
+  onOpen,
+  played = false,
+  raised = false,
+}: {
+  instance: CardInstance;
+  onOpen: () => void;
+  played?: boolean;
+  raised?: boolean;
+}) {
   return (
     <div
-      className={`fixed ${LAYER_RESOLVING_MINI} flex flex-col items-center gap-0.5 rounded-md bg-black/60 p-1`}
+      className={`fixed ${raised ? LAYER_RESOLVE_PROMPT : LAYER_RESOLVING_MINI} flex flex-col items-center gap-0.5 rounded-md bg-black/60 p-1`}
       style={{ right: 8, top: '30%', ...safeAreaMargins('right') }}
     >
       <span className="text-[9px] uppercase tracking-wide leading-3 text-text-secondary">Resolving</span>

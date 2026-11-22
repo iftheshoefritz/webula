@@ -270,6 +270,7 @@ import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point } from './ta
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
+import { ResolveCandidates, ResolvePrompt, presentationOf } from './ResolvePrompt';
 import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
 import {
   DILEMMA_STACK_CHOICE_END_LABELS,
@@ -2847,6 +2848,28 @@ function PracticeDrawContent() {
                     : {}),
                 }
               : undefined;
+  // Issue #1870: These Are The Voyages resolves in the prompt, with no panel (`presentationOf`). The picks are
+  // `resolveChoice`, page state of their own in tap order, never `selectedCardIds`: the one personnel of the draw
+  // step, or the cards of the hand of the bottom step. They clear on every change of the resolving card or of the
+  // step (an undo of the draw goes back to the draw step), and the bottom step opens the hand arc once there.
+  const promptStep =
+    presentationOf(resolveModel, resolvingStep) === 'prompt' && (resolvingStep?.step === 'draw' || resolvingStep?.step === 'bottom')
+      ? resolvingStep
+      : undefined;
+  const [resolveChoice, setResolveChoice] = useState<string[]>([]);
+  const resolveChoiceKey = `${resolvingId}:${resolveStepName}`;
+  const [prevResolveChoiceKey, setPrevResolveChoiceKey] = useState(resolveChoiceKey);
+  if (resolveChoiceKey !== prevResolveChoiceKey) {
+    setPrevResolveChoiceKey(resolveChoiceKey);
+    setResolveChoice([]);
+    if (promptStep?.step === 'bottom') setOpenHand('hand');
+  }
+  // The picks of the bottom step still in the hand, in tap order.
+  const bottomPicks = promptStep?.step === 'bottom' ? resolveChoice.filter((id) => table.hand.some((c) => c.id === id)) : [];
+  const toggleBottomPick = (id: string) => {
+    if (promptStep?.step !== 'bottom') return;
+    setResolveChoice(bottomPicks.includes(id) ? bottomPicks.filter((i) => i !== id) : bottomPicks.length < promptStep.count ? [...bottomPicks, id] : bottomPicks);
+  };
   // The steps of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
   const playedStep: ResolveStep | undefined =
     pendingPlay?.model.kind === 'drawUpToThenDiscard'
@@ -3801,6 +3824,7 @@ function PracticeDrawContent() {
     chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryCharges(game.log, chargeChip.entry) : [];
   // The warnings of the play rules the chip's entry broke (#1821): they show with Counters on or off.
   const chipWarnings = chargeChip && game.log[chargeChip.entry]?.turn === turn ? entryRuleWarnings(game.log[chargeChip.entry]) : [];
+  const chargeChipShown = (turnCountersOn && chipCharges.length > 0) || chipWarnings.length > 0;
   // `source` names the model whose choice the player took (#1654), and `count` the count of a counted
   // choice (#1695).
   const correctCharge = (target: ChargeTarget, cost: number, source?: string, count?: number) =>
@@ -4764,7 +4788,7 @@ function PracticeDrawContent() {
         />
         {decklistOpen && <DecklistPanel deck={dealtDeck} onClose={() => setDecklistOpen(false)} />}
         {gameLogOpen && <GameLogPanel log={game.log} onClose={() => setGameLogOpen(false)} />}
-        {((turnCountersOn && chipCharges.length > 0) || chipWarnings.length > 0) && (
+        {chargeChipShown && (
           <ChargeChip
             charges={turnCountersOn ? chipCharges : []}
             warnings={chipWarnings}
@@ -5327,6 +5351,7 @@ function PracticeDrawContent() {
                 // brig box, so only there the hand keeps the left end; elsewhere it sits in the
                 // middle of the screen (#1496).
                 closedFanSide={dilemmaHandShows ? 'left' : 'center'}
+                choice={promptStep?.step === 'bottom' ? { ids: bottomPicks, onToggle: toggleBottomPick } : undefined}
               />
               {dilemmaHandShows && (
                 <CardHand
@@ -5589,7 +5614,7 @@ function PracticeDrawContent() {
                 card, inside the DndContext and the hold provider, so its card drags and previews.
                 Resolved → Discard is a plain move; Resolved → Remove from game (#1730) is that move and the
                 discard pile's Remove from game, in one batch; Cancel refunds the play. */}
-            {table.resolving && !resolvingCollapsed && (
+            {table.resolving && !resolvingCollapsed && !promptStep && (
               <ResolvingPanel
                 instance={table.resolving}
                 hidden={draggingInstance !== null}
@@ -5612,8 +5637,32 @@ function PracticeDrawContent() {
                 step={resolvingStep}
               />
             )}
-            {table.resolving && resolvingCollapsed && (
-              <ResolvingMini instance={table.resolving} onOpen={() => setResolvingCollapsed(false)} />
+            {table.resolving && (resolvingCollapsed || promptStep) && (
+              <ResolvingMini instance={table.resolving} raised={!!promptStep} onOpen={() => setResolvingCollapsed(false)} />
+            )}
+            {/* The prompt of #1870, in place of the panel for These Are The Voyages: Escape collapses it to the
+                small card, which a tap opens again with the picks kept. */}
+            {table.resolving && promptStep && !resolvingCollapsed && (
+              <>
+                <ResolvePrompt
+                  step={promptStep}
+                  picks={promptStep.step === 'bottom' ? bottomPicks : resolveChoice}
+                  chipShown={chargeChipShown}
+                  hidden={draggingInstance !== null}
+                  escapeActive={!gameMenuOpen}
+                  onCollapse={() => setResolvingCollapsed(true)}
+                  onCancel={() => dispatch({ type: 'cancelResolving' })}
+                />
+                {promptStep.step === 'draw' && (
+                  <ResolveCandidates
+                    step={promptStep}
+                    picked={resolveChoice[0] ?? null}
+                    bottom={panelBottom}
+                    hidden={draggingInstance !== null}
+                    onPick={(id) => setResolveChoice([id])}
+                  />
+                )}
+              </>
             )}
             {/* The played card of a pending "when you play" effect (#1800): Done or Skip, and no Cancel. */}
             {pendingPlay && !resolvingCollapsed && (
