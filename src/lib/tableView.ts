@@ -29,6 +29,8 @@ export interface ViewCard {
   row: ViewRow;
   /** The cards placed on it. */
   placedOn: ViewCard[];
+  /** The title a placed Self-Replicating Roadblock named (#1789), `CardInstance.named`. Absent: none. */
+  named?: string;
 }
 
 /** A personnel or an equipment of an away team or a crew, or a ship of a ship row: its traits and its place. */

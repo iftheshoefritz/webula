@@ -1,80 +1,18 @@
 // Issue #1589: `?fixture=bot-resolve-noeffect` reveals a dilemma whose `unless` check the Bilana
 // System crew of the fixture meets, so its Resolve reads "No effect" and changes no zone.
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { deckFromTsv, extractDilemmas, extractDrawDeck, extractMissions, mergeDeckPiles } from '../../../app/decks/deckBuilderUtils';
-import { PRACTICE_DECK_TSV } from '../../../lib/practiceDeck';
-import { chulaPileDeck } from '../../../lib/dilemmaBot/chulaPile';
-import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
-import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptDonePrompt, attemptDonePromptText, attemptModifiersText, botLabelOf, botResolveOf, fixtureBotLabelAttempt } from '../../../app/decks/practice/attempt';
-import { createCardInstances, findInstanceAnywhere, initialTableState, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
+import { BOT_REVEAL_FIXTURES, BotRevealFixture, attemptDonePrompt, attemptDonePromptText, attemptModifiersText, botLabelOf, botResolveOf } from '../../../app/decks/practice/attempt';
+import { findInstanceAnywhere, revealSnapshotOf, tableReducer, TableAction, TableState } from '../../../app/decks/practice/tableReducer';
 import { BOT_SKILLS } from '../../../lib/dilemmaBot/requirements';
-import { gameReducer, initialGameState, logEntryText, withShuffleOrders } from '../../../app/decks/practice/gameLog';
+import { gameReducer, initialGameState, logEntryText } from '../../../app/decks/practice/gameLog';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { fromSavedGame, toSavedGame } from '../../../app/decks/practice/savedGame';
+import { dealRevealFixtureWithDeck } from '../../fixtures/botFixtureTables';
 
 jest.mock('posthog-js', () => ({ capture: jest.fn() }));
 
-// The rows are read by hand, normalised as `parseCardData` does: Jest does not load the real d3.
-const data = (() => {
-  const [head, ...rows] = readFileSync(join(process.cwd(), 'public', 'cards_with_processed_columns.txt'), 'utf-8')
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => line.split('\t').map((cell) => cell.replace(/^"|"$/g, '')));
-  return rows.map((r) => {
-    const row: any = Object.fromEntries(head.map((h, i) => [h.toLowerCase(), (r[i] ?? '').toLowerCase()]));
-    row.collectorsinfo = row.collectorsinfo.replace(/(^|[^0-9])0+(\d+)/g, '$1$2');
-    row.originalName = r[head.indexOf('Name')];
-    row.missiontype = row.type === 'mission' ? row.mission : '';
-    return row;
-  });
-})();
-
-// The table the page deals for a revealing bot fixture: the fixture deck with the Chula pile and the
-// fixture's dilemma, dealt as `?fixture=piles`, then the bot attempt with that dilemma revealed on top.
-// `roll`: the flip goes through `withShuffleOrders`, as the page dispatches it, so it carries the roll
-// of a dilemma whose selection comes before the player's choice (#1594).
+// The table the page deals for a revealing bot fixture, from the shared helper (#1879).
 function dealRevealFixture(fixture: string | BotRevealFixture, roll = false): TableState {
   return dealRevealFixtureWithDeck(fixture, roll).table;
-}
-
-function dealRevealFixtureWithDeck(fixture: string | BotRevealFixture, roll = false) {
-  const { title, collectorsInfo, next, mission, spend } = typeof fixture === 'string' ? BOT_REVEAL_FIXTURES[fixture] : fixture;
-  const botDeck = mergeDeckPiles(deckFromTsv(PRACTICE_DECK_TSV, data), chulaPileDeck(data), ['dilemmaPile']);
-  const rowOf = (info: string) => {
-    const row = data.find((r) => r.collectorsinfo === collectorsKey(info));
-    expect(row).toBeDefined();
-    return { [row.collectorsinfo]: { count: 1, row: { ...row, count: 1, pile: 'dilemmaPile' } } };
-  };
-  const withDilemmas = { ...botDeck, ...rowOf(collectorsInfo), ...(next ? rowOf(next.collectorsInfo) : {}) };
-  // The fixture's mission takes the place of Bilana System, the third (#1760), as the page's deck does.
-  const missionRow = mission ? data.find((r) => r.collectorsinfo === collectorsKey(mission)) : undefined;
-  let slot = 0;
-  const deck = missionRow
-    ? Object.fromEntries(
-        Object.entries(withDilemmas).map(([key, entry]: [string, any]) =>
-          entry.row.type === 'mission' && slot++ === 2 ? [missionRow.collectorsinfo, { count: 1, row: { ...missionRow, count: 1, pile: 'mission' } }] : [key, entry],
-        ),
-      )
-    : withDilemmas;
-  const cards = extractDrawDeck(deck);
-  const deal: TableAction = {
-    type: 'resetWithPiles',
-    cards: createCardInstances([...cards, ...cards.filter((c: any) => c.type === 'personnel')]),
-    missions: createCardInstances(extractMissions(deck), 'up'),
-    dilemmas: createCardInstances(extractDilemmas(deck)),
-    opponent: 'bot',
-  };
-  let table = tableReducer(initialTableState, deal);
-  const attempt = fixtureBotLabelAttempt(table, title, spend);
-  if (!attempt) throw new Error('no fixture attempt');
-  table = tableReducer(table, attempt.start);
-  table = tableReducer(table, { type: 'setAttemptPhase', phase: 'face' });
-  for (const move of attempt.stack) table = tableReducer(table, move);
-  const flip: TableAction = { type: 'flip', id: attempt.revealId };
-  const action = roll ? withShuffleOrders(table, flip) : flip;
-  if (action.type !== 'flip') throw new Error('not a flip');
-  return { table: tableReducer(table, action), deck };
 }
 
 describe('?fixture=bot-resolve-noeffect (#1589)', () => {
