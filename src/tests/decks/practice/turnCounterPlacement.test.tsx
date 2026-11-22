@@ -159,7 +159,11 @@ describe('the turn and score controls in the left column on a touch screen (#133
     expect(button).toHaveAttribute('title', 'Go to orders');
     expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
     const list = within(column).getByTestId('turn-segment-list');
-    expect(Array.from(list.children).map((row) => row.textContent)).toEqual(['Play', 'Orders', 'Discard']);
+    expect(Array.from(list.children).map((row) => row.querySelector('[data-testid="turn-segment-name"]')!.textContent)).toEqual([
+      'Play',
+      'Orders',
+      'Discard',
+    ]);
     expect(list.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
     expect(within(column).getByTestId('turn-segment')).toHaveAttribute('aria-current', 'step');
     fireEvent.click(button);
@@ -170,6 +174,44 @@ describe('the turn and score controls in the left column on a touch screen (#133
     fireEvent.click(button);
     expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
     expect(screen.getByTestId('turn-counter')).toHaveTextContent('Turn 2');
+  });
+
+  it('shows the counters between Play and Orders, and keeps the row muted in orders (#1848)', async () => {
+    localStorage.setItem('practice-turn-counters', 'true');
+    await renderPage();
+    const column = screen.getByTestId('turn-score-column');
+    const list = within(column).getByTestId('turn-segment-list');
+    const at = (s: string) => list.querySelector(`[data-segment="${s}"] [data-testid="turn-segment-name"]`)!;
+    const order = [
+      within(column).getByRole('button', { name: 'Go to orders' }),
+      at('playAndDraw'),
+      within(column).getByTestId('turn-counters'),
+      at('orders'),
+      at('discard'),
+      within(column).getByTestId('score-counter'),
+    ];
+    expect(order[2]).toHaveTextContent('0/7');
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    // Three segments still, one current; the counters are no fourth.
+    expect(list.children).toHaveLength(3);
+    expect(list.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+    expect(list.querySelector('[aria-current="step"] [data-testid="turn-segment-name"]')).toHaveClass('bg-white/15');
+    expect(within(column).getByTestId('turn-counters-row')).not.toHaveClass('bg-white/15');
+
+    const row = within(column).getByTestId('turn-counters-row');
+    fireEvent.click(order[0]);
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Orders');
+    expect(within(column).getByTestId('turn-counters-row')).toBe(row);
+    expect(within(column).getByTestId('turn-counters')).toHaveAttribute('data-muted', 'true');
+  });
+
+  it('keeps the counters row mounted and empty with Counters off (#1848)', async () => {
+    await renderPage();
+    const column = screen.getByTestId('turn-score-column');
+    expect(within(column).getByTestId('turn-counters-row')).toBeEmptyDOMElement();
+    expect(within(column).queryByTestId('turn-counters')).toBeNull();
   });
 
   it('keeps the round 24 px corner buttons (#1497)', async () => {

@@ -1180,9 +1180,9 @@ export function useAttemptLayout(
 
 // The layout of the turn and score column (#1395, #1790). From the top, each control on a row of its
 // own: the turn group, a label line (`leading-3`), the next-turn button that shows the turn number
-// (#1449), the segments of the turn as a marked list of three rows (#1605, #1790) and the row of the
-// turn's counter (#1607), which the column keeps whether the counter shows or not, so the score does
-// not move; then, `gap-2` below, the score group, a label line, a number line (`leading-6`) and one
+// (#1449), the segments of the turn as a marked list of three rows (#1605, #1790) with the row of the
+// turn's counter (#1607) between Play and Orders, 2 px above and below it (#1848), which the column
+// keeps whether the counter shows or not, so the score does not move; then, `gap-2` below, the score group, a label line, a number line (`leading-6`) and one
 // row of minus and plus. Inside each group the rows sit `gap-1` apart, the list's rows edge to edge.
 // The tap rows (the next-turn button, the counter, minus and plus) are the largest between 32 and 44
 // px for which the column, and `TURN_SCORE_COLUMN_CLEARANCE` under it, fits above `roomBottom`, and a

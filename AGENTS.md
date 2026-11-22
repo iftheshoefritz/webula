@@ -712,12 +712,15 @@ score below it as before. A tap dispatches `drawOpeningHand`, which moves the to
 when it is short) to the hand at no cost, in one log entry, "Drew the opening hand (7 cards)", and
 clears the flag; one undo brings it back. An empty draw deck disables it. A hand draw meanwhile is an
 ordinary charged draw and keeps the flag; `nextTurn` clears it. Every control of the column has a row of its own (#1679, #1790): the next-turn button, the
-three rows of the segment list, the row of the counter (`data-testid="turn-counters-row"`), the
-score, and minus and plus side by side. With counters on, the counter of the turn's counters,
-`data-testid="turn-counters"`, fills its row in play and draw only, "0/7": "<spent>/<limit>", with
-`data-over="true"` past the limit; the row keeps its height without it, so the score does not move,
-and the Draw 7 block is as tall as the next-turn button, the list and that row. In Orders and
-Discard neither the counter nor its list shows, and nothing marks counters left unspent. Everything is derived from the log
+segment list's Play row, the row of the counter (`data-testid="turn-counters-row"`), indented under
+Play inside its `<li>` (#1848), the Orders and Discard rows, the score, and minus and plus side by
+side. The list keeps three items, each name a `turn-segment-name`, and the current one's highlight
+marks its name only. With counters on, the counter of the turn's counters,
+`data-testid="turn-counters"`, fills its row, "0/7": "<spent>/<limit>", with
+`data-over="true"` past the limit; in Orders and Discard it shows muted (`data-muted="true"`), and a
+tap still opens its list. With counters off the row stays, empty, so the score does not move,
+and the Draw 7 block is as tall as the next-turn button, the list and that row. Nothing marks
+counters left unspent. Everything is derived from the log
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that
 `gameReducer` makes for `correctCharge` and `adjustCounterLimit` with no change to the table, and
 `effectiveLog` applies the corrections before the log is read. Before the printed cost, a play asks

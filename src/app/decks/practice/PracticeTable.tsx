@@ -943,7 +943,11 @@ function TurnScoreColumn({
             <FaForward className="shrink-0" />
           </button>
           {/* The segments of the turn, one row each, the current one marked (#1790). The list is no
-              control: the next-turn button advances the segment. `turn-segment` is the current row. */}
+              control: the next-turn button advances the segment. `turn-segment` is the current row. The
+              counter of the turn (#1607), "0/7" alone, sits under Play, indented (#1848), since its
+              counters are spent in play and draw; its label and the list name the grants. In Orders and
+              Discard it shows muted, and with Counters off its row stays empty: the row keeps its
+              height, `gap-1` of margin with it, so the score does not move. */}
           <ol data-testid="turn-segment-list" className="flex w-full flex-col" aria-label="Segments of the turn">
             {TURN_SEGMENTS.map((s) => {
               const current = s === segment;
@@ -953,23 +957,38 @@ function TurnScoreColumn({
                   data-testid={current ? 'turn-segment' : undefined}
                   data-segment={s}
                   aria-current={current ? 'step' : undefined}
-                  className={`flex w-full items-center justify-center rounded ${
-                    current ? 'bg-white/15 font-semibold text-text-primary' : 'text-text-muted'
-                  }`}
-                  style={{ height: listRow, fontSize: listText }}
+                  className="flex w-full flex-col"
                 >
-                  {TURN_SEGMENT_NAMES[s]}
+                  <span
+                    data-testid="turn-segment-name"
+                    className={`flex w-full items-center justify-center rounded ${
+                      current ? 'bg-white/15 font-semibold text-text-primary' : 'text-text-muted'
+                    }`}
+                    style={{ height: listRow, fontSize: listText }}
+                  >
+                    {TURN_SEGMENT_NAMES[s]}
+                  </span>
+                  {s === 'playAndDraw' && (
+                    <div
+                      data-testid="turn-counters-row"
+                      className="flex w-full pl-1.5"
+                      style={{ height: tapRow, marginTop: 2, marginBottom: 2 }}
+                    >
+                      {counters && (
+                        <TurnCounterButton
+                          counters={counters}
+                          className={look}
+                          style={tapStyle}
+                          muted={segment !== 'playAndDraw'}
+                          onOpen={onOpenCounters}
+                        />
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
           </ol>
-          {/* The counter of the turn (#1607), in play and draw, "0/7" alone; its label and the list
-              name the grants. The row keeps its height without it, so the score does not move. */}
-          <div data-testid="turn-counters-row" className="flex w-full" style={{ height: tapRow }}>
-            {counters && segment === 'playAndDraw' && (
-              <TurnCounterButton counters={counters} className={look} style={tapStyle} onOpen={onOpenCounters} />
-            )}
-          </div>
         </div>
       )}
       <div className="flex flex-col items-center gap-1">
@@ -4734,7 +4753,7 @@ function PracticeDrawContent() {
             }
           />
         )}
-        {turnCountersOn && countersListOpen && currentCounters && table.segment === 'playAndDraw' && (
+        {turnCountersOn && countersListOpen && currentCounters && (
           <TurnCountersList
             charges={turnCharges(game.log, turn)}
             counters={currentCounters}

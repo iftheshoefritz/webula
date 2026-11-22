@@ -177,7 +177,7 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     expect(screen.queryByTestId('charge-chip')).toBeNull();
   });
 
-  it('shows the counter on a row of its own in play and draw only, and none in orders or discard (#1679, #1790)', async () => {
+  it('shows the counter on a row of its own under Play, muted in orders and discard (#1679, #1790, #1848)', async () => {
     await act(async () => {
       render(<PracticeDrawPage />);
     });
@@ -186,8 +186,10 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     const column = screen.getByTestId('turn-score-column');
     const counterRow = within(column).getByTestId('turn-counters-row');
     expect(counterRow).toHaveTextContent('0/7');
-    expect(within(column).getByTestId('turn-segment-list')).not.toContainElement(screen.getByTestId('turn-counters'));
+    const play = within(column).getByTestId('turn-segment-list').querySelector('[data-segment="playAndDraw"]')!;
+    expect(play).toContainElement(counterRow);
     expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Play');
+    expect(screen.getByTestId('turn-counters')).not.toHaveAttribute('data-muted');
     const next = within(column).getByRole('button', { name: 'Go to orders' });
     expect(next).not.toContainElement(screen.getByTestId('turn-counters'));
     await act(async () => {
@@ -195,18 +197,21 @@ describe('the counter of the turn\'s counters (#1607)', () => {
     });
     expect(screen.getByTestId('turn-counters-list')).toBeInTheDocument();
     await act(async () => {
-      fireEvent.click(next);
+      fireEvent.click(screen.getByRole('button', { name: 'Close the counters' }));
     });
-    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Orders');
-    // The row stays, empty, so the score does not move.
-    expect(within(column).getByTestId('turn-counters-row')).toBe(counterRow);
-    expect(counterRow).toBeEmptyDOMElement();
-    expect(screen.queryByTestId('turn-counters')).toBeNull();
     expect(screen.queryByTestId('turn-counters-list')).toBeNull();
     await act(async () => {
       fireEvent.click(next);
     });
+    expect(within(column).getByTestId('turn-segment')).toHaveTextContent('Orders');
+    // The row stays, with the counter muted, so the score does not move, and a tap still opens the list.
+    expect(within(column).getByTestId('turn-counters-row')).toBe(counterRow);
+    expect(screen.getByTestId('turn-counters')).toHaveAttribute('data-muted', 'true');
     expect(counterRow).toHaveTextContent('0/7');
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('turn-counters'));
+    });
+    expect(screen.getByTestId('turn-counters-list')).toBeInTheDocument();
   });
 
   it('draws the opening hand of 7 at no cost, and shows the turn controls after it (#1736)', async () => {
