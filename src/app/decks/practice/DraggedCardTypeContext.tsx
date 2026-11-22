@@ -8,6 +8,7 @@
 // already tracks the dragged card for the drag overlay; no new state is needed.
 
 import { createContext, useContext } from 'react';
+import type { PlayPlaces } from './playPlaces';
 
 const DraggedCardTypeContext = createContext<string | null>(null);
 
@@ -15,4 +16,14 @@ export const DraggedCardTypeProvider = DraggedCardTypeContext.Provider;
 
 export function useDraggedCardType(): string | null {
   return useContext(DraggedCardTypeContext);
+}
+
+// Beside the type (#1856): where the dragged card may be played, for a single personnel, ship or
+// equipment from the hand in play and draw, or `null` for every other drag, and by default.
+const PlayPlacesContext = createContext<PlayPlaces | null>(null);
+
+export const PlayPlacesProvider = PlayPlacesContext.Provider;
+
+export function usePlayPlaces(): PlayPlaces | null {
+  return useContext(PlayPlacesContext);
 }
