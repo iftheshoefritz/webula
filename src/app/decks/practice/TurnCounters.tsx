@@ -484,12 +484,15 @@ export function TurnCounterButton({
   counters,
   className,
   style,
+  muted = false,
   onOpen,
 }: {
   counters: TurnCounters;
   className: string;
   // The height and the text size of the column's tap rows (#1790).
   style?: React.CSSProperties;
+  // Outside play and draw (#1848): what the turn spent, in a muted look, still tappable.
+  muted?: boolean;
   onOpen: () => void;
 }) {
   const { spent, limit } = counters;
@@ -506,12 +509,13 @@ export function TurnCounterButton({
       data-testid="turn-counters"
       data-over={over ? 'true' : undefined}
       data-granted={grants ? 'true' : undefined}
+      data-muted={muted ? 'true' : undefined}
       onClick={onOpen}
       aria-label={text}
       title={text}
       style={style}
       className={`${className} min-w-0 flex-1 px-0 font-semibold tabular-nums ${
-        over ? 'text-amber-300' : 'text-text-primary'
+        muted ? 'text-text-muted opacity-60' : over ? 'text-amber-300' : 'text-text-primary'
       }`}
     >
       {spent}/{limit}
