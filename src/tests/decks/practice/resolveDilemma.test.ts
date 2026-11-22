@@ -208,6 +208,15 @@ describe('resolveDilemma in the log, undo and redo', () => {
     expect(gameReducer(undone, { type: 'redo' }).table).toEqual(game.table);
   });
 
+  it('puts a personnel on top of the draw deck for topOfDeck, names it in the entry, and is undone whole (#1846)', () => {
+    const before = flipped();
+    const game = gameReducer(before, resolve([{ op: 'topOfDeck', ids: ['card-2'] }]));
+    expect(awayTeamIds(game.table)).not.toContain('card-2');
+    expect(game.table.drawDeck[0].id).toBe('card-2');
+    expect(logEntryText(game.log[1])).toBe('Resolved Limited Welcome: put on top of the draw deck Data');
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(before.table);
+  });
+
   it('keeps the entry and the undo step through a save', () => {
     const game = gameReducer(flipped(), resolve([{ op: 'kill', ids: ['card-2'] }]));
     const json = JSON.stringify(toSavedGame(game.table, deck, 'builder', undefined, undefined, game.log));

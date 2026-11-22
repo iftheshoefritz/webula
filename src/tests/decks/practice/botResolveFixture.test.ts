@@ -661,3 +661,26 @@ describe('?fixture=bot-resolve-60s (#1845)', () => {
     expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
   });
 });
+
+describe('?fixture=bot-resolve-jailbreak (#1846)', () => {
+  it('reveals Jailbreak and puts the two of the kept roll on top of the draw deck in one entry that one undo takes back', () => {
+    const dealt = dealRevealFixture('bot-resolve-jailbreak', true);
+    const top = dealt.dilemmaStack[0];
+    expect(top.card.originalName).toContain('Jailbreak');
+    expect(dealt.attempt?.revealSnapshot?.picks?.[0]).toHaveLength(2);
+    // Two Simmons of the Bilana System crew, who have neither Physics nor Cunning>13, as the kept roll.
+    const ship = dealt.missions[dealt.attempt!.missionIndex].ships.find((s) => s.id === dealt.attempt!.shipId)!;
+    const simmons = ship.crew!.filter((c) => c.card.originalName === 'Simmons').slice(0, 2).map((c) => c.id);
+    const snapshot = dealt.attempt!.revealSnapshot!;
+    const table: TableState = { ...dealt, attempt: { ...dealt.attempt!, revealSnapshot: { ...snapshot, picks: [simmons] } } };
+    const r = botResolveOf(table);
+    if (!r.resolvable) throw new Error(r.reason);
+    expect(r.preview).toMatch(/^The selected personnel do not have Physics or Cunning>13: places 2 on top of the draw deck/);
+    const start = initialGameState(table);
+    const game = gameReducer(start, { type: 'resolveDilemma', dilemmaId: top.id, dilemma: 'Jailbreak', changes: r.changes, notes: r.notes, move: r.move });
+    expect(game.table.drawDeck.slice(0, 2).map((c) => c.id).sort()).toEqual([...simmons].sort());
+    expect(game.log).toHaveLength(start.log.length + 1);
+    expect(logEntryText(game.log[game.log.length - 1])).toContain('put on top of the draw deck Simmons');
+    expect(gameReducer(game, { type: 'undo' }).table).toEqual(table);
+  });
+});

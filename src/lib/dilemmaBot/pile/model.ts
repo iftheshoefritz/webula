@@ -101,6 +101,13 @@ export interface PileTable {
   nebulaMission?: boolean;
   /** The titles of the dilemmas overcome beneath each of the player's missions (Talosian Trial). Absent: none. */
   underPlayerMissions?: string[];
+  /** The planet and the space missions the player commands, completed ones too (Interdimensional Aperture, Stupid Cave Mission, #1846). Absent: 0. */
+  planetMissions?: number;
+  spaceMissions?: number;
+  /** The different Song dilemmas, by title, beneath the player's missions (Status Report, #1846). Absent: 0. */
+  songsUnderMissions?: number;
+  /** The events in the player's core with no Ritual keyword (Kobayashi Maru Scenario, #1846). Absent: 0. */
+  coreNonRitualEvents?: number;
 }
 
 /** A personnel in the player's hand, as a dilemma that reveals the hand reads it. */
@@ -117,6 +124,8 @@ export interface PileMission {
   span: number;
   /** A Nebula mission (Alternatives to Fighting). */
   nebula: boolean;
+  /** The bracketed affiliation icons of its printed `Affiliation` column, `[Baj][Car][Fed]` 3 (Crossroads, #1846). Absent: 0. */
+  affiliationIcons?: number;
 }
 
 /** The input of the pile bot: the attempting personnel, the mission, the table, and the copies of Chula: The Game on the mission. */
@@ -141,6 +150,14 @@ export interface PileAttempt {
    * dilemma fires.
    */
   botAffiliations?: string[];
+  /**
+   * The bot's side (#1846): the planet and the space missions of the `Missions:` section of the bot's
+   * deck, all incomplete, since the bot completes none (Interdimensional Aperture, Stupid Cave Mission).
+   * Absent: the Chula pile, which has no deck, and the bot commands no mission.
+   */
+  botMissions?: { planet: number; space: number };
+  /** The different Song cards of the bot deck's `Deck:` section, taken as in its core or discard pile (Status Report, #1846). Absent: 0. */
+  botSongCards?: number;
   /**
    * The equipment of the attempt, each with its keywords lowercased, for example `['hand weapon']`
    * (Center of Attention, Rogue Borg Ambush). Absent: none.
@@ -254,7 +271,8 @@ export function lastingDamage(r: Omit<PileResult, 'fail' | 'labels' | 'stopped' 
 export type BotSideCategory = '1' | '2' | '3' | '4a' | '4b' | '4c' | '4d' | '4e' | '4f' | '4g' | '5a' | '5b' | '5c' | '5d' | '6' | '7' | '8';
 
 /** What a verb of a personnel result records (#1579): `ks` index `attempt.personnel`. */
-export type PersonnelOp = 'stop' | 'kill' | 'remove' | 'brig' | 'holdInCore' | 'move' | 'returnToHand';
+/** `topOfDeck` puts the personnel on top of its owner's draw deck (#1846): it counts as a kill in `PileResult`. */
+export type PersonnelOp = 'stop' | 'kill' | 'remove' | 'brig' | 'holdInCore' | 'move' | 'returnToHand' | 'topOfDeck';
 
 /**
  * One effect of a play, in play order (#1579). `title` is the dilemma being faced; `why`, when given, is

@@ -359,6 +359,9 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
     dilemmaPile: table.dilemmaPile.map((c) => c.card),
     // The bot deck's affiliations (#1520); absent for the Chula pile.
     ...(table.botPile?.affiliations ? { botAffiliations: table.botPile.affiliations } : {}),
+    // The bot deck's missions and Song cards (#1846): absent for the Chula pile and a save from before.
+    ...(table.botPile?.missions ? { botMissions: table.botPile.missions } : {}),
+    ...(table.botPile?.songCards ? { botSongCards: table.botPile.songCards } : {}),
   };
 }
 
@@ -514,6 +517,7 @@ export function fixtureAttemptStack(table: TableState): Extract<TableAction, { t
 // `?fixture=bot-resolve-prevent` (#1761) attempts Sigma Iotia II in place of Bilana System and reveals
 // Well-Prepared Defenses, which the mission prevents and overcomes.
 // `?fixture=bot-resolve-60s` (#1845) reveals Urgent Search, a dual dilemma of 60S whose label names an attribute.
+// `?fixture=bot-resolve-jailbreak` (#1846) reveals Jailbreak, whose Resolve puts personnel on top of the draw deck.
 export const FIXTURE_BOT_LABEL_DILEMMA = 'Well-Prepared Defenses';
 
 // The dilemma each revealing bot fixture adds to the bot's pile and reveals, by title and collector's info.
@@ -550,6 +554,8 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   'bot-resolve-prevent': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017', mission: '23V027', awayTeamSlot: 0 },
   // Urgent Search, a dual dilemma of 60S, whose label names an attribute and whose kept roll stops (#1845).
   'bot-resolve-60s': { title: 'Urgent Search', collectorsInfo: '67V020' },
+  // Jailbreak, a dual dilemma of 60S, whose kept roll of 2 goes on top of the draw deck (#1846).
+  'bot-resolve-jailbreak': { title: 'Jailbreak', collectorsInfo: '67V009' },
   // Hard of Heart, a planet dilemma that selects 2 at random, at Moab IV's away team, with Let's Try That
   // Again in the core and Dessert Disaster in the hand (#1847).
   'bot-select-again': { title: 'Hard of Heart', collectorsInfo: '38V004', awayTeamSlot: 0 },

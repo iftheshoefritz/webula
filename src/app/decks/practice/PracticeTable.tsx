@@ -3635,6 +3635,8 @@ function PracticeDrawContent() {
         name: choice.name,
         affiliations: chosen.affiliations,
         ...(chosen.unexpectedDifficulties ? { unexpectedDifficulties: true as const } : {}),
+        missions: chosen.missions,
+        songCards: chosen.songCards,
       };
     }
     const deck = mergeDeckPiles(base.deck, pile, ['dilemmaPile']);
