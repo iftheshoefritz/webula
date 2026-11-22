@@ -717,8 +717,10 @@ Play inside its `<li>` (#1848), the Orders and Discard rows, the score, and minu
 side. The list keeps three items, each name a `turn-segment-name`, and the current one's highlight
 marks its name only. With counters on, the counter of the turn's counters,
 `data-testid="turn-counters"`, fills its row, "0/7": "<spent>/<limit>", with
-`data-over="true"` past the limit; in Orders and Discard it shows muted (`data-muted="true"`), and a
-tap still opens its list. With counters off the row stays, empty, so the score does not move,
+`data-over="true"` past the limit. In Orders and Discard the row is gone (#1873): Orders and Discard
+move up under Play, a spacer below the list (`turn-counters-spacer`) takes the row's height so the
+score does not move, and the counters list is not reachable; the game log keeps what each play and
+draw segment spent (`segmentTotalText`). With counters off the row stays in play and draw, empty,
 and the Draw 7 block is as tall as the next-turn button, the list and that row. Nothing marks
 counters left unspent. Everything is derived from the log
 (`turnCounters` in `gameLog.ts`): a correction is a log entry, `chargeCorrected` or `counterLimit`, that

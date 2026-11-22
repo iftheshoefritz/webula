@@ -952,9 +952,10 @@ function TurnScoreColumn({
           {/* The segments of the turn, one row each, the current one marked (#1790). The list is no
               control: the next-turn button advances the segment. `turn-segment` is the current row. The
               counter of the turn (#1607), "0/7" alone, sits under Play, indented (#1848), since its
-              counters are spent in play and draw; its label and the list name the grants. In Orders and
-              Discard it shows muted, and with Counters off its row stays empty: the row keeps its
-              height, `gap-1` of margin with it, so the score does not move. */}
+              counters are spent in play and draw; its label and the list name the grants. With Counters
+              off its row stays empty. In Orders and Discard the row is gone (#1873), so Orders and
+              Discard move up under Play, and a spacer below the list takes its height and margin, so
+              the score does not move. */}
           <ol data-testid="turn-segment-list" className="flex w-full flex-col" aria-label="Segments of the turn">
             {TURN_SEGMENTS.map((s) => {
               const current = s === segment;
@@ -975,7 +976,7 @@ function TurnScoreColumn({
                   >
                     {TURN_SEGMENT_NAMES[s]}
                   </span>
-                  {s === 'playAndDraw' && (
+                  {s === 'playAndDraw' && segment === 'playAndDraw' && (
                     <div
                       data-testid="turn-counters-row"
                       className="flex w-full pl-1.5"
@@ -986,7 +987,6 @@ function TurnScoreColumn({
                           counters={counters}
                           className={look}
                           style={tapStyle}
-                          muted={segment !== 'playAndDraw'}
                           onOpen={onOpenCounters}
                         />
                       )}
@@ -996,6 +996,10 @@ function TurnScoreColumn({
               );
             })}
           </ol>
+          {/* The counter's row and its 4 px of margin: `gap-1` gives the 4 px. */}
+          {segment !== 'playAndDraw' && (
+            <div data-testid="turn-counters-spacer" style={{ height: tapRow }} aria-hidden="true" />
+          )}
         </div>
       )}
       <div className="flex flex-col items-center gap-1">
