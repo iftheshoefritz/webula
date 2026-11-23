@@ -4,12 +4,15 @@
 // - `draw`: a fixed number of cards (Downfallen Civilization's 3 while no mission is completed too), up to a
 //   number the player picks, the printed cost of a personnel the player picks, or a number after a pick of the
 //   step before that has an icon (Second Edition's [AU]).
-// - `discardFromHand`: N cards of the hand, or the whole hand when it holds fewer.
+// - `discardFromHand`: N cards of the hand, or the whole hand when it holds fewer; with a test (#1904, Six of Ten), only
+//   the cards of the hand that pass it.
 // - `bottomFromHand`: N cards of the hand to the bottom of the draw deck, in the player's order.
 // - `examine`: the top N of the draw deck, some taken into hand, the rest to the bottom in the player's order.
 // - `download`: up to N cards of the draw deck that pass a test, or a copy of a personnel the player commands,
 //   into hand, aboard a ship, played aboard the played ship, or on top of the draw deck.
 // - `shuffle`: the draw deck.
+// - `discardTop`: the top of the draw deck to the discard pile, as many as the printed cost of the card the download
+//   before it took (#1904, Quintessence).
 // - `score`: N points.
 // - `exchange`: a personnel of the hand with one the player commands.
 // - `kill`: up to N of the player's personnel at a mission that pass a test, each to the discard pile, logged as
@@ -114,6 +117,8 @@ export interface DiscardFromHandStep {
   kind: 'discardFromHand';
   count: number;
   may?: boolean;
+  /** Only the cards of the hand that pass it (#1904): "a card from hand that has a cost of 4 or more". */
+  test?: DownloadTest[];
 }
 
 export interface BottomFromHandStep {
@@ -150,6 +155,12 @@ export interface DownloadStep {
 
 export interface ShuffleStep {
   kind: 'shuffle';
+}
+
+/** The top of the draw deck to the discard pile, as many as the printed cost of the card the download before it took (#1904). */
+export interface DiscardTopStep {
+  kind: 'discardTop';
+  count: { kind: 'downloadedCost' };
 }
 
 export interface ScoreStep {
@@ -190,7 +201,17 @@ export interface ExchangeStep {
   may?: boolean;
 }
 
-export type EffectStep = DrawStep | DiscardFromHandStep | BottomFromHandStep | ExamineStep | DownloadStep | ShuffleStep | ScoreStep | ExchangeStep | KillStep;
+export type EffectStep =
+  | DrawStep
+  | DiscardFromHandStep
+  | BottomFromHandStep
+  | ExamineStep
+  | DownloadStep
+  | ShuffleStep
+  | DiscardTopStep
+  | ScoreStep
+  | ExchangeStep
+  | KillStep;
 
 export type EffectStepKind = EffectStep['kind'];
 
@@ -203,7 +224,12 @@ export const draw = (count: number, opts: { withoutCompleted?: number; may?: boo
 export const drawUpTo = (count: number, may = true): DrawStep => ({ kind: 'draw', count: { kind: 'upTo', count }, ...(may ? { may } : {}) });
 export const drawPersonnelCost = (): DrawStep => ({ kind: 'draw', count: { kind: 'personnelCost' } });
 export const drawIfPickedIcon = (icon: string, count: number): DrawStep => ({ kind: 'draw', count: { kind: 'ifPickedIcon', icon, count } });
-export const discardFromHand = (count: number, may = false): DiscardFromHandStep => ({ kind: 'discardFromHand', count, ...(may ? { may } : {}) });
+export const discardFromHand = (count: number, may = false, test?: DownloadTest[]): DiscardFromHandStep => ({
+  kind: 'discardFromHand',
+  count,
+  ...(may ? { may } : {}),
+  ...(test ? { test } : {}),
+});
 export const bottomFromHand = (count: number): BottomFromHandStep => ({ kind: 'bottomFromHand', count, ordered: true });
 export const download = (upTo: number, testText: string, test: DownloadTest[]): DownloadStep => ({
   kind: 'download',
@@ -213,6 +239,7 @@ export const download = (upTo: number, testText: string, test: DownloadTest[]): 
   may: true,
 });
 export const shuffle = (): ShuffleStep => ({ kind: 'shuffle' });
+export const discardTopByDownloadedCost = (): DiscardTopStep => ({ kind: 'discardTop', count: { kind: 'downloadedCost' } });
 export const score = (points: number): ScoreStep => ({ kind: 'score', points, may: true });
 /** A score of `points` for each card the step before picked, which runs with that step. */
 export const scorePerPick = (points: number): ScoreStep => ({ kind: 'score', points, perPick: true });
@@ -221,6 +248,7 @@ export const kill = (upTo: number, testText: string, test: DownloadTest[]): Kill
 /** Whether a step runs on its own, with no input of the player, so it joins the stage of the step before it. */
 export const isAutomaticStep = (step: EffectStep): boolean =>
   step.kind === 'shuffle' ||
+  step.kind === 'discardTop' ||
   (step.kind === 'score' && step.perPick === true) ||
   (step.kind === 'draw' && (step.count.kind === 'fixed' || step.count.kind === 'ifPickedIcon'));
 
@@ -266,6 +294,10 @@ export const drawUpToCount = (most: number, wanted: number, deck: number): numbe
 
 /** The cards a hand step asks for: the step's number, or the whole hand when it holds fewer. */
 export const handCount = (step: { count: number }, hand: number): number => Math.min(step.count, hand);
+
+/** The cards of the hand a discard step may take (#1904): those that pass its test, or every card. */
+export const discardableFromHand = <C extends { card?: DownloadedCard | null }>(step: Pick<DiscardFromHandStep, 'test'>, hand: C[]): C[] =>
+  step.test ? hand.filter((c) => downloadTakes({ test: step.test! }, c.card)) : hand;
 
 /** The cards an examine looks at: the step's number, or the whole draw deck when it holds fewer. */
 export const examineCount = (step: Pick<ExamineStep, 'count'>, deck: number): number => Math.max(0, Math.min(step.count, deck));

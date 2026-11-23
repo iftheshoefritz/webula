@@ -6,12 +6,22 @@ import type { GameEventKind, TriggerRow } from './model';
 import { BOT_TRIGGER_ROWS } from './titles/bot';
 import { COMPLETION_TRIGGER_ROWS } from './titles/completion';
 import { PERSONNEL_TRIGGER_ROWS } from './titles/personnel';
+import { PLAY_TRIGGER_ROWS } from './titles/play';
+import { SHIP_TRIGGER_ROWS } from './titles/ships';
+import { TURN_START_TRIGGER_ROWS } from './titles/turnStart';
 
 export * from './model';
 export { UNEXPECTED_DIFFICULTIES } from './titles/bot';
 
 /** Every trigger row. */
-export const TRIGGER_ROWS: readonly TriggerRow[] = [...COMPLETION_TRIGGER_ROWS, ...PERSONNEL_TRIGGER_ROWS, ...BOT_TRIGGER_ROWS];
+export const TRIGGER_ROWS: readonly TriggerRow[] = [
+  ...COMPLETION_TRIGGER_ROWS,
+  ...SHIP_TRIGGER_ROWS,
+  ...PLAY_TRIGGER_ROWS,
+  ...TURN_START_TRIGGER_ROWS,
+  ...PERSONNEL_TRIGGER_ROWS,
+  ...BOT_TRIGGER_ROWS,
+];
 
 const BY_TITLE = new Map<string, TriggerRow[]>();
 for (const r of TRIGGER_ROWS) {
