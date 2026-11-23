@@ -7,11 +7,13 @@ import { BOT_TRIGGER_ROWS } from './titles/bot';
 import { COMPLETION_TRIGGER_ROWS } from './titles/completion';
 import { PERSONNEL_TRIGGER_ROWS } from './titles/personnel';
 import { PLAY_TRIGGER_ROWS } from './titles/play';
+import { REVEAL_TRIGGER_ROWS } from './titles/reveal';
 import { SHIP_TRIGGER_ROWS } from './titles/ships';
 import { TURN_START_TRIGGER_ROWS } from './titles/turnStart';
 
 export * from './model';
 export { UNEXPECTED_DIFFICULTIES } from './titles/bot';
+export { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from './titles/reveal';
 
 /** Every trigger row. */
 export const TRIGGER_ROWS: readonly TriggerRow[] = [
@@ -20,6 +22,7 @@ export const TRIGGER_ROWS: readonly TriggerRow[] = [
   ...PLAY_TRIGGER_ROWS,
   ...TURN_START_TRIGGER_ROWS,
   ...PERSONNEL_TRIGGER_ROWS,
+  ...REVEAL_TRIGGER_ROWS,
   ...BOT_TRIGGER_ROWS,
 ];
 

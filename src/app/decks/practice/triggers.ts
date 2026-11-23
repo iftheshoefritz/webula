@@ -4,7 +4,7 @@
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import { missions, type TableView, type ViewCard } from '../../../lib/tableView';
-import { eventMissionIndex, eventSubjects, triggerRowsFor, triggerRowsOf } from '../../../lib/triggers';
+import { eventMissionIndex, eventSubjects, onRevealedCard, triggerRowsFor, triggerRowsOf } from '../../../lib/triggers';
 import type { GameEvent, TriggerContext, TriggerRow } from '../../../lib/triggers';
 import { gameEventsOf } from './gameEvents';
 import { effectiveLog, effectSubjectOf, type LogEntry, type TriggerTarget } from './gameLog';
@@ -123,6 +123,8 @@ export function pendingTriggersOf(state: { table: TableState; log: LogEntry[] })
   const offers: TriggerOffer[] = [];
   events.forEach((event, k) => {
     for (const row of triggerRowsFor(event.kind)) {
+      // Select again and Dessert Disaster (#1905) are taken on the revealed dilemma's own buttons, never as chips.
+      if (onRevealedCard(row)) continue;
       const rowIndex = triggerRowsOf(row.title).indexOf(row);
       for (const { instance, slot } of sourcesOf(row, event, table)) {
         const source = instance ? instance.id : 'botDeck';

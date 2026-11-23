@@ -2,7 +2,6 @@ import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { TRISTAN_ADAMS_TITLE } from '../../app/decks/practice/dilemmaPrevention';
 import { ROADBLOCK_TITLE } from '../../app/decks/practice/selfReplicatingRoadblock';
-import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from '../../app/decks/practice/tableReducer';
 import { COST_REGISTRY, COST_ROWS } from '../../lib/costModels/registry';
 import { MISSION_MODEL_TITLES } from '../../lib/missionModels';
 import { modifierTitles, type Quantity } from '../../lib/modifiers';
@@ -53,8 +52,6 @@ const MISSION = lower(MISSION_MODEL_TITLES);
 const BESPOKE: Record<string, Concern[]> = {
   [ROADBLOCK_TITLE.toLowerCase()]: ['ongoing'],
   [TRISTAN_ADAMS_TITLE.toLowerCase()]: ['ongoing', 'trigger'],
-  [SELECT_AGAIN_TITLE.toLowerCase()]: ['ongoing', 'eventResolve'],
-  [REPLACE_PICK_TITLE.toLowerCase()]: ['interrupt'],
 };
 
 /** Whether the registries of today model a clause of `concern` on `title`. */

@@ -122,8 +122,22 @@ export interface BotRedrawDilemmasStep {
   kind: 'botRedrawDilemmas';
 }
 
-/** A step of a trigger row: an effect step, or a step of the bot's own. */
-export type TriggerStep = EffectStep | BotRedrawDilemmasStep;
+/**
+ * A step that changes the kept roll of the revealed dilemma (#1905): `selectAgain` rolls the reveal snapshot's picks
+ * again (Let's Try That Again, Shall We?), `replacePick` swaps one pick for an unstopped, unpicked [Stf] personnel of
+ * the attempting row (Dessert Disaster). Their rows are offered on the revealed card's own buttons, never as offer
+ * chips (`onRevealedCard`), and the actions `selectAgain` and `replacePick` of `tableReducer.ts` take them, with the
+ * roll that `withShuffleOrders` makes.
+ */
+export interface RevealedCardStep {
+  kind: 'selectAgain' | 'replacePick';
+}
+
+/** A step of a trigger row: an effect step, a step of the bot's own, or a step on the revealed dilemma's roll. */
+export type TriggerStep = EffectStep | BotRedrawDilemmasStep | RevealedCardStep;
+
+/** Whether a row is taken on the revealed dilemma's own buttons (#1905) rather than as an offer chip. */
+export const onRevealedCard = (row: TriggerRow): boolean => row.steps.some((s) => s.kind === 'selectAgain' || s.kind === 'replacePick');
 
 export interface TriggerRow {
   /** The title, less its version suffix, as the card data names it ("Distant Exploration"). */
