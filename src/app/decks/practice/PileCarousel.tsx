@@ -29,14 +29,28 @@ import PanelCloseButton from './PanelCloseButton';
 import { useFinePointer } from './useFinePointer';
 import { CarouselSlot, carouselLayout } from './pileCarouselLayout';
 
-export type CarouselPile = 'drawDeck';
+// The piles a search shows as a carousel: the draw deck (#1899), the dilemma pile (#1900) and the
+// discard pile (#1901).
+export type CarouselPile = 'drawDeck' | 'dilemmaPile' | 'discard';
 
 const PILE_TITLE: Record<CarouselPile, string> = {
   drawDeck: 'Search draw deck',
+  dilemmaPile: 'Search dilemma pile',
+  discard: 'Search discard pile',
 };
 
 const PILE_NAME: Record<CarouselPile, string> = {
   drawDeck: 'draw deck',
+  dilemmaPile: 'dilemma pile',
+  discard: 'discard pile',
+};
+
+// The labels of the two ends of the slider. The discard pile's carousel shows the newest card first
+// (`PracticeTable` passes it reversed), so its first end is the newest.
+const PILE_ENDS: Record<CarouselPile, [string, string]> = {
+  drawDeck: ['Top', 'Bottom'],
+  dilemmaPile: ['Top', 'Bottom'],
+  discard: ['Newest', 'Oldest'],
 };
 
 // The middle card's index after a change of the pile: the same index, kept inside the pile.
@@ -174,6 +188,7 @@ export default function PileCarousel({
   onDownload,
   onDiscard,
   onSendToDeck,
+  onSetRemovedFromGame,
   hidden = false,
 }: {
   pile: CarouselPile;
@@ -187,6 +202,9 @@ export default function PileCarousel({
   onDownload?: (ids: string[]) => void;
   onDiscard?: (ids: string[]) => void;
   onSendToDeck?: (ids: string[], position: 'top' | 'bottom') => void;
+  // The discard pile's Remove from game (#1564): sets `removedFromGame` on the selection, false when
+  // every selected card is already removed, so the button reads "Return to game" then.
+  onSetRemovedFromGame?: (ids: string[], removedFromGame: boolean) => void;
   hidden?: boolean;
 }) {
   const finePointer = useFinePointer();
@@ -210,6 +228,9 @@ export default function PileCarousel({
   const selected = selectedInPileOrder(cards, selectedIds);
   const count = selected.length;
   const name = PILE_NAME[pile];
+  const [firstEnd, lastEnd] = PILE_ENDS[pile];
+  const allSelectedRemoved =
+    count > 0 && cards.every((instance) => !selected.includes(instance.id) || instance.removedFromGame);
 
   useEscapeLayer(() => {
     if (hidden) return;
@@ -373,6 +394,17 @@ export default function PileCarousel({
               </button>
             </>
           )}
+          {onSetRemovedFromGame && (
+            <button
+              type="button"
+              data-testid="remove-from-game-button"
+              onClick={act((ids) => onSetRemovedFromGame(ids, !allSelectedRemoved))}
+              disabled={count === 0}
+              className={actionClassName}
+            >
+              {allSelectedRemoved ? 'Return to game' : 'Remove from game'}
+            </button>
+          )}
         </div>
 
         <div
@@ -440,11 +472,11 @@ export default function PileCarousel({
               />
             </span>
             <span className="flex justify-between text-[10px] text-text-secondary">
-              <span>Top</span>
+              <span>{firstEnd}</span>
               <span data-testid="pile-carousel-position" className="font-semibold text-text-primary">
                 {cards.length === 0 ? '0 of 0' : `${middle + 1} of ${cards.length}`}
               </span>
-              <span>Bottom</span>
+              <span>{lastEnd}</span>
             </span>
           </label>
           <button type="button" onClick={() => go(middle + 1)} disabled={middle >= cards.length - 1} aria-label="Next card" className={roundClassName}>
