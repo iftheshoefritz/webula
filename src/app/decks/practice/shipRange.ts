@@ -3,10 +3,10 @@
 // own, with no import of `tableReducer.ts`, so `MissionRow` reads it without loading the reducer and
 // its `@dnd-kit/sortable` import.
 
-import { personnel } from '../../../lib/tableView';
+import { QUADRANT_SPAN as SPAN_BETWEEN_QUADRANTS, rangeOf, spanOf } from '../../../lib/modifiers';
 import type { CardInstance, MissionSlot } from './tableReducer';
-import { quadrantOf, type RangeTable, rangeSpanModelOf } from './rangeModels';
-import { type TableRead, tableReadOf } from './tableView';
+import type { RangeTable } from './rangeModels';
+import { modifierCardOf, type TableRead, tableReadOf, viewCardOf } from './tableView';
 
 // A card with no printed Range reads 0.
 export const printedRange = (card: CardInstance | null | undefined): number => Number(card?.card?.range) || 0;
@@ -15,15 +15,15 @@ export const printedRange = (card: CardInstance | null | undefined): number => N
 export const printedSpan = (card: CardInstance | null | undefined): number => Number(card?.card?.span) || 0;
 
 // What a move between two different quadrants adds to the span total (#1635).
-export const QUADRANT_SPAN = 2;
+export const QUADRANT_SPAN = SPAN_BETWEEN_QUADRANTS;
 
 // The span total of a move of `ship` from the mission of slot `fromIndex` to the mission of slot
 // `toIndex` (#1635): the printed spans of the two missions, plus 2 when both slots hold a mission and
-// their quadrants differ, unless a span model of either mission, of the ship or of an event in the
-// core waives it (#1648). An empty slot, or a mission with no quadrant, adds no 2. The span models of
-// the core's events then take their reductions off the total, which never goes below 0, and last
-// set the total a move requires (Shadows of the Night, #1827). With
-// `cardText` false, the setting "Apply card text to attributes" off (#1668), no model applies: the
+// their quadrants differ, unless a modifier row of either mission, of the ship or of an event in the
+// core waives it (#1648). An empty slot, or a mission with no quadrant, adds no 2. The rows of the
+// core's events then take their reductions off the total, which never goes below 0, and last
+// set the total a move requires (Shadows of the Night, #1827): `spanOf` of `src/lib/modifiers` (#1887). With
+// `cardText` false, the setting "Apply card text to attributes" off (#1668), no row applies: the
 // printed spans, and the 2 between quadrants, a rule of the game.
 export function moveSpanTotal(
   missions: MissionSlot[],
@@ -35,57 +35,22 @@ export function moveSpanTotal(
 ): number {
   const from = missions[fromIndex]?.mission ?? null;
   const to = missions[toIndex]?.mission ?? null;
-  let total = printedSpan(from) + printedSpan(to);
-  if (from && to && quadrantOf(from) && quadrantOf(to) && quadrantOf(from) !== quadrantOf(to)) {
-    const waived =
-      cardText &&
-      ([from, to, ship].some((self) => rangeSpanModelOf(self)?.waivesQuadrant?.(self, from, to)) ||
-      core.some((self) => rangeSpanModelOf(self)?.coreWaivesQuadrant?.(self, from, to, ship)));
-    if (!waived) total += QUADRANT_SPAN;
-  }
-  if (!from || !to || !cardText) return total;
-  for (const self of core) total -= rangeSpanModelOf(self)?.coreSpanReduction?.(self, from, to, ship) ?? 0;
-  total = Math.max(0, total);
-  for (const self of core) total = rangeSpanModelOf(self)?.coreSpanTotal?.(self, from, to, ship, total) ?? total;
-  return total;
+  return spanOf(from && viewCardOf(from), to && viewCardOf(to), modifierCardOf(ship), cardText ? core.map(viewCardOf) : [], cardText);
 }
 
-// A ship's Range on the table as it stands (#1635): its printed Range, plus the Range its own range
-// model gives it, plus the Range of every event placed on a mission card whose range model applies
-// to it, plus the Range of every personnel of its crew and every event placed on it whose range model
-// applies (#1648), plus the Range of every personnel the player commands whose range model changes
-// ships (#1671), and the Range of every event in the core whose range model applies (Soliton Wave,
-// #1827), for a ship on a ship row. It never goes below 0. With `cardText` false (#1668) it is
-// the printed Range.
+// A ship's Range on the table as it stands (#1635): its printed Range, plus the modifier rows of the ship
+// itself, of every event placed on a mission card, of every personnel of its crew and every event placed on it
+// (#1648), and for a ship on a ship row of every personnel the player commands that changes ships (#1671) and of
+// every event in the core (Soliton Wave, #1827): `rangeOf` of `src/lib/modifiers` (#1887). It never goes below 0.
+// With `cardText` false (#1668) it is the printed Range.
 export function shipRangeOnTable(table: RangeTable, ship: CardInstance, cardText = true): number {
   return cardText ? shipRangeOf(tableReadOf(table), ship) : printedRange(ship);
 }
 
 // The Range of `ship` on the table that `read` holds (#1878): what `shipRangeOnTable` gives with the card text on,
-// from a view built once, so an attribute model and `attributesOnTableOf` build none of their own.
+// from a view built once, so an attribute row and `attributesOnTableOf` build none of their own.
 export function shipRangeOf(read: TableRead, ship: CardInstance): number {
-  const { view } = read;
-  let range = printedRange(ship) + (rangeSpanModelOf(ship)?.shipRange?.(ship, read) ?? 0);
-  for (const p of ship.crew ?? []) range += rangeSpanModelOf(p)?.aboardRange?.(p, ship, read) ?? 0;
-  for (const event of ship.placedOn ?? []) range += rangeSpanModelOf(event)?.placedOnShipRange?.(event, ship, read) ?? 0;
-  for (const m of view.missions) {
-    const mission = m.card ? read.instance(m.card.id) : undefined;
-    if (!mission) continue;
-    for (const event of mission.placedOn ?? []) {
-      range += rangeSpanModelOf(event)?.eventRange?.(event, mission, ship, read) ?? 0;
-    }
-  }
-  if (view.missions.some((m) => m.ships.some((s) => s.id === ship.id))) {
-    for (const entry of personnel(view, { unstopped: false })) {
-      const p = read.instance(entry.id);
-      if (p) range += rangeSpanModelOf(p)?.commandedShipRange?.(p, ship, read) ?? 0;
-    }
-    for (const entry of view.core) {
-      const event = read.instance(entry.id);
-      if (event) range += rangeSpanModelOf(event)?.coreRange?.(event, ship, read) ?? 0;
-    }
-  }
-  return Math.max(0, range);
+  return rangeOf(read.view, modifierCardOf(ship));
 }
 
 // The Range on the table of every ship with an entry in `rangeUsed`, by the ship's instance id: what

@@ -1,0 +1,128 @@
+// The kind of a static modifier (#1887): a row of plain data, with no function of the registry, so the title lists
+// of `titles/` build their rows from it with no import of `index.ts`, which imports them.
+
+import type { Condition, TableView, ViewCard, ViewMission, ViewShip, ViewTableCard } from '../tableView';
+import type { CrewedCard } from './words';
+
+/** A personnel's attributes. */
+export type PersonnelQuantity = 'integrity' | 'cunning' | 'strength';
+/** A ship's attributes: its Range, its Weapons and its Shields. */
+export type ShipQuantity = 'range' | 'weapons' | 'shields';
+/** A quantity a row adds to: summed, then floored at 0. */
+export type AmountQuantity = PersonnelQuantity | ShipQuantity;
+/** Every quantity: the amounts, the span total of a move and the 2 between quadrants it adds. */
+export type Quantity = AmountQuantity | 'span' | 'quadrantWaiver';
+
+export const PERSONNEL_QUANTITIES: readonly PersonnelQuantity[] = ['integrity', 'cunning', 'strength'];
+/** The quantities of `ATTRIBUTE_REGISTRY`: a personnel's attributes and a ship's Weapons and Shields. */
+export const ATTRIBUTE_QUANTITIES: readonly AmountQuantity[] = ['integrity', 'cunning', 'strength', 'weapons', 'shields'];
+
+/**
+ * Where the source card must stand for its row to apply:
+ * - `self`: the card is its own target: a personnel in an away team or a crew, a ship on a ship row (for its
+ *   Range, a ship anywhere);
+ * - `group`: a personnel or an equipment of an away team or a crew;
+ * - `aboard`: a personnel of a ship's crew;
+ * - `placedOnShip`: placed on a ship;
+ * - `shipRow`: a ship on a ship row;
+ * - `missionCard`: placed on a mission card;
+ * - `mission`: the mission card of a slot;
+ * - `core`: the core;
+ * - `commanded`: a personnel in an away team or a crew, stopped too;
+ * - `moveMission`: the card of either mission of a move;
+ * - `moveShip`: the moving ship.
+ */
+export type SourcePlace =
+  | 'self'
+  | 'group'
+  | 'aboard'
+  | 'placedOnShip'
+  | 'shipRow'
+  | 'missionCard'
+  | 'mission'
+  | 'core'
+  | 'commanded'
+  | 'moveMission'
+  | 'moveShip';
+
+/**
+ * The cards a row changes, relative to its source: the source itself (`self`), each card of its away team or crew,
+ * the source counting or not as the change says (`group`), the crew of the source ship (`crew`), the ship the
+ * source is aboard or placed on (`itsShip`), every ship on a ship row (`shipsOnRows`), any card, a card off the
+ * table too (`any`), or a move: its two missions and its ship (`move`).
+ */
+export type TargetRelation = 'self' | 'group' | 'crew' | 'itsShip' | 'shipsOnRows' | 'any' | 'move';
+
+/** How long a row applies: while its source stands in its place. Parts 2 and 3 of #1864 add theirs. */
+export type Scope = 'whileInPlay';
+
+/** A card a row reads: a view card, with its crew for a ship. */
+export type ModifierCard = CrewedCard;
+
+/** What a change of an amount reads. */
+export interface AmountContext {
+  view: TableView;
+  /** The card of the row. */
+  source: ModifierCard;
+  /** The card it changes. */
+  target: ModifierCard;
+  /**
+   * The slot of the source's place (`mission`, `missionCard`, `shipRow`), or of the target's group (`self`,
+   * `group`), or of a ship on a ship row (`self`); absent elsewhere.
+   */
+  slot?: ViewMission;
+  /** The away team or the crew of the target (`self` of a personnel, `group`). */
+  group?: ViewTableCard[];
+  /** The ship whose crew is the group (`group`, `self` of a personnel), or the target ship. */
+  ship?: ViewShip;
+  /** The Range of a ship on the table, the card text on. */
+  rangeOf: (ship: ModifierCard) => number;
+}
+
+/** A change of an amount: a number, or one read from the table. */
+export type Delta = number | ((c: AmountContext) => number);
+
+/** What a change of the span total reads: the source card and the move. */
+export interface MoveContext {
+  source: ViewCard;
+  from: ViewCard;
+  to: ViewCard;
+  ship: ModifierCard;
+}
+
+/** A change of the span total: a reduction, before the floor, or the total a move requires, last. */
+export type SpanChange = { reduce: (m: MoveContext) => number } | { set: (m: MoveContext, total: number) => number };
+
+/** What a row changes: each quantity with its own change. One shared change is the same function under each. */
+export interface ModifierChanges extends Partial<Record<AmountQuantity, Delta>> {
+  span?: SpanChange;
+  /** Whether a move between different quadrants adds no 2. */
+  quadrantWaiver?: (m: MoveContext) => boolean;
+}
+
+export interface ModifierRow {
+  /** The title, less its version suffix, as the card data names it ("U.S.S. Enterprise-J"). */
+  title: string;
+  source: SourcePlace;
+  target: TargetRelation;
+  changes: ModifierChanges;
+  /** The row applies only while it holds, read from the view. */
+  condition?: Condition;
+  scope: Scope;
+  /** Each title counts once for a target, however many copies stand there. No row of #1887 sets it. */
+  eachTitleOnce?: boolean;
+}
+
+/** Each copy of the title `title` in `source` changes `changes` of `target`, while `whileInPlay`. */
+export const row = (title: string, source: SourcePlace, target: TargetRelation, changes: ModifierChanges, extra: Partial<ModifierRow> = {}): ModifierRow => ({
+  title,
+  source,
+  target,
+  changes,
+  scope: 'whileInPlay',
+  ...extra,
+});
+
+/** One change under each of `quantities`: "this ship is attributes +2" changes its Range, Weapons and Shields. */
+export const each = (quantities: readonly AmountQuantity[], delta: Delta): ModifierChanges =>
+  Object.fromEntries(quantities.map((q) => [q, delta]));

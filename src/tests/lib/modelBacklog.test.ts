@@ -1,15 +1,14 @@
 import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { ATTEMPT_MISSION_TITLES } from '../../app/decks/practice/attemptMissions';
-import { ATTRIBUTE_REGISTRY } from '../../app/decks/practice/attributeModels';
 import { COMPLETION_EFFECTS } from '../../app/decks/practice/completionEffects';
 import { SIGMA_IOTIA_TITLE, TRISTAN_ADAMS_TITLE } from '../../app/decks/practice/dilemmaPrevention';
 import { EARTH_TITLE, NIMBUS_TITLE } from '../../app/decks/practice/missionSpends';
-import { RANGE_SPAN_REGISTRY } from '../../app/decks/practice/rangeModels';
 import { ROADBLOCK_TITLE } from '../../app/decks/practice/selfReplicatingRoadblock';
 import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from '../../app/decks/practice/tableReducer';
 import { COST_REGISTRY } from '../../lib/costModels/registry';
 import { MISSION_COST_TITLES } from '../../lib/dilemmaBot/pile/missionCost';
+import { MODIFIER_ROWS } from '../../lib/modifiers';
 import { REGISTRY as DILEMMA_REGISTRY } from '../../lib/dilemmaBot/pile/registry';
 import {
   clausesOf,
@@ -35,6 +34,8 @@ const lower = (titles: Iterable<string>) => new Set([...titles].map((t) => t.toL
 
 const PLAY = lower(PLAY_MODEL_TITLES);
 const RESOLVE = lower(RESOLVE_MODELS.map((m) => m.title));
+// The modifier registry (#1887): the attribute, Range and span rows.
+const MODIFIERS = lower(MODIFIER_ROWS.map((r) => r.title));
 const MISSION = lower([
   ...COMPLETION_EFFECTS.keys(),
   ...ATTEMPT_MISSION_TITLES,
@@ -68,7 +69,7 @@ export const modelledToday: ModelledBy = (concern, title, card) => {
     case 'eventResolve':
       return RESOLVE.has(key);
     case 'attributes':
-      return ATTRIBUTE_REGISTRY.has(key) || RANGE_SPAN_REGISTRY.has(key);
+      return MODIFIERS.has(key);
     case 'mission':
       return MISSION.has(key) || COST_REGISTRY.has(title);
     case 'place':
