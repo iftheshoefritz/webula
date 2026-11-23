@@ -63,6 +63,26 @@ function useElementSize(ref: React.RefObject<HTMLElement | null>): { width: numb
   return size;
 }
 
+// An element's rendered height (`offsetHeight`, 0 in jsdom), re-read when it resizes.
+function useOffsetHeight(ref: React.RefObject<HTMLElement | null>): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return height;
+}
+
+// The room the middle card keeps above and below it for its ring and its ✓.
+const CARD_RING_ROOM = 16;
+// The gap between the actions row, the cards and the slider bar (`gap-2`).
+const BODY_GAP = 8;
+
 function CarouselCard({
   instance,
   slot,
@@ -172,18 +192,29 @@ export default function PileCarousel({
   const finePointer = useFinePointer();
   const [index, setIndex] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const { width, height } = useElementSize(stageRef);
+  // Hidden to look at the table (#1899): the carousel keeps its place and its selection, and a
+  // button at the top brings it back.
+  const [peeking, setPeeking] = useState(false);
+  // The actions row, the cards and the slider bar sit together, centred in the body, so the
+  // slider is right under the cards however tall the screen is. The cards take the body's height
+  // less the two rows, never more than the native image.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const { width, height } = useElementSize(bodyRef);
+  const actionsHeight = useOffsetHeight(actionsRef);
+  const bottomHeight = useOffsetHeight(bottomRef);
   const middle = clampCarouselIndex(index, cards.length);
-  // A little room above and below the middle card for its ring and its ✓.
-  const layout = carouselLayout(width, Math.max(0, height - 16), cards.length, middle);
+  const cardRoom = Math.max(0, height - actionsHeight - bottomHeight - 2 * BODY_GAP - CARD_RING_ROOM);
+  const layout = carouselLayout(width, cardRoom, cards.length, middle);
   const selected = selectedInPileOrder(cards, selectedIds);
   const count = selected.length;
   const name = PILE_NAME[pile];
 
   useEscapeLayer(() => {
     if (hidden) return;
-    if (helpOpen) setHelpOpen(false);
+    if (peeking) setPeeking(false);
+    else if (helpOpen) setHelpOpen(false);
     else onClose();
   });
 
@@ -205,9 +236,27 @@ export default function PileCarousel({
     <div
       data-testid="pile-carousel"
       data-pile={pile}
+      data-peeking={peeking ? 'true' : undefined}
       className={`fixed inset-0 ${LAYER_CARD_LIST_PANEL}`}
-      style={{ visibility: hidden ? 'hidden' : 'visible', pointerEvents: hidden ? 'none' : undefined }}
+      style={{
+        visibility: hidden || peeking ? 'hidden' : 'visible',
+        pointerEvents: hidden || peeking ? 'none' : undefined,
+      }}
     >
+      {peeking && !hidden && (
+        // The way back to the search while it is hidden: visible over the table, at the top centre.
+        <button
+          type="button"
+          data-testid="pile-carousel-show"
+          onClick={() => setPeeking(false)}
+          className="btn-primary absolute left-1/2 -translate-x-1/2 flex items-center gap-2 shadow-lg"
+          style={{ top: VIEWER_TOP_INSET, visibility: 'visible', pointerEvents: 'auto', ...safeAreaMargins('top') }}
+        >
+          <EyeIcon className="w-5 h-5" />
+          Back to {PILE_TITLE[pile].toLowerCase()}
+          {count > 0 ? ` · ${count} selected` : ''}
+        </button>
+      )}
       <button
         type="button"
         className="absolute inset-0 bg-black/70"
@@ -254,6 +303,19 @@ export default function PileCarousel({
             )}
           </div>
           <div className="grow" />
+          <button
+            type="button"
+            data-testid="pile-carousel-hide"
+            onClick={() => {
+              setHelpOpen(false);
+              setPeeking(true);
+            }}
+            aria-label="Hide the search to look at the table"
+            title="Hide to look at the table"
+            className={`shrink-0 flex items-center justify-center ${finePointer ? 'btn-icon w-10 h-10' : 'btn-system w-11 h-11'}`}
+          >
+            <EyeOffIcon className="w-6 h-6" />
+          </button>
           {onShuffle && (
             <button type="button" onClick={onShuffle} className="btn-primary shrink-0">
               Shuffle
@@ -262,7 +324,8 @@ export default function PileCarousel({
           <PanelCloseButton onClose={onClose} />
         </div>
 
-        <div data-testid="pile-carousel-actions" className="shrink-0 flex flex-row flex-wrap items-center justify-center gap-2 pointer-events-auto">
+        <div ref={bodyRef} data-testid="pile-carousel-body" className="grow min-h-0 flex flex-col justify-center gap-2">
+        <div ref={actionsRef} data-testid="pile-carousel-actions" className="shrink-0 flex flex-row flex-wrap items-center justify-center gap-2 pointer-events-auto">
           <span data-testid="pile-carousel-count" className="text-xs text-text-secondary whitespace-nowrap tabular-nums">
             {count} selected
           </span>
@@ -313,10 +376,9 @@ export default function PileCarousel({
         </div>
 
         <div
-          ref={stageRef}
           data-testid={`card-list-panel-${pile}`}
-          className="relative grow min-h-0 pointer-events-auto"
-          style={{ perspective: 1200 }}
+          className="relative shrink-0 pointer-events-auto"
+          style={{ perspective: 1200, height: layout.cardHeight + CARD_RING_ROOM }}
         >
           {cards.length === 0 && (
             <p className="absolute inset-0 flex items-center justify-center text-sm text-text-secondary">
@@ -340,6 +402,7 @@ export default function PileCarousel({
         </div>
 
         <div
+          ref={bottomRef}
           data-testid="pile-carousel-bottom"
           className="shrink-0 self-center flex flex-row items-center justify-center gap-2 pointer-events-auto"
           style={{ width: 'max(50%, 18rem)' }}
@@ -390,7 +453,27 @@ export default function PileCarousel({
             </svg>
           </button>
         </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+function EyeIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7c2 0 3.7.6 5.1 1.5M22 12s-3.5 7-10 7c-2 0-3.7-.6-5.1-1.5" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="M3 3l18 18" />
+    </svg>
   );
 }

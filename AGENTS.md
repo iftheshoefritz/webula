@@ -1136,7 +1136,13 @@ a `?` whose tooltip holds the instructions (`pile-carousel-help`), Shuffle and t
 selection in pile order with the panel's actions; then the carousel; and right under it the bottom bar
 (`pile-carousel-bottom`), centred and half the screen wide (at least 18rem), previous and next around a slider over the pile (`pile-carousel-slider`), with a
 mark on it for each selected card (`pile-carousel-tick`) and Top, "N of M" (`pile-carousel-position`) and
-Bottom below it. Escape closes the tooltip first, then the carousel.
+Bottom below it. The actions row, the cards and the slider bar sit together, centred in the space under
+the top bar (`pile-carousel-body`), so the slider stays right under the cards on a tall screen: the cards
+take that height less the two rows (their `offsetHeight`), never more than the native image. The top bar
+also holds a large eye button, `pile-carousel-hide`, that hides the carousel to show the table
+(`data-peeking="true"` on the root, page state); a button at the top centre, `pile-carousel-show`, "Back to
+search draw deck · N selected", brings it back with its place and selection. Escape brings back a hidden
+search first, then closes the tooltip, then the carousel.
 
 The panel grid is not a drop target (#861). It has no `useDroppable`, so a drag must not aim at
 it. Use the `data-testid` to find the panel, or to open it, and nothing more. If

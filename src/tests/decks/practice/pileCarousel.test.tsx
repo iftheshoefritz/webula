@@ -170,6 +170,36 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
     expect(bottom).toContainElement(screen.getByTestId('pile-carousel-slider'));
   });
 
+  it('hides to show the table and comes back to the same search, selection and place kept', async () => {
+    await renderWithDeck(true);
+    await openSearch();
+    await slideTo(2);
+    await tap(middleCard());
+    await tap(screen.getByTestId('pile-carousel-hide'));
+    expect(screen.getByTestId('pile-carousel')).toHaveAttribute('data-peeking', 'true');
+    const show = screen.getByTestId('pile-carousel-show');
+    expect(show).toHaveTextContent('Back to search draw deck · 1 selected');
+    await tap(show);
+    expect(screen.getByTestId('pile-carousel')).not.toHaveAttribute('data-peeking');
+    expect(screen.queryByTestId('pile-carousel-show')).not.toBeInTheDocument();
+    expect(position()).toBe('3 of 8');
+    expect(screen.getByTestId('pile-carousel-count')).toHaveTextContent('1 selected');
+  });
+
+  it('comes back from hidden on Escape, and only a second Escape closes the search', async () => {
+    await renderWithDeck(true);
+    await openSearch();
+    await tap(screen.getByTestId('pile-carousel-hide'));
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Escape' });
+    });
+    expect(screen.getByTestId('pile-carousel')).not.toHaveAttribute('data-peeking');
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Escape' });
+    });
+    expect(screen.queryByTestId('pile-carousel')).not.toBeInTheDocument();
+  });
+
   it('moves with a tap on a side card, the arrows and the slider', async () => {
     await renderWithDeck(true);
     await openSearch();
