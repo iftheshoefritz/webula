@@ -67,6 +67,21 @@ describe('the registry of modifier rows', () => {
     expect(() => rowsByTitle([row('Nowhere', 'mission', 'any', { range: 1 })])).toThrow('a place no evaluator reads');
     expect(() => rowsByTitle([row('Nowhere', 'core', 'any', { span: { reduce: () => 1 } })])).toThrow('a place no evaluator reads');
   });
+
+  it('refuses a permission at a place no check reads, and one that neither allows nor forbids (#1915)', () => {
+    expect(() => rowsByTitle([row('Gated', 'core', 'play', { play: 'forbid' })])).toThrow('changes play from core to play, a place no evaluator reads');
+    expect(() => rowsByTitle([row('Hulk', 'self', 'self', { attempt: 'forbid' })])).toThrow('a place no evaluator reads');
+    expect(() => rowsByTitle([row('Miser', 'played', 'play', { spendToDraw: 'forbid' })])).toThrow('a place no evaluator reads');
+    expect(() => rowsByTitle([row('Odd', 'played', 'play', { play: 'maybe' as 'allow' })])).toThrow('with neither allow nor forbid');
+    const ok = rowsByTitle([
+      row('Gated', 'played', 'play', { play: 'forbid' }),
+      row('Gated', 'played', 'play', { playPlace: 'allow' }),
+      row('Hulk', 'shipRow', 'crew', { attempt: 'forbid' }),
+      row('Crowd', 'core', 'attempting', { attempt: 'forbid' }),
+      row('Miser', 'core', 'turnLimit', { spendToDraw: 'forbid' }),
+    ]);
+    expect(ok.get('gated')?.length).toBe(2);
+  });
 });
 
 describe('Biological Distinctiveness (#1887)', () => {
