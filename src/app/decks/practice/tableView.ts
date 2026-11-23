@@ -34,7 +34,7 @@ export const printedCostOf = (c: CardInstance): number => {
   return Number.isFinite(cost) ? cost : 0;
 };
 
-const viewCardOf = (c: CardInstance): ViewCard => ({
+export const viewCardOf = (c: CardInstance): ViewCard => ({
   id: c.id,
   // A row with no name, as a test's invented card may have, has the title ''.
   title: c.card ? cardTitleOf(cardDisplayName(c.card) ?? '') : '',
@@ -61,6 +61,15 @@ const tableCardOf = (c: CardInstance, missionIndex: number, shipId?: string): Vi
         },
       ]
     : [];
+
+/**
+ * A card as the modifier evaluators read it (#1887): its view card, with its crew for a ship, so a card off the
+ * table, a ship in the hand with no slot, still has one. The evaluators read a card of the table from the view.
+ */
+export const modifierCardOf = (c: CardInstance): ViewCard & { crew: ViewTableCard[] } => ({
+  ...viewCardOf(c),
+  crew: (c.crew ?? []).flatMap((p) => tableCardOf(p, -1, c.id)),
+});
 
 const shipOf = (c: CardInstance, missionIndex: number): ViewShip[] =>
   tableCardOf(c, missionIndex).map((ship) => ({ ...ship, crew: (c.crew ?? []).flatMap((p) => tableCardOf(p, missionIndex, c.id)) }));

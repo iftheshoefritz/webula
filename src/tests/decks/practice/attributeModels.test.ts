@@ -165,7 +165,7 @@ describe('the registry of attribute models (#1664)', () => {
   });
 
   it('holds one model per title', () => {
-    expect(ATTRIBUTE_REGISTRY.size).toBe(80);
+    expect(ATTRIBUTE_REGISTRY.size).toBe(81);
     expect(attributeModelOf(personnel('Nobody'))).toBeUndefined();
   });
 });
