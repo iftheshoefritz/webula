@@ -91,14 +91,16 @@ export type DownloadOf = { kind: 'test'; test: DownloadTest[]; testText: string 
 
 /**
  * Where a downloaded card goes (#1811): the hand; aboard one of the player's ships of an affiliation, which the
- * player picks; played aboard the played ship at its printed cost less `discount`; or on top of the draw deck,
- * after the shuffle of its stage.
+ * player picks; played aboard the played ship at its printed cost less `discount`; on top of the draw deck,
+ * after the shuffle of its stage; or into the away team of the mission whose text it is (#1907, Nimbus III's
+ * spend, "place him or her on this planet").
  */
 export type DownloadTo =
   | { kind: 'hand' }
   | { kind: 'aboardShip'; affiliation: string; text: string }
   | { kind: 'playAboardThis'; discount: number }
-  | { kind: 'drawDeckTop' };
+  | { kind: 'drawDeckTop' }
+  | { kind: 'thisAwayTeam' };
 
 export interface DrawStep {
   kind: 'draw';
@@ -320,7 +322,7 @@ export interface DownloadShip {
  * played ship alone, and none otherwise.
  */
 export function downloadPlaceShips<S extends DownloadShip>(to: DownloadTo, ships: S[], played: PlayedAt): S[] {
-  if (to.kind === 'drawDeckTop' || to.kind === 'hand') return [];
+  if (to.kind !== 'aboardShip' && to.kind !== 'playAboardThis') return [];
   if (to.kind === 'playAboardThis') return ships.filter((s) => s.id === played.id);
   const own = ships.filter((s) => s.affiliation.toLowerCase().includes(to.affiliation));
   return [...own.filter((s) => s.missionIndex === played.missionIndex), ...own.filter((s) => s.missionIndex !== played.missionIndex)];
