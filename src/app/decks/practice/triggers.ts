@@ -3,7 +3,6 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import { UNEXPECTED_DIFFICULTIES } from '../../../lib/dilemmaBot/botPiles';
 import { missions, type TableView, type ViewCard } from '../../../lib/tableView';
 import { eventMissionIndex, eventSubjects, triggerRowsFor, triggerRowsOf } from '../../../lib/triggers';
 import type { GameEvent, TriggerContext, TriggerRow } from '../../../lib/triggers';
@@ -75,11 +74,10 @@ function sourcesOf(row: TriggerRow, event: GameEvent, table: TableState): { inst
         const instance = card.id ? findInstanceAnywhere(table, card.id)?.instance : undefined;
         return instance && titled(instance) ? [{ instance }] : [];
       });
-    case 'botDeck': {
-      const pile = table.botPile;
-      const holds = table.opponent === 'bot' && !!pile && key === UNEXPECTED_DIFFICULTIES.toLowerCase() && !!pile.unexpectedDifficulties;
-      return holds ? [{ instance: null }] : [];
-    }
+    case 'botDeck':
+      // The bot decides its own rows where it acts (Unexpected Difficulties: `botRedraws`, #1906), so they are never
+      // the player's offers, and a game by hand has no bot deck.
+      return [];
   }
 }
 

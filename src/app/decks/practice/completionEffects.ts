@@ -9,6 +9,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import { hqRowOf, reportsToMatches } from '../../../lib/hqPlayability';
 import { AFFILIATION_ABBREVIATIONS } from '../../../lib/missionRequirements';
+import { downloadTakes, scorePoints, type DownloadTest } from '../../../lib/effectSteps';
 import { abilityOf, missionModelOfCard, missionModelsWith, type CompletionCondition, type CompletionWatch, type MissionCompletion } from '../../../lib/missionModels';
 import { missionAt, personnel } from '../../../lib/tableView';
 import type { GameAction } from './gameLog';
@@ -40,6 +41,10 @@ export interface CompletionEffect {
   notChecked?: string;
   /** The missions of the player whose completion fires it, when it is not this mission's own (Earth). */
   watches?: CompletionWatch;
+  /** A kill (#1909): the most personnel it kills, the test of each, and its words. `points` is scored for each. */
+  upTo?: number;
+  killTest?: DownloadTest[];
+  killText?: string;
 }
 
 // The completion of each row of the mission registry with an `onComplete` ability (#1907), in the shape the
@@ -64,6 +69,10 @@ function completionEffect(title: string, label: string, text: string, completion
         ...(completion.condition.kind === 'species' ? { minSpecies: completion.condition.min } : {}),
         ...(completion.notChecked ? { notChecked: completion.notChecked } : {}),
       };
+    case 'kill': {
+      const [step, scoring] = completion.steps;
+      return { ...base, upTo: step.upTo, killTest: step.test, killText: step.testText, points: scoring.points };
+    }
     case 'flip':
       return base;
   }
@@ -219,6 +228,24 @@ export function completionConditionText(condition: CompletionCondition): string 
 
 /** Cheron: the score of a completion whose species check holds. */
 export const scoreActions = (effect: CompletionEffect): TableAction[] => [{ type: 'adjustScore', delta: effect.points ?? 0 }];
+
+/**
+ * Ba'ku Planet (#1909): the player's personnel at slot `missionIndex` that pass the kill's test, stopped or not:
+ * the away team, then each ship's crew, never the brig.
+ */
+export function killCandidates(table: TableState, missionIndex: number, effect: CompletionEffect): CardInstance[] {
+  const view = tableViewOf(table);
+  const ids = personnel(view, { unstopped: false, at: missionIndex }).map((p) => p.id);
+  return ids
+    .flatMap((id) => findInstanceAnywhere(table, id)?.instance ?? [])
+    .filter((c) => downloadTakes({ test: effect.killTest ?? [] }, c.card));
+}
+
+/** Ba'ku Planet: each of `ids` to the discard pile, a kill, then `points` for each. */
+export const killActions = (ids: string[], effect: CompletionEffect): TableAction[] => {
+  const points = scorePoints({ points: effect.points ?? 0, perPick: true }, ids.length);
+  return [...ids.map((id): TableAction => ({ type: 'move', id, to: 'discard' })), ...(points ? [{ type: 'adjustScore' as const, delta: points }] : [])];
+};
 
 /** Saturn: the copies of the download's title in the draw deck. */
 export const downloadCandidates = (table: TableState, effect: CompletionEffect): CardInstance[] =>

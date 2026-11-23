@@ -136,7 +136,7 @@ export interface LogMove {
 }
 
 // The names of the stages a record holds (#1863), by the kind of the stage's first step (`recordStepName`).
-export type EffectRecordStepName = 'draw' | 'discard' | 'bottom' | 'examine' | 'download' | 'shuffle' | 'score' | 'exchange';
+export type EffectRecordStepName = 'draw' | 'discard' | 'bottom' | 'examine' | 'download' | 'shuffle' | 'score' | 'exchange' | 'kill';
 
 // What the steps of a stage did after its first (#1863): the cards an automatic draw drew, and whether the draw
 // deck was shuffled. A download is read as shuffled unless `shuffled` is false, as every download before #1863 was.
@@ -187,6 +187,8 @@ export interface CompletionLog {
   // Cheron (#1828): the different species involved, counted at the completion, and the points it scored.
   species?: number;
   scored?: number;
+  // Ba'ku Planet (#1909): the personnel the completion killed, by name, in the order picked. Its moves are kills.
+  killed?: string[];
 }
 
 export interface LogRange {
@@ -918,12 +920,14 @@ function completionEntry(
   const flip = rest.find((a): a is Extract<TableAction, { type: 'flipMission' }> => a.type === 'flipMission');
   const flipped = flip ? !!after.missions[completion.missionIndex]?.mission?.flipped : false;
   const scored = after.score - done.score;
+  const killed = completionEffectOf(before, completion.missionIndex)?.kind === 'kill' ? logMoves.flatMap((m) => m.cards).filter((c): c is string => typeof c === 'string') : [];
   const effect: CompletionLog = {
     ...plain.effect,
     ...(logMoves.length ? { moves: logMoves } : {}),
     ...(shuffled ? { shuffled } : {}),
     ...(flipped ? { flipped: true as const } : {}),
     ...(scored > 0 ? { scored } : {}),
+    ...(killed.length ? { killed } : {}),
   };
   return Object.keys(effect).length ? { ...plain, effect } : plain;
 }
@@ -1648,6 +1652,11 @@ export function logEntryText(entry: LogEntry): string {
       if (typeof effect.species === 'number' && entry.completed) {
         const scored = typeof effect.scored === 'number' && effect.scored > 0 ? `scored ${effect.scored} ${effect.scored === 1 ? 'point' : 'points'}` : 'no points';
         return `Completed ${entry.mission}: ${effect.species} different species involved; ${scored}`;
+      }
+      // Ba'ku Planet (#1909): "Completed Ba'ku Planet Collect Metaphasic Particles: killed Vina, Kor; scored 10 points".
+      if (Array.isArray(effect.killed) && effect.killed.length && entry.completed) {
+        const scored = typeof effect.scored === 'number' && effect.scored > 0 ? `; scored ${effect.scored} ${effect.scored === 1 ? 'point' : 'points'}` : '';
+        return `Completed ${entry.mission}: killed ${cardsText(effect.killed.filter((n) => typeof n === 'string'))}${scored}`;
       }
       const moves = (effect.moves ?? []).map(moveText).map((m, i, all) => (i > 0 && all[i - 1].verb === m.verb ? m.text : `${m.verb} ${m.text}`));
       const parts = [

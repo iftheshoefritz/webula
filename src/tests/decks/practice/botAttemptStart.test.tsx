@@ -258,6 +258,8 @@ describe('botRedraws (#1563)', () => {
     expect(botRedraws({ ...udTable(), botUsedUnexpectedDifficulties: true }, 9, result('cannot-fail'))).toBe(false);
     expect(botRedraws(botTable(), 9, result('cannot-fail'))).toBe(false);
     expect(botRedraws({ ...udTable(), botPile: { id: 'beginner:x.txt', name: 'X' } }, 9, result('cannot-fail'))).toBe(false);
+    // The trigger titles of a pile since #1906 read as the boolean of before.
+    expect(botRedraws({ ...udTable(), botPile: { id: 'beginner:x.txt', name: 'X', triggers: ['Unexpected Difficulties'] } }, 9, result('cannot-fail'))).toBe(true);
   });
 });
 
