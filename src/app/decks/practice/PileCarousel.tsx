@@ -262,6 +262,56 @@ export default function PileCarousel({
           <PanelCloseButton onClose={onClose} />
         </div>
 
+        <div data-testid="pile-carousel-actions" className="shrink-0 flex flex-row flex-wrap items-center justify-center gap-2 pointer-events-auto">
+          <span data-testid="pile-carousel-count" className="text-xs text-text-secondary whitespace-nowrap tabular-nums">
+            {count} selected
+          </span>
+          {/* Always laid out, hidden at 0, so the row keeps its width and stays centred. */}
+          <button
+            type="button"
+            data-testid="pile-carousel-clear"
+            onClick={() => onSelectIds([])}
+            disabled={count === 0}
+            aria-hidden={count === 0}
+            tabIndex={count === 0 ? -1 : undefined}
+            className={`text-xs underline text-text-secondary px-1 ${count === 0 ? 'invisible' : ''}`}
+          >
+            Clear
+          </button>
+          {onDownload && (
+            <button type="button" onClick={act(onDownload)} disabled={count === 0} className={actionClassName}>
+              Download
+            </button>
+          )}
+          {onDiscard && (
+            <button type="button" onClick={act(onDiscard)} disabled={count === 0} className={actionClassName}>
+              Discard
+            </button>
+          )}
+          {onSendToDeck && (
+            <>
+              <button
+                type="button"
+                onClick={act((ids) => onSendToDeck(ids, 'top'))}
+                disabled={count === 0}
+                aria-label={`Selected cards to the top of the ${name}`}
+                className={actionClassName}
+              >
+                Top
+              </button>
+              <button
+                type="button"
+                onClick={act((ids) => onSendToDeck(ids, 'bottom'))}
+                disabled={count === 0}
+                aria-label={`Selected cards to the bottom of the ${name}`}
+                className={actionClassName}
+              >
+                Bottom
+              </button>
+            </>
+          )}
+        </div>
+
         <div
           ref={stageRef}
           data-testid={`card-list-panel-${pile}`}
@@ -289,20 +339,17 @@ export default function PileCarousel({
           })}
         </div>
 
-        <div data-testid="pile-carousel-bottom" className="shrink-0 flex flex-row flex-wrap items-center justify-center gap-2 pointer-events-auto">
+        <div
+          data-testid="pile-carousel-bottom"
+          className="shrink-0 self-center flex flex-row items-center justify-center gap-2 pointer-events-auto"
+          style={{ width: 'max(50%, 18rem)' }}
+        >
           <button type="button" onClick={() => go(middle - 1)} disabled={middle === 0} aria-label="Previous card" className={roundClassName}>
             <svg viewBox="0 0 16 16" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M10 3L5 8l5 5" />
             </svg>
           </button>
-          <label className="grow min-w-40 max-w-xl flex flex-col gap-0.5">
-            <span className="flex justify-between text-[10px] text-text-secondary">
-              <span>Top</span>
-              <span data-testid="pile-carousel-position" className="font-semibold text-text-primary">
-                {cards.length === 0 ? '0 of 0' : `${middle + 1} of ${cards.length}`}
-              </span>
-              <span>Bottom</span>
-            </span>
+          <label className="grow min-w-0 flex flex-col gap-0.5">
             <span className="relative block h-5">
               {selected.map((id) => {
                 const at = cards.findIndex((instance) => instance.id === id);
@@ -329,59 +376,19 @@ export default function PileCarousel({
                 className="absolute inset-0 w-full accent-accent"
               />
             </span>
+            <span className="flex justify-between text-[10px] text-text-secondary">
+              <span>Top</span>
+              <span data-testid="pile-carousel-position" className="font-semibold text-text-primary">
+                {cards.length === 0 ? '0 of 0' : `${middle + 1} of ${cards.length}`}
+              </span>
+              <span>Bottom</span>
+            </span>
           </label>
           <button type="button" onClick={() => go(middle + 1)} disabled={middle >= cards.length - 1} aria-label="Next card" className={roundClassName}>
             <svg viewBox="0 0 16 16" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M6 3l5 5-5 5" />
             </svg>
           </button>
-          <div className="flex flex-row flex-wrap items-center justify-center gap-2">
-            <span data-testid="pile-carousel-count" className="text-xs text-text-secondary whitespace-nowrap">
-              {count} selected
-            </span>
-            {count > 0 && (
-              <button
-                type="button"
-                data-testid="pile-carousel-clear"
-                onClick={() => onSelectIds([])}
-                className="text-xs underline text-text-secondary px-1"
-              >
-                Clear
-              </button>
-            )}
-            {onDownload && (
-              <button type="button" onClick={act(onDownload)} disabled={count === 0} className={actionClassName}>
-                Download
-              </button>
-            )}
-            {onDiscard && (
-              <button type="button" onClick={act(onDiscard)} disabled={count === 0} className={actionClassName}>
-                Discard
-              </button>
-            )}
-            {onSendToDeck && (
-              <>
-                <button
-                  type="button"
-                  onClick={act((ids) => onSendToDeck(ids, 'top'))}
-                  disabled={count === 0}
-                  aria-label={`Selected cards to the top of the ${name}`}
-                  className={actionClassName}
-                >
-                  Top
-                </button>
-                <button
-                  type="button"
-                  onClick={act((ids) => onSendToDeck(ids, 'bottom'))}
-                  disabled={count === 0}
-                  aria-label={`Selected cards to the bottom of the ${name}`}
-                  className={actionClassName}
-                >
-                  Bottom
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </div>

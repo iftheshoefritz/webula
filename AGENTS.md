@@ -1130,12 +1130,13 @@ panel (#1900, #1901). The carousel's stage keeps `data-testid="card-list-panel-d
 turned away on each side, as many as fit, at most 4. A tap on a side card brings it to the middle, a tap on
 the middle card selects or deselects it, and a hold previews any of them. Only the middle card carries a
 `data-card-id` and drags out, under `panelDraggableId`, and the carousel hides during the drag, so
-`practice_drag.sh <the middle card's id> core` lands. The bottom bar holds previous and next, a slider over
-the pile, Top to Bottom (`pile-carousel-slider`, "N of M" in `pile-carousel-position`), a mark on the slider
-for each selected card (`pile-carousel-tick`), the count, Clear, and Download, Discard, Top and Bottom,
-which act on the selection in pile order with the panel's actions; the top bar holds "Search draw deck",
-a `?` whose tooltip holds the instructions (`pile-carousel-help`), Shuffle and the X. Escape closes the
-tooltip first, then the carousel.
+`practice_drag.sh <the middle card's id> core` lands. From the top: the top bar holds "Search draw deck",
+a `?` whose tooltip holds the instructions (`pile-carousel-help`), Shuffle and the X; then the actions row
+(`pile-carousel-actions`), the count, Clear, and Download, Discard, Top and Bottom, which act on the
+selection in pile order with the panel's actions; then the carousel; and right under it the bottom bar
+(`pile-carousel-bottom`), centred and half the screen wide (at least 18rem), previous and next around a slider over the pile (`pile-carousel-slider`), with a
+mark on it for each selected card (`pile-carousel-tick`) and Top, "N of M" (`pile-carousel-position`) and
+Bottom below it. Escape closes the tooltip first, then the carousel.
 
 The panel grid is not a drop target (#861). It has no `useDroppable`, so a drag must not aim at
 it. Use the `data-testid` to find the panel, or to open it, and nothing more. If

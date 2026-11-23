@@ -157,6 +157,19 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
     expect(middleName()).toBe('Personnel 8');
   });
 
+  it('puts the count and actions above the carousel, and the slider right under it', async () => {
+    await renderWithDeck(true);
+    await openSearch();
+    const actions = screen.getByTestId('pile-carousel-actions');
+    const stage = screen.getByTestId('card-list-panel-drawDeck');
+    const bottom = screen.getByTestId('pile-carousel-bottom');
+    expect(actions.nextElementSibling).toBe(stage);
+    expect(stage.nextElementSibling).toBe(bottom);
+    expect(actions).toContainElement(screen.getByTestId('pile-carousel-count'));
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'Download' }));
+    expect(bottom).toContainElement(screen.getByTestId('pile-carousel-slider'));
+  });
+
   it('moves with a tap on a side card, the arrows and the slider', async () => {
     await renderWithDeck(true);
     await openSearch();
@@ -193,6 +206,7 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
     await tap(screen.getByTestId('pile-carousel-clear'));
     expect(screen.getByTestId('pile-carousel-count')).toHaveTextContent('0 selected');
     expect(screen.queryAllByTestId('pile-carousel-tick')).toHaveLength(0);
+    expect(screen.getByTestId('pile-carousel-clear')).toBeDisabled();
   });
 
   it('disables every action while nothing is selected', async () => {
