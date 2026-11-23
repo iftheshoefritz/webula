@@ -1122,6 +1122,28 @@ from the top of the pile without moving it, and each tap of "Reveal bottom" one 
 Its cards reorder like the dilemma stack's, and the reorder changes the pile. A card sent by Top or
 Bottom to the end shown stays in the panel, and a card sent to the other end leaves it. Closing it forgets what was revealed.
 
+The game menu's Settings hold "Search piles in a carousel: On/Off" (`game-menu-pile-carousel`, #1899, a
+spike of #1898), under `practice-pile-carousel`, off by default. With it on, the draw deck's Download
+control opens `PileCarousel` in place of the grid panel; the dilemma pile and the discard pile keep the
+panel (#1900, #1901). The carousel's stage keeps `data-testid="card-list-panel-drawDeck"`, and its root is
+`pile-carousel`. One card sits large in the middle (`pileCarouselLayout.ts`), its neighbours smaller and
+turned away on each side, as many as fit, at most 4. A tap on a side card brings it to the middle, a tap on
+the middle card selects or deselects it, and a hold previews any of them. Only the middle card carries a
+`data-card-id` and drags out, under `panelDraggableId`, and the carousel hides during the drag, so
+`practice_drag.sh <the middle card's id> core` lands. From the top: the top bar holds "Search draw deck",
+a `?` whose tooltip holds the instructions (`pile-carousel-help`), Shuffle and the X; then the actions row
+(`pile-carousel-actions`), the count, Clear, and Download, Discard, Top and Bottom, which act on the
+selection in pile order with the panel's actions; then the carousel; and right under it the bottom bar
+(`pile-carousel-bottom`), centred and half the screen wide (at least 18rem), previous and next around a slider over the pile (`pile-carousel-slider`), with a
+mark on it for each selected card (`pile-carousel-tick`) and Top, "N of M" (`pile-carousel-position`) and
+Bottom below it. The actions row, the cards and the slider bar sit together, centred in the space under
+the top bar (`pile-carousel-body`), so the slider stays right under the cards on a tall screen: the cards
+take that height less the two rows (their `offsetHeight`), never more than the native image. The top bar
+also holds a large eye button, `pile-carousel-hide`, that hides the carousel to show the table
+(`data-peeking="true"` on the root, page state); a button at the top centre, `pile-carousel-show`, "Back to
+search draw deck · N selected", brings it back with its place and selection. Escape brings back a hidden
+search first, then closes the tooltip, then the carousel.
+
 The panel grid is not a drop target (#861). It has no `useDroppable`, so a drag must not aim at
 it. Use the `data-testid` to find the panel, or to open it, and nothing more. If
 `practice_drag.sh` prints a `card-list-panel-` name, the card did not move: the script prints the
