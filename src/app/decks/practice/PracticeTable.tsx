@@ -111,6 +111,24 @@ import { botOpponent, fixtureOpponent, sideIsEmpty, sidePersonnelCount } from '.
 import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
 import type { OpponentPanelContent } from './OpponentView';
 import type { OpponentSideSummary } from './MissionRow';
+import { missionSlotWidth, fullUnderMissionStackHeight } from './MissionRow';
+import {
+  CAMERA_FAR_ROW,
+  CAMERA_MOVE_MS,
+  CAMERA_WHOLE_TABLE,
+  CAMERA_YOUR_SIDE,
+  CameraToggle,
+  CameraZoom,
+  EdgeCamera,
+  FarSide,
+  OpponentCompactRow,
+  OpponentMissionRow,
+  RowSwitch,
+  SHIPS_FROM_TILT,
+  cameraOf,
+  parseOpponentLayout,
+} from './OpponentFarRow';
+import type { Player } from './opponent';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_LOAD_WARNING, LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -258,7 +276,7 @@ import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
 import PileCarousel, { CarouselPile } from './PileCarousel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { PILE_CARD_BORDER_STYLE, RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, cardBorderStyle, SMALL_CARD_WIDTH, TableCardImage } from './TableCard';
+import { PILE_CARD_BORDER_STYLE, RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, cardBorderStyle, SMALL_CARD_WIDTH, TABLE_CARD_WIDTH, TableCardImage } from './TableCard';
 import {
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
@@ -1280,6 +1298,7 @@ function TablePlane({
   className,
   testId,
   camera,
+  matTheirs = false,
   children,
 }: {
   hingeBox: HTMLElement | null;
@@ -1289,6 +1308,8 @@ function TablePlane({
   className?: string;
   // The camera of the table (#1823); every part of one table takes the same one.
   camera?: TableCamera;
+  // The mat in the opponent's tint (#1823), as option A draws it under the opponent's row.
+  matTheirs?: boolean;
   testId: string;
   children: React.ReactNode;
 }) {
@@ -1319,14 +1340,18 @@ function TablePlane({
     };
   }, [on, el, hingeBox]);
   if (!on) return <div className={className}>{children}</div>;
-  const style = geometry ? planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y, camera) : undefined;
+  // A camera move (#1823) animates the transform; both parts take the same transition, so they stay
+  // in one plane during it.
+  const style = geometry
+    ? { ...planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y, camera), ...(camera ? { transition: `transform ${CAMERA_MOVE_MS}ms ease-out` } : {}) }
+    : undefined;
   return (
     <div ref={setEl} data-testid={testId} className={`relative ${className ?? ''}`} style={style}>
       {mat && geometry && (
         <div
           aria-hidden="true"
           data-testid="board-mat"
-          className="board-mat pointer-events-none absolute -z-10 rounded-2xl"
+          className={`board-mat ${matTheirs ? 'board-mat-theirs' : ''} pointer-events-none absolute -z-10 rounded-2xl`}
           style={{
             top: -(matTop + 8),
             bottom: -(geometry.hinge.y - (geometry.pos.y + geometry.height) + 8),
@@ -1974,6 +1999,17 @@ const touchMissionColumnHeight = (scale: number): number =>
 // mid-drag, and dnd-kit measures each droppable as it registers, before the mission scale and the
 // bottom row size themselves, so it measures again on each change of the sizes, a frame after it
 // commits.
+// After a camera move (#1823) the droppables' projected boxes have changed, and dnd-kit measures
+// only on demand: measure again once the move's transition has ended.
+function RemeasureAfterCamera({ tiltDeg }: { tiltDeg: number }) {
+  const { measureDroppableContainers } = useDndContext();
+  useEffect(() => {
+    const timer = window.setTimeout(() => measureDroppableContainers([]), CAMERA_MOVE_MS + 50);
+    return () => window.clearTimeout(timer);
+  }, [tiltDeg, measureDroppableContainers]);
+  return null;
+}
+
 function RemeasureDroppables({ sizes }: { sizes: unknown[] }) {
   const { measureDroppableContainers } = useDndContext();
   const key = JSON.stringify(sizes);
@@ -2508,6 +2544,11 @@ function PracticeDrawContent() {
   const opponentOn = searchParams.get('opponent') === '1';
   const fixtureOpponentHalf = useMemo(() => (opponentOn ? fixtureOpponent(data) : null), [opponentOn, data]);
   const [opponentPanel, setOpponentPanel] = useState<OpponentPanelContent | null>(null);
+  // Which layout of the opponent's half (#1823): `?layout=a|b|c|d`, D by default.
+  const opponentLayout = parseOpponentLayout(searchParams.get('layout'));
+  // A: which of the two mission rows shows. C and D: the camera's tilt. Page state, like the panels.
+  const [rowShown, setRowShown] = useState<Player>('you');
+  const [cameraTilt, setCameraTilt] = useState<number>(CAMERA_YOUR_SIDE);
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
@@ -2855,6 +2896,25 @@ function PracticeDrawContent() {
   }
   const botLabelText = botLabel && !dismissedBotLabels.has(botLabel.id) ? botLabel.text : null;
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
+  // The camera of the table with the opponent's half (#1823): A keeps today's 18°, B a fixed 22° that
+  // shows its compact far row, C and D the tilt their controls set. With no opponent, or in the flat
+  // attempt layout, the table keeps its default camera.
+  const tableCamera =
+    opponent && !attemptLayoutShows
+      ? cameraOf(opponentLayout === 'a' ? CAMERA_YOUR_SIDE : opponentLayout === 'b' ? CAMERA_FAR_ROW : cameraTilt)
+      : undefined;
+  // The opponent's own location `index`, in the read-only panel: their side and the player's.
+  const openOpponentLocation = (index: number) => {
+    if (!opponent) return;
+    const mission = opponent.missions[index];
+    setOpponentPanel({
+      title: mission ? cardDisplayName(mission.card) : `Opponent's mission ${index + 1}`,
+      theirs: sideCards(opponent.sidesAtTheirs[index]),
+      yours: sideCards(opponent.yourSidesAtTheirs[index]),
+      show: 'theirs',
+    });
+  };
+  const yourLocationSides = missions.map((slot) => ({ awayTeam: slot.awayTeam, ships: slot.ships }));
   // Issue #1728: the resolving event shows in the modal panel, or after View table or Escape as a small
   // card. Page state, not part of the save: an event that starts resolving, a restore, a reload and an
   // undo that brings the event back all open the panel. Adjusted during render on the change of the id.
@@ -5228,7 +5288,15 @@ function PracticeDrawContent() {
                   half={opponent}
                   onOpenCore={() => setOpponentPanel({ title: "Opponent's core", theirs: opponent.core, show: 'theirs' })}
                   onOpenBrig={() => setOpponentPanel({ title: opponent.kind === 'bot' ? "The bot's brig" : "Opponent's brig", theirs: opponent.brig, show: 'theirs' })}
-                />
+                >
+                  {opponentLayout === 'a' && (
+                    <RowSwitch showing={rowShown} onShow={setRowShown} yourSides={yourLocationSides} half={opponent} />
+                  )}
+                  {opponentLayout === 'c' && (
+                    <CameraZoom tiltDeg={cameraTilt} onTilt={setCameraTilt} yourSides={yourLocationSides} half={opponent} />
+                  )}
+                  {opponentLayout === 'd' && <CameraToggle tiltDeg={cameraTilt} onTilt={setCameraTilt} />}
+                </OpponentStrip>
               )}
               {opponentPanel && (
                 <OpponentPanel
@@ -5332,7 +5400,44 @@ function PracticeDrawContent() {
                   paddingRight: MENU_BUTTON_GUTTER,
                 }}
               >
-                <TablePlane testId="tilted-board" hingeBox={bottomRow} mat matTop={underMissionHeadroom(missionScale, finePointer)}>
+                <TablePlane
+                  testId="tilted-board"
+                  hingeBox={bottomRow}
+                  mat
+                  matTop={underMissionHeadroom(missionScale, finePointer)}
+                  camera={tableCamera}
+                  matTheirs={opponent !== null && opponentLayout === 'a' && rowShown === 'opponent'}
+                >
+                {opponent && opponentLayout === 'b' && (
+                  <FarSide gap={fullUnderMissionStackHeight(missionScale, finePointer)}>
+                    <OpponentCompactRow
+                      half={opponent}
+                      slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE))}
+                      cardWidth={Math.round(TABLE_CARD_WIDTH * missionScale)}
+                      onOpenLocation={openOpponentLocation}
+                    />
+                  </FarSide>
+                )}
+                {opponent && (opponentLayout === 'c' || opponentLayout === 'd') && cameraTilt > CAMERA_YOUR_SIDE && (
+                  <FarSide gap={fullUnderMissionStackHeight(missionScale, finePointer)}>
+                    <OpponentMissionRow
+                      half={opponent}
+                      scale={missionScale}
+                      slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE))}
+                      showShips={cameraTilt >= SHIPS_FROM_TILT}
+                      onOpenLocation={openOpponentLocation}
+                    />
+                  </FarSide>
+                )}
+                {opponent && opponentLayout === 'a' && rowShown === 'opponent' ? (
+                  <OpponentMissionRow
+                    half={opponent}
+                    scale={missionScale}
+                    slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE))}
+                    showShips
+                    onOpenLocation={openOpponentLocation}
+                  />
+                ) : (
                 <MissionRow
                   missions={missions}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
@@ -5349,7 +5454,10 @@ function PracticeDrawContent() {
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE)}
                   opponentSides={opponentSidesAtYours}
                 />
+                )}
                 </TablePlane>
+                {tableCamera && <RemeasureAfterCamera tiltDeg={tableCamera.tiltDeg} />}
+                {opponent && opponentLayout === 'c' && <EdgeCamera tiltDeg={cameraTilt} onTilt={setCameraTilt} />}
               </div>
               <TurnScoreColumn
                 turn={turn}
@@ -5394,7 +5502,7 @@ function PracticeDrawContent() {
               >
                 {/* The bottom row lies on the tilted table with the board (`TablePlane`), but not in
                     the attempt layout, whose board stays flat. */}
-                <TablePlane testId="tilted-bottom-row" hingeBox={bottomRow} enabled={!attemptLayoutShows} className="flex-1 min-w-0 flex flex-row items-end gap-2">
+                <TablePlane testId="tilted-bottom-row" hingeBox={bottomRow} enabled={!attemptLayoutShows} camera={tableCamera} className="flex-1 min-w-0 flex flex-row items-end gap-2">
                 <div className="flex flex-row items-end gap-2">
                   <div className="flex flex-col items-center gap-1">
                     <DiscardPile

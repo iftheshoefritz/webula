@@ -1273,9 +1273,13 @@ const TABLE_TOP_PADDING = 16; // px
 // edge of the table: the height of two slivers, less the padding already above the row.
 // `PracticeTable.tsx` pads the row's wrapper, not `MissionRow` alone.
 export function underMissionHeadroom(scale: number, desktop = false): number {
-  const stackHeight = underMissionSliver(missionCardHeight(scale, desktop)) * UNDER_MISSION_MAX_VISIBLE;
-  return Math.max(0, stackHeight - TABLE_TOP_PADDING);
+  return Math.max(0, fullUnderMissionStackHeight(scale, desktop) - TABLE_TOP_PADDING);
 }
+
+// How far a full stack of slivers pokes up above the mission row: the far side of the table of the
+// opponent's half (#1823) starts above it.
+export const fullUnderMissionStackHeight = (scale: number, desktop = false): number =>
+  underMissionSliver(missionCardHeight(scale, desktop)) * UNDER_MISSION_MAX_VISIBLE;
 
 // The dilemmas placed under the mission (#606), rendered face up and stacked directly behind the
 // mission card in z-order, each poking a small sliver out above the mission card's top edge
