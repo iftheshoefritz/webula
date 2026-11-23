@@ -1,13 +1,10 @@
 import { writeFileSync } from 'fs';
 import { resolve } from 'path';
-import { ATTEMPT_MISSION_TITLES } from '../../app/decks/practice/attemptMissions';
-import { COMPLETION_EFFECTS } from '../../app/decks/practice/completionEffects';
-import { SIGMA_IOTIA_TITLE, TRISTAN_ADAMS_TITLE } from '../../app/decks/practice/dilemmaPrevention';
-import { EARTH_TITLE, NIMBUS_TITLE } from '../../app/decks/practice/missionSpends';
+import { TRISTAN_ADAMS_TITLE } from '../../app/decks/practice/dilemmaPrevention';
 import { ROADBLOCK_TITLE } from '../../app/decks/practice/selfReplicatingRoadblock';
 import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from '../../app/decks/practice/tableReducer';
 import { COST_REGISTRY, COST_ROWS } from '../../lib/costModels/registry';
-import { MISSION_COST_TITLES } from '../../lib/dilemmaBot/pile/missionCost';
+import { MISSION_MODEL_TITLES } from '../../lib/missionModels';
 import { MODIFIER_ROWS } from '../../lib/modifiers';
 import { REGISTRY as DILEMMA_REGISTRY } from '../../lib/dilemmaBot/pile/registry';
 import {
@@ -39,14 +36,8 @@ const RESOLVE = lower(RESOLVE_MODELS.map((m) => m.title));
 const MODIFIERS = lower(MODIFIER_ROWS.map((r) => r.title));
 // The cost and counter rows (#1888), so a title with rows and no residual model still counts for `cost`.
 const COST_ROW_TITLES = lower(COST_ROWS.map((r) => r.title));
-const MISSION = lower([
-  ...COMPLETION_EFFECTS.keys(),
-  ...ATTEMPT_MISSION_TITLES,
-  ...MISSION_COST_TITLES,
-  EARTH_TITLE,
-  NIMBUS_TITLE,
-  SIGMA_IOTIA_TITLE,
-]);
+// The mission registry (#1907): every row's title.
+const MISSION = lower(MISSION_MODEL_TITLES);
 /**
  * The cards a module of their own models outside every registry, with the concerns of their clauses
  * that module covers. A title here is one more sign of the piecemeal: its home is a file, not a registry.

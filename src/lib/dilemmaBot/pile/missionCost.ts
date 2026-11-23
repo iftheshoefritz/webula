@@ -1,25 +1,25 @@
-import { MissionCostChange } from './model';
+import { missionModelOfCard, missionModelsWith, type RevealedDilemmaTest } from '../../missionModels';
+import { DilemmaModel, MissionCostChange } from './model';
 
 // The missions that change the cost of a dilemma revealed there (#1760): Terlina III, Stakoron II,
-// Stakoron Strait and Wadi Homeworld. A mission is named by its whole title, lowercased, as
-// `attemptMissions.ts` names the missions of #1759. Only the table's label and Resolve read it: the bot
-// chooses its stack at printed costs, before the reveal.
+// Stakoron Strait and Wadi Homeworld, the `onDilemmaReveal` cost abilities of the mission registry (#1907). A
+// mission is named by its whole title. Only the table's label and Resolve read it: the bot chooses its stack at
+// printed costs, before the reveal.
 
-const MISSION_COSTS: Record<string, MissionCostChange> = {
-  // "When {Unscientific Method} is revealed here, it is cost -2."
-  'terlina iii follow homing beacon': { source: 'Terlina III', change: (m) => (m.title === 'Unscientific Method' ? -2 : 0) },
-  // "When a dual dilemma is revealed here, it is cost +1."
-  'stakoron ii mine miszinite': { source: 'Stakoron II', change: (m) => (m.kind === 'dual' ? 1 : 0) },
-  'stakoron strait patrol shipping lane': { source: 'Stakoron Strait', change: (m) => (m.kind === 'dual' ? 1 : 0) },
-  // "Each dilemma whose title begins with "Chula" revealed here is cost -1."
-  'wadi homeworld dominate gaming championship': { source: 'Wadi Homeworld', change: (m) => (m.title.startsWith('Chula') ? -1 : 0) },
-};
+const passes = (m: DilemmaModel, test: RevealedDilemmaTest): boolean =>
+  (test.title === undefined || m.title === test.title) &&
+  (test.titleStartsWith === undefined || m.title.startsWith(test.titleStartsWith)) &&
+  (test.kind === undefined || m.kind === test.kind);
 
 /** The missions with a cost change here, by whole title, lowercased: the model backlog reads it. */
-export const MISSION_COST_TITLES: ReadonlySet<string> = new Set(Object.keys(MISSION_COSTS));
+export const MISSION_COST_TITLES: ReadonlySet<string> = new Set(
+  missionModelsWith('onDilemmaReveal').flatMap(({ model, ability }) => (ability.reveal.kind === 'cost' ? [model.title.toLowerCase()] : []))
+);
 
 /** The cost change of the mission whose row is `mission`, or undefined for any other mission. */
 export function missionCostOf(mission: { name?: string; originalName?: string } | null | undefined): MissionCostChange | undefined {
-  const name = mission?.originalName ?? mission?.name;
-  return typeof name === 'string' ? MISSION_COSTS[name.trim().toLowerCase()] : undefined;
+  const model = missionModelOfCard(mission);
+  const reveal = model?.abilities.flatMap((a) => (a.trigger === 'onDilemmaReveal' && a.reveal.kind === 'cost' ? [a.reveal] : []))[0];
+  if (!model || !reveal) return undefined;
+  return { source: model.label, change: (m) => (passes(m, reveal.dilemma) ? reveal.change : 0) };
 }

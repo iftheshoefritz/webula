@@ -16,7 +16,7 @@ import { cardTitleOf } from './cardTitle';
 import { SKILL_INDEX } from './dilemmaBot/requirements';
 import type { PartnerTraits } from './dilemmaBot/gains';
 import type { BotPileInfo } from './dilemmaBot/botPiles';
-import type { CostTurnPlay, PendingDiscount } from './costModels/model';
+import { differentAffiliations, type CostTurnPlay, type PendingDiscount } from './costModels/model';
 
 /** A row of the card data, lowercased by `parseCardData`, with its `originalName`. */
 export type ViewRow = any;
@@ -508,6 +508,39 @@ export const count = (reader: TableReader, s: Selection | Selection[]): number =
   (Array.isArray(s) ? s : [s]).reduce((n, one) => n + select(reader, one).length, 0);
 
 // The conditions.
+
+/**
+ * A test of the personnel who attempt a mission (#1907): at least `min` of them (of those with one of
+ * `keywords`, when given, lowercased: "dabo girl"), and all of one affiliation when `oneAffiliation`.
+ */
+export interface AttemptingQuery {
+  min?: number;
+  keywords?: string[];
+  oneAffiliation?: true;
+}
+
+/** An attempting personnel as the test reads it: its affiliation and its keywords, lowercased. */
+export interface AttemptingPersonnel {
+  affiliation: string;
+  keywords: string[];
+}
+
+/** Whether the unstopped personnel `attempting` of an attempt pass `query`. */
+export function attemptingHolds(attempting: readonly AttemptingPersonnel[], query: AttemptingQuery): boolean {
+  const { keywords } = query;
+  const counted = keywords ? attempting.filter((p) => p.keywords.some((k) => keywords.includes(k))) : attempting;
+  if (query.min !== undefined && counted.length < query.min) return false;
+  return !query.oneAffiliation || differentAffiliations(attempting.map((p) => p.affiliation)) === 1;
+}
+
+/** A test of a card played this turn (#1907): "a [TOS] card", by an icon, lowercased. */
+export interface PlayTest {
+  icon?: string;
+}
+
+/** Whether the play `play` (its traits as the log keeps them) passes `test`. */
+export const playPasses = (play: Pick<CostTurnPlay, 'icons'> | null | undefined, test: PlayTest): boolean =>
+  !!play && (test.icon === undefined || (play.icons ?? []).includes(test.icon));
 
 /** Where the played card stands: its slot, the ship it boards, and its own id, which no condition counts. */
 export interface ConditionAt {

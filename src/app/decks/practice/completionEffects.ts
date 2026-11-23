@@ -1,18 +1,20 @@
 // The effects of completing a mission on the player's own cards (#1757): what each mission's "When you
-// complete this mission" does, the cards each one may pick, and the actions a choice dispatches. The page
-// dispatches one `batch`, the `setMissionCompleted` first and then the effect's actions, so the
-// completion and its effect are one log entry and one undo. No React and no reducer state: it reads a
+// complete this mission" does (the `onComplete` abilities of the mission registry, #1907), the cards each
+// one may pick, and the actions a choice dispatches. The page dispatches one `batch`, the
+// `setMissionCompleted` first and then the effect's actions, so the completion and its effect are one log
+// entry and one undo. No React and no reducer state: it reads a
 // `TableState` and returns plain actions.
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import { hqRowOf, reportsToMatches } from '../../../lib/hqPlayability';
+import { missionModelsWith, type MissionCompletion } from '../../../lib/missionModels';
 import { missionAt, personnel } from '../../../lib/tableView';
 import type { GameAction } from './gameLog';
 import { attemptingCards, findInstanceAnywhere, type CardInstance, type TableAction, type TableState } from './tableReducer';
 import { tableViewOf } from './tableView';
 
-export type CompletionEffectKind = 'download' | 'discardToHq' | 'discardOrDestroy' | 'toDeckBottom' | 'flip' | 'score';
+export type CompletionEffectKind = MissionCompletion['kind'];
 
 export interface CompletionEffect {
   title: string;
@@ -33,52 +35,30 @@ export interface CompletionEffect {
   minSpecies?: number;
 }
 
-const EFFECTS: CompletionEffect[] = [
-  {
-    title: 'Saturn Continue Invasion',
-    label: 'Saturn',
-    kind: 'download',
-    download: 'Population 9 Billion - All Borg',
-    text: 'When you complete this mission, you may download Population 9 Billion - All Borg.',
-  },
-  {
-    title: 'Starbase 718 Investigate Cryosatellite',
-    label: 'Starbase 718',
-    kind: 'discardToHq',
-    cap: 6,
-    text:
-      'When your personnel complete this mission, you may place any number of unique personnel with a total cost of 6 or less from your discard pile at your headquarters mission where they could be played.',
-  },
-  {
-    title: 'Bassen Rift Interdict Genocidal Praetor',
-    label: 'Bassen Rift',
-    kind: 'discardOrDestroy',
-    min: 4,
-    text:
-      "When you complete this mission, each ship here is destroyed unless you place a personnel involved who costs 4 or more in their owner's discard pile.",
-  },
-  {
-    title: 'Aldea Aid Legendary Civilization',
-    label: 'Aldea',
-    kind: 'toDeckBottom',
-    cap: 12,
-    text: "When you complete this mission, place up to 12 total cost of your personnel involved beneath their owners' decks.",
-  },
-  {
-    title: 'Cheron Aid Planetary Recovery',
-    label: 'Cheron',
-    kind: 'score',
-    points: 5,
-    minSpecies: 4,
-    text: 'When you complete this mission, if four or more different species were involved, score 5 points.',
-  },
-  {
-    title: 'Gateway Flee in Terror',
-    label: 'Gateway',
-    kind: 'flip',
-    text: 'When you complete this mission, flip it over.',
-  },
-];
+// The completion of each row of the mission registry with an `onComplete` ability (#1907), in the shape the
+// panel and the log read.
+function completionEffect(title: string, label: string, text: string, completion: MissionCompletion): CompletionEffect {
+  const base = { title, label, text, kind: completion.kind };
+  switch (completion.kind) {
+    case 'download': {
+      const [step] = completion.steps;
+      return { ...base, download: step.of.kind === 'test' ? step.of.test[0]?.titles?.[0] : undefined };
+    }
+    case 'discardToHq':
+    case 'toDeckBottom':
+      return { ...base, cap: completion.cap };
+    case 'discardOrDestroy':
+      return { ...base, min: completion.min };
+    case 'score':
+      return { ...base, points: completion.steps[0].points, minSpecies: completion.minSpecies };
+    case 'flip':
+      return base;
+  }
+}
+
+const EFFECTS: CompletionEffect[] = missionModelsWith('onComplete').map(({ model, ability }) =>
+  completionEffect(model.title, model.label, ability.text, ability.completion)
+);
 
 export const COMPLETION_EFFECTS: ReadonlyMap<string, CompletionEffect> = new Map(EFFECTS.map((e) => [e.title, e]));
 

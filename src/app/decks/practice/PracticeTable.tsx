@@ -2922,9 +2922,13 @@ function PracticeDrawContent() {
                     ? 'then place it on top of your draw deck'
                     : to.kind === 'playAboardThis'
                       ? `and play it at cost −${to.discount} aboard this ship`
-                      : `and place it aboard ${to.text}`,
+                      : to.kind === 'thisAwayTeam'
+                        ? 'and place it on this planet'
+                        : `and place it aboard ${to.text}`,
               }),
-          ...(to.kind === 'hand' || to.kind === 'drawDeckTop' || !played ? {} : { ships: downloadPlaceShipsOf(table, played, to) }),
+          ...(to.kind === 'hand' || to.kind === 'drawDeckTop' || to.kind === 'thisAwayTeam' || !played
+            ? {}
+            : { ships: downloadPlaceShipsOf(table, played, to) }),
           onDownload: (ids: string[], shipId?: string) => send({ ids, ...(shipId ? { shipId } : {}) }),
         };
       }

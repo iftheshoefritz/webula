@@ -70,7 +70,9 @@ import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, exc
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
 import { cappedLimit, firstTurnGrantsOf, limitCapsOf, limitGrantsOf, pendingDiscountOf, turnChoicesOf } from '../../../lib/costModels/registry';
 import { costFactsOf, slotQuadrantOf, turnPlayOf } from './costFacts';
+import { playPasses } from '../../../lib/tableView';
 import {
+  EARTH_PLAY_TEST,
   EARTH_SPEND_COST,
   EARTH_SPEND_DRAW,
   EARTH_TITLE,
@@ -2854,7 +2856,7 @@ export function earthSpendOf(state: { table: TableState; log: LogEntry[] }): { s
       return (
         here(m.to) &&
         !!costs &&
-        costs.some((c, j) => typeof c === 'number' && (m.plays?.[j]?.icons ?? []).includes('[tos]'))
+        costs.some((c, j) => typeof c === 'number' && playPasses(m.plays?.[j], EARTH_PLAY_TEST))
       );
     })
       ? [i]
