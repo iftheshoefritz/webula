@@ -28,7 +28,18 @@ export type Concern =
 export const CONCERNS: Concern[] = ['dilemma', 'cost', 'whenPlayed', 'eventResolve', 'attributes', 'mission', 'place', 'order', 'trigger', 'ongoing', 'interrupt'];
 
 /** The concerns with a registry today. A clause of any other concern has no place to be modelled yet. */
-export const CONCERNS_WITH_REGISTRY: ReadonlySet<Concern> = new Set<Concern>(['dilemma', 'cost', 'whenPlayed', 'eventResolve', 'attributes', 'mission', 'place', 'order']);
+export const CONCERNS_WITH_REGISTRY: ReadonlySet<Concern> = new Set<Concern>([
+  'dilemma',
+  'cost',
+  'whenPlayed',
+  'eventResolve',
+  'attributes',
+  'mission',
+  'place',
+  'order',
+  'trigger',
+  'interrupt',
+]);
 
 export interface CoverageCard {
   name: string;
