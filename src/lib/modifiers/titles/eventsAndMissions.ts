@@ -3,7 +3,7 @@
 
 import { isCommanderOf } from '../../commander';
 import { personnel, ships, type ViewMission } from '../../tableView';
-import { type AmountContext, each, type ModifierRow, row } from '../model';
+import { type AmountContext, counted, each, type ModifierRow, row } from '../model';
 import { commanded, crewPersonnel, hasAffiliation, hasIcon, hasKeyword, hasWord, hereAt, isPersonnel, isShip, rowIsNamed, rowTitleKey } from '../words';
 import { attributes } from './attributes';
 
@@ -72,10 +72,14 @@ export const EVENT_AND_MISSION_ROWS: ModifierRow[] = [
   row('Exceed Engine Output', 'placedOnShip', 'itsShip', each(['weapons', 'shields'], -2)),
   // "Plays on {Remus}. Each of your [Rom] ships is Range +1 for each Reman you command (limit +3)."
   row('The Reman Mines', 'missionCard', 'any', {
-    range: ({ view, slot, target }) =>
-      rowIsNamed(slot?.card?.row, 'Remus') && hasAffiliation(target, 'romulan')
-        ? Math.min(3, personnel(view, { unstopped: false }).filter((p) => hasWord(p.row?.species, 'reman')).length)
-        : 0,
+    range: counted(
+      ({ view, slot, target }) =>
+        rowIsNamed(slot?.card?.row, 'Remus') && hasAffiliation(target, 'romulan')
+          ? personnel(view, { unstopped: false }).filter((p) => hasWord(p.row?.species, 'reman')).length
+          : 0,
+      1,
+      3
+    ),
   }),
   // "Plays in your core. Each ship in play is Range +1." Each copy adds +1. The clause on an opponent's ship waits
   // for an opponent on the table (#1758).

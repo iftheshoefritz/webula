@@ -591,7 +591,7 @@ orders, and no segment refuses a move. The game menu's Settings hold "Counters: 
 default. Beside it, "Apply card text to attributes: On/Off" (`game-menu-card-text-attributes`, #1668),
 under `practice-card-text-attributes`, off by default, turns on the static modifiers of
 `src/lib/modifiers/` (#1887), each card text one row of plain data (a title, a source place, a target, the
-quantities it changes, a condition, the scope `whileInPlay`), by what it changes under `titles/`: off, a ship's Range is its printed Range and a move's span
+quantities it changes, a condition, the scope `whileInPlay`), by what it changes under `titles/`; a capped count, "+1 for each Cadet aboard (limit +4)", is a `counted(count, per, limit)` change with a signed limit that the evaluator applies, the cost side `countedCost` ("limit 5" on a reduction is −5), and `modifierLimits.test.ts` checks every printed "(limit N)" of a modelled title against `rowLimits` (#1833): off, a ship's Range is its printed Range and a move's span
 total the printed spans plus the 2 between quadrants, a rule of the game. Two rows read the core (#1827): Soliton Wave
 makes every ship on a ship row Range +1 (a `range` row of the source place `core`), and Shadows of the Night sets the span total of
 a move to or from a space mission to 5 when it is 4 or less and the ship is Temporal or costs 3 or more,

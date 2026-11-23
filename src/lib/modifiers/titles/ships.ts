@@ -5,7 +5,7 @@
 // Weapons different changes carries one per quantity. A stopped personnel is still aboard.
 
 import { commandsKeywordCard, distinctTitleCount, keywordCards, missions as viewMissions, type TableView } from '../../tableView';
-import { type AmountContext, type AmountQuantity, each, type ModifierCard, type ModifierRow, row } from '../model';
+import { type AmountContext, type AmountQuantity, counted, type Delta, each, type ModifierCard, type ModifierRow, row } from '../model';
 import {
   crewPersonnel,
   hasAffiliation,
@@ -25,9 +25,9 @@ import { attributes } from './attributes';
 
 const SHIP_ATTRIBUTES: readonly AmountQuantity[] = ['range', 'weapons', 'shields'];
 /** A ship's attributes +`n`: its Range, its Weapons and its Shields. */
-const shipAttributes = (n: number | ((c: AmountContext) => number)) => each(SHIP_ATTRIBUTES, n);
+const shipAttributes = (n: Delta) => each(SHIP_ATTRIBUTES, n);
 /** A ship's Weapons and Shields +`n`, its attributes but its Range. */
-const weaponsAndShields = (n: number | ((c: AmountContext) => number)) => each(['weapons', 'shields'], n);
+const weaponsAndShields = (n: Delta) => each(['weapons', 'shields'], n);
 
 // The cards the player commands with the keyword `word`, by distinct title (#1683, `keywordCards`).
 const titlesWith = (view: TableView, keyword: string): number => distinctTitleCount(keywordCards(view, { keyword }));
@@ -39,7 +39,7 @@ const MANEUVER_EVENT = commandsKeywordCard({ keyword: 'maneuver', type: 'event' 
 const crowded = (ship: ModifierCard, limit: number, n: number) => (crewPersonnel(ship).length > limit ? -n : 0);
 
 // "This ship is attributes +1 for each [DS9] personnel aboard (limit +5)." The icon is read whole, as for Nog.
-const ganges = ({ source }: AmountContext) => Math.min(5, crewPersonnel(source).filter((p) => hasWholeIcon(p, '[ds9]')).length);
+const ganges = counted(({ source }: AmountContext) => crewPersonnel(source).filter((p) => hasWholeIcon(p, '[ds9]')).length, 1, 5);
 
 // "While you have a captive, this ship is attributes +2." A captive is a personnel in the brig.
 const qelPohCaptive = ({ view }: AmountContext) => (view.brig.some((c) => c.type === 'personnel') ? 2 : 0);
@@ -62,7 +62,7 @@ export const SHIP_ROWS: ModifierRow[] = [
   row('Shuttlepod Two Landing Craft', 'self', 'self', { range: ({ source }) => crowded(source, 5, 2) }),
   // "While you command more than seven personnel aboard this ship, it is Range -3. This ship is attributes +1 for
   // each [DS9] personnel aboard (limit +5)."
-  row('U.S.S. Ganges One of the First', 'self', 'self', { range: (c) => crowded(c.source, 7, 3) + ganges(c), ...weaponsAndShields(ganges) }),
+  row('U.S.S. Ganges One of the First', 'self', 'self', { range: [({ source }) => crowded(source, 7, 3), ganges], ...weaponsAndShields(ganges) }),
   // "While you command more than seven personnel aboard this ship, it is range -3. … While your Engineer is
   // aboard, this ship is Range +1."
   row('U.S.S. Rio Grande Built to Last', 'self', 'self', {
@@ -75,13 +75,13 @@ export const SHIP_ROWS: ModifierRow[] = [
   // "This ship is Range +1 for each [Rom] personnel aboard who has a cost of 4 or more (Limit +3)." and "This ship
   // is Weapons +1 and Shields +1 for each [Pa][Rom] personnel aboard (Limit +3)."
   row('Bird-of-Prey', 'self', 'self', {
-    range: ({ source }) => Math.min(3, crewPersonnel(source).filter((p) => hasAffiliation(p, 'romulan') && printedOf(p, 'cost') >= 4).length),
-    ...weaponsAndShields(({ source }) => Math.min(3, crewPersonnel(source).filter((p) => hasIcon(p, 'pa') && hasAffiliation(p, 'romulan')).length)),
+    range: counted(({ source }) => crewPersonnel(source).filter((p) => hasAffiliation(p, 'romulan') && printedOf(p, 'cost') >= 4).length, 1, 3),
+    ...weaponsAndShields(counted(({ source }) => crewPersonnel(source).filter((p) => hasIcon(p, 'pa') && hasAffiliation(p, 'romulan')).length, 1, 3)),
   }),
   // "While an opponent does not command a ship at a Region: Neutral Zone mission, for each Region: Neutral Zone
   // mission you command, this ship is Range +1 (limit +3)." A solo table has no opponent ship.
   row('Pi Off Course', 'self', 'self', {
-    range: ({ view }) => Math.min(3, viewMissions(view).filter((m) => String(m.card?.row?.keywords ?? '').toLowerCase().includes('region: neutral zone')).length),
+    range: counted(({ view }) => viewMissions(view).filter((m) => String(m.card?.row?.keywords ?? '').toLowerCase().includes('region: neutral zone')).length, 1, 3),
   }),
   // "While this personnel is aboard your [Pa][TNG] ship, that ship is Range +1."
   row('Fredericks', 'aboard', 'itsShip', { range: ({ target }) => (hasIcon(target, 'pa') && hasIcon(target, 'tng') ? 1 : 0) }),
@@ -111,7 +111,7 @@ export const SHIP_ROWS: ModifierRow[] = [
   row('Geordi La Forge Resolute Presence', 'aboard', 'itsShip', weaponsAndShields(({ target }) => (hasWord(target.row?.class, 'galaxy') ? 2 : 0))),
   // "Weapons +1 for each Honor Klingon aboard (limit +3)." Klingon is the species, as `gains.ts` reads it.
   row('I.K.S. Rotarran Ship of Tears', 'self', 'self', {
-    weapons: ({ source }) => Math.min(3, crewPersonnel(source).filter((p) => hasSkill(p, 'honor') && hasWord(p.row?.species, 'klingon')).length),
+    weapons: counted(({ source }) => crewPersonnel(source).filter((p) => hasSkill(p, 'honor') && hasWord(p.row?.species, 'klingon')).length, 1, 3),
   }),
   // "While your [Car] Intelligence personnel is aboard, this ship is attributes +2."
   row(
@@ -136,7 +136,7 @@ export const SHIP_ROWS: ModifierRow[] = [
     'Nog Defiant Captain',
     'aboard',
     'itsShip',
-    shipAttributes(({ target }) => (hasWholeIcon(target, '[ds9]') ? Math.min(4, crewPersonnel(target).filter((p) => hasIcon(p, 'fut')).length) : 0))
+    shipAttributes(counted(({ target }) => (hasWholeIcon(target, '[ds9]') ? crewPersonnel(target).filter((p) => hasIcon(p, 'fut')).length : 0), 1, 4))
   ),
   // "While this personnel is aboard your [Car] ship, that ship is attributes +1 for each of your different Capture
   // cards and each of your different Punishment cards." Each keyword counts its own titles, so a card with both
@@ -186,7 +186,7 @@ export const SHIP_ROWS: ModifierRow[] = [
     shipAttributes(({ source }) => (crewPersonnel(source).filter((p) => String(p.row?.keywords ?? '').toLowerCase().includes('bajoran resistance')).length >= 3 ? 2 : 0))
   ),
   // "This ship is attributes +1 for each of your Cadets aboard (limit +4)." Cadet is a keyword.
-  row('U.S.S. Valiant Red Squad Training Ship', 'self', 'self', shipAttributes(({ source }) => Math.min(4, crewPersonnel(source).filter((p) => hasKeyword(p, 'cadet')).length))),
+  row('U.S.S. Valiant Red Squad Training Ship', 'self', 'self', shipAttributes(counted(({ source }) => crewPersonnel(source).filter((p) => hasKeyword(p, 'cadet')).length, 1, 4))),
   // "While this ship is at a [Bor] mission, personnel aboard it are attributes +1."
   row(
     "Queen's Borg Sphere Contingency Vessel",

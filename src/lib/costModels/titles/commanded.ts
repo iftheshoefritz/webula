@@ -1,6 +1,6 @@
-import { Condition, commands, commandsEach, commandsEvents, count, Selection } from '../../tableView';
+import { Condition, commands, commandsEach, commandsEvents, Selection } from '../../tableView';
 import { CommandedTraits, CostModel } from '../model';
-import { CostRowSpec, onLimit, own, ownWhen, withRows } from '../rows';
+import { CostRowSpec, countedCost, onLimit, own, ownWhen, withRows } from '../rows';
 
 // The cards that cost less while the player commands certain personnel (#1693). The facts are the
 // table before the move, so the card being played never counts itself. The conditions are the shared ones
@@ -19,10 +19,10 @@ export const commandedPersonnel = (q: Omit<Extract<Selection, { of: 'personnel' 
 });
 
 /** "Cost −1 for each <what> you command", at most −`limit`: the count of `selection`, while `condition` holds. */
-const minusEach = (selection: Selection, condition: Condition, limit = Infinity): CostRowSpec =>
-  own((c) => ({ cost: c.play.printed - Math.min(count(c.source, selection), limit), reason: c.because }), { condition });
+const minusEach = (selection: Selection, condition: Condition, limit?: number): CostRowSpec =>
+  own(countedCost(selection, -1, limit === undefined ? undefined : -limit), { condition });
 
-/** "Cost −1 for each <what> personnel you command" (`commandsEach`). */
+/** "Cost −1 for each <what> personnel you command" (`commandsEach`), the limit, its magnitude, given once. */
 const minusPerCommanded = (selection: Selection, what: string, limit?: number) => minusEach(selection, commandsEach(selection, what, { limit }), limit);
 
 /** "Cost −1 for each <keyword> event you command" (#1749, `commandsEvents`). */
