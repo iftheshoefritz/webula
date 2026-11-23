@@ -12,7 +12,18 @@ import {
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { ResolvingPanel } from '../../../app/decks/practice/ResolvingPanel';
-import { downloadTakes, DownloadTakeModel, playConditionLine, playModelOf, playStepsOf } from '../../../lib/playModels';
+import { downloadTakes, playConditionLine, playModelOf, PlayModel, playStagesOf } from '../../../lib/playModels';
+import { recordStepName, type PendingPlayEffect } from '../../../app/decks/practice/gameLog';
+import { stepOf } from '../../../lib/effectSteps';
+
+// The stages of a model as the record names them (#1863), and whether each is a "may".
+const stageSummary = (m: PlayModel) => playStagesOf(m).map((s) => ({ step: recordStepName(s.lead), may: s.may }));
+const stageName = (p: PendingPlayEffect | null) => (p ? recordStepName(p.stage.lead) : undefined);
+// The test of a model's download step.
+const downloadOf = (m: PlayModel) => {
+  const of = stepOf(m.steps, 'download')?.of;
+  return of?.kind === 'test' ? of : { test: [] };
+};
 
 // Issue #1810: the "when you play" kind "download a card into hand", with Opaka Kai of Bajor, Jean-Luc Picard
 // Vintner, Mavek and the other plain downloads. With invented deck cards, and the real titles, the keys of their
@@ -61,19 +72,19 @@ const dispatch = (game: GameState, action: Parameters<typeof withShuffleOrders>[
 const played = (id = 'opaka', t: TableState = table()): GameState => dispatch(initialGameState(t), { type: 'move', id, to: AWAY_TEAM });
 const lastText = (game: GameState) => logEntryText(game.log[game.log.length - 1]);
 const ids = (cards: CardInstance[]) => cards.map((c) => c.id);
-const model = (name: string) => playModelOf(name) as DownloadTakeModel;
-const passing = (name: string, cards: CardInstance[] = DECK) => cards.filter((c) => downloadTakes(model(name), c.card)).map((c) => c.id);
+const model = (name: string) => playModelOf(name)!;
+const passing = (name: string, cards: CardInstance[] = DECK) => cards.filter((c) => downloadTakes(downloadOf(model(name)), c.card)).map((c) => c.id);
 
 describe('the download models (#1810)', () => {
   it('Opaka downloads one [Baj] personnel, a "may"', () => {
     const opaka = model('Opaka Kai of Bajor');
-    expect(opaka).toMatchObject({ kind: 'downloadTake', upTo: 1 });
-    expect(playStepsOf(opaka)).toEqual([{ step: 'download', may: true }]);
+    expect(stepOf(opaka.steps, 'download')).toMatchObject({ upTo: 1, may: true });
+    expect(stageSummary(opaka)).toEqual([{ step: 'download', may: true }]);
     expect(passing('Opaka Kai of Bajor')).toEqual(['b1', 'b2']);
   });
 
   it('Picard, his *VP too, downloads up to three [TNG] personnel', () => {
-    expect(model('Jean-Luc Picard Vintner *VP')).toMatchObject({ kind: 'downloadTake', upTo: 3 });
+    expect(stepOf(model('Jean-Luc Picard Vintner *VP').steps, 'download')).toMatchObject({ upTo: 3, to: { kind: 'hand' } });
     expect(passing('Jean-Luc Picard Vintner')).toEqual(['t1', 't2', 't3']);
   });
 
@@ -120,17 +131,17 @@ describe('the download step (#1810)', () => {
   it('a play of Opaka leaves it in the away team with its download pending', () => {
     const game = played();
     expect(ids(game.table.missions[0].awayTeam)).toEqual(['opaka']);
-    expect(pendingPlayEffectOf(game)).toMatchObject({ id: 'opaka', step: { step: 'download' } });
+    expect(pendingPlayEffectOf(game)).toMatchObject({ id: 'opaka', stage: { lead: { kind: 'download' } } });
   });
 
   it('take one: it goes to the hand, the draw deck is shuffled in the carried order, one entry, one undo', () => {
     const start = played();
     const before = start.undo[start.undo.length - 1];
-    const action = withShuffleOrders(start.table, { type: 'playEffectDownload', ids: ['b2'] }, start.log);
-    expect(action).toMatchObject({ type: 'playEffectDownload', ids: ['b2'] });
+    const action = withShuffleOrders(start.table, { type: 'effectStep', ids: ['b2'] }, start.log);
+    expect(action).toMatchObject({ type: 'effectStep', ids: ['b2'] });
     const order = (action as { order: string[] }).order;
     expect([...order].sort()).toEqual(['b1', 'e1', 'q1', 't1', 't2', 't3']);
-    const done = gameReducer(start, { type: 'playEffectDownload', ids: ['b2'], order: ['q1', 't3', 'b1', 'e1', 't2', 't1'] });
+    const done = gameReducer(start, { type: 'effectStep', ids: ['b2'], order: ['q1', 't3', 'b1', 'e1', 't2', 't1'] });
     expect(done.log).toHaveLength(1);
     expect(ids(done.table.hand)).toEqual(['picard', 'mavek', 'b2']);
     expect(ids(done.table.drawDeck)).toEqual(['q1', 't3', 'b1', 'e1', 't2', 't1']);
@@ -146,8 +157,8 @@ describe('the download step (#1810)', () => {
 
   it('Picard takes up to three, and no more', () => {
     const start = played('picard');
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['t1', 't2', 't3', 'b1'] })).toBe(start);
-    const done = dispatch(start, { type: 'playEffectDownload', ids: ['t1', 't3'] });
+    expect(gameReducer(start, { type: 'effectStep', ids: ['t1', 't2', 't3', 'b1'] })).toBe(start);
+    const done = dispatch(start, { type: 'effectStep', ids: ['t1', 't3'] });
     expect(ids(done.table.hand)).toEqual(['opaka', 'mavek', 't1', 't3']);
     expect(done.table.drawDeck).toHaveLength(5);
     expect(lastText(done)).toContain('; downloaded Card t1 and Card t3, shuffled the draw deck');
@@ -155,16 +166,16 @@ describe('the download step (#1810)', () => {
 
   it('refuses a card the test does not allow, none, a repeat and a card not in the draw deck', () => {
     const start = played();
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['t1'] })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: [] })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['b1', 'b1'] })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['picard'] })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['b1', 'b2'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['t1'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: [] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['b1', 'b1'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['picard'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['b1', 'b2'] })).toBe(start);
   });
 
   it('Skip leaves the draw deck unshuffled, in one entry', () => {
     const start = played();
-    const skipped = dispatch(start, { type: 'playEffectSkip' });
+    const skipped = dispatch(start, { type: 'effectSkip' });
     expect(skipped.log).toHaveLength(1);
     expect(skipped.table.drawDeck).toBe(start.table.drawDeck);
     expect(pendingPlayEffectOf(skipped)).toBeNull();
@@ -173,9 +184,9 @@ describe('the download step (#1810)', () => {
 
   it('a deck with no match still lets the player skip', () => {
     const start = played('opaka', table(DECK.filter((c) => !c.id.startsWith('b'))));
-    expect(pendingPlayEffectOf(start)?.step.step).toBe('download');
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['t1'] })).toBe(start);
-    expect(pendingPlayEffectOf(dispatch(start, { type: 'playEffectSkip' }))).toBeNull();
+    expect(stageName(pendingPlayEffectOf(start))).toBe('download');
+    expect(gameReducer(start, { type: 'effectStep', ids: ['t1'] })).toBe(start);
+    expect(pendingPlayEffectOf(dispatch(start, { type: 'effectSkip' }))).toBeNull();
   });
 });
 

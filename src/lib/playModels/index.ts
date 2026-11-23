@@ -1,31 +1,26 @@
 // The "when you play" models of the practice table (#1800): what the table automates of the text of a
 // personnel or a ship that acts when the player plays it, "When you play this personnel, …". One model per
 // title, by whole title (`cardTitleOf`), in the style of the resolve models of events
-// (`src/lib/resolveModels/`). A model names its steps, each with whether it is a "may", and a condition.
-// It ships one kind:
-// - `'drawUpToThenDiscard'`: the player may draw up to N cards, a count the player picks from 0 to N, then
-//   discards M cards from hand (Enabran Tain "Retired" Spymaster).
-// - `'discardFromHand'`: the player discards N cards from hand, no "may" (#1808: Leeta Rebel Supporter, the
-//   Dissident personnel and the others whose whole clause is "discard a card from hand").
-// - `'examineTake'` (#1809): the player may examine the top N cards of the draw deck, take one (or as many as
-//   the model allows) into hand, those that pass the model's test of the card, and place the rest on the
-//   bottom of the draw deck in any order (Requisitions Drone, Lenara Kahn, Keiko O'Brien, Harry Kim, Sobi).
-// - `'downloadTake'` (#1810): the player may download up to N cards of the draw deck that pass the model's test
-//   into hand, then shuffles the draw deck (Opaka Kai of Bajor, Jean-Luc Picard Vintner and the plain "you may
-//   download <a test>" texts).
-// - `'downloadPlace'` (#1811): the player may download one card that passes the model's test, then shuffles the
-//   draw deck, and the card goes to the place the played card sets: aboard a [Dom] ship the player picks (Gelnon),
-//   played aboard the played ship at cost −4 (U.S.S. Enterprise Where She Belongs), or on top of the draw deck
-//   (Reconnaissance Drone).
-// - `'score'` (#1812): the player scores N points on a condition (Annexation Drone, DaiMon Solok, Opaka, Kira Taban).
+// (`src/lib/resolveModels/`). A model is its text, a condition, and a list of effect steps (#1863,
+// `src/lib/effectSteps.ts`), each with whether it is a "may":
+// - Enabran Tain "Retired" Spymaster: `[drawUpTo(7), discardFromHand(2)]`.
+// - Leeta Rebel Supporter and the others whose whole clause is "discard a card from hand" (#1808):
+//   `[discardFromHand(1)]`, no "may".
+// - The examines of #1809 (Requisitions Drone, Lenara Kahn, Keiko O'Brien, Harry Kim, Sobi): `[examine(4, …)]`.
+// - The downloads of #1810 (Opaka Kai of Bajor, Jean-Luc Picard Vintner and the plain "you may download <a
+//   test>" texts): `[download(test, to hand), shuffle]`.
+// - The downloads to a place of #1811: aboard a [Dom] ship the player picks (Gelnon), played aboard the played
+//   ship at cost −4 (U.S.S. Enterprise Where She Belongs), or on top of the draw deck (Reconnaissance Drone).
+// - The scores of #1812 (Annexation Drone, DaiMon Solok, Opaka, Kira Taban): `[score(5)]`.
 // A personnel or a ship with no model plays as before.
 //
 // It imports no React and no reducer: a condition is a shared condition of the table view (`src/lib/tableView.ts`,
 // #1877), read over the facts of the cost models (`CostFacts`) through `costFactsSource`.
 
 import { cardTitleOf } from '../cardTitle';
-import type { CostCoreCard, CostFacts } from '../costModels/model';
+import type { CostFacts } from '../costModels/model';
 import { costFactsSource } from '../costModels/factsSource';
+import { DownloadTest, EffectStep, EffectStage, discardFromHand, drawUpTo, PlayedAt, score, shuffle, stagesOf } from '../effectSteps';
 import { atThisMission, commands, commandsEvents, Condition, MissionQuery, missionRequires, missions, TableReader } from '../tableView';
 
 /** A condition the table cannot read, such as one of the opponent's: shown as not checked. */
@@ -49,168 +44,33 @@ export type PlayCondition = UncheckedCondition | TableCondition;
 /** The facts a condition reads: the missions always, the rest of `CostFacts` where the page has them. */
 export type PlayConditionFacts = Pick<CostFacts, 'missions'> & Partial<CostFacts>;
 
-/** The names of the steps a model can have. */
-export type PlayStepName = 'draw' | 'discard' | 'examine' | 'download' | 'score';
-
-export interface PlayStepSpec {
-  step: PlayStepName;
-  /** A "may": the player may skip it. A step after a "may" it depends on ("then") is skipped with it. */
-  may: boolean;
-}
-
-/** "You may draw up to seven cards, then discard two cards from hand." */
-export interface DrawUpToThenDiscardModel {
-  kind: 'drawUpToThenDiscard';
+/** A "when you play" model: the title, the effect's text, a condition, and the steps of the effect, in order. */
+export interface PlayModel {
   /** The title of the card, `cardTitleOf` of its name, the key of the registry. */
   title: string;
-  /** The most cards the player may draw. */
-  drawUpTo: number;
-  /** The cards of the hand the player discards after the draw. */
-  discard: number;
-  condition?: PlayCondition;
   /** The effect's text, for the panel. */
   text: string;
-}
-
-/** "Discard a card from hand.": the whole clause, and not a "may". */
-export interface DiscardFromHandModel {
-  kind: 'discardFromHand';
-  title: string;
-  /** The cards of the hand the player discards. */
-  discard: number;
   condition?: PlayCondition;
-  text: string;
-}
-
-/** A card of the draw deck as the test of an examine reads it: its type, its keywords and its printed cost, as the card data has them. */
-export interface ExaminedCard {
-  type?: unknown;
-  keywords?: unknown;
-  cost?: unknown;
-}
-
-/**
- * The test of the card an examine takes (#1809): a type of `types` or a keyword of `keywords` ("an interrupt
- * or a Temporal card"), or a printed cost of `cost` or more.
- */
-export type ExamineTest =
-  | { kind: 'typeOrKeyword'; types: string[]; keywords?: string[] }
-  | { kind: 'costAtLeast'; cost: number };
-
-/** How many cards an examine may take: a fixed number, or one for each different card of the core with a keyword. */
-export type ExamineTakeCount = { kind: 'fixed'; count: number } | { kind: 'differentCoreKeyword'; keyword: string };
-
-/** "You may examine the top four cards of your deck and take one into hand. Place the remaining cards on the bottom …" */
-export interface ExamineTakeModel {
-  kind: 'examineTake';
-  title: string;
-  /** The cards of the top of the draw deck it examines. */
-  examine: number;
-  take: ExamineTakeCount;
-  /** Whether a card must be taken once the cards are examined (Requisitions Drone), or "you may" take one. */
-  mustTake: boolean;
-  test?: ExamineTest;
-  /** The words of the test, for the panel: "an event". */
-  testText?: string;
-  condition?: PlayCondition;
-  text: string;
-}
-
-/** A card of the draw deck as the test of a download reads it, as the card data has it, lowercased. */
-export interface DownloadedCard {
-  name?: unknown;
-  type?: unknown;
-  affiliation?: unknown;
-  icons?: unknown;
-  keywords?: unknown;
-  species?: unknown;
-  skills?: unknown;
-  cost?: unknown;
-}
-
-/**
- * One test of the card a download takes (#1810): every field it has must hold, each by one of its values, all
- * lowercased. `titles` holds a card of that title, or, for a personnel or a ship, a version of that persona
- * ("{Kahless}" holds Kahless The Unforgettable); `affiliations` an affiliation by inclusion ("[Baj]" is
- * "bajoran"); `icons` an icon of the icons field ("[tng]").
- */
-export interface DownloadTest {
-  titles?: string[];
-  types?: string[];
-  affiliations?: string[];
-  icons?: string[];
-  keywords?: string[];
-  species?: string[];
-  skills?: string[];
-  /** Keywords the card must not have (#1811): "a non-Drone personnel". */
-  notKeywords?: string[];
-  /** The least printed cost (#1811): "who has a cost of 4 or more". */
-  costAtLeast?: number;
-}
-
-/** "You may download a [Baj] personnel.", "… up to three [TNG] personnel." */
-export interface DownloadTakeModel {
-  kind: 'downloadTake';
-  title: string;
-  /** The most cards the player may download. */
-  upTo: number;
-  /** A card passes when it passes one of the tests. */
-  test: DownloadTest[];
-  /** The words of the test, for the panel: "a [Baj] personnel". */
-  testText: string;
-  condition?: PlayCondition;
-  text: string;
-}
-
-/**
- * Where the card a `'downloadPlace'` model downloads goes (#1811): aboard one of the player's ships of an
- * affiliation, which the player picks; played aboard the played ship at its printed cost less `discount`; or
- * on top of the draw deck, after the shuffle.
- */
-export type DownloadPlace =
-  | { kind: 'aboardShip'; affiliation: string; text: string }
-  | { kind: 'playAboardThis'; discount: number }
-  | { kind: 'drawDeckTop' };
-
-/** "You may download a Jem'Hadar and place it aboard your [Dom] ship." */
-export interface DownloadPlaceModel {
-  kind: 'downloadPlace';
-  title: string;
-  test: DownloadTest[];
-  /** The words of the test, for the panel: "a Jem'Hadar". */
-  testText: string;
-  place: DownloadPlace;
+  steps: EffectStep[];
   /** Whether the play's cost choice ignores this ability (#1811): "You may play this ship at cost -4 to ignore its next ability." */
   ignoredByCostChoice?: true;
-  condition?: PlayCondition;
-  text: string;
 }
 
-/** "… score 5 points." (#1812): the points go to the score, clamped as the score buttons clamp it. */
-export interface ScoreModel {
-  kind: 'score';
-  title: string;
-  points: number;
-  /** Whether the text says "you may score". Skip shows either way: the player may skip a condition the table cannot check. */
-  may: boolean;
-  condition?: PlayCondition;
-  text: string;
-}
-
+// "You may download <testText>", up to `upTo` cards, into hand, then the shuffle of the draw deck (#1810).
+const downloadSteps = (upTo: number, testText: string, test: DownloadTest[]): EffectStep[] => [
+  { kind: 'download', of: { kind: 'test', test, testText }, upTo, to: { kind: 'hand' }, may: true },
+  shuffle(),
+];
 
 // A plain "When you play this …, you may download <testText>." (#1810), one card.
-const download = (title: string, testText: string, ...test: DownloadTest[]): DownloadTakeModel => ({
-  kind: 'downloadTake',
+const download = (title: string, testText: string, ...test: DownloadTest[]): PlayModel => ({
   title,
-  upTo: 1,
-  test,
-  testText,
+  steps: downloadSteps(1, testText, test),
   text: `You may download ${testText}.`,
 });
 
 // The download of one card or another of these titles, "{Engage Cloak}".
 const named = (...titles: string[]): DownloadTest => ({ titles: titles.map((t) => t.toLowerCase()) });
-export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel | ExamineTakeModel | DownloadTakeModel | DownloadPlaceModel | ScoreModel;
 
 // The conditions (#1877), each a shared condition of the table view. "You command" counts the unstopped
 // personnel (`commanded`), as the cost models do (#1751). A non-headquarters mission is one with a type: the
@@ -241,31 +101,25 @@ const threeFerengi = commands({ of: 'personnel', unstopped: true, affiliation: '
 
 const commandsA = (species: string): Condition => commands({ of: 'personnel', unstopped: true, species }, `a ${species}`);
 
-const SCORE_MODELS: ScoreModel[] = [
+const SCORE_MODELS: PlayModel[] = [
   // "When you play this personnel, if each of your non-headquarters missions is an [AQ] mission, score 5 points."
   {
-    kind: 'score',
     title: 'Annexation Drone',
-    points: 5,
-    may: false,
+    steps: [score(5)],
     condition: nonHeadquartersInAlpha,
     text: 'Score 5 points.',
   },
   // "When you play this personnel, if you command three [Fer] personnel, score 5 points."
   {
-    kind: 'score',
     title: 'DaiMon Solok Cargo Runner',
-    points: 5,
-    may: false,
+    steps: [score(5)],
     condition: tableCondition(threeFerengi),
     text: 'Score 5 points.',
   },
   // "When you play this personnel, if you command {Bajor} and no other headquarters mission, you may score 5 points."
   {
-    kind: 'score',
     title: 'Opaka Collaborator',
-    points: 5,
-    may: true,
+    steps: [score(5)],
     condition: {
       kind: 'table',
       holds: (r) => missions(r, { headquarters: true }).length === 1 && missions(r, { headquarters: true, titled: 'Bajor' }).length === 1,
@@ -275,19 +129,15 @@ const SCORE_MODELS: ScoreModel[] = [
   },
   // "When you play this personnel, if you have a lower score than each of your opponents, score 5 points."
   {
-    kind: 'score',
     title: 'Kira Taban Husband and Father',
-    points: 5,
-    may: false,
+    steps: [score(5)],
     condition: { kind: 'unchecked', needs: "needs the opponent's score", text: 'you have a lower score than each of your opponents' },
     text: 'Score 5 points.',
   },
   // "When you play this personnel, if you command a Founder and a Vorta, you may score 5 points."
   {
-    kind: 'score',
     title: 'Eris Harbinger of the Dominion',
-    points: 5,
-    may: true,
+    steps: [score(5)],
     condition: {
       kind: 'table',
       holds: (r) => commandsA('founder').holds(r) && commandsA('vorta').holds(r),
@@ -297,20 +147,16 @@ const SCORE_MODELS: ScoreModel[] = [
   },
   // "When you play this personnel, if you command a Maneuver event, score 5 points."
   {
-    kind: 'score',
     title: 'Klaa Dauntless Hunter',
-    points: 5,
-    may: false,
+    steps: [score(5)],
     condition: tableCondition(commandsEvents({ keyword: 'maneuver', text: 'you command a Maneuver event' })),
     text: 'Score 5 points.',
   },
   // "When you play this personnel, if you command a mission worth 40 or more points and three [Fer] personnel,
   // score 5 points." His cost clause is a cost model (`completedMission.ts`).
   {
-    kind: 'score',
     title: 'Brunt Acting Grand Nagus',
-    points: 5,
-    may: false,
+    steps: [score(5)],
     condition: {
       kind: 'table',
       holds: (r) => missions(r, { where: (m) => m.type !== '' && m.points >= 40 }).length > 0 && threeFerengi.holds(r),
@@ -345,77 +191,51 @@ export const PLAY_MODELS: PlayModel[] = [
   // "When you play this personnel, if each of your non-headquarters missions requires Intelligence, you may
   // draw up to seven cards, then discard two cards from hand."
   {
-    kind: 'drawUpToThenDiscard',
     title: 'Enabran Tain "Retired" Spymaster',
-    drawUpTo: 7,
-    discard: 2,
+    steps: [drawUpTo(7), discardFromHand(2)],
     condition: nonHeadquartersRequire('Intelligence'),
     text: 'You may draw up to seven cards, then discard two cards from hand.',
   },
   ...DISCARD_A_CARD_TITLES.map(
-    (title): DiscardFromHandModel => ({ kind: 'discardFromHand', title, discard: 1, text: 'Discard a card from hand.' })
+    (title): PlayModel => ({ title, steps: [discardFromHand(1)], text: 'Discard a card from hand.' })
   ),
-  { kind: 'discardFromHand', title: 'Niala Intelligence Asset', discard: 2, text: 'Discard two cards from hand.' },
+  { title: 'Niala Intelligence Asset', steps: [discardFromHand(2)], text: 'Discard two cards from hand.' },
   // "When you play this personnel, you may examine the top four cards of your deck and take one into hand. Place
   // the remaining cards on the bottom of your deck in any order."
   {
-    kind: 'examineTake',
     title: 'Requisitions Drone',
-    examine: 4,
-    take: { kind: 'fixed', count: 1 },
-    mustTake: true,
+    steps: [{ kind: 'examine', count: 4, take: { kind: 'fixed', count: 1 }, mustTake: true, rest: 'bottomOrdered', may: true }],
     text: 'You may examine the top four cards of your deck and take one into hand. Place the remaining cards on the bottom of your deck in any order.',
   },
   // "… you may examine the top four cards of your deck. You may reveal one event and take it into hand. …"
   {
-    kind: 'examineTake',
     title: 'Lenara Kahn Wormhole Theorist',
-    examine: 4,
-    take: { kind: 'fixed', count: 1 },
-    mustTake: false,
-    test: { kind: 'typeOrKeyword', types: ['event'] },
-    testText: 'an event',
+    steps: [{ kind: 'examine', count: 4, take: { kind: 'fixed', count: 1 }, mustTake: false, test: { kind: 'typeOrKeyword', types: ['event'] }, testText: 'an event', rest: 'bottomOrdered', may: true }],
     text: 'You may examine the top four cards of your deck. You may reveal one event and take it into hand. Place the remaining cards on the bottom of your deck in any order.',
   },
   // "… You may reveal a card that has a cost of 4 or more and take it into your hand. …"
   {
-    kind: 'examineTake',
     title: "Keiko O'Brien Botanist",
-    examine: 4,
-    take: { kind: 'fixed', count: 1 },
-    mustTake: false,
-    test: { kind: 'costAtLeast', cost: 4 },
-    testText: 'a card with a cost of 4 or more',
+    steps: [{ kind: 'examine', count: 4, take: { kind: 'fixed', count: 1 }, mustTake: false, test: { kind: 'costAtLeast', cost: 4 }, testText: 'a card with a cost of 4 or more', rest: 'bottomOrdered', may: true }],
     text: 'You may examine the top four cards of your deck. You may reveal a card that has a cost of 4 or more and take it into your hand. Place the remaining cards on the bottom of your deck in any order.',
   },
   // "… You may reveal an interrupt or a Temporal card and take it into hand. …"
   {
-    kind: 'examineTake',
     title: 'Harry Kim Remorseful Survivor',
-    examine: 4,
-    take: { kind: 'fixed', count: 1 },
-    mustTake: false,
-    test: { kind: 'typeOrKeyword', types: ['interrupt'], keywords: ['temporal'] },
-    testText: 'an interrupt or a Temporal card',
+    steps: [{ kind: 'examine', count: 4, take: { kind: 'fixed', count: 1 }, mustTake: false, test: { kind: 'typeOrKeyword', types: ['interrupt'], keywords: ['temporal'] }, testText: 'an interrupt or a Temporal card', rest: 'bottomOrdered', may: true }],
     text: 'You may examine the top four cards of your deck. You may reveal an interrupt or a Temporal card and take it into hand. Place the remaining cards on the bottom of your deck in any order.',
   },
   // "… You may take one card into hand for each different Commodity in your core, then place the remaining cards …"
   {
-    kind: 'examineTake',
     title: 'Sobi Felicium Dealer',
-    examine: 4,
-    take: { kind: 'differentCoreKeyword', keyword: 'commodity' },
-    mustTake: false,
+    steps: [{ kind: 'examine', count: 4, take: { kind: 'differentCoreKeyword', keyword: 'commodity' }, mustTake: false, rest: 'bottomOrdered', may: true }],
     text: 'You may examine the top four cards of your deck. You may take one card into hand for each different Commodity in your core, then place the remaining cards on the bottom of your deck in any order.',
   },
   // "When you play this personnel, if each of your non-headquarters missions requires Biology, you may download up
   // to three [TNG] personnel."
   {
-    kind: 'downloadTake',
     title: 'Jean-Luc Picard Vintner',
-    upTo: 3,
-    test: [{ types: ['personnel'], icons: ['[tng]'] }],
-    testText: 'up to three [TNG] personnel',
+    steps: downloadSteps(3, 'up to three [TNG] personnel', [{ types: ['personnel'], icons: ['[tng]'] }]),
     condition: nonHeadquartersRequire('Biology'),
     text: 'You may download up to three [TNG] personnel.',
   },
@@ -453,11 +273,8 @@ export const PLAY_MODELS: PlayModel[] = [
   download('Daniel Leonard Cautious Admiral', 'a [SF] ship', { types: ['ship'], affiliations: ['starfleet'] }),
   download('Kira Nerys Ambitious Ally', 'a ship', { types: ['ship'] }),
   {
-    kind: 'downloadTake',
     title: 'Harrad-Sar Slave of the Situation',
-    upTo: 3,
-    test: [{ types: ['personnel'], keywords: ['thief'] }],
-    testText: 'up to three Thief personnel',
+    steps: downloadSteps(3, 'up to three Thief personnel', [{ types: ['personnel'], keywords: ['thief'] }]),
     text: 'You may download up to three Thief personnel.',
   },
   download('Niles', 'Retaliation', named('Retaliation')),
@@ -483,11 +300,8 @@ export const PLAY_MODELS: PlayModel[] = [
   // "When you play this personnel, if each of your non-headquarters missions is an [AQ] mission, you may download a
   // Jem'Hadar and place it aboard your [Dom] ship."
   {
-    kind: 'downloadPlace',
     title: 'Gelnon Aloof Tactician',
-    test: [{ species: ["jem'hadar"] }],
-    testText: "a Jem'Hadar",
-    place: { kind: 'aboardShip', affiliation: 'dominion', text: 'your [Dom] ship' },
+    steps: [{ kind: 'download', of: { kind: 'test', test: [{ species: ["jem'hadar"] }], testText: "a Jem'Hadar" }, upTo: 1, to: { kind: 'aboardShip', affiliation: 'dominion', text: 'your [Dom] ship' }, may: true }, shuffle()],
     condition: nonHeadquartersInAlpha,
     text: "You may download a Jem'Hadar and place it aboard your [Dom] ship.",
   },
@@ -495,21 +309,15 @@ export const PLAY_MODELS: PlayModel[] = [
   // cost -4 aboard this ship." Its "may play at cost -4 to ignore its next ability" is a cost model (`mayCost.ts`):
   // once the player takes that choice, the download is no longer pending.
   {
-    kind: 'downloadPlace',
     title: 'U.S.S. Enterprise Where She Belongs',
-    test: [{ types: ['personnel'], icons: ['[tos]'], costAtLeast: 4 }],
-    testText: 'a [TOS] personnel who has a cost of 4 or more',
-    place: { kind: 'playAboardThis', discount: 4 },
+    steps: [{ kind: 'download', of: { kind: 'test', test: [{ types: ['personnel'], icons: ['[tos]'], costAtLeast: 4 }], testText: 'a [TOS] personnel who has a cost of 4 or more' }, upTo: 1, to: { kind: 'playAboardThis', discount: 4 }, may: true }, shuffle()],
     ignoredByCostChoice: true,
     text: 'You may download a [TOS] personnel who has a cost of 4 or more and play him or her at cost -4 aboard this ship.',
   },
   // "When you play this personnel, you may download a non-Drone personnel, then place that personnel on top of your deck."
   {
-    kind: 'downloadPlace',
     title: 'Reconnaissance Drone',
-    test: [{ types: ['personnel'], notKeywords: ['drone'] }],
-    testText: 'a non-Drone personnel',
-    place: { kind: 'drawDeckTop' },
+    steps: [{ kind: 'download', of: { kind: 'test', test: [{ types: ['personnel'], notKeywords: ['drone'] }], testText: 'a non-Drone personnel' }, upTo: 1, to: { kind: 'drawDeckTop' }, may: true }, shuffle()],
     text: 'You may download a non-Drone personnel, then place that personnel on top of your deck.',
   },
   ...SCORE_MODELS,
@@ -520,26 +328,8 @@ const BY_TITLE = new Map(PLAY_MODELS.map((m) => [m.title.toLowerCase(), m]));
 /** The "when you play" model of the card named `name`, by its title, or undefined. */
 export const playModelOf = (name: string): PlayModel | undefined => BY_TITLE.get(cardTitleOf(name).toLowerCase());
 
-/** The steps of a model, in order. */
-export const playStepsOf = (model: PlayModel): PlayStepSpec[] => {
-  switch (model.kind) {
-    case 'drawUpToThenDiscard':
-      return [
-        { step: 'draw', may: true },
-        { step: 'discard', may: false },
-      ];
-    case 'discardFromHand':
-      return [{ step: 'discard', may: false }];
-    case 'examineTake':
-      return [{ step: 'examine', may: true }];
-    case 'downloadTake':
-    case 'downloadPlace':
-      return [{ step: 'download', may: true }];
-    case 'score':
-      // Skip shows even without "you may" (#1812), since the table may not read the condition right.
-      return [{ step: 'score', may: true }];
-  }
-};
+/** The stages of a model, in order (#1863): each the step the player acts on and the automatic steps after it. */
+export const playStagesOf = (model: PlayModel): EffectStage[] => stagesOf(model.steps);
 
 export type PlayConditionStatus = 'met' | 'notMet' | 'unchecked';
 
@@ -547,12 +337,6 @@ export interface PlayConditionState {
   status: PlayConditionStatus;
   /** The condition's words, "each of your non-headquarters missions requires Intelligence". */
   text: string;
-}
-
-/** Where the played card stands (#1810): the mission slot and its instance id, for "at this mission". */
-export interface PlayedAt {
-  missionIndex?: number;
-  id?: string;
 }
 
 /**
@@ -577,94 +361,5 @@ export function playConditionLine(model: PlayModel, state: PlayConditionState): 
   return `Condition not checked: ${needs}`;
 }
 
-/** The cards a draw of `wanted` takes from a draw deck of `deck` cards, the count clamped to `0..drawUpTo`. */
-export const drawUpToCount = (model: DrawUpToThenDiscardModel, wanted: number, deck: number): number =>
-  Math.max(0, Math.min(Math.floor(wanted), model.drawUpTo, deck));
-
-/** The cards the discard step asks for: the model's number, or the whole hand when it holds fewer. */
-export const discardCount = (model: PlayModel, hand: number): number => ('discard' in model ? Math.min(model.discard, hand) : 0);
-
-/** The cards an examine looks at: the model's number, or the whole draw deck when it holds fewer. */
-export const examineCount = (model: ExamineTakeModel, deck: number): number => Math.max(0, Math.min(model.examine, deck));
-
-const words = (value: unknown): string[] =>
-  String(value ?? '')
-    .toLowerCase()
-    .split('.')
-    .map((k) => k.trim())
-    .filter(Boolean);
-
-/** Whether the examine may take `card`: every card for a model with no test. */
-export function examineTakes(model: ExamineTakeModel, card: ExaminedCard | null | undefined): boolean {
-  const test = model.test;
-  if (!test) return true;
-  if (!card) return false;
-  if (test.kind === 'costAtLeast') return (Number(card.cost) || 0) >= test.cost;
-  const type = String(card.type ?? '').toLowerCase();
-  const keywords = words(card.keywords);
-  return test.types.includes(type) || (test.keywords ?? []).some((k) => keywords.includes(k));
-}
-
-/** The most cards the examine may take: the fixed number, or one for each different title of the core with the keyword. */
-export function examineTakeMax(model: ExamineTakeModel, facts: { coreCards?: CostCoreCard[] }): number {
-  if (model.take.kind === 'fixed') return model.take.count;
-  const keyword = model.take.keyword;
-  return new Set((facts.coreCards ?? []).filter((c) => c.keywords.includes(keyword)).map((c) => c.title.toLowerCase())).size;
-}
-
-/** The fewest cards the examine takes of `examined`: one for a "take one" when a card may be taken, else none. */
-export const examineTakeMin = (model: ExamineTakeModel, examined: (ExaminedCard | null | undefined)[], max: number): number =>
-  model.mustTake && max > 0 && examined.some((c) => examineTakes(model, c)) ? 1 : 0;
-
-/** Whether a download of the model may take `card`: it passes one of the model's tests. */
-export function downloadTakes(model: Pick<DownloadTakeModel, 'test'>, card: DownloadedCard | null | undefined): boolean {
-  if (!card) return false;
-  const type = String(card.type ?? '').toLowerCase();
-  const title = cardTitleOf(String(card.name ?? '')).toLowerCase();
-  const affiliation = String(card.affiliation ?? '').toLowerCase();
-  const icons: string[] = String(card.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [];
-  const keywords = words(card.keywords);
-  const species = String(card.species ?? '')
-    .toLowerCase()
-    .split('/')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  // The skills as words, the counts dropped, as `skillWordsOf` reads them.
-  const skills = String(card.skills ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean);
-  const persona = type === 'personnel' || type === 'ship';
-  const passes = (t: DownloadTest): boolean =>
-    (!t.titles || t.titles.some((n) => title === n || (persona && title.startsWith(`${n} `)))) &&
-    (!t.types || t.types.includes(type)) &&
-    (!t.affiliations || t.affiliations.some((a) => affiliation.includes(a))) &&
-    (!t.icons || t.icons.some((i) => icons.includes(i))) &&
-    (!t.keywords || t.keywords.some((k) => keywords.includes(k))) &&
-    (!t.species || t.species.some((sp) => species.includes(sp))) &&
-    (!t.skills || t.skills.some((sk) => skills.includes(sk))) &&
-    (!t.notKeywords || !t.notKeywords.some((k) => keywords.includes(k))) &&
-    (t.costAtLeast === undefined || (Number(card.cost) || 0) >= t.costAtLeast);
-  return model.test.some(passes);
-}
-
-/** A ship of the player as a `'downloadPlace'` destination (#1811): its instance id, its card and its mission slot. */
-export interface DownloadShip {
-  id: string;
-  affiliation: string;
-  missionIndex: number;
-}
-
-/**
- * The ships a `'downloadPlace'` model may place its card aboard (#1811), the ships of the played card's mission
- * slot first, then the rest in slot order: for `'aboardShip'` the ships of its affiliation, for `'playAboardThis'`
- * the played ship alone, and none for `'drawDeckTop'`.
- */
-export function downloadPlaceShips<S extends DownloadShip>(model: DownloadPlaceModel, ships: S[], played: PlayedAt): S[] {
-  const place = model.place;
-  if (place.kind === 'drawDeckTop') return [];
-  if (place.kind === 'playAboardThis') return ships.filter((s) => s.id === played.id);
-  const own = ships.filter((s) => s.affiliation.toLowerCase().includes(place.affiliation));
-  return [...own.filter((s) => s.missionIndex === played.missionIndex), ...own.filter((s) => s.missionIndex !== played.missionIndex)];
-}
-
-/** The cost of the play of `'playAboardThis'` (#1811): the printed cost less the discount, never below 0. */
-export const downloadPlayCost = (model: DownloadPlaceModel, printed: number): number | null =>
-  model.place.kind === 'playAboardThis' ? Math.max(0, printed - model.place.discount) : null;
+export type { PlayedAt } from '../effectSteps';
+export { downloadTakes, examineTakes, examineTakeMax, examineTakeMin, examineCount } from '../effectSteps';

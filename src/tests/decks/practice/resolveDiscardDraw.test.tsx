@@ -2,9 +2,10 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { DndContext } from '@dnd-kit/core';
 import { initialTableState, CardInstance, TableState, MISSION_SLOTS } from '../../../app/decks/practice/tableReducer';
-import { GameState, gameReducer, initialGameState, isLogEntry, logEntryText, resolveStepOf, withShuffleOrders } from '../../../app/decks/practice/gameLog';
+import { GameState, gameReducer, initialGameState, isLogEntry, logEntryText, resolveStageOf, withShuffleOrders } from '../../../app/decks/practice/gameLog';
 import { ResolvingPanel, ResolveStep } from '../../../app/decks/practice/ResolvingPanel';
 import { resolveModelOf } from '../../../lib/resolveModels';
+import { discardFromHand, draw } from '../../../lib/effectSteps';
 
 // Issue #1745: the events that discard a card from hand to draw two cards (Downfallen Civilization: three
 // while no mission is completed) resolve in one step: one entry and one undo. With invented cards.
@@ -53,19 +54,19 @@ describe('the discard-to-draw models (#1745)', () => {
     ["Order of the Bat'leth", 2, undefined],
     ["That's the Last Time", 2, undefined],
     ['Downfallen Civilization', 2, 3],
-  ])('%s discards a card to draw %i', (title, draw, drawWithoutCompleted) => {
-    expect(resolveModelOf(title)).toEqual({ kind: 'discardDraw', title, draw, ...(drawWithoutCompleted ? { drawWithoutCompleted } : {}) });
+  ])('%s discards a card to draw %i', (title, draw_, drawWithoutCompleted) => {
+    expect(resolveModelOf(title)).toEqual({ title, steps: [discardFromHand(1), draw(draw_, drawWithoutCompleted ? { withoutCompleted: drawWithoutCompleted } : {})] });
   });
 
   it('has the one step, discardDraw, while such an event resolves', () => {
-    expect(resolveStepOf(resolvingGame(table(ATONEMENT)))).toBe('discardDraw');
+    expect(resolveStageOf(resolvingGame(table(ATONEMENT)))?.lead.kind).toBe('discardFromHand');
   });
 });
 
 describe('the step (#1745)', () => {
   it('discards the card, draws 2 free and moves the event to the discard pile, in one entry that one undo takes back', () => {
     const game = resolvingGame(table(ATONEMENT));
-    const after = gameReducer(game, { type: 'resolveDiscardDraw', id: 'h1' });
+    const after = gameReducer(game, { type: 'effectStep', ids: ['h1'] });
     expect(after.table.resolving).toBeNull();
     expect(after.table.hand.map((c) => c.id)).toEqual(['h2', 'd1', 'd2']);
     expect(after.table.discard.map((c) => c.id)).toEqual(['h1', 'ev']);
@@ -74,7 +75,7 @@ describe('the step (#1745)', () => {
     const entry = after.log[after.log.length - 1];
     expect(logEntryText(entry)).toBe('Discarded Tricorder, drew 2 cards, and Days of Atonement went to the discard pile');
     expect(isLogEntry(JSON.parse(JSON.stringify(entry)))).toBe(true);
-    expect(resolveStepOf(after)).toBeNull();
+    expect(resolveStageOf(after)).toBeNull();
 
     const undone = gameReducer(after, { type: 'undo' });
     expect(undone.table).toBe(game.table);
@@ -82,28 +83,29 @@ describe('the step (#1745)', () => {
   });
 
   it('Downfallen Civilization draws 3 with no completed mission, and 2 with one', () => {
-    const none = gameReducer(resolvingGame(table(DOWNFALLEN)), { type: 'resolveDiscardDraw', id: 'h1' });
+    const none = gameReducer(resolvingGame(table(DOWNFALLEN)), { type: 'effectStep', ids: ['h1'] });
     expect(none.table.hand).toHaveLength(4);
     expect(logEntryText(none.log[none.log.length - 1])).toContain('drew 3 cards');
-    const one = gameReducer(resolvingGame(table(DOWNFALLEN, { completed: true })), { type: 'resolveDiscardDraw', id: 'h1' });
+    const one = gameReducer(resolvingGame(table(DOWNFALLEN, { completed: true })), { type: 'effectStep', ids: ['h1'] });
     expect(one.table.hand).toHaveLength(3);
   });
 
   it('a short draw deck draws what it holds, and the entry gives the real count', () => {
-    const short = gameReducer(resolvingGame(table(ATONEMENT, { deck: 1 })), { type: 'resolveDiscardDraw', id: 'h1' });
+    const short = gameReducer(resolvingGame(table(ATONEMENT, { deck: 1 })), { type: 'effectStep', ids: ['h1'] });
     expect(logEntryText(short.log[short.log.length - 1])).toBe('Discarded Tricorder, drew 1 card, and Days of Atonement went to the discard pile');
-    const empty = gameReducer(resolvingGame(table(ATONEMENT, { deck: 0 })), { type: 'resolveDiscardDraw', id: 'h1' });
+    const empty = gameReducer(resolvingGame(table(ATONEMENT, { deck: 0 })), { type: 'effectStep', ids: ['h1'] });
     expect(logEntryText(empty.log[empty.log.length - 1])).toContain('drew 0 cards');
     expect(empty.table.resolving).toBeNull();
   });
 
-  it('changes nothing with an empty hand, an id not in the hand, or the steps of the other kind', () => {
+  it('changes nothing with an empty hand, an id not in the hand, or the input of another step', () => {
     const emptyHand = resolvingGame(table(ATONEMENT, { hand: [] }));
-    expect(gameReducer(emptyHand, { type: 'resolveDiscardDraw', id: 'ev' })).toBe(emptyHand);
+    expect(gameReducer(emptyHand, { type: 'effectStep', ids: ['ev'] })).toBe(emptyHand);
     const game = resolvingGame(table(ATONEMENT));
-    expect(gameReducer(game, { type: 'resolveDiscardDraw', id: 'd1' })).toBe(game);
-    expect(gameReducer(game, { type: 'resolveDraw' })).toBe(game);
-    expect(gameReducer(game, { type: 'resolveBottom', ids: ['h1'] })).toBe(game);
+    expect(gameReducer(game, { type: 'effectStep', ids: ['d1'] })).toBe(game);
+    expect(gameReducer(game, { type: 'effectStep' })).toBe(game);
+    expect(gameReducer(game, { type: 'effectStep', ids: ['h1', 'h2'] })).toBe(game);
+    expect(gameReducer(game, { type: 'effectStep', personnelId: 'h1' })).toBe(game);
   });
 
   it('reads a malformed entry with its defaults', () => {

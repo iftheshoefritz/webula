@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { DndContext } from '@dnd-kit/core';
 import { initialTableState, CardInstance, TableState, MISSION_SLOTS } from '../../../app/decks/practice/tableReducer';
-import { GameState, gameReducer, initialGameState, isLogEntry, logEntryText, resolveStepOf, withShuffleOrders } from '../../../app/decks/practice/gameLog';
+import { GameState, gameReducer, initialGameState, isLogEntry, logEntryText, resolveStageOf, withShuffleOrders } from '../../../app/decks/practice/gameLog';
 import { exchangeCandidatesOf } from '../../../app/decks/practice/personnelChoice';
 import { ResolvingPanel, ResolveStep } from '../../../app/decks/practice/ResolvingPanel';
 import { resolveModelOf } from '../../../lib/resolveModels';
@@ -53,12 +53,12 @@ function resolvingGame(t: TableState): GameState {
   return gameReducer(initialGameState(before), play);
 }
 
-const exchange = (game: GameState, handId: string, tableId: string) => gameReducer(game, { type: 'resolveExchange', handId, tableId });
+const exchange = (game: GameState, handId: string, tableId: string) => gameReducer(game, { type: 'effectStep', handId, tableId });
 
 describe('the Vidiian Organ Bank model (#1765)', () => {
   it('is an exchange of Vidiian personnel, with the one step', () => {
-    expect(resolveModelOf('Vidiian Organ Bank')).toEqual({ kind: 'exchange', title: 'Vidiian Organ Bank', affiliation: 'vidiian' });
-    expect(resolveStepOf(resolvingGame(table()))).toBe('exchange');
+    expect(resolveModelOf('Vidiian Organ Bank')).toEqual({ title: 'Vidiian Organ Bank', steps: [{ kind: 'exchange', affiliation: 'vidiian', replacedTo: 'hand' }] });
+    expect(resolveStageOf(resolvingGame(table()))?.lead.kind).toBe('exchange');
   });
 
   it('lists the [Vid] personnel of the hand, and the unstopped ones commanded, by place, never the brig', () => {
@@ -85,7 +85,7 @@ describe('the exchange (#1765)', () => {
     expect(after.table.missions[2].ships[0].crew!.find((c) => c.id === 'hal')!.stopped).toBeFalsy();
     expect(after.table.discard.map((c) => c.id)).toEqual(['ev']);
     expect(after.table.resolving).toBeNull();
-    expect(resolveStepOf(after)).toBeNull();
+    expect(resolveStageOf(after)).toBeNull();
     expect(after.log).toHaveLength(game.log.length + 1);
     const entry = after.log[after.log.length - 1];
     expect(logEntryText(entry)).toBe('Exchanged Hal Invented for Cru Invented, and Vidiian Organ Bank went to the discard pile');
@@ -118,7 +118,7 @@ describe('the exchange (#1765)', () => {
     }
     const after = exchange(game, 'hal', 'cru');
     expect(exchange(after, 'cru', 'amo')).toBe(after);
-    expect(gameReducer(game, { type: 'resolveDraw' })).toBe(game);
+    expect(gameReducer(game, { type: 'effectStep' })).toBe(game);
   });
 
   it('reads a malformed entry with its defaults', () => {
@@ -172,8 +172,8 @@ describe('The Crossing (#1826)', () => {
   const crossing = (overrides: Partial<TableState> = {}) => table({ resolving: CROSSING, ...overrides });
 
   it('is an exchange of any matching affiliation, whose replaced personnel goes to the discard pile', () => {
-    expect(resolveModelOf('The Crossing')).toEqual({ kind: 'exchange', title: 'The Crossing', replacedTo: 'discard' });
-    expect(resolveStepOf(resolvingGame(crossing()))).toBe('exchange');
+    expect(resolveModelOf('The Crossing')).toEqual({ title: 'The Crossing', steps: [{ kind: 'exchange', replacedTo: 'discard' }] });
+    expect(resolveStageOf(resolvingGame(crossing()))?.lead.kind).toBe('exchange');
   });
 
   it('lists the personnel of each side that share an affiliation with one of the other, never a stopped one nor the brig', () => {

@@ -1,98 +1,60 @@
 // The resolve models of the practice table (#1739): what the table automates of the text of an event while
 // it resolves in the resolving zone (#1727). One model per title, in the style of the cost registry
-// (`src/lib/costModels/`). A model gives the steps of the resolution, of one of two kinds:
-// - `'drawThenBottom'`: a free draw, of the cost of one of the player's personnel or of a fixed number, and
-//   then a number of cards of the hand to put on the bottom of the draw deck, in the player's order.
-// - `'discardDraw'` (#1745): one step, a card of the hand discarded to draw a number of cards free. With an
+// (`src/lib/costModels/`). A model is a list of effect steps (#1863, `src/lib/effectSteps.ts`), each stage of
+// which is one step of the resolution, and the event goes to the discard pile after the last:
+// - These Are The Voyages and Miracle Working: a free draw, of the cost of one of the player's personnel or of
+//   a fixed number, then cards of the hand to the bottom of the draw deck, in the player's order.
+// - The "discard a card from hand to draw" events (#1745): `[discardFromHand(1), draw(2)]`, one stage. With an
 //   empty hand nothing is discarded and nothing is drawn: the discard is the cost of the draw.
-// - `'downloadCopy'` (#1746): one step, a copy (a card of the same title) of a personnel the player commands
-//   downloaded from the draw deck, the deck shuffled, and a draw when that personnel has an icon.
+// - Second Edition (#1746): a copy of a personnel the player commands downloaded, the deck shuffled, and a draw
+//   when that personnel has an icon, one stage.
+// - Vidiian Organ Bank (#1765) and The Crossing (#1826): an exchange.
 // An event with no model resolves by hand, as before.
 //
 // It imports no React and no reducer.
 
 import { cardTitleOf } from '../cardTitle';
+import { bottomFromHand, draw, drawIfPickedIcon, drawPersonnelCost, discardFromHand, EffectStage, EffectStep, shuffle, stagesOf } from '../effectSteps';
 
-/** The draw of a resolution: as many cards as the printed cost of a personnel the player chooses, or a fixed number. */
-export type ResolveDraw = { kind: 'personnelCost' } | { kind: 'fixed'; count: number };
-
-export interface DrawThenBottomModel {
-  kind: 'drawThenBottom';
+export interface ResolveModel {
   /** The title of the event, `cardTitleOf` of its name, the key of the registry. */
   title: string;
-  draw: ResolveDraw;
-  /** The cards of the hand the player puts on the bottom of the draw deck after the draw. */
-  bottomFromHand: number;
+  steps: EffectStep[];
 }
 
-/** "Discard a card from hand to draw two cards" (#1745). */
-export interface DiscardDrawModel {
-  kind: 'discardDraw';
-  title: string;
-  /** The cards drawn. */
-  draw: number;
-  /** The cards drawn instead while the player commands no completed mission (Downfallen Civilization). */
-  drawWithoutCompleted?: number;
-}
-
-/** "Download a copy of a personnel you command. If that personnel is an [AU] personnel, draw a card." (#1746) */
-export interface DownloadCopyModel {
-  kind: 'downloadCopy';
-  title: string;
-  /** The icon, lowercased ("[au]"), that makes the resolution draw `draw` cards after the download. */
-  drawIfIcon: string;
-  draw: number;
-}
-
-/**
- * "Exchange a [Vid] personnel in hand with a [Vid] personnel you command and own." (#1765), and The Crossing's
- * "Replace one of your personnel with a personnel of the same affiliation from your hand." (#1826).
- */
-export interface ExchangeModel {
-  kind: 'exchange';
-  title: string;
-  /**
-   * The affiliation, lowercased, both personnel of the exchange must have ("vidiian"). Absent, the two must
-   * share an affiliation, whichever it is (The Crossing).
-   */
-  affiliation?: string;
-  /** Where the personnel taken off the table goes: the hand (the default) or the discard pile. */
-  replacedTo?: 'hand' | 'discard';
-}
-
-export type ResolveModel = DrawThenBottomModel | DiscardDrawModel | DownloadCopyModel | ExchangeModel;
-
-/** The cards a `'discardDraw'` model draws, by whether the player commands a completed mission. */
-export const discardDrawCount = (model: DiscardDrawModel, anyCompleted: boolean): number =>
-  !anyCompleted && model.drawWithoutCompleted !== undefined ? model.drawWithoutCompleted : model.draw;
+/** The stages of a resolve model, in order (#1863). */
+export const resolveStagesOf = (model: ResolveModel): EffectStage[] => stagesOf(model.steps);
 
 export const RESOLVE_MODELS: ResolveModel[] = [
   // "Draw a number of cards equal to the cost of one of your personnel, then place three cards from hand
   // on the bottom of your deck in any order. Destroy this event."
-  { kind: 'drawThenBottom', title: 'These Are The Voyages', draw: { kind: 'personnelCost' }, bottomFromHand: 3 },
+  { title: 'These Are The Voyages', steps: [drawPersonnelCost(), bottomFromHand(3)] },
   // "Draw four cards, then place three cards from hand on the bottom of your deck. Destroy this event."
-  { kind: 'drawThenBottom', title: 'Miracle Working', draw: { kind: 'fixed', count: 4 }, bottomFromHand: 3 },
+  { title: 'Miracle Working', steps: [draw(4), bottomFromHand(3)] },
   // The four events below each have a condition of play, which the table does not check (#1745).
   // "To play this event, you must command a [Baj] Anthropology personnel. Discard a card from hand to draw
   // two cards. Destroy this event."
-  { kind: 'discardDraw', title: 'Days of Atonement', draw: 2 },
+  { title: 'Days of Atonement', steps: [discardFromHand(1), draw(2)] },
   // "To play this event, you must command a [Kli] Honor personnel. Discard a card from hand to draw two
   // cards. Destroy this event."
-  { kind: 'discardDraw', title: "Order of the Bat'leth", draw: 2 },
+  { title: "Order of the Bat'leth", steps: [discardFromHand(1), draw(2)] },
   // "To play this event, you must command three [SF] personnel. Discard a card from hand to draw two cards.
   // Destroy this event."
-  { kind: 'discardDraw', title: "That's the Last Time", draw: 2 },
+  { title: "That's the Last Time", steps: [discardFromHand(1), draw(2)] },
   // "To play this event, you must command a Medical Vidiian. Discard a card from hand to draw two cards (or
   // draw three cards if you do not command a completed mission). Destroy this event."
-  { kind: 'discardDraw', title: 'Downfallen Civilization', draw: 2, drawWithoutCompleted: 3 },
+  { title: 'Downfallen Civilization', steps: [discardFromHand(1), draw(2, { withoutCompleted: 3 })] },
   // "Download a copy of a personnel you command. If that personnel is an [AU] personnel, draw a card.
   // Destroy this event." A copy is a card of the same title; the brig is not commanded.
-  { kind: 'downloadCopy', title: 'Second Edition', drawIfIcon: '[au]', draw: 1 },
-  { kind: 'exchange', title: 'Vidiian Organ Bank', affiliation: 'vidiian' },
+  {
+    title: 'Second Edition',
+    steps: [{ kind: 'download', of: { kind: 'copyOfCommanded' }, upTo: 1, to: { kind: 'hand' } }, shuffle(), drawIfPickedIcon('[au]', 1)],
+  },
+  { title: 'Vidiian Organ Bank', steps: [{ kind: 'exchange', affiliation: 'vidiian', replacedTo: 'hand' }] },
   // "To play this event, you must command three [SF] personnel or three [Xin] personnel. Replace one of your
   // personnel with a personnel of the same affiliation from your hand. Place the personnel you replaced in
   // your discard pile. Destroy this event." (#1826) The condition of play is not checked.
-  { kind: 'exchange', title: 'The Crossing', replacedTo: 'discard' },
+  { title: 'The Crossing', steps: [{ kind: 'exchange', replacedTo: 'discard' }] },
 ];
 
 const BY_TITLE = new Map(RESOLVE_MODELS.map((m) => [m.title.toLowerCase(), m]));

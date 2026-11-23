@@ -212,12 +212,15 @@ import {
   TurnCounters,
   withShuffleOrders,
   actionReveal,
-  resolveStepOf,
+  resolveStageOf,
+  type EffectStepInput,
+  type PendingPlayEffect,
   resolvingRecalled,
   pendingPlayEffectOf,
   downloadPlaceShipsOf,
 } from './gameLog';
-import { discardCount, downloadTakes, examineCount, examineTakeMax, examineTakeMin, examineTakes, playConditionLine } from '../../../lib/playModels';
+import { playConditionLine } from '../../../lib/playModels';
+import { downloadTakes, drawWanted, EffectStage, examineCount, examineTakeMax, examineTakeMin, examineTakes, handCount, stepOf } from '../../../lib/effectSteps';
 import {
   CardHoldProvider,
   NO_CALLOUT_STYLE,
@@ -271,7 +274,7 @@ import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './rel
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
 import { ResolveCandidates, ResolvePrompt, presentationOf } from './ResolvePrompt';
-import { discardDrawCount, resolveModelOf } from '../../../lib/resolveModels';
+import { resolveModelOf } from '../../../lib/resolveModels';
 import {
   DILEMMA_STACK_CHOICE_END_LABELS,
   DILEMMA_STACK_ROW_END,
@@ -2495,12 +2498,12 @@ function PracticeDrawContent() {
       ?.uses?.some((u) => u.id === id && u.effect === 'revealTop' && !u.used) ?? false;
   const dispatch = (action: GameAction) => {
     const chosen = withShuffleOrders(table, action, game.log, cardTextOn, checkRulesOn);
-    if (actionCharged(chosen) || (actionWarned(chosen) && chosen.type !== 'playEffectDownload')) setChargeChip({ entry: game.log.length });
+    if (actionCharged(chosen) || (actionWarned(chosen) && chosen.type !== 'effectStep')) setChargeChip({ entry: game.log.length });
     // The Enterprise's play aboard itself (#1811) is charged inside the play's own entry, or a new one after a
     // correction, so the chip shows both plays.
-    else if (chosen.type === 'playEffectDownload') {
+    else if (chosen.type === 'effectStep' && !table.resolving) {
       const pending = pendingPlayEffectOf(game);
-      if (pending?.model.kind === 'downloadPlace' && pending.model.place.kind === 'playAboardThis')
+      if (pending?.stage.steps.some((st) => st.kind === 'download' && st.to.kind === 'playAboardThis'))
         setChargeChip({ entry: pending.target.entry === game.log.length - 1 ? pending.target.entry : game.log.length });
     }
     else if (['undo', 'redo', 'reset', 'resetWithPiles', 'restore'].includes(action.type)) setChargeChip(null);
@@ -2797,61 +2800,113 @@ function PracticeDrawContent() {
     const choice = charge?.source?.choice;
     return charge && !charge.choiceTaken && charge.source?.title === downloadChoice.source && isDownloadChoice(choice) ? choice : null;
   })();
-  const resolveStepName = resolveStepOf(game);
-  const resolveModel = table.resolving ? resolveModelOf(cardDisplayName(table.resolving.card)) : undefined;
-  const resolvingStep: ResolveStep | undefined =
-    resolveModel?.kind === 'drawThenBottom' && resolveStepName === 'draw'
-      ? {
-          step: 'draw',
-          groups: resolveModel.draw.kind === 'personnelCost' ? personnelCandidateGroups(table, { includeStopped: true }) : [],
-          ...(resolveModel.draw.kind === 'fixed' ? { fixed: resolveModel.draw.count } : {}),
-          onDraw: (personnelId) => dispatch({ type: 'resolveDraw', ...(personnelId ? { personnelId } : {}) }),
-        }
-      : resolveModel?.kind === 'drawThenBottom' && resolveStepName === 'bottom'
-        ? {
-            step: 'bottom',
-            count: Math.min(resolveModel.bottomFromHand, table.hand.length),
+  // The panel of a stage of an effect (#1863), the resolving event's or the pending "when you play" effect's: one
+  // builder for both, by the kind of the stage's first step, each dispatching the one `effectStep` action.
+  const anyMissionCompleted = table.missions.some((s) => s.completed === true);
+  const stageView = (stage: EffectStage, played: PendingPlayEffect | null): ResolveStep | undefined => {
+    const step = stage.lead;
+    const send = (input: EffectStepInput) => dispatch({ type: 'effectStep', ...input });
+    switch (step.kind) {
+      case 'draw':
+        if (step.count.kind === 'upTo')
+          return { step: 'drawUpTo', max: step.count.count, deck: table.drawDeck.length, onDraw: (count) => send({ count }) };
+        if (step.count.kind === 'personnelCost')
+          return {
+            step: 'draw',
+            groups: personnelCandidateGroups(table, { includeStopped: true }),
+            onDraw: (personnelId) => send(personnelId ? { personnelId } : {}),
+          };
+        return { step: 'draw', groups: [], fixed: drawWanted(step.count, { anyCompleted: anyMissionCompleted }) ?? 0, onDraw: () => send({}) };
+      case 'discardFromHand': {
+        // A discard of one card to draw (#1745): Downfallen Civilization draws 3 while no mission slot is completed.
+        const drawAfter = stepOf(stage.steps.slice(1), 'draw');
+        if (drawAfter && step.count === 1)
+          return {
+            step: 'discardDraw',
+            draw: drawWanted(drawAfter.count, { anyCompleted: anyMissionCompleted }) ?? 0,
             hand: table.hand,
-            onPlace: (ids) => dispatch({ type: 'resolveBottom', ids }),
-          }
-        : resolveModel?.kind === 'discardDraw' && resolveStepName === 'discardDraw'
-          ? {
-              step: 'discardDraw',
-              // Downfallen Civilization draws 3 while no mission slot is completed (#1745).
-              draw: discardDrawCount(resolveModel, table.missions.some((s) => s.completed === true)),
-              hand: table.hand,
-              onDiscardDraw: (id) => dispatch({ type: 'resolveDiscardDraw', id }),
-            }
-          : resolveModel?.kind === 'downloadCopy' && resolveStepName === 'download'
+            onDiscardDraw: (id) => send({ ids: [id] }),
+          };
+        return { step: 'discardFromHand', count: handCount(step, table.hand.length), hand: table.hand, onDiscard: (ids) => send({ ids }) };
+      }
+      case 'bottomFromHand':
+        return { step: 'bottom', count: handCount(step, table.hand.length), hand: table.hand, onPlace: (ids) => send({ ids }) };
+      case 'examine': {
+        // The examine of #1809: the top of the draw deck, which stays there until the button.
+        const examined = table.drawDeck.slice(0, examineCount(step, table.drawDeck.length));
+        const max = examineTakeMax(step, costFactsOf(table, []));
+        return {
+          step: 'examineTake',
+          examined,
+          min: examineTakeMin(step, examined.map((c) => c.card), max),
+          max,
+          takes: (c: CardInstance) => examineTakes(step, c.card),
+          ...(step.testText ? { testText: step.testText } : {}),
+          onApply: (take: string[], bottom: string[]) => send({ take, bottom }),
+        };
+      }
+      case 'download': {
+        if (step.of.kind === 'copyOfCommanded')
+          return {
+            step: 'download',
+            groups: personnelCandidateGroups(table, { includeStopped: true }),
+            // Second Edition (#1746): the personnel with a copy in the draw deck.
+            available: (id) => downloadCopyOf(table, id) !== null,
+            onDownload: (personnelId) => send({ personnelId }),
+          };
+        // The download of #1810: the cards of the draw deck that pass the step's test, in deck order. A download to
+        // a place (#1811) takes one card, and the ship it goes aboard, the played card's mission first.
+        const of = step.of;
+        const to = step.to;
+        return {
+          step: 'downloadCards',
+          cards: table.drawDeck.filter((c) => downloadTakes(of, c.card)),
+          max: to.kind === 'hand' ? step.upTo : 1,
+          testText: of.testText,
+          ...(to.kind === 'hand'
+            ? {}
+            : {
+                placeText:
+                  to.kind === 'drawDeckTop'
+                    ? 'then place it on top of your draw deck'
+                    : to.kind === 'playAboardThis'
+                      ? `and play it at cost −${to.discount} aboard this ship`
+                      : `and place it aboard ${to.text}`,
+              }),
+          ...(to.kind === 'hand' || to.kind === 'drawDeckTop' || !played ? {} : { ships: downloadPlaceShipsOf(table, played, to) }),
+          onDownload: (ids: string[], shipId?: string) => send({ ids, ...(shipId ? { shipId } : {}) }),
+        };
+      }
+      case 'score':
+        return { step: 'score', points: step.points, onScore: () => send({}) };
+      case 'exchange':
+        return {
+          step: 'exchange',
+          // Vidiian Organ Bank (#1765): a [Vid] personnel of the hand and an unstopped one on the table.
+          ...exchangeCandidatesOf(table, step.affiliation),
+          onExchange: (handId, tableId) => send({ handId, tableId }),
+          // The Crossing (#1826): two personnel of the same affiliation, the replaced one to the discard pile.
+          ...(step.affiliation === undefined
             ? {
-                step: 'download',
-                groups: personnelCandidateGroups(table, { includeStopped: true }),
-                // Second Edition (#1746): the personnel with a copy in the draw deck.
-                available: (id) => downloadCopyOf(table, id) !== null,
-                onDownload: (personnelId) => dispatch({ type: 'resolveDownload', personnelId }),
+                replace: {
+                  matches: (handId: string, tableId: string) => {
+                    const hand = table.hand.find((c) => c.id === handId);
+                    const onTable = personnelCandidateGroups(table)
+                      .flatMap((g) => g.cards)
+                      .find((c) => c.id === tableId);
+                    return !!hand && !!onTable && exchangeMatches(hand, onTable.card);
+                  },
+                },
               }
-            : resolveModel?.kind === 'exchange' && resolveStepName === 'exchange'
-              ? {
-                  step: 'exchange',
-                  // Vidiian Organ Bank (#1765): a [Vid] personnel of the hand and an unstopped one on the table.
-                  ...exchangeCandidatesOf(table, resolveModel.affiliation),
-                  onExchange: (handId, tableId) => dispatch({ type: 'resolveExchange', handId, tableId }),
-                  // The Crossing (#1826): two personnel of the same affiliation, the replaced one to the discard pile.
-                  ...(resolveModel.affiliation === undefined
-                    ? {
-                        replace: {
-                          matches: (handId: string, tableId: string) => {
-                            const hand = table.hand.find((c) => c.id === handId);
-                            const onTable = personnelCandidateGroups(table)
-                              .flatMap((g) => g.cards)
-                              .find((c) => c.id === tableId);
-                            return !!hand && !!onTable && exchangeMatches(hand, onTable.card);
-                          },
-                        },
-                      }
-                    : {}),
-                }
-              : undefined;
+            : {}),
+        };
+      case 'shuffle':
+        return undefined;
+    }
+  };
+  const resolveStage = table.resolving ? resolveStageOf(game) : null;
+  const resolveModel = table.resolving ? resolveModelOf(cardDisplayName(table.resolving.card)) : undefined;
+  const resolvingStep: ResolveStep | undefined = resolveStage ? stageView(resolveStage, null) : undefined;
   // Issue #1870: These Are The Voyages resolves in the prompt, with no panel (`presentationOf`). The picks are
   // `resolveChoice`, page state of their own in tap order, never `selectedCardIds`: the one personnel of the draw
   // step, or the cards of the hand of the bottom step. They clear on every change of the resolving card or of the
@@ -2861,7 +2916,7 @@ function PracticeDrawContent() {
       ? resolvingStep
       : undefined;
   const [resolveChoice, setResolveChoice] = useState<string[]>([]);
-  const resolveChoiceKey = `${resolvingId}:${resolveStepName}`;
+  const resolveChoiceKey = `${resolvingId}:${resolveStage?.index ?? ''}`;
   const [prevResolveChoiceKey, setPrevResolveChoiceKey] = useState(resolveChoiceKey);
   if (resolveChoiceKey !== prevResolveChoiceKey) {
     setPrevResolveChoiceKey(resolveChoiceKey);
@@ -2878,76 +2933,8 @@ function PracticeDrawContent() {
       return live.includes(id) ? live.filter((i) => i !== id) : live.length < max ? [...live, id] : live;
     });
   };
-  // The steps of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
-  const playedStep: ResolveStep | undefined =
-    pendingPlay?.model.kind === 'drawUpToThenDiscard'
-      ? pendingPlay.step.step === 'draw'
-        ? { step: 'drawUpTo', max: pendingPlay.model.drawUpTo, deck: table.drawDeck.length, onDraw: (count) => dispatch({ type: 'playEffectDraw', count }) }
-        : {
-            step: 'discardFromHand',
-            count: discardCount(pendingPlay.model, table.hand.length),
-            hand: table.hand,
-            onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
-          }
-      : pendingPlay?.model.kind === 'discardFromHand'
-        ? {
-            step: 'discardFromHand',
-            count: discardCount(pendingPlay.model, table.hand.length),
-            hand: table.hand,
-            onDiscard: (ids) => dispatch({ type: 'playEffectDiscard', ids }),
-          }
-      : pendingPlay?.model.kind === 'score'
-        ? { step: 'score', points: pendingPlay.model.points, onScore: () => dispatch({ type: 'playEffectScore' }) }
-      : pendingPlay?.model.kind === 'examineTake'
-        ? (() => {
-            // The examine of #1809: the top of the draw deck, which stays there until the button.
-            const model = pendingPlay.model;
-            const examined = table.drawDeck.slice(0, examineCount(model, table.drawDeck.length));
-            const max = examineTakeMax(model, costFactsOf(table, []));
-            return {
-              step: 'examineTake' as const,
-              examined,
-              min: examineTakeMin(model, examined.map((c) => c.card), max),
-              max,
-              takes: (c: CardInstance) => examineTakes(model, c.card),
-              ...(model.testText ? { testText: model.testText } : {}),
-              onApply: (take: string[], bottom: string[]) => dispatch({ type: 'playEffectExamine', take, bottom }),
-            };
-          })()
-        : pendingPlay?.model.kind === 'downloadPlace'
-          ? (() => {
-              // The download to a place of #1811: one card of the draw deck that passes the model's test, and the
-              // ship it goes aboard, the played card's mission first.
-              const model = pendingPlay.model;
-              const place = model.place;
-              return {
-                step: 'downloadCards' as const,
-                cards: table.drawDeck.filter((c) => downloadTakes(model, c.card)),
-                max: 1,
-                testText: model.testText,
-                placeText:
-                  place.kind === 'drawDeckTop'
-                    ? 'then place it on top of your draw deck'
-                    : place.kind === 'playAboardThis'
-                      ? `and play it at cost −${place.discount} aboard this ship`
-                      : `and place it aboard ${place.text}`,
-                ...(place.kind === 'drawDeckTop' ? {} : { ships: downloadPlaceShipsOf(table, pendingPlay) }),
-                onDownload: (ids: string[], shipId?: string) => dispatch({ type: 'playEffectDownload', ids, ...(shipId ? { shipId } : {}) }),
-              };
-            })()
-        : pendingPlay?.model.kind === 'downloadTake'
-          ? (() => {
-              // The download of #1810: the cards of the draw deck that pass the model's test, in deck order.
-              const model = pendingPlay.model;
-              return {
-                step: 'downloadCards' as const,
-                cards: table.drawDeck.filter((c) => downloadTakes(model, c.card)),
-                max: model.upTo,
-                testText: model.testText,
-                onDownload: (ids: string[]) => dispatch({ type: 'playEffectDownload', ids }),
-              };
-            })()
-          : undefined;
+  // The stage of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
+  const playedStep: ResolveStep | undefined = pendingPlay ? stageView(pendingPlay.stage, pendingPlay) : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -5685,9 +5672,9 @@ function PracticeDrawContent() {
                   condition: pendingPlay.condition ? playConditionLine(pendingPlay.model, pendingPlay.condition) : null,
                   started: pendingPlay.steps.length > 0,
                   // A first step that is no "may" (#1808) has no Skip; with an empty hand Done ends it.
-                  endable: pendingPlay.steps.length > 0 || pendingPlay.step.may || table.hand.length === 0,
-                  skippable: pendingPlay.step.may,
-                  onEnd: () => dispatch({ type: 'playEffectSkip' }),
+                  endable: pendingPlay.steps.length > 0 || pendingPlay.stage.may || table.hand.length === 0,
+                  skippable: pendingPlay.stage.may,
+                  onEnd: () => dispatch({ type: 'effectSkip' }),
                 }}
               />
             )}

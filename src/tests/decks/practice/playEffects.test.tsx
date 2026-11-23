@@ -13,8 +13,14 @@ import {
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { ResolvingPanel } from '../../../app/decks/practice/ResolvingPanel';
-import { discardCount, DrawUpToThenDiscardModel, drawUpToCount, playConditionLine, playConditionOf, playModelOf, playStepsOf } from '../../../lib/playModels';
+import { playConditionLine, playConditionOf, playModelOf, PlayModel, playStagesOf } from '../../../lib/playModels';
 import type { CostMission } from '../../../lib/costModels/model';
+import { recordStepName, type PendingPlayEffect } from '../../../app/decks/practice/gameLog';
+import { discardFromHand, drawUpTo, drawUpToCount, handCount, stepOf } from '../../../lib/effectSteps';
+
+// The stages of a model as the record names them (#1863), and whether each is a "may".
+const stageSummary = (m: PlayModel) => playStagesOf(m).map((s) => ({ step: recordStepName(s.lead), may: s.may }));
+const stageName = (p: PendingPlayEffect | null) => (p ? recordStepName(p.stage.lead) : undefined);
 
 // Issue #1800: the "when you play" frame for personnel and ships, with Enabran Tain "Retired" Spymaster's
 // draw-up-to-then-discard as its first model. With invented cards, but Tain's title, the key of his model.
@@ -70,12 +76,12 @@ const costMission = (type: string, requirements: string): CostMission => ({
 });
 
 describe('the "when you play" model of Enabran Tain (#1800)', () => {
-  const model = playModelOf('Enabran Tain "Retired" Spymaster *VP') as DrawUpToThenDiscardModel;
+  const model = playModelOf('Enabran Tain "Retired" Spymaster *VP')!;
 
   it('is found by its whole title, and a personnel with no model has none', () => {
-    expect(model).toMatchObject({ kind: 'drawUpToThenDiscard', drawUpTo: 7, discard: 2 });
+    expect(model.steps).toEqual([drawUpTo(7), discardFromHand(2)]);
     expect(playModelOf('Enabran Tain Retired Mastermind')).toBeUndefined();
-    expect(playStepsOf(model)).toEqual([
+    expect(stageSummary(model)).toEqual([
       { step: 'draw', may: true },
       { step: 'discard', may: false },
     ]);
@@ -90,11 +96,11 @@ describe('the "when you play" model of Enabran Tain (#1800)', () => {
   });
 
   it('clamps the draw to 0..7 and the deck, and the discard to the hand', () => {
-    expect(drawUpToCount(model, 9, 20)).toBe(7);
-    expect(drawUpToCount(model, 4, 2)).toBe(2);
-    expect(drawUpToCount(model, -1, 20)).toBe(0);
-    expect(discardCount(model, 5)).toBe(2);
-    expect(discardCount(model, 1)).toBe(1);
+    expect(drawUpToCount(7, 9, 20)).toBe(7);
+    expect(drawUpToCount(7, 4, 2)).toBe(2);
+    expect(drawUpToCount(7, -1, 20)).toBe(0);
+    expect(handCount(discardFromHand(2), 5)).toBe(2);
+    expect(handCount(discardFromHand(2), 1)).toBe(1);
   });
 });
 
@@ -103,18 +109,18 @@ describe('the pending effect and its steps (#1800)', () => {
     const game = played();
     expect(game.table.missions[0].awayTeam.map((c) => c.id)).toEqual(['tain']);
     const pending = pendingPlayEffectOf(game)!;
-    expect(pending).toMatchObject({ id: 'tain', name: 'Enabran Tain "Retired" Spymaster', steps: [], step: { step: 'draw' } });
+    expect(pending).toMatchObject({ id: 'tain', name: 'Enabran Tain "Retired" Spymaster', steps: [], stage: { lead: { kind: 'draw' } } });
     expect(pending.condition?.status).toBe('met');
   });
 
   it('drawing N then discarding 2 makes one entry that names both, and one undo takes back the play and the effect', () => {
     const start = played();
     const before = start.undo[start.undo.length - 1];
-    const drew = dispatch(start, { type: 'playEffectDraw', count: 5 });
+    const drew = dispatch(start, { type: 'effectStep', count: 5 });
     expect(drew.log).toHaveLength(1);
     expect(drew.table.hand).toHaveLength(3 + 5);
-    expect(pendingPlayEffectOf(drew)?.step.step).toBe('discard');
-    const done = dispatch(drew, { type: 'playEffectDiscard', ids: ['h1', 'h2'] });
+    expect(stageName(pendingPlayEffectOf(drew))).toBe('discard');
+    const done = dispatch(drew, { type: 'effectStep', ids: ['h1', 'h2'] });
     expect(done.log).toHaveLength(1);
     expect(done.table.discard.map((c) => c.id)).toEqual(['h1', 'h2']);
     expect(pendingPlayEffectOf(done)).toBeNull();
@@ -131,14 +137,14 @@ describe('the pending effect and its steps (#1800)', () => {
   });
 
   it('a short draw deck draws what it holds, and the record gives the real count', () => {
-    const game = dispatch(played(table({ deck: 2 })), { type: 'playEffectDraw', count: 7 });
+    const game = dispatch(played(table({ deck: 2 })), { type: 'effectStep', count: 7 });
     expect(game.table.drawDeck).toHaveLength(0);
     expect(lastText(game)).toContain('; drew 2 cards');
   });
 
   it('a "may" step skipped: Skip leaves one entry and no pending effect, and the table as the play left it', () => {
     const start = played();
-    const skipped = dispatch(start, { type: 'playEffectSkip' });
+    const skipped = dispatch(start, { type: 'effectSkip' });
     expect(skipped.log).toHaveLength(1);
     expect(skipped.table).toBe(start.table);
     expect(pendingPlayEffectOf(skipped)).toBeNull();
@@ -146,7 +152,7 @@ describe('the pending effect and its steps (#1800)', () => {
   });
 
   it('Done after the draw skips the discard', () => {
-    const done = dispatch(dispatch(played(), { type: 'playEffectDraw', count: 1 }), { type: 'playEffectSkip' });
+    const done = dispatch(dispatch(played(), { type: 'effectStep', count: 1 }), { type: 'effectSkip' });
     expect(lastText(done)).toContain('; drew 1 card, then skipped the discard');
     expect(pendingPlayEffectOf(done)).toBeNull();
   });
@@ -155,7 +161,7 @@ describe('the pending effect and its steps (#1800)', () => {
     const reload = (game: GameState) =>
       gameReducer(initialGameState(initialTableState), { type: 'restore', state: game.table, log: JSON.parse(JSON.stringify(game.log)) });
     expect(pendingPlayEffectOf(reload(played()))?.id).toBe('tain');
-    const skipped = reload(dispatch(played(), { type: 'playEffectSkip' }));
+    const skipped = reload(dispatch(played(), { type: 'effectSkip' }));
     expect(pendingPlayEffectOf(skipped)).toBeNull();
     expect(lastText(skipped)).toContain('skipped its play text');
   });
@@ -171,14 +177,14 @@ describe('the pending effect and its steps (#1800)', () => {
   it('records a condition not met, and the player may resolve it anyway', () => {
     const game = played(table({ requires: 'navigation' }));
     expect(pendingPlayEffectOf(game)?.condition?.status).toBe('notMet');
-    const drew = dispatch(game, { type: 'playEffectDraw', count: 2 });
+    const drew = dispatch(game, { type: 'effectStep', count: 2 });
     expect(lastText(drew)).toContain('; drew 2 cards (condition not met)');
   });
 
   it('a personnel with no model plays as now: no record and nothing pending', () => {
     const game = played(table(), 'other');
     expect(pendingPlayEffectOf(game)).toBeNull();
-    expect(gameReducer(game, { type: 'playEffectSkip' })).toBe(game);
+    expect(gameReducer(game, { type: 'effectSkip' })).toBe(game);
     expect(lastText(game)).toBe('Played Plain Personnel at Mission 0 (cost 3)');
   });
 
@@ -200,31 +206,31 @@ describe('the pending effect and its steps (#1800)', () => {
   it('holds the next-turn button while it is pending', () => {
     const game = played();
     expect(gameReducer(game, { type: 'advanceSegment' })).toBe(game);
-    const skipped = dispatch(game, { type: 'playEffectSkip' });
+    const skipped = dispatch(game, { type: 'effectSkip' });
     expect(gameReducer(skipped, { type: 'advanceSegment' }).table.segment).toBe('orders');
   });
 
   it('after a correction of the charge, the effect writes one entry of its own, whose undo takes back the effect only', () => {
     const corrected = gameReducer(played(), { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 1 });
     expect(corrected.log).toHaveLength(2);
-    const drew = dispatch(corrected, { type: 'playEffectDraw', count: 3 });
-    const done = dispatch(drew, { type: 'playEffectDiscard', ids: ['h1', 'h2'] });
+    const drew = dispatch(corrected, { type: 'effectStep', count: 3 });
+    const done = dispatch(drew, { type: 'effectStep', ids: ['h1', 'h2'] });
     expect(done.log).toHaveLength(3);
     expect(lastText(done)).toBe('Enabran Tain "Retired" Spymaster: drew 3 cards, then discarded Tricorder and Phaser');
     expect(pendingPlayEffectOf(done)).toBeNull();
     const undone = gameReducer(done, { type: 'undo' });
     expect(undone.table).toBe(corrected.table);
     expect(undone.log).toEqual(corrected.log);
-    expect(pendingPlayEffectOf(undone)?.step.step).toBe('draw');
+    expect(stageName(pendingPlayEffectOf(undone))).toBe('draw');
   });
 
   it('refuses a step out of order or a wrong discard', () => {
     const game = played();
-    expect(gameReducer(game, { type: 'playEffectDiscard', ids: ['h1', 'h2'] })).toBe(game);
-    const drew = dispatch(game, { type: 'playEffectDraw', count: 1 });
-    expect(gameReducer(drew, { type: 'playEffectDraw', count: 1 })).toBe(drew);
-    expect(gameReducer(drew, { type: 'playEffectDiscard', ids: ['h1'] })).toBe(drew);
-    expect(gameReducer(drew, { type: 'playEffectDiscard', ids: ['h1', 'tain'] })).toBe(drew);
+    expect(gameReducer(game, { type: 'effectStep', ids: ['h1', 'h2'] })).toBe(game);
+    const drew = dispatch(game, { type: 'effectStep', count: 1 });
+    expect(gameReducer(drew, { type: 'effectStep', count: 1 })).toBe(drew);
+    expect(gameReducer(drew, { type: 'effectStep', ids: ['h1'] })).toBe(drew);
+    expect(gameReducer(drew, { type: 'effectStep', ids: ['h1', 'tain'] })).toBe(drew);
   });
 });
 
@@ -284,29 +290,29 @@ describe('the "when you play" kind discard from hand (#1808)', () => {
 
   it('models the titles whose whole clause is "discard a card from hand", and not one that does more', () => {
     for (const name of ['Leeta Rebel Supporter *VP', 'Jake Sisko Reporter Behind the Lines (SS)', 'Kira Nerys Reformed Collaborator', 'Odo Wayward Link', 'Tora Ziyal Beloved Daughter', 'Quark Resistance Informant (R2)']) {
-      expect(playModelOf(name)).toMatchObject({ kind: 'discardFromHand', discard: 1, text: 'Discard a card from hand.' });
+      expect(playModelOf(name)).toMatchObject({ steps: [discardFromHand(1)], text: 'Discard a card from hand.' });
     }
-    expect(playModelOf('Niala Intelligence Asset')).toMatchObject({ kind: 'discardFromHand', discard: 2 });
+    expect(playModelOf('Niala Intelligence Asset')?.steps).toEqual([discardFromHand(2)]);
     expect(playModelOf('Modern Galor')).toBeUndefined();
     expect(playModelOf('Bennet')).toBeUndefined();
-    expect(playStepsOf(playModelOf('Leeta Rebel Supporter')!)).toEqual([{ step: 'discard', may: false }]);
+    expect(stageSummary(playModelOf('Leeta Rebel Supporter')!)).toEqual([{ step: 'discard', may: false }]);
   });
 
   it('asks for N cards, or the whole hand when it holds fewer', () => {
-    const niala = playModelOf('Niala Intelligence Asset')!;
-    expect(discardCount(niala, 5)).toBe(2);
-    expect(discardCount(niala, 1)).toBe(1);
-    expect(discardCount(niala, 0)).toBe(0);
+    const niala = stepOf(playModelOf('Niala Intelligence Asset')!.steps, 'discardFromHand')!;
+    expect(handCount(niala, 5)).toBe(2);
+    expect(handCount(niala, 1)).toBe(1);
+    expect(handCount(niala, 0)).toBe(0);
   });
 
   it('a play leaves the discard pending; the discard makes one entry, and one undo returns both cards to the hand', () => {
     const start = played(table({ hand: [TRICORDER, PHASER, LEETA] }), 'leeta');
     const before = start.undo[start.undo.length - 1];
     expect(start.table.missions[0].awayTeam.map((c) => c.id)).toEqual(['leeta']);
-    expect(pendingPlayEffectOf(start)).toMatchObject({ id: 'leeta', step: { step: 'discard', may: false } });
-    expect(gameReducer(start, { type: 'playEffectSkip' })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDiscard', ids: ['h1', 'h2'] })).toBe(start);
-    const done = dispatch(start, { type: 'playEffectDiscard', ids: ['h2'] });
+    expect(pendingPlayEffectOf(start)).toMatchObject({ id: 'leeta', stage: { lead: { kind: 'discardFromHand' }, may: false } });
+    expect(gameReducer(start, { type: 'effectSkip' })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['h1', 'h2'] })).toBe(start);
+    const done = dispatch(start, { type: 'effectStep', ids: ['h2'] });
     expect(done.log).toHaveLength(1);
     expect(done.table.discard.map((c) => c.id)).toEqual(['h2']);
     expect(pendingPlayEffectOf(done)).toBeNull();
@@ -318,8 +324,8 @@ describe('the "when you play" kind discard from hand (#1808)', () => {
 
   it('with an empty hand, Done ends the effect and the record says nothing was discarded', () => {
     const start = played(table({ hand: [LEETA] }), 'leeta');
-    expect(pendingPlayEffectOf(start)?.step.step).toBe('discard');
-    const done = dispatch(start, { type: 'playEffectSkip' });
+    expect(stageName(pendingPlayEffectOf(start))).toBe('discard');
+    const done = dispatch(start, { type: 'effectSkip' });
     expect(pendingPlayEffectOf(done)).toBeNull();
     expect(done.log).toHaveLength(1);
     expect(lastText(done)).toBe('Played Leeta Rebel Supporter at Mission 0 (cost 3); discarded no card');

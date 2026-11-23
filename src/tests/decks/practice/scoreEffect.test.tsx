@@ -13,8 +13,12 @@ import {
 } from '../../../app/decks/practice/gameLog';
 import { ResolvingPanel } from '../../../app/decks/practice/ResolvingPanel';
 import type { CommandedTraits, CostMission } from '../../../lib/costModels/model';
-import { PlayConditionFacts, playConditionLine, playConditionOf, playModelOf, playStepsOf, ScoreModel } from '../../../lib/playModels';
+import { PlayConditionFacts, playConditionLine, playConditionOf, playModelOf, PlayModel, playStagesOf } from '../../../lib/playModels';
 import { playModelCoverage } from '../../../lib/playModels/coverage';
+import { recordStepName } from '../../../app/decks/practice/gameLog';
+
+// The stages of a model as the record names them (#1863), and whether each is a "may".
+const stageSummary = (m: PlayModel) => playStagesOf(m).map((s) => ({ step: recordStepName(s.lead), may: s.may }));
 
 // Issue #1812: the "when you play" kind "score points", with Annexation Drone, DaiMon Solok, Opaka and Kira Taban.
 // With invented cards, and the real titles, the keys of their models.
@@ -53,7 +57,7 @@ const dispatch = (game: GameState, action: Parameters<typeof withShuffleOrders>[
   gameReducer(game, withShuffleOrders(game.table, action, game.log));
 const played = (id = 'drone', t: TableState = table()): GameState => dispatch(initialGameState(t), { type: 'move', id, to: AWAY_TEAM });
 const lastText = (game: GameState) => logEntryText(game.log[game.log.length - 1]);
-const model = (name: string) => playModelOf(name) as ScoreModel;
+const model = (name: string) => playModelOf(name)!;
 
 const costMission = (type: string, extra: Partial<CostMission> = {}): CostMission => ({
   completed: false,
@@ -79,11 +83,11 @@ const status = (name: string, facts: PlayConditionFacts) => playConditionOf(mode
 describe('the score models (#1812)', () => {
   it('each scores 5 points in one step that Skip may skip', () => {
     for (const name of ['Annexation Drone', 'DaiMon Solok Cargo Runner', 'Opaka Collaborator', 'Kira Taban Husband and Father']) {
-      expect(model(name)).toMatchObject({ kind: 'score', points: 5 });
-      expect(playStepsOf(model(name))).toEqual([{ step: 'score', may: true }]);
+      expect(model(name).steps).toEqual([{ kind: 'score', points: 5, may: true }]);
+      expect(stageSummary(model(name))).toEqual([{ step: 'score', may: true }]);
     }
-    expect(model('Opaka Collaborator').may).toBe(true);
-    expect(model('Annexation Drone').may).toBe(false);
+    expect(model('Opaka Collaborator').text).toBe('You may score 5 points.');
+    expect(model('Annexation Drone').text).toBe('Score 5 points.');
   });
 
   it('Annexation Drone: every non-headquarters mission is an [AQ] mission', () => {
@@ -137,14 +141,14 @@ describe('the score models (#1812)', () => {
 describe('the score step (#1812)', () => {
   it('a play of Annexation Drone leaves its score pending with its condition met', () => {
     const game = played();
-    expect(pendingPlayEffectOf(game)).toMatchObject({ id: 'drone', step: { step: 'score' }, condition: { status: 'met' } });
+    expect(pendingPlayEffectOf(game)).toMatchObject({ id: 'drone', stage: { lead: { kind: 'score' } }, condition: { status: 'met' } });
     expect(pendingPlayEffectOf(played('drone', table(['a', 'g', 'a', 'a', 'a'])))?.condition?.status).toBe('notMet');
   });
 
   it('Score adds 5 points in the play\'s own entry, and one undo puts back the score and the card in the hand', () => {
     const start = played();
     const before = start.undo[start.undo.length - 1];
-    const done = dispatch(start, { type: 'playEffectScore' });
+    const done = dispatch(start, { type: 'effectStep' });
     expect(done.table.score).toBe(5);
     expect(done.log).toHaveLength(1);
     expect(pendingPlayEffectOf(done)).toBeNull();
@@ -159,21 +163,21 @@ describe('the score step (#1812)', () => {
 
   it('Skip leaves the score as it was, in one entry', () => {
     const start = played('solok');
-    const skipped = dispatch(start, { type: 'playEffectSkip' });
+    const skipped = dispatch(start, { type: 'effectSkip' });
     expect(skipped.table.score).toBe(0);
     expect(skipped.log).toHaveLength(1);
     expect(lastText(skipped)).toBe('Played DaiMon Solok Cargo Runner at Mission 0 (cost 3); skipped its play text (condition not met)');
   });
 
   it('the score clamps, and the record holds the points it added', () => {
-    const done = dispatch(played('kira', table(undefined, { score: SCORE_MAX - 2 })), { type: 'playEffectScore' });
+    const done = dispatch(played('kira', table(undefined, { score: SCORE_MAX - 2 })), { type: 'effectStep' });
     expect(done.table.score).toBe(SCORE_MAX);
     expect(lastText(done)).toBe('Played Kira Taban Husband and Father at Mission 0 (cost 3); scored 2 points (condition not checked)');
   });
 
   it('refuses a score with no pending score effect', () => {
     const game = initialGameState(table());
-    expect(gameReducer(game, { type: 'playEffectScore' })).toBe(game);
+    expect(gameReducer(game, { type: 'effectStep' })).toBe(game);
   });
 });
 

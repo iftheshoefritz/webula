@@ -46,7 +46,7 @@ const STEP_THUMB_WIDTH = 52; // px
 
 /**
  * A step of the resolving event's resolve model (#1739), which the page derives from the log
- * (`resolveStepOf`). `'draw'`: the free draw, of the printed cost of a personnel of `groups`, or of the
+ * (`resolveStageOf`). `'draw'`: the free draw, of the printed cost of a personnel of `groups`, or of the
  * model's `fixed` number with no choice. `'bottom'`: `count` cards of `hand` to the bottom of the draw deck.
  * `'discardDraw'` (#1745): one card of `hand` discarded to draw `draw` cards free. `'download'` (#1746): a
  * personnel of `groups` whose copy (`available`) the draw deck holds, downloaded.
