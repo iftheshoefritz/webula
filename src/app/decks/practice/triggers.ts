@@ -7,7 +7,7 @@ import { missions, type TableView, type ViewCard } from '../../../lib/tableView'
 import { eventMissionIndex, eventSubjects, triggerRowsFor, triggerRowsOf } from '../../../lib/triggers';
 import type { GameEvent, TriggerContext, TriggerRow } from '../../../lib/triggers';
 import { gameEventsOf } from './gameEvents';
-import { effectiveLog, effectSubjectOf, type LogEntry, type TriggerTarget } from './gameLog';
+import { abilityUsable, effectiveLog, effectSubjectOf, type LogEntry, type TriggerTarget } from './gameLog';
 import { findInstanceAnywhere, type CardInstance, type TableState } from './tableReducer';
 import { tableViewOf, viewCardOf } from './tableView';
 
@@ -99,8 +99,8 @@ const sameTarget = (a: TriggerTarget, b: TriggerTarget): boolean =>
 /**
  * The trigger offers of the table (#1903): the rows whose event the last action entry of the effective log
  * produced (`gameEventsOf`), whose source card stands in its place, whose filter and condition hold, and which have
- * no `triggerUsed` or `triggerSkipped` record for that event and source (nor, for a once-each-turn row, a use of
- * that card's row this turn). Any other action ends the offers of the entry before it; a trigger taken or skipped,
+ * no `triggerUsed` or `triggerSkipped` record for that event and source (nor, for a row with a `limit`, as many uses of
+ * that card's row this turn, #1834). Any other action ends the offers of the entry before it; a trigger taken or skipped,
  * and the steps and corrections addressed to the action, do not. The offers wait, and list none, while an event
  * resolves or a "when you play" effect or an order is pending (`effectSubjectOf`). In the order of the events, then
  * of the registry, then of the cards.
@@ -114,7 +114,6 @@ export function pendingTriggersOf(state: { table: TableState; log: LogEntry[] })
   const events = gameEventsOf(log[index], table, log[index - 1]);
   if (!events.length) return [];
   const records = log.slice(index + 1).flatMap((e) => (e.kind === 'triggerUsed' || e.kind === 'triggerSkipped' ? [e.target] : []));
-  const usedThisTurn = log.flatMap((e) => (e.kind === 'triggerUsed' && e.turn === table.turn ? [e.target] : []));
   let view: TableView | null = null;
   const viewOf = () => (view ??= tableViewOf(table));
   const offers: TriggerOffer[] = [];
@@ -125,7 +124,7 @@ export function pendingTriggersOf(state: { table: TableState; log: LogEntry[] })
         const source = instance ? instance.id : 'botDeck';
         const target: TriggerTarget = { entry: index, source, row: rowIndex, event: k };
         if (records.some((r) => r && sameTarget(r, target))) continue;
-        if (row.once === 'turn' && usedThisTurn.some((r) => r && r.source === source && r.row === rowIndex)) continue;
+        if (!abilityUsable(log, table.turn, { kind: 'trigger', id: source, index: rowIndex }, row.limit)) continue;
         const sourceCard: ViewCard | null = instance ? viewCardOf(instance) : null;
         const context: TriggerContext = { view: viewOf(), source: sourceCard, ...(slot !== undefined ? { sourceSlot: viewOf().missions[slot] } : {}) };
         if (!eventPasses(row, event, context, instance?.id)) continue;

@@ -48,6 +48,7 @@ import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printed
 import { resolveModelOf, resolveStagesOf } from '../../../lib/resolveModels';
 import { PlayConditionState, PlayConditionStatus, PlayModel, playConditionOf, playModelOf, playStagesOf } from '../../../lib/playModels';
 import { costNeedsPick, costPickCount, OrderModel, orderModelOf, orderStagesOf } from '../../../lib/orderModels';
+import { withinUseLimit, type UseLimit } from '../../../lib/useLimit';
 import { orderCardOf, orderCardsOf, OrderCard, orderCostCandidates } from './orders';
 import {
   downloadPlaceShips,
@@ -75,6 +76,7 @@ import {
   EARTH_PLAY_TEST,
   EARTH_SPEND_COST,
   EARTH_SPEND_DRAW,
+  EARTH_SPEND_LIMIT,
   EARTH_TITLE,
   isNimbusPersonnel,
   MissionSpendKind,
@@ -2382,8 +2384,10 @@ function downloadForChargeState(state: GameState, action: { ids: string[]; sourc
 }
 
 // Whether the card of `use` still stands where its effect needs it (#1713): in the core for a destroy, and
-// for a stop unstopped in an away team or a crew, never the brig.
-export function costUseAvailable(table: TableState, use: Pick<CostUse, 'id' | 'effect'>): boolean {
+// for a stop unstopped in an away team or a crew, never the brig. With the `log`, a use with a `limit` (#1834)
+// that its card already took that many times this turn is not available either.
+export function costUseAvailable(table: TableState, use: Pick<CostUse, 'id' | 'effect' | 'title' | 'limit'>, log?: LogEntry[]): boolean {
+  if (log && !abilityUsable(log, table.turn, { kind: 'tableUse', id: use.id, title: use.title }, use.limit)) return false;
   if (use.effect === 'destroy') return table.core.some((c) => c.id === use.id);
   if (use.effect === 'revealTop') return table.core.some((c) => c.id === use.id) && table.drawDeck.length > 0;
   return table.missions.some((slot) =>
@@ -2398,7 +2402,7 @@ export function costUseAvailable(table: TableState, use: Pick<CostUse, 'id' | 'e
 function cardUseState(state: GameState, action: { target: ChargeTarget; id: string }): GameState {
   const charge = entryCharges(state.log, action.target.entry).find((c) => sameTarget(c.target, action.target));
   const use = charge?.uses?.find((u) => u.id === action.id);
-  if (!charge || !use || use.used || !costUseAvailable(state.table, use)) return state;
+  if (!charge || !use || use.used || !costUseAvailable(state.table, use, state.log)) return state;
   if (use.effect === 'revealTop') {
     // The New Resistance (#1763): the top card of the draw deck is revealed, and no card moves; the entry
     // records it and whether it is a Dissident personnel, which lets it play from the draw deck at −3.
@@ -2875,7 +2879,7 @@ export const missionSpendLabel = (entry: Extract<LogEntry, { kind: 'missionSpend
 // Earth's offer of a spend (#1754): its slot, and the entries of this turn's plays of a [TOS] card into
 // its away team or onto its mission card, from the effective log, so a cancelled play offers nothing.
 // Null outside play and draw, with no such play this turn, with an empty draw deck, or once the turn has
-// spent at Earth. Earth's first slot counts.
+// spent at Earth as often as its `limit` allows (#1834). Earth's first slot counts.
 export function earthSpendOf(state: { table: TableState; log: LogEntry[] }): { slot: number; entries: number[] } | null {
   const { table } = state;
   if (table.segment !== 'playAndDraw' || table.drawDeck.length === 0) return null;
@@ -2884,7 +2888,7 @@ export function earthSpendOf(state: { table: TableState; log: LogEntry[] }): { s
   const name = missionName(table, slot);
   const log = effectiveLog(state.log);
   const turnEntries = log.flatMap((e, i) => (e.turn === table.turn && entrySegment(e) === 'playAndDraw' ? [{ e, i }] : []));
-  if (turnEntries.some(({ e }) => e.kind === 'missionSpend' && e.spend === 'earth')) return null;
+  if (!abilityUsable(log, table.turn, { kind: 'missionSpend', mission: name, spend: 'earth' }, EARTH_SPEND_LIMIT)) return null;
   const here = (to: LogPlace): boolean => (to.kind === 'awayTeam' && to.mission === name) || (to.kind === 'on' && to.card === name);
   const entries = turnEntries.flatMap(({ e, i }) =>
     e.kind === 'move' &&
@@ -3312,18 +3316,56 @@ export function pendingOrderOf(state: { table: TableState; log: LogEntry[] }): P
   return null;
 }
 
-// Whether the order of `order` was used this turn, from the log, so an undo gives it back.
-const orderUsedThisTurn = (log: LogEntry[], turn: number, order: OrderCard): boolean =>
-  log.some((e) => e.turn === turn && e.kind === 'orderUsed' && e.id === order.instance.id && e.order === order.model.index);
+/**
+ * An ability whose uses `abilityUsesThisTurn` counts (#1834): by card instance and ability index for an order
+ * (`orderUsed`), a trigger row (`triggerUsed`) and a table use of a play cost (a `chargeCorrected` with `used`, by
+ * the use's model `title`); by mission name and kind for a mission spend (`missionSpend`) and by mission name and
+ * preventing card for a reveal's prevention (`dilemmaResolved` with `prevented`), since those entries name no instance.
+ */
+export type AbilityKey =
+  | { kind: 'order'; id: string; index: number }
+  | { kind: 'trigger'; id: string; index: number }
+  | { kind: 'tableUse'; id: string; title: string }
+  | { kind: 'missionSpend'; mission: string; spend: MissionSpendKind }
+  | { kind: 'prevent'; mission: string; prevented: string };
+
+// Whether `entry` is one use of the ability `key`.
+function isUseOf(entry: LogEntry, key: AbilityKey): boolean {
+  switch (key.kind) {
+    case 'order':
+      return entry.kind === 'orderUsed' && entry.id === key.id && entry.order === key.index;
+    case 'trigger':
+      return entry.kind === 'triggerUsed' && !!entry.target && entry.target.source === key.id && entry.target.row === key.index;
+    case 'tableUse':
+      return entry.kind === 'chargeCorrected' && isUsedCard(entry.used) && entry.used.id === key.id && entry.source === key.title;
+    case 'missionSpend':
+      return entry.kind === 'missionSpend' && entry.spend === key.spend && entry.mission === key.mission;
+    case 'prevent':
+      return entry.kind === 'dilemmaResolved' && entry.prevented === key.prevented && typeof entry.went === 'string' && entry.went.includes(key.mission);
+  }
+}
+
+/**
+ * The uses of the ability `key` in the turn `turn` (#1834), from the effective log: an undo, which takes the entry
+ * out, gives the use back, a cancelled play's corrections no longer count, and the next turn starts at 0.
+ */
+export function abilityUsesThisTurn(log: LogEntry[], turn: number, key: AbilityKey): number {
+  return effectiveLog(log).filter((e) => e.turn === turn && isUseOf(e, key)).length;
+}
+
+/** Whether the ability `key`, with `limit`, may be used again this turn (#1834): always with no limit. */
+export const abilityUsable = (log: LogEntry[], turn: number, key: AbilityKey, limit: UseLimit | undefined): boolean =>
+  !limit || withinUseLimit(limit, abilityUsesThisTurn(log, turn, key));
 
 /**
  * The orders the table offers (#1866): in the orders segment, with no attempt in progress, nothing resolving and
- * no effect or order pending, each order of a card in its own place, less a once-each-turn order used this turn.
+ * no effect or order pending, each order of a card in its own place, less an order used this turn as often as its
+ * `limit` allows (#1834).
  */
 export function availableOrdersOf(state: { table: TableState; log: LogEntry[] }): OrderCard[] {
   const { table, log } = state;
   if (table.segment !== 'orders' || table.attempt || table.resolving || pendingOrderOf(state) || pendingPlayEffectOf(state)) return [];
-  return orderCardsOf(table).filter((o) => !o.model.oncePerTurn || !orderUsedThisTurn(log, table.turn, o));
+  return orderCardsOf(table).filter((o) => abilityUsable(log, table.turn, { kind: 'order', id: o.instance.id, index: o.model.index }, o.model.limit));
 }
 
 // The use of an order (#1866): the order must be one the table offers, and the pick must fit its cost, or nothing

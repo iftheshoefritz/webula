@@ -258,7 +258,7 @@ export function costUsesOf(play: CostPlay, facts: CostFacts, registry: ReadonlyM
       if (!(reveal ? amount === 0 : amount > 0) || use.id === play.id) return [];
       const title = costModelName(model);
       const label = reveal ? `${USE_VERBS[use.effect]} (${title})` : `${USE_VERBS[use.effect]} ${title}: −${amount}`;
-      return [{ id: use.id, title, label, amount, effect: use.effect }];
+      return [{ id: use.id, title, label, amount, effect: use.effect, ...(model.useLimit ? { limit: model.useLimit } : {}) }];
     })
   );
 }
