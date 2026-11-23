@@ -1,5 +1,5 @@
 import { BOT_SKILLS } from '../../requirements';
-import { botChooses, chooseOrElse, either, hasAny, killRandom, killRandomThenStopAll, noEffect, revealOrElse, selectRandom, selectUntil, sk, stopAll, unless } from '../families';
+import { botChooses, chooseOrElse, either, hasAny, killRandom, killRandomThenStopAll, noEffect, revealOrElse, selectRandom, selectUntil, sk, speciesIs, stopAll, unless } from '../families';
 import { Attr, skillName } from '../play';
 import { D, P, PLAYER_AHEAD_RULE, S, dilemmaList, mostHeldSkill, names, playerAhead } from '../define';
 
@@ -7,6 +7,8 @@ import { D, P, PLAYER_AHEAD_RULE, S, dilemmaList, mostHeldSkill, names, playerAh
 // piles of the registry lack.
 
 const { models, dilemma } = dilemmaList();
+
+const isAndroid = speciesIs('android');
 
 /** The Genetically Enhanced personnel the bot commands under the assumption of category 5b (#1320): 3 × the turn. */
 const geneticallyEnhanced = (turn: number) => 3 * turn;
@@ -178,7 +180,7 @@ dilemma('The Needs of the Few', S, 2, 'bot-chooses', (s) =>
   botChooses(1, s.attempt.table.completedPlanetMission ? 'kill' : 'stop', hasAny('engineer', 'security'))(s));
 
 dilemma('The Phase', D, 2, 'choose-or-else', chooseOrElse(
-  either((s, k) => s.hasSkill(k, sk('officer')), (s, k) => s.group[k].species.includes('android') || s.group[k].hologram),
+  either(hasAny('officer'), isAndroid, (s, k) => s.group[k].hologram),
   selectUntil((s, sel) => sel.reduce((t, k) => t + s.group[k].cost, 0) >= 4, (s, sel) => s.move(sel)),
 ), { gap: 'the [Cmd] icon is not read, so any Officer qualifies; the personnel placed on the deck count as moved' });
 

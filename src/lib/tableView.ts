@@ -229,19 +229,70 @@ const iconToken = (icon: string): string => {
   return i.startsWith('[') ? i : `[${i}]`;
 };
 
-interface TraitQuery {
+export interface TraitQuery {
   /** The lowercased affiliation, whole: "federation". */
   affiliation?: string;
   /** A species, whole and lowercased: "borg". */
   species?: string;
   /** A skill of `BOT_SKILLS`: "treachery". */
   skill?: string;
+  /** Any one of these skills of `BOT_SKILLS` (#1868): "honor", "treachery". */
+  anySkill?: string[];
   /** A keyword, whole and lowercased: "dissident". */
   keyword?: string;
   /** An icon: "[tng]" or "tng". */
   icon?: string;
   /** At this mission slot. */
   at?: number;
+}
+
+/**
+ * How one reader reads the traits of its cards (#1868): `C` is what it holds, `k` the card within it. The
+ * printed traits read the same for every reader; the skills are the reader's own, so a dilemma reads them
+ * through `PlayState.skill`, with its blocked skills and its `skillRead`, and the table view the printed ones.
+ * A list absent is empty.
+ */
+export interface TraitAccess<C> {
+  affiliation: (c: C, k: number) => string;
+  species: (c: C, k: number) => readonly string[] | undefined;
+  /** The skill of index `i` of `BOT_SKILLS`. */
+  skill: (c: C, k: number, i: number) => number;
+  keywords: (c: C, k: number) => readonly string[] | undefined;
+  icons: (c: C, k: number) => readonly string[] | undefined;
+  missionIndex: (c: C, k: number) => number | undefined;
+}
+
+const skillIndexOf = (name: string): number => {
+  const i = SKILL_INDEX[name.toLowerCase()];
+  if (i === undefined) throw new Error(`unknown skill ${name}`);
+  return i;
+};
+
+/**
+ * The shared trait predicate (#1868): `q` compiled once, its values lowercased, its skills resolved to their
+ * index and its icon normalised, into a plain function that allocates nothing per call. The table view's
+ * selectors and the dilemma tests of `families.ts` both match their traits with it. Throws on an unknown skill.
+ */
+export function traitTest<C>(q: TraitQuery, read: TraitAccess<C>): (c: C, k: number) => boolean {
+  const affiliation = q.affiliation?.toLowerCase();
+  const species = q.species?.toLowerCase();
+  const skill = q.skill === undefined ? -1 : skillIndexOf(q.skill);
+  const anySkill = q.anySkill?.map(skillIndexOf);
+  const keyword = q.keyword?.toLowerCase();
+  const icon = q.icon === undefined ? undefined : iconToken(q.icon);
+  const at = q.at;
+  const hasAnySkill = (c: C, k: number): boolean => {
+    for (let n = 0; n < anySkill!.length; n++) if (read.skill(c, k, anySkill![n]) > 0) return true;
+    return false;
+  };
+  return (c, k) =>
+    (affiliation === undefined || read.affiliation(c, k) === affiliation) &&
+    (species === undefined || !!read.species(c, k)?.includes(species)) &&
+    (skill < 0 || read.skill(c, k, skill) > 0) &&
+    (anySkill === undefined || hasAnySkill(c, k)) &&
+    (keyword === undefined || !!read.keywords(c, k)?.includes(keyword)) &&
+    (icon === undefined || !!read.icons(c, k)?.includes(icon)) &&
+    (at === undefined || read.missionIndex(c, k) === at);
 }
 
 interface Traits {
@@ -253,13 +304,21 @@ interface Traits {
   missionIndex?: number;
 }
 
-const passesTraits = (c: Traits, q: TraitQuery): boolean =>
-  (q.affiliation === undefined || c.affiliation === q.affiliation.toLowerCase()) &&
-  (q.species === undefined || (c.species ?? []).includes(q.species.toLowerCase())) &&
-  (q.skill === undefined || ((c.skills ?? [])[SKILL_INDEX[q.skill.toLowerCase()]] ?? 0) > 0) &&
-  (q.keyword === undefined || (c.keywords ?? []).includes(q.keyword.toLowerCase())) &&
-  (q.icon === undefined || c.icons.includes(iconToken(q.icon))) &&
-  (q.at === undefined || c.missionIndex === q.at);
+/** The table view's reading: the printed traits of the card itself. */
+const PRINTED_TRAITS: TraitAccess<Traits> = {
+  affiliation: (c) => c.affiliation,
+  species: (c) => c.species,
+  skill: (c, _k, i) => (c.skills ?? [])[i] ?? 0,
+  keywords: (c) => c.keywords,
+  icons: (c) => c.icons,
+  missionIndex: (c) => c.missionIndex,
+};
+
+/** `q` compiled over the printed traits, once per selector call. */
+const printedTraits = (q: TraitQuery): ((c: Traits) => boolean) => {
+  const test = traitTest(q, PRINTED_TRAITS);
+  return (c) => test(c, 0);
+};
 
 export interface PersonnelQuery extends TraitQuery {
   /**
@@ -273,7 +332,7 @@ export interface PersonnelQuery extends TraitQuery {
   where?: (p: SourcePersonnel) => boolean;
 }
 
-export interface ShipQuery extends Omit<TraitQuery, 'species' | 'skill'> {
+export interface ShipQuery extends Omit<TraitQuery, 'species' | 'skill' | 'anySkill'> {
   where?: (s: SourceShip) => boolean;
 }
 
@@ -309,18 +368,20 @@ const slotTableCards = (m: ViewMission): ViewTableCard[] => [...m.awayTeam, ...m
 export function personnel(view: TableView, q: PersonnelQuery): ViewTableCard[];
 export function personnel(reader: TableReader, q: PersonnelQuery): SourcePersonnel[];
 export function personnel(reader: TableReader, q: PersonnelQuery): SourcePersonnel[] {
+  const passes = printedTraits(q);
   return sourceOf(reader)
     .personnelOf(q.unstopped, q.at)
-    .filter((p) => (q.aboard === undefined || p.shipId === q.aboard) && passesTraits(p, q) && (!q.where || q.where(p)));
+    .filter((p) => (q.aboard === undefined || p.shipId === q.aboard) && passes(p) && (!q.where || q.where(p)));
 }
 
 /** The ships of every ship row that pass `q`, by slot. */
 export function ships(view: TableView, q?: ShipQuery): ViewShip[];
 export function ships(reader: TableReader, q?: ShipQuery): SourceShip[];
 export function ships(reader: TableReader, q: ShipQuery = {}): SourceShip[] {
+  const passes = printedTraits(q);
   return sourceOf(reader)
     .shipsOf()
-    .filter((s) => passesTraits(s, q) && (!q.where || q.where(s)));
+    .filter((s) => passes(s) && (!q.where || q.where(s)));
 }
 
 /** The events the player commands that pass `q`: the core's, and those placed on mission cards and ships. */

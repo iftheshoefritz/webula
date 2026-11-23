@@ -8,6 +8,7 @@ import {
   either,
   hasAny,
   hasRequiredSkill,
+  affiliationIs,
   iconIs,
   killRandom,
   killRandomThenStopAll,
@@ -32,6 +33,9 @@ import { D, P, PLAYER_AHEAD_RULE, S, dilemmaList, mostHeldSkill, playerAhead } f
 // Championship piles that the other files of `titles/` lack, the most played first.
 
 const { models, dilemma } = dilemmaList();
+
+const isCommand = iconIs('[cmd]');
+const isRomulan = affiliationIs('romulan');
 
 const BOTTOM_OF_DECK = 'a personnel placed on the bottom of the deck counts as killed';
 const ALL_SKILLS = BOT_SKILLS.map((_, i) => i);
@@ -121,7 +125,7 @@ dilemma('Ungracious Hosts', P, 2, 'no-effect', noEffect, { status: 'ignore' });
 dilemma('Warm Welcome', D, 0, 'unless', unlessGroup(
   (() => {
     const officers = req('2 Officer');
-    return (s: PlayState) => s.unstopped().filter((k) => iconIs('[cmd]')(s, k)).length >= 3 || s.has(officers);
+    return (s: PlayState) => s.unstopped().filter((k) => isCommand(s, k)).length >= 3 || s.has(officers);
   })(),
   thenReturns(playerDiscards(1)),
   '3 [Cmd] personnel or 2 Officer',
@@ -285,7 +289,7 @@ dilemma('So Many Enemies', D, 3, 'any-of-three', anyOfThree(hasAny('treachery'),
 
 dilemma('Weight of Command', D, 3, 'random-select', selectRandom(3, (s, sel) => {
   s.stop(sel.filter((k) => s.hasSkill(k, sk('officer'))));
-  s.move(sel.filter((k) => s.alive[k] && s.group[k].affiliation === 'romulan'));
+  s.move(sel.filter((k) => s.alive[k] && isRomulan(s, k)));
 }));
 
 dilemma('The Big Goodbye', S, 2, 'random-select', (() => {
