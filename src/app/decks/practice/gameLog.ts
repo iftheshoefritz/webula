@@ -788,7 +788,9 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
       const entry = { kind: 'missionCompleted' as const, mission: missionName(before, action.missionIndex), completed: action.completed };
       // A completion whose effect checks the species involved (#1828, Cheron) records the count, Skip too.
       const scoring = action.completed ? completionEffectOf(before, action.missionIndex) : undefined;
-      return scoring?.kind === 'score' ? { ...entry, effect: { species: involvedSpecies(before, action.missionIndex).length } } : entry;
+      return scoring?.kind === 'score' && scoring.condition?.kind === 'species'
+        ? { ...entry, effect: { species: involvedSpecies(before, action.missionIndex).length } }
+        : entry;
     }
     case 'startAttempt':
       if (after === before) return null;
@@ -1691,6 +1693,8 @@ export function logEntryText(entry: LogEntry): string {
         ...(moves.length ? [moves.join('; ')] : []),
         ...(effect.shuffled ? [`shuffled ${placeText(effect.shuffled)}`] : []),
         ...(effect.flipped ? ['flipped it to its back'] : []),
+        // A score of another condition (#1908): "Marked Moab IV complete, and scored 5 points".
+        ...(typeof effect.scored === 'number' && effect.scored > 0 ? [`scored ${effect.scored} ${effect.scored === 1 ? 'point' : 'points'}`] : []),
       ];
       return parts.length ? `${marked}, and ${parts.join(', then ')}` : marked;
     }

@@ -516,6 +516,8 @@ export const count = (reader: TableReader, s: Selection | Selection[]): number =
  */
 export interface AttemptingQuery {
   min?: number;
+  /** The most personnel: Alpha 5 Approach's "five or less" (#1908). */
+  max?: number;
   keywords?: string[];
   oneAffiliation?: true;
 }
@@ -531,6 +533,7 @@ export function attemptingHolds(attempting: readonly AttemptingPersonnel[], quer
   const { keywords } = query;
   const counted = keywords ? attempting.filter((p) => p.keywords.some((k) => keywords.includes(k))) : attempting;
   if (query.min !== undefined && counted.length < query.min) return false;
+  if (query.max !== undefined && counted.length > query.max) return false;
   return !query.oneAffiliation || differentAffiliations(attempting.map((p) => p.affiliation)) === 1;
 }
 
