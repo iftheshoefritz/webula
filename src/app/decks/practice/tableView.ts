@@ -8,6 +8,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import type { CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
+import { personnel } from '../../../lib/tableView';
 import type { TableView, ViewCard, ViewEvent, ViewMission, ViewPileCard, ViewShip, ViewTableCard } from '../../../lib/tableView';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
@@ -104,7 +105,7 @@ const eventOf = (c: CardInstance, place: ViewEvent['place'], missionIndex?: numb
  * The events the player commands (#1749): the core's, then those
  * placed on the mission cards and the ships of every slot. Not the brig, and not an event placed on a core card.
  */
-const eventsOf = (table: TableState): ViewEvent[] => [
+const eventsOf = (table: Pick<TableState, 'core' | 'missions'>): ViewEvent[] => [
   ...table.core.flatMap((c) => eventOf(c, 'core')),
   ...table.missions.flatMap((s, i) => [
     ...(s.mission?.placedOn ?? []).flatMap((c) => eventOf(c, 'missionCard', i)),
@@ -112,25 +113,80 @@ const eventsOf = (table: TableState): ViewEvent[] => [
   ]),
 ];
 
-export function tableViewOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): TableView {
+/**
+ * What a table view is built from (#1878): the slots, the core, the hand, the discard pile and the brig, the rest of
+ * a `TableState` optional. The range and attribute readers take such a part of the table.
+ */
+export type TableViewInput = Pick<TableState, 'missions' | 'core' | 'hand' | 'discard' | 'brig'> &
+  Partial<Pick<TableState, 'drawDeck' | 'dilemmaPile' | 'score' | 'turn' | 'segment' | 'opponent' | 'botPile' | 'rangeUsed'>>;
+
+/** The table view of a part of the table: the piles it lacks are empty, its turn 1 in play and draw, its score 0. */
+export function tableViewOfInput(table: TableViewInput, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): TableView {
   // The requirements as the cards in play change them (#1828, Crescent Nebula), as the bot reads them.
   const requirements = requirementTextsOf(table.missions.map((m) => m.mission?.card));
   return {
     missions: table.missions.map((slot, i) => missionOf(slot, i, text(requirements[i]))),
-    core: table.core.map(viewCardOf),
-    hand: table.hand.map(pileCardOf),
-    discard: table.discard.map(pileCardOf),
-    drawDeck: table.drawDeck.map(pileCardOf),
-    dilemmaPile: table.dilemmaPile.map(pileCardOf),
+    core: (table.core ?? []).map(viewCardOf),
+    hand: (table.hand ?? []).map(pileCardOf),
+    discard: (table.discard ?? []).map(pileCardOf),
+    drawDeck: (table.drawDeck ?? []).map(pileCardOf),
+    dilemmaPile: (table.dilemmaPile ?? []).map(pileCardOf),
     dilemmaPileIsBot: table.opponent === 'bot',
-    brig: table.brig.map(viewCardOf),
-    events: eventsOf(table),
-    score: table.score,
-    turn: table.turn,
-    segment: table.segment,
+    brig: (table.brig ?? []).map(viewCardOf),
+    events: eventsOf({ core: table.core ?? [], missions: table.missions }),
+    score: table.score ?? 0,
+    turn: table.turn ?? 1,
+    segment: table.segment ?? 'playAndDraw',
     rangeUsed: table.rangeUsed ?? {},
     ...(table.botPile ? { botPile: table.botPile } : {}),
     plays,
     pending,
   };
+}
+
+export function tableViewOf(table: TableState, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): TableView {
+  return tableViewOfInput(table, pending, plays);
+}
+
+/**
+ * What the range, span and attribute models read (#1878): the table view, and the card instances of its slots by
+ * id (the mission cards, the away teams, the ships, the crews and the core), so a model handed a view entry gets
+ * its `CardInstance`. `awayTeam` gives a slot's away team as instances.
+ * It belongs to the practice table; `TableView` holds no practice-table type.
+ */
+export interface TableRead {
+  view: TableView;
+  instance: (id: string) => CardInstance | undefined;
+  awayTeam: (missionIndex: number) => CardInstance[];
+}
+
+/** The reader of `table`, its view built once. */
+export function tableReadOf(table: TableViewInput): TableRead {
+  const byId = new Map<string, CardInstance>();
+  const add = (c: CardInstance) => {
+    if (!byId.has(c.id)) byId.set(c.id, c);
+  };
+  for (const slot of table.missions) {
+    if (slot.mission) add(slot.mission);
+    slot.awayTeam.forEach(add);
+    for (const ship of slot.ships) {
+      add(ship);
+      (ship.crew ?? []).forEach(add);
+    }
+  }
+  (table.core ?? []).forEach(add);
+  return {
+    view: tableViewOfInput(table),
+    instance: (id) => byId.get(id),
+    awayTeam: (i) => table.missions[i]?.awayTeam ?? [],
+  };
+}
+
+/**
+ * The personnel the player commands, stopped ones too, as instances (#1878): `personnel` of the view with
+ * `unstopped: false`, in its order, every away team and then each crew, slot by slot; never the brig.
+ */
+export function commandedPersonnel(missions: MissionSlot[]): CardInstance[] {
+  const read = tableReadOf({ missions, core: [], hand: [], discard: [], brig: [] });
+  return personnel(read.view, { unstopped: false }).flatMap((p) => read.instance(p.id) ?? []);
 }

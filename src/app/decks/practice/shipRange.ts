@@ -3,8 +3,10 @@
 // own, with no import of `tableReducer.ts`, so `MissionRow` reads it without loading the reducer and
 // its `@dnd-kit/sortable` import.
 
+import { personnel } from '../../../lib/tableView';
 import type { CardInstance, MissionSlot } from './tableReducer';
-import { commandedPersonnel, quadrantOf, type RangeTable, rangeSpanModelOf } from './rangeModels';
+import { quadrantOf, type RangeTable, rangeSpanModelOf } from './rangeModels';
+import { type TableRead, tableReadOf } from './tableView';
 
 // A card with no printed Range reads 0.
 export const printedRange = (card: CardInstance | null | undefined): number => Number(card?.card?.range) || 0;
@@ -56,20 +58,32 @@ export function moveSpanTotal(
 // #1827), for a ship on a ship row. It never goes below 0. With `cardText` false (#1668) it is
 // the printed Range.
 export function shipRangeOnTable(table: RangeTable, ship: CardInstance, cardText = true): number {
-  if (!cardText) return printedRange(ship);
-  const { missions } = table;
-  let range = printedRange(ship) + (rangeSpanModelOf(ship)?.shipRange?.(ship, table) ?? 0);
-  for (const p of ship.crew ?? []) range += rangeSpanModelOf(p)?.aboardRange?.(p, ship, table) ?? 0;
-  for (const event of ship.placedOn ?? []) range += rangeSpanModelOf(event)?.placedOnShipRange?.(event, ship, table) ?? 0;
-  for (const slot of missions) {
-    if (!slot.mission) continue;
-    for (const event of slot.mission.placedOn ?? []) {
-      range += rangeSpanModelOf(event)?.eventRange?.(event, slot.mission, ship, table) ?? 0;
+  return cardText ? shipRangeOf(tableReadOf(table), ship) : printedRange(ship);
+}
+
+// The Range of `ship` on the table that `read` holds (#1878): what `shipRangeOnTable` gives with the card text on,
+// from a view built once, so an attribute model and `attributesOnTableOf` build none of their own.
+export function shipRangeOf(read: TableRead, ship: CardInstance): number {
+  const { view } = read;
+  let range = printedRange(ship) + (rangeSpanModelOf(ship)?.shipRange?.(ship, read) ?? 0);
+  for (const p of ship.crew ?? []) range += rangeSpanModelOf(p)?.aboardRange?.(p, ship, read) ?? 0;
+  for (const event of ship.placedOn ?? []) range += rangeSpanModelOf(event)?.placedOnShipRange?.(event, ship, read) ?? 0;
+  for (const m of view.missions) {
+    const mission = m.card ? read.instance(m.card.id) : undefined;
+    if (!mission) continue;
+    for (const event of mission.placedOn ?? []) {
+      range += rangeSpanModelOf(event)?.eventRange?.(event, mission, ship, read) ?? 0;
     }
   }
-  if (missions.some((slot) => slot.ships.some((s) => s.id === ship.id))) {
-    for (const p of commandedPersonnel(missions)) range += rangeSpanModelOf(p)?.commandedShipRange?.(p, ship, table) ?? 0;
-    for (const event of table.core ?? []) range += rangeSpanModelOf(event)?.coreRange?.(event, ship, table) ?? 0;
+  if (view.missions.some((m) => m.ships.some((s) => s.id === ship.id))) {
+    for (const entry of personnel(view, { unstopped: false })) {
+      const p = read.instance(entry.id);
+      if (p) range += rangeSpanModelOf(p)?.commandedShipRange?.(p, ship, read) ?? 0;
+    }
+    for (const entry of view.core) {
+      const event = read.instance(entry.id);
+      if (event) range += rangeSpanModelOf(event)?.coreRange?.(event, ship, read) ?? 0;
+    }
   }
   return Math.max(0, range);
 }
@@ -83,9 +97,12 @@ export function shipRangesOnTable(
 ): Record<string, number> {
   const ranges: Record<string, number> = {};
   if (!rangeUsed) return ranges;
+  let read: TableRead | undefined;
   for (const slot of table.missions) {
     for (const ship of slot.ships) {
-      if (ship.id in rangeUsed) ranges[ship.id] = shipRangeOnTable(table, ship, cardText);
+      if (!(ship.id in rangeUsed)) continue;
+      if (cardText) read ??= tableReadOf(table);
+      ranges[ship.id] = read ? shipRangeOf(read, ship) : printedRange(ship);
     }
   }
   return ranges;

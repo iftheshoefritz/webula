@@ -5,9 +5,10 @@
 // and every card shows its printed values.
 
 import type { CardInstance } from './tableReducer';
-import { type AttributeTable, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
+import { type AttributeTable, personnelAttributesOf, shipAttributesOf } from './attributeModels';
 import { isPersonnel } from './rangeModels';
-import { shipRangeOnTable } from './shipRange';
+import { shipRangeOf } from './shipRange';
+import { tableReadOf } from './tableView';
 
 export interface AttributesOnTable {
   integrity?: number;
@@ -52,14 +53,16 @@ const NONE: Record<string, AttributesOnTable> = {};
 
 // The modified attributes of every personnel at a mission (in an away team or a crew) and of every
 // ship on a ship row, by the card's instance id. A card whose values all equal the printed ones has
-// no entry, nor has a card the readers do not cover (the hand, a pile, the brig, the discard).
+// no entry, nor has a card the readers do not cover (the hand, a pile, the brig, the discard). It builds
+// the table view once (#1878) and reads every card from it.
 export function attributesOnTableOf(table: AttributeTable, cardText: boolean): Record<string, AttributesOnTable> {
   if (!cardText) return NONE;
   const { missions } = table;
+  const read = tableReadOf(table);
   const map: Record<string, AttributesOnTable> = {};
   const addPersonnel = (p: CardInstance) => {
     if (!isPersonnel(p)) return;
-    const modified = modifiedOf(p, personnelAttributesOnTable(table, p, true));
+    const modified = modifiedOf(p, personnelAttributesOf(read, p));
     if (modified) map[p.id] = modified;
   };
   for (const slot of missions) {
@@ -67,8 +70,8 @@ export function attributesOnTableOf(table: AttributeTable, cardText: boolean): R
     for (const ship of slot.ships) {
       (ship.crew ?? []).forEach(addPersonnel);
       const modified = modifiedOf(ship, {
-        range: shipRangeOnTable(table, ship, true),
-        ...shipAttributesOnTable(table, ship, true),
+        range: shipRangeOf(read, ship),
+        ...shipAttributesOf(read, ship),
       });
       if (modified) map[ship.id] = modified;
     }
