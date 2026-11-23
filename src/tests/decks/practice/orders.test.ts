@@ -198,3 +198,22 @@ describe('a stop of one of your personnel (#1866): Rule of Acquisition #6', () =
     expect(lastText(drew)).toBe("Used Rule of Acquisition #6's order: stopped Quark, drew 1 card");
   });
 });
+
+describe('a card present to place (#1866): Charles Tucker III Horse Trader', () => {
+  it('places the equipment of his away team on the bottom, refuses any other card, and draws two', () => {
+    const tucker = person('tucker', 'Charles Tucker III Horse Trader', 'starfleet');
+    const ally = person('ally', 'Ally', 'starfleet');
+    const kit = card('kit', { type: 'equipment', name: 'kit', originalName: 'Kit', cost: '1' });
+    const start = initialGameState(table({}, [tucker, ally, kit]));
+    expect(offered(start)).toContain('Charles Tucker III Horse Trader#0');
+    expect(dispatch(start, { type: 'useOrder', id: 'tucker', order: 0, ids: ['ally'] })).toBe(start);
+    expect(dispatch(start, { type: 'useOrder', id: 'tucker', order: 0 })).toBe(start);
+    const used = dispatch(start, { type: 'useOrder', id: 'tucker', order: 0, ids: ['kit'] });
+    expect(used.table.missions[0].awayTeam.map((c) => c.id)).toEqual(['tucker', 'ally']);
+    expect(used.table.drawDeck[used.table.drawDeck.length - 1].id).toBe('kit');
+    const drew = dispatch(used, { type: 'effectStep' });
+    expect(drew.table.hand.map((c) => c.id)).toEqual(['hideki', 'reliant', 'd1', 'd2']);
+    expect(lastText(drew)).toBe("Used Charles Tucker III Horse Trader's order: placed Kit on the bottom of the draw deck, drew 2 cards");
+    expect(offered(drew)).not.toContain('Charles Tucker III Horse Trader#0');
+  });
+});
