@@ -969,6 +969,11 @@ The practice table has thirty-three fixtures. Each one deals the same table on e
   (`botRedraws` in `useBotAttemptStart.ts`), it puts the drawn dilemmas on the bottom of the pile, face up,
   draws as many again and chooses from those. The one `botAttempt` carries `redrawn`, sets
   `TableState.botUsedUnexpectedDifficulties`, and its log entry says so; a new game clears the flag.
+  Unexpected Difficulties is a trigger row of source `botDeck` (#1906, `src/lib/triggers/titles/bot.ts`, event
+  `dilemmasDrawn`, the bot-only step `botRedrawDilemmas`): `BotPileInfo.triggers` lists the `botDeck` titles of the
+  deck's `Deck:` section (`BOT_TRIGGER_TITLES`), `botRedraws` asks `botPileHasTrigger(pile, 'dilemmasDrawn')`, and a
+  saved `botPile` with the old `unexpectedDifficulties: true` still reads as holding it (`botPileTriggerTitles`).
+  `pendingTriggersOf` never offers a `botDeck` row to the player.
 - `?fixture=bot-costs` (#1738) deals the `?fixture=bot` table, the same cards and the same ids, with
   Ptol (`17V077`, cost 5) at the end of the hand (`PRACTICE_BOT_COSTS_TSV`). In a bot game a play of
   Ptol reveals the top four cards of the bot's dilemma pile (`CostFacts.opponentDilemmaPile`, filled only

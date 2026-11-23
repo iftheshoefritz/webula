@@ -3804,7 +3804,7 @@ function PracticeDrawContent() {
         id: choice.id,
         name: choice.name,
         affiliations: chosen.affiliations,
-        ...(chosen.unexpectedDifficulties ? { unexpectedDifficulties: true as const } : {}),
+        ...(chosen.triggers.length ? { triggers: chosen.triggers } : {}),
         missions: chosen.missions,
         songCards: chosen.songCards,
       };

@@ -3,13 +3,15 @@
 
 import { cardTitleOf } from '../cardTitle';
 import type { GameEventKind, TriggerRow } from './model';
+import { BOT_TRIGGER_ROWS } from './titles/bot';
 import { COMPLETION_TRIGGER_ROWS } from './titles/completion';
 import { PERSONNEL_TRIGGER_ROWS } from './titles/personnel';
 
 export * from './model';
+export { UNEXPECTED_DIFFICULTIES } from './titles/bot';
 
 /** Every trigger row. */
-export const TRIGGER_ROWS: readonly TriggerRow[] = [...COMPLETION_TRIGGER_ROWS, ...PERSONNEL_TRIGGER_ROWS];
+export const TRIGGER_ROWS: readonly TriggerRow[] = [...COMPLETION_TRIGGER_ROWS, ...PERSONNEL_TRIGGER_ROWS, ...BOT_TRIGGER_ROWS];
 
 const BY_TITLE = new Map<string, TriggerRow[]>();
 for (const r of TRIGGER_ROWS) {
@@ -28,3 +30,15 @@ export const triggerRowsFor = (kind: GameEventKind): readonly TriggerRow[] => BY
 
 /** The titles of the registry, in the case of the card data, each once: the model backlog's `trigger` and `interrupt`. */
 export const TRIGGER_TITLES: readonly string[] = [...new Set(TRIGGER_ROWS.map((r) => r.title))];
+
+/**
+ * The titles of the `botDeck` rows (#1906): the trigger cards the bot can use from the `Deck:` section of its pile,
+ * in the case of the card data.
+ */
+export const BOT_TRIGGER_TITLES: readonly string[] = [...new Set(TRIGGER_ROWS.filter((r) => r.source === 'botDeck').map((r) => r.title))];
+
+/** The `botDeck` rows among `titles` that wait for an event of `kind`, in row order. */
+export const botTriggerRowsFor = (titles: readonly string[], kind: GameEventKind): readonly TriggerRow[] => {
+  const held = new Set(titles.map((t) => cardTitleOf(t).toLowerCase()));
+  return triggerRowsFor(kind).filter((r) => r.source === 'botDeck' && held.has(r.title.toLowerCase()));
+};
