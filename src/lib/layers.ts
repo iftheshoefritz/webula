@@ -45,6 +45,9 @@ export const LAYER_RESOLVING_PANEL = 'z-[147]';
 // backdrop and arc, so each stays reachable while the arc is open, below the charge chip. It never shows with
 // the resolving panel, so the two share a value.
 export const LAYER_RESOLVE_PROMPT = 'z-[147]';
+// The trigger offers (#1904), below the charge chip as the prompt is: over the open hand, below a card list
+// panel. They never show with the prompt or the resolving panel, since the offers wait for them.
+export const LAYER_TRIGGER_OFFERS = 'z-[147]';
 // The brief chip of a charge (#1607), at the top of the screen: above the table and the open hand,
 // below a card list panel.
 export const LAYER_CHARGE_CHIP = 'z-[148]';

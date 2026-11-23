@@ -3,7 +3,7 @@
 // present with it, the card itself possibly ("each of your other …" leaves it out).
 
 import { commandsKeywordCard, distinctTitleCount, missions as viewMissions, personnel, type TableView, type ViewCard } from '../../tableView';
-import { type AmountContext, each, type ModifierRow, PERSONNEL_QUANTITIES, row } from '../model';
+import { type AmountContext, counted, type Delta, each, type ModifierRow, PERSONNEL_QUANTITIES, row } from '../model';
 import {
   hasAffiliation,
   hasIcon,
@@ -18,7 +18,7 @@ import {
 } from '../words';
 
 /** Each of a personnel's attributes +`n`, "attributes +n". */
-export const attributes = (n: number | ((c: AmountContext) => number)) => each(PERSONNEL_QUANTITIES, n);
+export const attributes = (n: Delta) => each(PERSONNEL_QUANTITIES, n);
 
 // A keyword or a species, as the partner tests of `gains.ts` read "an Android" or "an Honor Klingon".
 const hasTrait = (p: ViewCard, trait: string) => hasKeyword(p, trait) || hasWord(p.row?.species, trait);
@@ -36,6 +36,8 @@ const otherCommanded = ({ view, source }: AmountContext, test: (p: ViewCard) => 
 // The others of the source's group that pass `test`.
 const others = ({ source, group }: AmountContext, test: Parameters<typeof othersIn>[2]) => othersIn(source, group ?? [], test).length;
 // `n` while `holds`, else 0.
+// The non-Bajorans present with Tahna Los.
+const nonBajorans = (c: AmountContext) => others(c, (p) => !hasWord(p.row?.species, 'bajoran'));
 const when = (holds: (c: AmountContext) => boolean, n: number) => (c: AmountContext) => (holds(c) ? n : 0);
 
 // "While no player commands a Temporal event" (Morgan Bateson).
@@ -128,8 +130,8 @@ export const ATTRIBUTE_ROWS: ModifierRow[] = [
   // "This personnel is Cunning +1 for each Diplomacy personnel in your discard pile (limit +4). This personnel is
   // Strength +1 for each Security personnel in your discard pile (limit +4)."
   row('Odo Curzon Odo', 'self', 'self', {
-    cunning: ({ view }) => Math.min(4, discardedWith(view, 'diplomacy')),
-    strength: ({ view }) => Math.min(4, discardedWith(view, 'security')),
+    cunning: counted(({ view }) => discardedWith(view, 'diplomacy'), 1, 4),
+    strength: counted(({ view }) => discardedWith(view, 'security'), 1, 4),
   }),
   // "While this personnel is at a Region: Delphic Expanse mission, if there is a [SF] ship at this mission with
   // unused Range>5, this personnel is attributes +1 …" Unused Range is the Range on the table less the Range used
@@ -214,8 +216,8 @@ export const ATTRIBUTE_ROWS: ModifierRow[] = [
   // "This personnel is Integrity -1 and Strength +1 for each non-Bajoran present (limit -3/+3)." Bajoran is the
   // species.
   row('Tahna Los Voice of the Kohn-Ma', 'self', 'self', {
-    integrity: (c) => -Math.min(3, others(c, (p) => !hasWord(p.row?.species, 'bajoran'))),
-    strength: (c) => Math.min(3, others(c, (p) => !hasWord(p.row?.species, 'bajoran'))),
+    integrity: counted(nonBajorans, -1, -3),
+    strength: counted(nonBajorans, 1, 3),
   }),
   // "Each of your personnel present who has a cost of 4 or more is attributes +1." Worf, cost 4, is +1 himself.
   row('Worf Defiant Commander', 'group', 'group', attributes(when(({ target }) => isPersonnel(target) && printedOf(target, 'cost') >= 4, 1))),
