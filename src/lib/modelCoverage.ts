@@ -50,8 +50,8 @@ const sentencesOf = (text: string): string[] =>
 
 /** A sentence that starts a trigger or an action of its own, and so starts a new clause. */
 const CLAUSE_START = /^(Order|Interrupt|Response|When|Whenever|While|At the (start|end))\b/i;
-/** Where an event or an equipment plays: placement, not an effect. */
-const PLAYS_WHERE = /^Plays? (in|on)\b/i;
+/** Where an event or an equipment plays: placement, not an effect. Trellium-D "Plays aboard your ship" (#1915). */
+const PLAYS_WHERE = /^Plays? (in|on|aboard)\b/i;
 const WHEN_PLAYED = /^When you play this (personnel|ship)\b/i;
 /** A place a card may be played, as `playPlaces` reads it. */
 const PLAY_PLACE = /\byou may play\b/i;
@@ -111,6 +111,99 @@ export function clausesOf(card: CoverageCard): Clause[] {
   });
 }
 
+/**
+ * The groups of the sentences of an `ongoing` clause (#1915), each with the primitive that would model it. A clause
+ * often mixes groups (Coordinated Counterattack: a play requirement, then "Personnel an opponent commands cannot gain
+ * skills"), so the classifier names each sentence.
+ */
+export type OngoingGroup =
+  | 'playRequirement' // "To play this event, you must command three [Bor] personnel"
+  | 'playPlace' // "This personnel may (and must) play to {Ba'ku Planet}"
+  | 'attempt' // "Personnel aboard this ship cannot attempt missions"
+  | 'counterSpend' // "You cannot spend counters to draw cards"; Code of the Ushaan's cap
+  | 'reminder' // "(You do not need to spend all your counters …)": the table never asks for unspent counters
+  | 'attributes' // Morik: an attribute change the attribute pattern misses
+  | 'gain' // a gain of skills, icons, keywords or a Region
+  | 'opponent' // a text that reads or acts on an opponent (#1758)
+  | 'command' // "To command this ship, …", "cannot make you lose command"
+  | 'stopImmunity' // "cannot be stopped … until the end of this turn"
+  | 'engagement' // Queen's Borg Cube
+  | 'playCost' // Tuvix: a cost of the play other than counters
+  | 'fragment' // a piece `sentencesOf` cut off its clause
+  | 'unclassified';
+
+export const ONGOING_GROUPS: OngoingGroup[] = [
+  'playRequirement',
+  'playPlace',
+  'attempt',
+  'counterSpend',
+  'reminder',
+  'attributes',
+  'gain',
+  'opponent',
+  'command',
+  'stopImmunity',
+  'engagement',
+  'playCost',
+  'fragment',
+  'unclassified',
+];
+
+/** What would model a sentence of each group: a permission of the modifier kind, a row, or what the table lacks. */
+export const ONGOING_PRIMITIVES: Record<OngoingGroup, string> = {
+  playRequirement: 'a permission: play',
+  playPlace: 'a permission: playPlace',
+  attempt: 'a permission: attempt',
+  counterSpend: 'a permission: spendToDraw, or a counter-limit cap',
+  reminder: 'nothing: a reminder',
+  attributes: 'an attribute row',
+  gain: 'a gain',
+  opponent: 'an opponent',
+  command: 'command',
+  stopImmunity: 'stop immunity',
+  engagement: 'an engagement',
+  playCost: 'a play cost',
+  fragment: 'the clause before',
+  unclassified: 'a group',
+};
+
+/** The permission quantity of the modifier kind that models a sentence of `group`, when one does. */
+export function ongoingPermissionOf(group: OngoingGroup, sentence: string): 'play' | 'playPlace' | 'attempt' | 'spendToDraw' | null {
+  if (group === 'playRequirement') return 'play';
+  if (group === 'playPlace') return 'playPlace';
+  if (group === 'attempt') return 'attempt';
+  if (group === 'counterSpend' && /\bspend counters to draw\b/i.test(sentence)) return 'spendToDraw';
+  return null;
+}
+
+// The patterns, in order: the first that matches names the group. A counter sentence of "each player" is a counter
+// spend before it is an opponent's; an opponent's "To play this …" before a play requirement; a gain before an attempt.
+const ONGOING_PATTERNS: [OngoingGroup, RegExp][] = [
+  ['reminder', /^\(?You do not need to spend all your counters\b/i],
+  ['counterSpend', /\bcannot spend (counters|more than \w+ counters)\b/i],
+  ['command', /^To command this\b|\blose command\b/i],
+  ['opponent', /\b(opponents?|each player|that player|owners?|owns)\b/i],
+  ['playRequirement', /^To play this \w+, you (must|must not|cannot) command\b/i],
+  ['playCost', /^To play this \w+,|\bcannot play \w+ with the same title\b/i],
+  ['playPlace', /\bmay \(and must\) play to\b|^Plays? aboard\b/i],
+  ['gain', /\b(gains?|loses|becomes)\b|\bcorresponding Commander\b/i],
+  ['attempt', /\bcannot (be )?attempt|\bcannot begin a mission attempt\b/i],
+  ['stopImmunity', /\bcannot be stopped\b/i],
+  ['engagement', /\bengagement\b/i],
+  ['attributes', /\battributes\b/i],
+  ['fragment', /^[^{]*\}|^(Those cards|Take one of those|Then\b|Replace the remaining|Name an? |You may do this only once)/i],
+];
+
+/** The group of one sentence of an `ongoing` clause, "unclassified" when no pattern matches. */
+export function ongoingGroupOf(sentence: string): OngoingGroup {
+  return ONGOING_PATTERNS.find(([, re]) => re.test(sentence))?.[0] ?? 'unclassified';
+}
+
+/** The sentences of an `ongoing` clause, each with its group. */
+export function ongoingSentencesOf(clause: string): { text: string; group: OngoingGroup }[] {
+  return sentencesOf(clause).map((text) => ({ text, group: ongoingGroupOf(text) }));
+}
+
 /** The lines of a deck under the sections that hold cards: `Deck:`, `Dilemmas:` and `Missions:`. */
 export function shippedDeckTitles(deckText: string): Set<string> {
   const titles = new Set<string>();
@@ -132,14 +225,31 @@ export function shippedDeckTitles(deckText: string): Set<string> {
  */
 export type ModelledBy = (concern: Concern, title: string, card: CoverageCard, clause: string) => boolean;
 
+/**
+ * Whether the registries model one sentence of an `ongoing` clause (#1915). A caller that passes it to
+ * `coverageReport` gets each `ongoing` clause's uncovered sentences, and their primitives in the report.
+ */
+export type SentenceModelledBy = (title: string, card: CoverageCard, sentence: { text: string; group: OngoingGroup }) => boolean;
+
+/** A sentence of an `ongoing` clause, its group, and whether it is modelled. */
+export interface OngoingSentence {
+  text: string;
+  group: OngoingGroup;
+  modelled: boolean;
+}
+
 export interface CoverageRow {
   title: string;
   type: string;
   decks: number;
-  clauses: (Clause & { modelled: boolean })[];
+  /** Each clause; an `ongoing` one with its sentences when the report was given a `SentenceModelledBy`. */
+  clauses: (Clause & { modelled: boolean; sentences?: OngoingSentence[] })[];
   /** The concerns of the clauses with no model, each once, in `CONCERNS` order. */
   missing: Concern[];
-  /** Every missing clause has a registry to go in. */
+  /**
+   * Every missing clause has a registry to go in; a missing `ongoing` clause when each of its uncovered sentences
+   * has a permission primitive (#1915).
+   */
   withinReach: boolean;
 }
 
@@ -152,7 +262,7 @@ export interface CoverageReport {
  * The coverage of every title the decks play (every section), most played first, then by title. A title
  * with no row in `cards` is left out; a title with several rows (reprints) reads its first row with text.
  */
-export function coverageReport(cards: CoverageCard[], decks: string[], modelled: ModelledBy): CoverageReport {
+export function coverageReport(cards: CoverageCard[], decks: string[], modelled: ModelledBy, sentenceModelled?: SentenceModelledBy): CoverageReport {
   const byTitle = new Map<string, CoverageCard>();
   for (const c of cards) {
     const title = cardTitleOf(c.name);
@@ -165,15 +275,24 @@ export function coverageReport(cards: CoverageCard[], decks: string[], modelled:
   for (const title of titles) {
     const card = byTitle.get(title);
     if (!card) continue;
-    const clauses = clausesOf(card).map((c) => ({ ...c, modelled: modelled(c.concern, title, card, c.text) }));
+    const clauses = clausesOf(card).map((c): CoverageRow['clauses'][number] => {
+      const clause = { ...c, modelled: modelled(c.concern, title, card, c.text) };
+      if (c.concern !== 'ongoing' || !sentenceModelled) return clause;
+      const sentences = ongoingSentencesOf(c.text).map((x) => ({ ...x, modelled: clause.modelled || sentenceModelled(title, card, x) }));
+      return { ...clause, modelled: clause.modelled || sentences.every((x) => x.modelled), sentences };
+    });
     const missing = CONCERNS.filter((k) => clauses.some((c) => c.concern === k && !c.modelled));
+    const reachable = (c: CoverageRow['clauses'][number]) =>
+      c.modelled ||
+      CONCERNS_WITH_REGISTRY.has(c.concern) ||
+      (c.sentences?.every((x) => x.modelled || ongoingPermissionOf(x.group, x.text) !== null) ?? false);
     rows.push({
       title,
       type: card.type,
       decks: deckSets.filter((s) => s.has(title)).length,
       clauses,
       missing,
-      withinReach: missing.every((k) => CONCERNS_WITH_REGISTRY.has(k)),
+      withinReach: clauses.every(reachable),
     });
   }
   rows.sort((a, b) => b.decks - a.decks || a.title.localeCompare(b.title));
@@ -219,9 +338,44 @@ export function coverageMarkdown(report: CoverageReport): string {
   }
   out.push('');
 
+  const ongoing = withText.flatMap((r) => r.clauses.flatMap((c) => c.sentences ?? []));
+  if (ongoing.length) {
+    out.push(
+      '## Ongoing by primitive',
+      '',
+      'Each sentence of an `ongoing` clause, by its group, with what would model it. A clause is modelled when every sentence is.',
+      '',
+      '| Group | Primitive | Sentences | Modelled |',
+      '|---|---|---:|---:|'
+    );
+    for (const g of ONGOING_GROUPS) {
+      const of = ongoing.filter((x) => x.group === g);
+      if (!of.length) continue;
+      const m = of.filter((x) => x.modelled).length;
+      out.push(`| ${g} | ${ONGOING_PRIMITIVES[g]} | ${of.length} | ${m} |`);
+    }
+    out.push('');
+  }
+
+  // A missing `ongoing` clause names what its uncovered sentences need: "ongoing (needs: an opponent)".
+  const missingText = (r: CoverageRow) =>
+    r.missing
+      .map((k) => {
+        const needs = [
+          ...new Set(
+            r.clauses
+              .filter((c) => c.concern === k && !c.modelled)
+              .flatMap((c) => c.sentences ?? [])
+              .filter((x) => !x.modelled)
+              .map((x) => ONGOING_PRIMITIVES[x.group])
+          ),
+        ];
+        return needs.length ? `${k} (needs: ${needs.join('; ')})` : k;
+      })
+      .join(', ');
   out.push('## Backlog', '', 'Every title with a missing clause, most played first.', '', '| Decks | Title | Type | Missing | Reach |', '|---:|---|---|---|---|');
   for (const r of withText.filter((x) => x.missing.length)) {
-    out.push(`| ${r.decks} | ${r.title.replace(/\|/g, '\\|')} | ${r.type} | ${r.missing.join(', ')} | ${r.withinReach ? 'yes' : 'no'} |`);
+    out.push(`| ${r.decks} | ${r.title.replace(/\|/g, '\\|')} | ${r.type} | ${missingText(r)} | ${r.withinReach ? 'yes' : 'no'} |`);
   }
   out.push('');
   return out.join('\n');
