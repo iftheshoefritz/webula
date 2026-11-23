@@ -1,4 +1,5 @@
 import { CostModel } from '../model';
+import { nextPlay, withRows } from '../rows';
 import { missionRequires } from './completedMission';
 
 // The cards whose play makes a later card of this turn cheaper (#1656).
@@ -6,17 +7,14 @@ import { missionRequires } from './completedMission';
 export const PENDING_DISCOUNT_MODELS: CostModel[] = [
   // "When you play this personnel, the next [Fed][DS9] personnel you play this turn is cost -2." The
   // table checks the next play's Affiliation and Icons; the turn ends the discount.
-  {
-    title: 'Sarish Rez Ministerial Adjutant',
-    label: 'Sarish Rez',
-    family: 'pendingDiscount',
-    pendingDiscount: {
+  withRows(
+    { title: 'Sarish Rez Ministerial Adjutant', label: 'Sarish Rez', family: 'pendingDiscount' },
+    nextPlay({
       label: 'next [Fed][DS9] personnel',
       amount: 2,
-      applies: (play) =>
-        play.type === 'personnel' && !!play.affiliation?.includes('federation') && !!play.icons?.includes('[ds9]'),
-    },
-  },
+      applies: (play) => play.type === 'personnel' && !!play.affiliation?.includes('federation') && !!play.icons?.includes('[ds9]'),
+    })
+  ),
   // "When you play this personnel, if each of your non-headquarters missions requires Diplomacy, you may
   // download up to two events, then play each of them at cost -3." (#1762) The printed cost, and while each
   // mission of the player's that is not a headquarters requires Diplomacy (an empty slot is no mission; with

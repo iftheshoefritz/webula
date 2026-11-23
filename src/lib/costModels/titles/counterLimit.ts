@@ -3,6 +3,7 @@ import { cardTitleOf } from '../../cardTitle';
 import { SKILLS } from '../../missionRequirements';
 import { personnel, requiresSkill } from '../../tableView';
 import { costFactsSource } from '../factsSource';
+import { onLimit, own, withRows } from '../rows';
 
 // The cards that change the counters the player may spend this turn, batch 11 (#1704). A "may" is a
 // choice, as Tricia Jenkins's is; a text that acts at the start of the turn offers a choice of the turn
@@ -42,21 +43,13 @@ export const COUNTER_LIMIT_MODELS: CostModel[] = [
   },
   // "Plays in your core. Each player cannot spend more than seven counters during their Play and Draw Cards
   // segments." While it is in the core, the turn's limit is never above 7, whatever the grants and raises.
-  {
-    title: 'Code of the Ushaan',
-    family: 'limit',
-    limitCap: (facts) => (facts.core.includes('Code of the Ushaan') ? { amount: 7, reason: 'in your core' } : null),
-  },
+  withRows({ title: 'Code of the Ushaan', family: 'limit' }, onLimit('core', { cap: () => ({ amount: 7, reason: 'in your core' }) })),
   // Blue Skies (#1826): "To play this event, you must command three [Rom] Dissidents or three [TNG] Dissidents.
   // Plays in your core. You cannot spend more than seven counters during your turn. At the end of an opponent's
   // Play and Draw Cards segment, if they spent eight or more counters, score 5 points." The counters count in
   // play and draw only, so "during your turn" caps the same limit as Code of the Ushaan. The condition of play
   // is not checked, and the points wait for the opponent's counters (#1758).
-  {
-    title: 'Blue Skies',
-    family: 'limit',
-    limitCap: (facts) => (facts.core.includes('Blue Skies') ? { amount: 7, reason: 'in your core' } : null),
-  },
+  withRows({ title: 'Blue Skies', family: 'limit' }, onLimit('core', { cap: () => ({ amount: 7, reason: 'in your core' }) })),
   // "Lose 5 points to spend 7 additional counters this turn. Destroy this event." The printed cost, and the
   // choice of +7. The points and the destroy stay by hand.
   {
@@ -115,15 +108,14 @@ export const COUNTER_LIMIT_MODELS: CostModel[] = [
   // "When you play this event, for each unique Borg personnel you command, this event is cost -1. Plays in
   // your core. You may spend an additional counter each turn." −1 per unique Borg commanded, each name once,
   // and +1 to the limit while a copy is in the core. The play requirement and the [AU] stay by hand.
-  {
-    title: 'Unimatrix Zero',
-    family: 'limit',
-    playCost: (play, facts) => {
+  withRows(
+    { title: 'Unimatrix Zero', family: 'limit' },
+    own(({ play, source }) => {
       // Each unique Borg personnel you command, each name once.
-      const borg = personnel(costFactsSource(facts), { unstopped: true, species: 'borg', where: (p) => !!p.unique });
+      const borg = personnel(source, { unstopped: true, species: 'borg', where: (p) => !!p.unique });
       const n = new Set(borg.map((p) => cardTitleOf(p.name))).size;
       return n > 0 ? { cost: play.printed - n, reason: `you command ${n} unique Borg` } : null;
-    },
-    limitGrant: (facts) => (facts.core.includes('Unimatrix Zero') ? { amount: 1, reason: 'in your core' } : null),
-  },
+    }),
+    onLimit('core', { grant: () => ({ amount: 1, reason: 'in your core' }) })
+  ),
 ];

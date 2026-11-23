@@ -6,7 +6,7 @@ import { SIGMA_IOTIA_TITLE, TRISTAN_ADAMS_TITLE } from '../../app/decks/practice
 import { EARTH_TITLE, NIMBUS_TITLE } from '../../app/decks/practice/missionSpends';
 import { ROADBLOCK_TITLE } from '../../app/decks/practice/selfReplicatingRoadblock';
 import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from '../../app/decks/practice/tableReducer';
-import { COST_REGISTRY } from '../../lib/costModels/registry';
+import { COST_REGISTRY, COST_ROWS } from '../../lib/costModels/registry';
 import { MISSION_COST_TITLES } from '../../lib/dilemmaBot/pile/missionCost';
 import { MODIFIER_ROWS } from '../../lib/modifiers';
 import { REGISTRY as DILEMMA_REGISTRY } from '../../lib/dilemmaBot/pile/registry';
@@ -36,6 +36,8 @@ const PLAY = lower(PLAY_MODEL_TITLES);
 const RESOLVE = lower(RESOLVE_MODELS.map((m) => m.title));
 // The modifier registry (#1887): the attribute, Range and span rows.
 const MODIFIERS = lower(MODIFIER_ROWS.map((r) => r.title));
+// The cost and counter rows (#1888), so a title with rows and no residual model still counts for `cost`.
+const COST_ROW_TITLES = lower(COST_ROWS.map((r) => r.title));
 const MISSION = lower([
   ...COMPLETION_EFFECTS.keys(),
   ...ATTEMPT_MISSION_TITLES,
@@ -63,7 +65,7 @@ export const modelledToday: ModelledBy = (concern, title, card) => {
     case 'dilemma':
       return DILEMMA_REGISTRY.get(title)?.status === 'play';
     case 'cost':
-      return COST_REGISTRY.has(title);
+      return COST_REGISTRY.has(title) || COST_ROW_TITLES.has(key);
     case 'whenPlayed':
       return PLAY.has(key);
     case 'eventResolve':
@@ -71,7 +73,7 @@ export const modelledToday: ModelledBy = (concern, title, card) => {
     case 'attributes':
       return MODIFIERS.has(key);
     case 'mission':
-      return MISSION.has(key) || COST_REGISTRY.has(title);
+      return MISSION.has(key) || COST_REGISTRY.has(title) || COST_ROW_TITLES.has(key);
     case 'place':
       return placeCoverageOf({ ...card }) !== 'unread';
     default:

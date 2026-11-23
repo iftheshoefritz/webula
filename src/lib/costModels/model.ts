@@ -4,6 +4,7 @@
 // too. A model only counts: it moves no card and refuses nothing.
 
 import type { PartnerTraits } from '../dilemmaBot/gains';
+import type { ModifierRow } from '../modifiers/model';
 
 /**
  * The shape of the text a model reads. `'ownCost'`: a card that changes its own cost. `'limit'`: a card
@@ -422,6 +423,12 @@ export interface CostModel {
   /** The name the chip, the list and the log show, when it is not the title: "Tricia Jenkins". */
   label?: string;
   family: CostFamily;
+  /**
+   * The static cost changes of the card's text, as modifier rows (#1888, `rows.ts`): its own cost, the play it
+   * prices from the core, a mission or a personnel, its grant or cap of the limit, and the discount its play
+   * leaves. The registry generates the hooks of the rows below from them; a model never has both for one place.
+   */
+  rows?: readonly ModifierRow[];
   /** The cost of the card's own play from the hand, or null when the text changes nothing on this table. */
   playCost?: (play: CostPlay, facts: CostFacts) => ModelCost | null;
   /**

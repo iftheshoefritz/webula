@@ -1,15 +1,12 @@
 import { CostModel } from '../model';
+import { onLimit, withRows } from '../rows';
 
 // The cards that add to the counters the player may spend this turn (#1655).
 
 export const LIMIT_MODELS: CostModel[] = [
   // "Plays in your core. You may spend an additional counter each turn." The table checks it: +1 to the
   // limit of the turn while a copy is in the core, one grant however many copies.
-  {
-    title: 'Surprise Party',
-    family: 'limit',
-    limitGrant: (facts) => (facts.core.includes('Surprise Party') ? { amount: 1, reason: 'in your core' } : null),
-  },
+  withRows({ title: 'Surprise Party', family: 'limit' }, onLimit('core', { grant: () => ({ amount: 1, reason: 'in your core' }) })),
   // "When you play this personnel, you may spend an additional 5 counters this turn." A "may": the
   // printed cost, and the choice of +5 to this turn's limit. The opponent's points are not on this table.
   {

@@ -1,6 +1,6 @@
 import { core, firstThisTurn } from '../../tableView';
-import { costFactsSource } from '../factsSource';
 import { CostModel, CostPlay } from '../model';
+import { inCore, withRows } from '../rows';
 
 // The standing rules (#1703): cards of the core whose text prices the play of another card while they
 // stand there. The facts are the table before the move, so the card being played never prices itself.
@@ -12,6 +12,8 @@ const isUniquePersonnel = (play: Pick<CostPlay, 'type' | 'unique'>): boolean => 
 const isNonTngPersonnel = (play: Pick<CostPlay, 'type' | 'icons'>): boolean =>
   play.type === 'personnel' && !(play.icons ?? []).includes('[tng]');
 
+const MINUS = '−';
+
 const times = (n: number): string => (n > 1 ? ` (${n} copies)` : '');
 
 const firstUniquePersonnel = firstThisTurn(isUniquePersonnel, 'unique personnel');
@@ -19,35 +21,30 @@ const firstNonTngPersonnel = firstThisTurn(isNonTngPersonnel, 'non-[TNG] personn
 
 export const STANDING_RULE_MODELS: CostModel[] = [
   // "Plays in your core. The first unique personnel played each turn costs -2."
-  {
-    title: 'Disadvantage Into Advantage',
-    family: 'standingRule',
-    costOfPlay: (play, facts) => {
-      const source = costFactsSource(facts);
+  withRows(
+    { title: 'Disadvantage Into Advantage', family: 'standingRule' },
+    inCore(({ play, source }) => {
       const n = core(source, { title: 'Disadvantage Into Advantage' }).length;
       return n > 0 && isUniquePersonnel(play) && firstUniquePersonnel.holds(source)
         ? { cost: play.printed - 2 * n, reason: `${firstUniquePersonnel.text(source)}${times(n)}` }
         : null;
-    },
-  },
+    })
+  ),
   // "Plays in your core. When an event is played, it is cost +1." A rule of both players: on this table it
   // raises every event the player plays.
-  {
-    title: 'Spiteful Strategy',
-    family: 'standingRule',
-    costOfPlay: (play, facts) => {
-      const n = core(costFactsSource(facts), { title: 'Spiteful Strategy' }).length;
+  withRows(
+    { title: 'Spiteful Strategy', family: 'standingRule' },
+    inCore(({ play, source }) => {
+      const n = core(source, { title: 'Spiteful Strategy' }).length;
       return n > 0 && play.type === 'event' ? { cost: play.printed + n, reason: `+${n} on an event${times(n)}` } : null;
-    },
-  },
+    })
+  ),
   // "Plays in your core. At the start of each of your turns, place the top card of your deck on this event.
   // The first non-[TNG] personnel you play each turn is cost -2 for each card on this event." The first such
   // personnel takes the discount of the cards on Energize as they stand, none when it has none.
-  {
-    title: 'Energize',
-    family: 'standingRule',
-    costOfPlay: (play, facts) => {
-      const source = costFactsSource(facts);
+  withRows(
+    { title: 'Energize', family: 'standingRule' },
+    inCore(({ play, source }) => {
       const placed = core(source, { title: 'Energize' }).reduce((sum, c) => sum + c.placed, 0);
       return placed > 0 && isNonTngPersonnel(play) && firstNonTngPersonnel.holds(source)
         ? {
@@ -55,6 +52,17 @@ export const STANDING_RULE_MODELS: CostModel[] = [
             reason: `${firstNonTngPersonnel.text(source)}, ${placed} ${placed === 1 ? 'card' : 'cards'} on it`,
           }
         : null;
-    },
-  },
+    })
+  ),
+  // "Plays in your core. When you play a Vorta, each opponent may draw a card. That Vorta is cost -1." (#1888) One
+  // row of data: each copy makes a Vorta personnel cost −1. The opponent's draw stays by hand.
+  withRows(
+    { title: 'Hollow Pleasantries', family: 'standingRule' },
+    inCore(({ play, source }) => {
+      const n = core(source, { title: 'Hollow Pleasantries' }).length;
+      return n > 0 && play.type === 'personnel' && (play.species ?? []).includes('vorta')
+        ? { cost: play.printed - n, reason: `${MINUS}${n} on a Vorta${times(n)}` }
+        : null;
+    })
+  ),
 ];
