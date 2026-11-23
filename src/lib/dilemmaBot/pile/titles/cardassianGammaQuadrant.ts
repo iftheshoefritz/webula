@@ -1,4 +1,4 @@
-import { allButOne, attrAbove, attrBelow, botChooses, chooseOrElse, either, described, handWeapons, hasAny, killRandom, killRandomThenStopAll, noEffect, playerStops, req, selectEachWith, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
+import { affiliationIs, allButOne, attrAbove, attrBelow, botChooses, chooseOrElse, either, described, handWeapons, hasAny, killRandom, killRandomThenStopAll, noEffect, playerStops, req, selectEachWith, selectRandom, selectUntil, sk, stopAll, stopRandom, unless, unlessGroup } from '../families';
 import { Attr, skillName } from '../play';
 import { DilemmaModel } from '../model';
 import { D, NAMEABLE, P, S, addableModels, dilemmaList, discardToRaise, lowCost, mostHeldSkill, speciesKey } from '../define';
@@ -7,6 +7,8 @@ import { D, NAMEABLE, P, S, addableModels, dilemmaList, discardToRaise, lowCost,
 // Tank 50's lacks: the second pilot pile of #1320.
 
 const { models, dilemma } = dilemmaList();
+
+const isCardassian = affiliationIs('cardassian');
 
 dilemma('Alternatives to Fighting', S, 3, 'own', (s) => {
   if (s.attempt.mission.nebula) return;
@@ -79,7 +81,7 @@ dilemma('Garak Has Some Issues', D, 4, 'bot-names', (s) => {
   s.label(`Named ${skillName(named)}`);
   const sel = s.select(3);
   s.stop(sel.filter((k) => s.skill(k, named) > 0));
-  s.kill(sel.filter((k) => s.alive[k] && s.group[k].affiliation === 'cardassian'));
+  s.kill(sel.filter((k) => s.alive[k] && isCardassian(s, k)));
 });
 
 dilemma('Gomtuu Shock Wave', S, 3, 'unless', unless('2 Diplomacy and Integrity>32 or Telepathy and Integrity>35', stopAll));
