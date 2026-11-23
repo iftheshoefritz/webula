@@ -30,10 +30,11 @@ export function presentationOf(model: ResolveModel | undefined, step: ResolveSte
 }
 
 // The gap between the charge chip and the prompt, and the prompt's top with no chip.
-const PROMPT_GAP = 4; // px
+export const PROMPT_GAP = 4; // px
 
-// The bottom of the charge chip, measured while it shows and on every resize of it, or null with no chip.
-function useChargeChipBottom(chipShown: boolean): number | null {
+// The bottom of the charge chip, measured while it shows and on every resize of it, or null with no chip. The
+// trigger offers (#1904) sit below it the same way.
+export function useChargeChipBottom(chipShown: boolean): number | null {
   const [bottom, setBottom] = useState<number | null>(null);
   useLayoutEffect(() => {
     const chip = chipShown ? document.querySelector<HTMLElement>('[data-testid="charge-chip"]') : null;

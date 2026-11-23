@@ -2727,6 +2727,8 @@ function runStage(
       if (ids.length !== input.ids.length || ids.length !== n || !ids.every((id) => allowed.some((c) => c.id === id))) return null;
       // An empty hand blocks a discard the rest of its stage depends on (#1745): the discard is the cost of the draw.
       if (step.kind === 'discardFromHand' && n === 0 && subject.stage.steps.length > 1) return null;
+      // A discard with a test is the cost of the stages after it (#1904, Six of Ten): with no such card, the player skips.
+      if (step.kind === 'discardFromHand' && n === 0 && step.test) return null;
       if (step.kind === 'discardFromHand') {
         table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), table);
         record = { step: 'discard', cards: ids.map((id) => cardName(start, id)) };
@@ -2831,7 +2833,12 @@ function runStage(
   if (toTop) table = tableReducer(table, { type: 'move', id: toTop, to: 'drawDeck', position: 'top' });
   if (!record) return null;
   const shuffledTail = record.step === 'download' ? {} : tail.shuffled ? { shuffled: true } : {};
-  return { table, record: { ...record, ...(tail.drew !== undefined ? { drew: tail.drew } : {}), ...shuffledTail }, ...(played ? { played } : {}) };
+  return { table, record: {
+      ...record,
+      ...(tail.drew !== undefined ? { drew: tail.drew } : {}),
+      ...(tail.discardedTop !== undefined ? { discardedTop: tail.discardedTop } : {}),
+      ...shuffledTail,
+    }, ...(played ? { played } : {}) };
 }
 
 // The next stage of the effect being resolved (#1863). A resolving event's stage is one `effectStep` entry, and
