@@ -122,6 +122,7 @@ import type { OfflineDeck } from './offlineDecks';
 import {
   AttemptPhase,
   nextSegmentOf,
+  HAND_LIMIT,
   TurnSegment,
   CardInstance,
   MissionPileName,
@@ -291,7 +292,7 @@ import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point } from './ta
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
-import { ResolveCandidates, ResolvePrompt, presentationOf } from './ResolvePrompt';
+import { DiscardPrompt, ResolveCandidates, ResolvePrompt, presentationOf } from './ResolvePrompt';
 import { resolveModelOf } from '../../../lib/resolveModels';
 import {
   DILEMMA_STACK_CHOICE_END_LABELS,
@@ -3010,6 +3011,29 @@ function PracticeDrawContent() {
       return live.includes(id) ? live.filter((i) => i !== id) : live.length < max ? [...live, id] : live;
     });
   };
+  // Issue #1928: the discard segment asks for the cards over the hand limit in the hand arc, with the prompt of
+  // #1870. It opens by itself each time the turn enters the segment with an excess, and opens the hand arc there;
+  // Cancel or Escape closes it for the rest of the segment. Discard moves the picks to the discard pile in one
+  // `batch`, one entry and one undo, and never advances the turn: with no excess left the prompt hides, and an undo
+  // of the discard brings it back. It waits while an event resolves in its own prompt.
+  const discardExcess = table.segment === 'discard' ? Math.max(0, table.hand.length - HAND_LIMIT) : 0;
+  const discardKey = `${table.turn}:${table.segment}`;
+  const [prevDiscardKey, setPrevDiscardKey] = useState(discardKey);
+  const [discardChoice, setDiscardChoice] = useState<string[]>([]);
+  const [discardPromptClosed, setDiscardPromptClosed] = useState(false);
+  if (discardKey !== prevDiscardKey) {
+    setPrevDiscardKey(discardKey);
+    setDiscardChoice([]);
+    setDiscardPromptClosed(false);
+    if (discardExcess > 0) setOpenHand('hand');
+  }
+  const discardPromptShows = discardExcess > 0 && !discardPromptClosed && !promptStep;
+  const discardPicks = discardPromptShows ? discardChoice.filter((id) => table.hand.some((c) => c.id === id)) : [];
+  const toggleDiscardPick = (id: string) =>
+    setDiscardChoice((ids) => {
+      const live = ids.filter((i) => table.hand.some((c) => c.id === i));
+      return live.includes(id) ? live.filter((i) => i !== id) : live.length < discardExcess ? [...live, id] : live;
+    });
   // The stage of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
   const playedStep: ResolveStep | undefined = pendingPlay ? stageView(pendingPlay.stage, pendingPlay) : undefined;
   // The stage of the order in progress (#1866), each amending the order's entry, and the pick of an order's cost.
@@ -5484,7 +5508,13 @@ function PracticeDrawContent() {
                 // brig box, so only there the hand keeps the left end; elsewhere it sits in the
                 // middle of the screen (#1496).
                 closedFanSide={dilemmaHandShows ? 'left' : 'center'}
-                choice={promptStep?.step === 'bottom' ? { ids: bottomPicks, onToggle: toggleBottomPick } : undefined}
+                choice={
+                  promptStep?.step === 'bottom'
+                    ? { ids: bottomPicks, onToggle: toggleBottomPick }
+                    : discardPromptShows
+                      ? { ids: discardPicks, onToggle: toggleDiscardPick }
+                      : undefined
+                }
               />
               {dilemmaHandShows && (
                 <CardHand
@@ -5834,6 +5864,27 @@ function PracticeDrawContent() {
                   />
                 )}
               </>
+            )}
+            {/* The discard segment's prompt (#1928): the excess cards, picked in the hand arc. */}
+            {discardPromptShows && (
+              <DiscardPrompt
+                count={discardExcess}
+                picks={discardPicks}
+                chipShown={chargeChipShown}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onDiscard={(ids) => {
+                  const actions: Extract<TableAction, { type: 'move' }>[] = ids.map((id) => ({ type: 'move', id, to: 'discard' }));
+                  dispatch({ type: 'batch', actions });
+                  markLanded(actions);
+                  setDiscardChoice([]);
+                  setOpenHand(null);
+                }}
+                onCancel={() => {
+                  setDiscardPromptClosed(true);
+                  setDiscardChoice([]);
+                }}
+              />
             )}
             {/* The played card of a pending "when you play" effect (#1800): Done or Skip, and no Cancel. */}
             {pendingPlay && !resolvingCollapsed && (

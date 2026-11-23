@@ -1,7 +1,7 @@
 // The prompt mode of a resolving event (#1870): `presentationOf`, the candidate row and the prompt alone.
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ResolveCandidates, ResolvePrompt, presentationOf } from '../../../app/decks/practice/ResolvePrompt';
+import { DiscardPrompt, ResolveCandidates, ResolvePrompt, presentationOf } from '../../../app/decks/practice/ResolvePrompt';
 import type { ResolveStep } from '../../../app/decks/practice/ResolvingPanel';
 import type { CardInstance } from '../../../app/decks/practice/tableReducer';
 import { resolveModelOf } from '../../../lib/resolveModels';
@@ -98,5 +98,41 @@ describe('the candidate row and the prompt (#1870)', () => {
     rerender(<ResolvePrompt {...props} hidden={false} />);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onCollapse).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Issue #1928: the discard segment's prompt.
+describe('the discard prompt (#1928)', () => {
+  const prompt = (picks: string[], onDiscard = jest.fn(), onCancel = jest.fn()) =>
+    render(<DiscardPrompt count={2} picks={picks} chipShown={false} hidden={false} escapeActive onDiscard={onDiscard} onCancel={onCancel} />);
+
+  it('asks for the excess, counts the picks, and enables Discard only at the count', () => {
+    const { rerender } = prompt([]);
+    expect(screen.getByTestId('discard-prompt-task')).toHaveTextContent('Discard 2 cards');
+    expect(screen.getByTestId('discard-prompt-count')).toHaveTextContent('0 of 2');
+    expect(screen.getByTestId('discard-prompt-done')).toBeDisabled();
+    rerender(<DiscardPrompt count={2} picks={['a']} chipShown={false} hidden={false} escapeActive onDiscard={() => {}} onCancel={() => {}} />);
+    expect(screen.getByTestId('discard-prompt-count')).toHaveTextContent('1 of 2');
+    expect(screen.getByTestId('discard-prompt-done')).toBeDisabled();
+  });
+
+  it('hands the picks to onDiscard in tap order', () => {
+    const onDiscard = jest.fn();
+    prompt(['b', 'a'], onDiscard);
+    const done = screen.getByTestId('discard-prompt-done');
+    expect(done).toHaveTextContent('Discard 2');
+    fireEvent.click(done);
+    expect(onDiscard).toHaveBeenCalledWith(['b', 'a']);
+  });
+
+  it('closes on Cancel and on Escape, and not on Escape while hidden by a drag', () => {
+    const onCancel = jest.fn();
+    const { rerender } = prompt([], jest.fn(), onCancel);
+    fireEvent.click(screen.getByTestId('discard-prompt-cancel'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(2);
+    rerender(<DiscardPrompt count={2} picks={[]} chipShown={false} hidden escapeActive onDiscard={() => {}} onCancel={onCancel} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(2);
   });
 });

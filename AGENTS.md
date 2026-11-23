@@ -586,7 +586,7 @@ the hand holds more than 7 (`nextSegmentOf`); its `aria-label` and `title` say w
 orders", "Go to discard", "Next turn"), and under it the segments of the turn show as a list of three rows,
 "Play", "Orders" and "Discard" (`data-testid="turn-segment-list"`, #1790), the current one marked,
 `aria-current="step"` and `data-testid="turn-segment"`; the list is no control. An attempt started in play and draw moves the turn to
-orders, and no segment refuses a move. The game menu's Settings hold "Counters: On/Off"
+orders, and no segment refuses a move. When the turn enters discard with more than 7 cards in the hand, the hand arc opens and a prompt, `discard-prompt` (`DiscardPrompt` in `ResolvePrompt.tsx`, #1928), asks "Discard 2 cards" with a count (`discard-prompt-count`, "0 of 2"): a tap on a card of the arc picks it, a second tap un-picks it, and **Discard 2** (`discard-prompt-done`), disabled until exactly the excess is picked, moves them to the discard pile in one `batch`, one entry and one undo, and never advances the turn. Cancel (`discard-prompt-cancel`) or Escape closes it for the rest of the segment, and the next-turn button stays enabled. The game menu's Settings hold "Counters: On/Off"
 (`game-menu-turn-counters`, #1607), a setting of the device under `practice-turn-counters`, off by
 default. Beside it, "Apply card text to attributes: On/Off" (`game-menu-card-text-attributes`, #1668),
 under `practice-card-text-attributes`, off by default, turns on the static modifiers of
