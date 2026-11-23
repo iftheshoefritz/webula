@@ -21,6 +21,27 @@ import { cardTitleOf } from '../cardTitle';
 import { download, draw, score, shuffle, type DownloadStep, type EffectStep, type ScoreStep, type ShuffleStep } from '../effectSteps';
 import type { AttemptingQuery, PlayTest } from '../tableView';
 
+/**
+ * A condition of a completion's score (#1908). "Involved" is the personnel completing it (`involvedPersonnel`),
+ * "here" every personnel of the player at the mission, stopped ones too. A skill is lowercased; an icon is an
+ * affiliation icon or a card icon, "[kli]", "[maq]".
+ */
+export type CompletionCondition =
+  // Cheron: "if four or more different species were involved".
+  | { kind: 'species'; min: number }
+  // "if your personnel completing it have 2 Physics or 2 Science": any one of `anyOf`.
+  | { kind: 'involvedSkills'; anyOf: { skill: string; count: number }[] }
+  // "if none of your personnel completing it have Treachery".
+  | { kind: 'involvedLack'; skill: string }
+  // "if each of your personnel here is of the same affiliation".
+  | { kind: 'hereOneAffiliation' }
+  // "if each of your personnel here is a [Kli] personnel".
+  | { kind: 'hereAll'; icon: string }
+  // "if you command four [Maq] personnel here".
+  | { kind: 'hereAtLeast'; icon: string; count: number }
+  // "if you have completed no other missions", of `missionType` ('s') when set.
+  | { kind: 'noOtherCompleted'; missionType?: string };
+
 /** A completion effect that has no effect step yet is kept as data; a download and a score are steps. */
 export type MissionCompletion =
   | { kind: 'download'; steps: [DownloadStep, ShuffleStep] }
@@ -28,7 +49,11 @@ export type MissionCompletion =
   | { kind: 'discardOrDestroy'; min: number }
   | { kind: 'toDeckBottom'; cap: number }
   | { kind: 'flip' }
-  | { kind: 'score'; minSpecies: number; steps: [ScoreStep] };
+  // `notChecked`: the part of the effect the table does not model, an opponent's score (#1908).
+  | { kind: 'score'; condition: CompletionCondition; steps: [ScoreStep]; notChecked?: string };
+
+/** The missions a completion trigger watches: this mission, or any of the player's missions of a type (Earth). */
+export type CompletionWatch = { missionType: string };
 
 /** A condition of an attempt's start: the attempting personnel, or the cards beneath the mission. */
 export type AttemptCondition = { kind: 'attempting'; query: AttemptingQuery } | { kind: 'noDilemmasBeneath' };
@@ -80,8 +105,10 @@ export interface RequirementChange {
 }
 
 export type MissionAbility =
-  | { trigger: 'onComplete'; text: string; completion: MissionCompletion }
-  | { trigger: 'onAttemptStart'; text: string; condition: AttemptCondition; change: AttemptStartChange }
+  // `watches`: the trigger fires on the completion of another of the player's missions, not of this one.
+  | { trigger: 'onComplete'; text: string; completion: MissionCompletion; watches?: CompletionWatch }
+  // `anywhere`: the trigger fires on every attempt while the mission is in the player's slots, not only here.
+  | { trigger: 'onAttemptStart'; text: string; condition: AttemptCondition; change: AttemptStartChange; anywhere?: true }
   | { trigger: 'onDilemmaReveal'; text: string; reveal: DilemmaReveal }
   | { trigger: 'spend'; text: string; spend: MissionSpendModel }
   | { trigger: 'standingCost'; text: string }
@@ -112,6 +139,13 @@ export const MISSION_TRIGGER_READERS: Record<MissionTrigger, string> = {
 const standingCost = (text: string): MissionAbility => ({ trigger: 'standingCost', text });
 
 const keywordEvent = (title: string, label: string, text: string): MissionModel => ({ title, label, abilities: [standingCost(text)] });
+
+// A completion that scores `points` when `condition` holds (#1908).
+const scoreOnComplete = (title: string, label: string, text: string, condition: CompletionCondition, points: number, notChecked?: string): MissionModel => ({
+  title,
+  label,
+  abilities: [{ trigger: 'onComplete', text, completion: { kind: 'score', condition, steps: [score(points)], ...(notChecked ? { notChecked } : {}) } }],
+});
 
 const POPULATION_9_BILLION = 'Population 9 Billion - All Borg';
 
@@ -172,10 +206,88 @@ export const MISSION_MODELS: MissionModel[] = [
       {
         trigger: 'onComplete',
         text: 'When you complete this mission, if four or more different species were involved, score 5 points.',
-        completion: { kind: 'score', minSpecies: 4, steps: [score(5)] },
+        completion: { kind: 'score', condition: { kind: 'species', min: 4 }, steps: [score(5)] },
       },
     ],
   },
+  scoreOnComplete(
+    "Ba'ku Planet Safeguard Civilization",
+    "Ba'ku Planet",
+    'When you complete this mission, if none of your personnel completing it have Treachery, each player scores 5 points.',
+    { kind: 'involvedLack', skill: 'treachery' },
+    5,
+    "each opponent's 5 points"
+  ),
+  {
+    // Only the player's missions count: "no other space mission" of an opponent is not on the table.
+    title: "Earth Humanity's Home",
+    label: 'Earth',
+    abilities: [
+      {
+        trigger: 'onComplete',
+        text: 'When you complete a space mission, if no other space mission has been completed, score 10 points.',
+        completion: { kind: 'score', condition: { kind: 'noOtherCompleted', missionType: 's' }, steps: [score(10)], notChecked: "an opponent's completed space missions" },
+        watches: { missionType: 's' },
+      },
+    ],
+  },
+  scoreOnComplete(
+    'Ocampa System Salvage Debris',
+    'Ocampa System',
+    'When you complete this mission, if your personnel completing it have Acquisition, Archaeology, or 2 Engineer, score 5 points.',
+    { kind: 'involvedSkills', anyOf: [{ skill: 'acquisition', count: 1 }, { skill: 'archaeology', count: 1 }, { skill: 'engineer', count: 2 }] },
+    5
+  ),
+  scoreOnComplete(
+    'Ilari Oust Warlord',
+    'Ilari',
+    'When you complete this mission, if each of your personnel here is of the same affiliation, score 5 points.',
+    { kind: 'hereOneAffiliation' },
+    5
+  ),
+  // "You cannot complete this mission if your [Maq] personnel is on this planet." is not checked.
+  scoreOnComplete(
+    'Volan III Investigate Maquis Activity',
+    'Volan III',
+    'When you complete this mission, if you have completed no other missions, score 5 points.',
+    { kind: 'noOtherCompleted' },
+    5
+  ),
+  scoreOnComplete(
+    'Moab IV Avert Danger',
+    'Moab IV',
+    'When you complete this mission, if your personnel completing it have 2 Physics or 2 Science, score 5 points.',
+    { kind: 'involvedSkills', anyOf: [{ skill: 'physics', count: 2 }, { skill: 'science', count: 2 }] },
+    5
+  ),
+  scoreOnComplete(
+    'Near Marva IV Elude Federation Forces',
+    'Near Marva IV',
+    'When you complete this mission, if you command four [Maq] personnel here, score 10 points.',
+    { kind: 'hereAtLeast', icon: '[maq]', count: 4 },
+    10
+  ),
+  scoreOnComplete(
+    'Valt Minor Brute Force',
+    'Valt Minor',
+    'When you complete this mission, if each of your personnel here is a [Kli] personnel, score 5 points.',
+    { kind: 'hereAll', icon: '[kli]' },
+    5
+  ),
+  scoreOnComplete(
+    'Idran System Survey Star System',
+    'Idran System',
+    'When you complete this mission, if your personnel completing it have Acquisition, Diplomacy, or Treachery, score 5 points.',
+    { kind: 'involvedSkills', anyOf: [{ skill: 'acquisition', count: 1 }, { skill: 'diplomacy', count: 1 }, { skill: 'treachery', count: 1 }] },
+    5
+  ),
+  scoreOnComplete(
+    'Lapideas System Geological Survey',
+    'Lapideas System',
+    'When you complete this mission, if your personnel completing it have 2 Acquisition or 2 Geology, score 5 points.',
+    { kind: 'involvedSkills', anyOf: [{ skill: 'acquisition', count: 2 }, { skill: 'geology', count: 2 }] },
+    5
+  ),
   {
     title: 'Gateway Flee in Terror',
     label: 'Gateway',
@@ -190,6 +302,21 @@ export const MISSION_MODELS: MissionModel[] = [
         text: 'When you begin a mission attempt here, if all of your personnel involved are of the same affiliation, subtract one from the number of dilemmas your opponent may draw and one from the total cost they may spend on dilemmas.',
         condition: { kind: 'attempting', query: { oneAffiliation: true } },
         change: { draw: -1, spend: -1 },
+      },
+    ],
+  },
+  {
+    // Only the player's own attempts: the table has no opponent's attempt. In a bot game the change is to the
+    // bot's numbers; the bot always takes it.
+    title: 'Alpha 5 Approach Transport Crash Survivor',
+    label: 'Alpha 5 Approach',
+    abilities: [
+      {
+        trigger: 'onAttemptStart',
+        text: "When a player's personnel begin a mission attempt with five or less personnel, the player to the left of that player may draw six extra dilemmas and spend six extra on dilemmas.",
+        condition: { kind: 'attempting', query: { max: 5 } },
+        change: { draw: 6, spend: 6 },
+        anywhere: true,
       },
     ],
   },

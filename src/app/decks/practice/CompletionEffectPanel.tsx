@@ -4,6 +4,7 @@ import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { panelScrollClassName, useScrollsVertically } from './CardListPanel';
 import {
   CompletionEffect,
+  completionConditionText,
   costOf,
   destroyShipsActions,
   discardActions,
@@ -16,6 +17,7 @@ import {
   involvedSpecies,
   placeAtHqActions,
   scoreActions,
+  scoreHolds,
   toDeckBottomActions,
   totalCost,
 } from './completionEffects';
@@ -69,7 +71,8 @@ export function CompletionEffectPanel({
   const hq = hqChoice !== null && hqs.includes(hqChoice) ? hqChoice : hqs[0];
   const ships = table.missions[missionIndex]?.ships ?? [];
   const species = effect.kind === 'score' ? involvedSpecies(table, missionIndex) : [];
-  const scores = effect.kind === 'score' && species.length >= (effect.minSpecies ?? 0);
+  const scores = effect.kind === 'score' && scoreHolds(table, missionIndex, effect);
+  const bySpecies = effect.kind === 'score' && (effect.condition?.kind ?? 'species') === 'species';
   const toggle = (id: string) =>
     setChosen((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : single ? [id] : [...ids, id]));
 
@@ -121,6 +124,7 @@ export function CompletionEffectPanel({
       >
         <h2 className="text-sm font-semibold text-text-primary">Complete {mission}</h2>
         <p data-testid="completion-effect-text" className="text-xs italic text-text-muted">
+          {effect.watches ? `${effect.title}: ` : ''}
           {effect.text}
         </p>
         {effect.cap !== undefined && (
@@ -128,7 +132,17 @@ export function CompletionEffectPanel({
             Total cost {total} of {effect.cap}
           </p>
         )}
-        {effect.kind === 'score' && (
+        {effect.kind === 'score' && !bySpecies && effect.condition && (
+          <p data-testid="completion-effect-condition" data-met={scores ? 'true' : 'false'} className={`text-sm ${scores ? 'text-text-primary' : 'text-amber-400'}`}>
+            {`Condition ${scores ? 'met' : 'not met'}: ${completionConditionText(effect.condition)}.`}
+          </p>
+        )}
+        {effect.kind === 'score' && effect.notChecked && (
+          <p data-testid="completion-effect-not-checked" className="text-xs text-text-muted">
+            {`Not checked: ${effect.notChecked}.`}
+          </p>
+        )}
+        {bySpecies && (
           <p data-testid="completion-effect-species" data-count={species.length} className={`text-sm ${scores ? 'text-text-primary' : 'text-amber-400'}`}>
             {involvedPersonnel(table, missionIndex).length === 0
               ? 'No personnel involved.'
