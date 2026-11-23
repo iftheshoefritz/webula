@@ -8,8 +8,8 @@
 
 import type { TableView, ViewCard, ViewMission, ViewShip, ViewTableCard } from '../tableView';
 import { personnel } from '../tableView';
-import { PERMISSION_QUANTITIES } from './model';
-import type { AmountContext, AmountQuantity, Delta, ModifierCard, ModifierRow, PermissionQuantity, Quantity, SourcePlace, TargetRelation } from './model';
+import { countedAmount, PERMISSION_QUANTITIES } from './model';
+import type { AmountContext, AmountQuantity, CountedChange, Delta, ModifierCard, ModifierRow, PermissionQuantity, Quantity, SourcePlace, TargetRelation } from './model';
 import { ATTRIBUTE_ROWS } from './titles/attributes';
 import { EVENT_AND_MISSION_ROWS } from './titles/eventsAndMissions';
 import { SHIP_ROWS } from './titles/ships';
@@ -146,7 +146,17 @@ function rowsAt(view: TableView, card: ViewCard | null | undefined, source: Sour
   );
 }
 
-const amountOf = (delta: Delta | undefined, c: AmountContext): number => (typeof delta === 'function' ? delta(c) : (delta ?? 0));
+/** The value of a delta on `c` (#1833): a counted change capped by its limit, a sum part by part. */
+export const amountOf = (delta: Delta | undefined, c: AmountContext): number =>
+  delta === undefined
+    ? 0
+    : typeof delta === 'number'
+      ? delta
+      : typeof delta === 'function'
+        ? delta(c)
+        : Array.isArray(delta)
+          ? delta.reduce((sum: number, d: Delta) => sum + amountOf(d, c), 0)
+          : countedAmount(delta as CountedChange<AmountContext>, c);
 
 // A sum of the changes of `quantity`, each title once where a row says so.
 function summer(quantity: AmountQuantity) {

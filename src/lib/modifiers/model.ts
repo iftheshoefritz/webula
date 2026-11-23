@@ -125,8 +125,33 @@ export interface AmountContext {
   rangeOf: (ship: ModifierCard) => number;
 }
 
-/** A change of an amount: a number, or one read from the table. */
-export type Delta = number | ((c: AmountContext) => number);
+/**
+ * A counted change (#1833): `per` for each of `count` items, capped by the signed `limit` the card prints, "+1 for
+ * each Cadet aboard (limit +4)" is `{ count, per: 1, limit: 4 }`, "Integrity -1 for each … (limit -3)" `{ per: -1,
+ * limit: -3 }`. The evaluator applies the limit; a row never writes it.
+ */
+export interface CountedChange<C> {
+  count: (c: C) => number;
+  per: number;
+  limit?: number;
+}
+
+/**
+ * A change of an amount: a number, one read from the table, a counted change, or the sum of several, as a ship's
+ * Range less 3 when crowded beside its capped count.
+ */
+export type Delta = number | ((c: AmountContext) => number) | CountedChange<AmountContext> | readonly Delta[];
+
+/** `per` for each of `count`, at most `limit` (signed). */
+export const counted = <C>(count: (c: C) => number, per: number, limit?: number): CountedChange<C> =>
+  limit === undefined ? { count, per } : { count, per, limit };
+
+/** `total` capped by the signed `limit`: at most a positive one, at least a negative one. */
+export const clampToLimit = (total: number, limit: number | undefined): number =>
+  limit === undefined ? total : limit >= 0 ? Math.min(total, limit) : Math.max(total, limit);
+
+/** The value of a counted change. */
+export const countedAmount = <C>(change: CountedChange<C>, c: C): number => clampToLimit(change.count(c) * change.per, change.limit);
 
 /** What a change of the span total reads: the source card and the move. */
 export interface MoveContext {
@@ -154,7 +179,10 @@ export interface CostContext {
  * A change of a play's cost (#1888): the cost it sets, with its reason, or null where it changes nothing. A change
  * that sets the printed cost is still a part of the charge.
  */
-export type CostChange = (c: CostContext) => ModelCost | null;
+export type CostChange = ((c: CostContext) => ModelCost | null) & {
+  /** The counted change the function applies to the printed cost, for a reader of its limit (#1833). */
+  counted?: CountedChange<CostContext>;
+};
 
 /** A discount for the next play of the turn whose card passes `applies` (`nextPlay`): its label and its counters. */
 export interface NextPlayDiscount {
@@ -218,3 +246,21 @@ export const row = (title: string, source: SourcePlace, target: TargetRelation, 
 /** One change under each of `quantities`: "this ship is attributes +2" changes its Range, Weapons and Shields. */
 export const each = (quantities: readonly AmountQuantity[], delta: Delta): ModifierChanges =>
   Object.fromEntries(quantities.map((q) => [q, delta]));
+
+const isCounted = (d: Delta): d is CountedChange<AmountContext> => typeof d === 'object' && !Array.isArray(d);
+
+// The limits of a delta, each part of a sum.
+const deltaLimits = (d: Delta | undefined): number[] =>
+  d === undefined || typeof d !== 'object' ? [] : Array.isArray(d) ? d.flatMap(deltaLimits) : isCounted(d) && d.limit !== undefined ? [d.limit] : [];
+
+/**
+ * The signed limits of a row's counted changes (#1833), each quantity's and its cost's, in quantity order: what
+ * the registry test checks against the "(limit …)" its card prints.
+ */
+export function rowLimits(r: Pick<ModifierRow, 'changes'>): number[] {
+  const amounts: readonly AmountQuantity[] = [...PERSONNEL_QUANTITIES, 'range', 'weapons', 'shields'];
+  const limits = amounts.flatMap((q) => deltaLimits(r.changes[q]));
+  const cost = r.changes.cost;
+  if (typeof cost === 'function' && cost.counted?.limit !== undefined) limits.push(cost.counted.limit);
+  return limits;
+}
