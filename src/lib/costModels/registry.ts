@@ -19,10 +19,14 @@ import { RECALL_MODELS } from './titles/recall';
 import { STANDING_RULE_MODELS } from './titles/standingRule';
 import { TABLE_USE_MODELS } from './titles/tableUse';
 import { cardTitleOf } from '../cardTitle';
+import { rowsByTitle, type ModifierRow, type SourcePlace } from '../modifiers';
+import { costRowAt, nextPlayOf, rowCost, rowLimit } from './rows';
 
 // The cost registry of the practice table (#1654): one model per title, from the lists of `titles/`,
 // as the dilemma registry of the pile bot does. A new list of titles adds itself here. Each model
-// names its family.
+// names its family. The static cost changes are modifier rows on their model (#1888, `rows.ts`): the
+// registry is the index of the titles, and the readers below ask each model's rows, or its residual hooks,
+// in the order of the registry.
 
 const MODELS: CostModel[] = [
   ...OWN_COST_MODELS,
@@ -46,21 +50,84 @@ const MODELS: CostModel[] = [
   ...PERSONNEL_RULE_MODELS,
 ];
 
-/** The registry of `models`, by title. Two models of one title throw. */
+// The hook each cost place of a row stands for.
+const COST_HOOKS = {
+  played: 'playCost',
+  core: 'costOfPlay',
+  mission: 'missionCostOfPlay',
+  unstopped: 'personnelCostOfPlay',
+} as const satisfies Partial<Record<SourcePlace, keyof CostModel>>;
+
+type CostPlaceOfRow = keyof typeof COST_HOOKS;
+
+/**
+ * The model with the hooks of its rows (#1888), so a caller of `model.playCost` or `model.limitGrant` reads what
+ * the readers read. It throws for a model that has both a row and the hook of one place.
+ */
+function withRowHooks(model: CostModel): CostModel {
+  const rows = model.rows;
+  if (!rows?.length) return model;
+  const hooks: Partial<CostModel> = {};
+  for (const place of Object.keys(COST_HOOKS) as CostPlaceOfRow[]) {
+    const r = costRowAt(rows, place);
+    if (!r) continue;
+    if (model[COST_HOOKS[place]]) throw new Error(`"${model.title}" has a cost row of ${place} and its hook`);
+    if (place === 'mission') hooks.missionCostOfPlay = (play, facts, slot) => rowCost(r, play, facts, slot);
+    else hooks[COST_HOOKS[place]] = (play: CostPlay, facts: CostFacts) => rowCost(r, play, facts);
+  }
+  for (const kind of ['grant', 'cap'] as const) {
+    if (!rows.some((r) => r.changes.counterLimit?.[kind])) continue;
+    const hook = kind === 'grant' ? 'limitGrant' : 'limitCap';
+    if (model[hook]) throw new Error(`"${model.title}" has a counter row and its ${hook}`);
+    hooks[hook] = (facts: CostFacts) => rowLimit(rows, kind, facts);
+  }
+  const discount = nextPlayOf(rows);
+  if (discount) {
+    if (model.pendingDiscount) throw new Error(`"${model.title}" has a next play row and its pendingDiscount`);
+    hooks.pendingDiscount = discount;
+  }
+  return { ...model, ...hooks };
+}
+
+/**
+ * The registry of `models`, by title, each with the hooks of its rows. Two models of one title throw, and so do
+ * the rows that `rowsByTitle` refuses.
+ */
 export function costRegistryOf(models: CostModel[]): ReadonlyMap<string, CostModel> {
+  rowsByTitle(models.flatMap((m) => m.rows ?? []));
   const map = new Map<string, CostModel>();
   for (const m of models) {
     if (map.has(m.title)) throw new Error(`two models of "${m.title}" in the cost registry`);
-    map.set(m.title, m);
+    map.set(m.title, withRowHooks(m));
   }
   return map;
 }
 
 export const COST_REGISTRY: ReadonlyMap<string, CostModel> = costRegistryOf(MODELS);
 
+/** Every cost and counter row of the registry, in the order of its models (#1888). */
+export const COST_ROWS: readonly ModifierRow[] = [...COST_REGISTRY.values()].flatMap((m) => m.rows ?? []);
+
+/**
+ * The cost `model` sets on `play` from `place` (#1888): its row of that place, the one evaluator, or else its
+ * residual hook. `slot` is the slot of a mission's.
+ */
+export function modelCostAt(model: CostModel, place: CostPlaceOfRow, play: CostPlay, facts: CostFacts, slot = 0): ModelCost | null {
+  const r = costRowAt(model.rows, place);
+  if (r) return rowCost(r, play, facts, place === 'mission' ? slot : undefined);
+  if (place === 'mission') return model.missionCostOfPlay?.(play, facts, slot) ?? null;
+  return model[COST_HOOKS[place]]?.(play, facts) ?? null;
+}
+
 /** The model of a card name, by its title less the version suffix, or undefined for a title the registry lacks. */
 export function costModelOf(name: string): CostModel | undefined {
   return COST_REGISTRY.get(cardTitleOf(name));
+}
+
+/** The grant or the cap `model` sets on the turn's limit (#1888): its counter rows, or else its residual hook. */
+function modelLimit(model: CostModel, kind: 'grant' | 'cap', facts: CostFacts): { amount: number; reason: string } | null {
+  if (model.rows?.some((r) => r.changes.counterLimit?.[kind])) return rowLimit(model.rows, kind, facts);
+  return (kind === 'grant' ? model.limitGrant : model.limitCap)?.(facts) ?? null;
 }
 
 /** The name a model's suggestions show: its label, or its title. */
@@ -71,7 +138,7 @@ export const costModelName = (model: CostModel): string => model.label ?? model.
  * model that grants a counter or more, in the order of the registry.
  */
 export function limitGrantsOf(facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): LimitGrant[] {
-  return grantsOf(registry, (model) => model.limitGrant?.(facts));
+  return grantsOf(registry, (model) => modelLimit(model, 'grant', facts));
 }
 
 /** The grants of the models to the first turn's limit at its start (#1755), one per model that grants, in registry order. */
@@ -96,7 +163,7 @@ function grantsOf(
  */
 export function limitCapsOf(facts: CostFacts, registry: ReadonlyMap<string, CostModel> = COST_REGISTRY): LimitCap[] {
   return [...registry.values()].flatMap((model) => {
-    const cap = model.limitCap?.(facts);
+    const cap = modelLimit(model, 'cap', facts);
     const amount = cap ? Math.round(cap.amount) : NaN;
     return cap && amount >= 0 && Number.isFinite(amount) ? [{ title: costModelName(model), amount, reason: cap.reason }] : [];
   });
@@ -133,7 +200,7 @@ export function missionCostsOf(
     if (!title || seen.has(title)) return [];
     seen.add(title);
     const model = registry.get(title);
-    const cost = model?.missionCostOfPlay?.(play, facts, slot);
+    const cost = model ? modelCostAt(model, 'mission', play, facts, slot) : null;
     return model && cost ? [{ title: costModelName(model), cost }] : [];
   });
 }
@@ -154,7 +221,7 @@ export function personnelCostsOf(
       if (!title || seen.has(title)) return [];
       seen.add(title);
       const model = registry.get(title);
-      const cost = model?.personnelCostOfPlay?.(play, facts);
+      const cost = model ? modelCostAt(model, 'unstopped', play, facts) : null;
       return model && cost ? [{ title: costModelName(model), cost }] : [];
     })
   );
@@ -171,7 +238,7 @@ export function coreCostsOf(
 ): { title: string; cost: ModelCost }[] {
   const core = new Set(facts.core);
   return [...registry.values()].flatMap((model) => {
-    const cost = core.has(model.title) ? model.costOfPlay?.(play, facts) : null;
+    const cost = core.has(model.title) ? modelCostAt(model, 'core', play, facts) : null;
     return cost ? [{ title: costModelName(model), cost }] : [];
   });
 }
@@ -203,7 +270,7 @@ export function pendingDiscountOf(
   registry: ReadonlyMap<string, CostModel> = COST_REGISTRY
 ): PendingDiscount | null {
   const model = registry.get(cardTitleOf(name));
-  const discount = model?.pendingDiscount;
+  const discount = model && (nextPlayOf(model.rows) ?? model.pendingDiscount);
   return model && discount ? { title: costModelName(model), label: discount.label, amount: discount.amount, origin, applies: discount.applies } : null;
 }
 

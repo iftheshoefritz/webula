@@ -17,7 +17,7 @@ import { isEquipment, isPersonnel, printedOf, rowTitleKey } from './words';
 
 export * from './model';
 
-const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span', [SourcePlace, TargetRelation][]> = {
+const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span' | 'cost' | 'counterLimit', [SourcePlace, TargetRelation][]> = {
   attributes: [
     ['self', 'self'],
     ['group', 'group'],
@@ -43,17 +43,48 @@ const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span', [SourcePlace, Targe
     ['moveShip', 'move'],
     ['core', 'move'],
   ],
+  // The cost rows (#1888), read by the readers of `src/lib/costModels/registry.ts`: the card's own play, the core,
+  // a mission of the player's slots and an unstopped personnel of the player's price a play.
+  cost: [
+    ['played', 'play'],
+    ['core', 'play'],
+    ['mission', 'play'],
+    ['unstopped', 'play'],
+  ],
+  counterLimit: [
+    ['core', 'turnLimit'],
+    ['unstopped', 'turnLimit'],
+  ],
 };
 
 const familyOf = (q: Quantity): keyof typeof AMOUNT_PLACES =>
-  q === 'range' ? 'range' : q === 'span' || q === 'quadrantWaiver' ? 'span' : 'attributes';
+  q === 'range'
+    ? 'range'
+    : q === 'span' || q === 'quadrantWaiver'
+      ? 'span'
+      : q === 'cost' || q === 'counterLimit'
+        ? q
+        : 'attributes';
 
 /** Every row, by title. */
 export const MODIFIER_ROWS: readonly ModifierRow[] = [...ATTRIBUTE_ROWS, ...EVENT_AND_MISSION_ROWS, ...SHIP_ROWS, ...SPAN_ROWS];
 
+// Why a cost row's scope or its once-per-title does not fit what its evaluator reads (#1888), or null: a
+// `nextPlay` row is a discount the card's own play leaves, every other cost row a change while its card stands, and
+// the readers of the missions and the personnel ask each title once.
+function costRowError(r: ModifierRow): string | null {
+  const cost = r.changes.cost;
+  if (r.scope === 'nextPlay') {
+    if (typeof cost !== 'object' || r.source !== 'played' || Object.keys(r.changes).length !== 1) return 'a next play is a discount of its own play alone';
+  } else if (cost !== undefined && typeof cost !== 'function') return 'a discount of the next play needs the scope nextPlay';
+  if (cost !== undefined && (r.source === 'mission' || r.source === 'unstopped') && !r.eachTitleOnce) return `a cost of ${r.source} counts each title once`;
+  return null;
+}
+
 /**
  * The rows by title, lowercased. It throws for a row whose source and target no evaluator of one of its quantities
- * reads, for a span row with a condition, and for two rows of one title that change one quantity from one place.
+ * reads, for a span row with a condition, for a cost row whose scope its evaluator does not read, and for two rows
+ * of one title that change one quantity from one place.
  */
 export function rowsByTitle(rows: readonly ModifierRow[]): ReadonlyMap<string, readonly ModifierRow[]> {
   const map = new Map<string, ModifierRow[]>();
@@ -62,6 +93,8 @@ export function rowsByTitle(rows: readonly ModifierRow[]): ReadonlyMap<string, r
     const titled = map.get(key) ?? [];
     const quantities = Object.keys(r.changes) as Quantity[];
     if (r.condition && quantities.some((q) => familyOf(q) === 'span')) throw new Error(`"${r.title}" changes the span with a condition, which \`spanOf\` does not read`);
+    const costError = costRowError(r);
+    if (costError) throw new Error(`"${r.title}": ${costError}`);
     for (const q of quantities) {
       if (!AMOUNT_PLACES[familyOf(q)].some(([s, t]) => s === r.source && t === r.target)) {
         throw new Error(`"${r.title}" changes ${q} from ${r.source} to ${r.target}, a place no evaluator reads`);

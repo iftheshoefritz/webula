@@ -1,6 +1,6 @@
-import { CostFacts, CostModel, CostPlay, ModelCost } from '../model';
+import { CostModel } from '../model';
 import { commands } from '../../tableView';
-import { minusWhen } from '../factsSource';
+import { CostRowSpec, own, ownWhen, withRows } from '../rows';
 import { both, commandedPersonnel, species, Test } from './commanded';
 
 // The personnel that cost less while the player commands a named group (#1701): two [Pa] Klingons,
@@ -16,10 +16,10 @@ const titled =
   (p) =>
     p.name === title || p.name.startsWith(`${title} `);
 
-const twoPaKlingons = (off: number) => minusWhen(commands(commandedPersonnel({ where: paKlingon }), '[Pa] Klingons', { min: 2 }), off);
+const twoPaKlingons = (off: number) => ownWhen(commands(commandedPersonnel({ where: paKlingon }), '[Pa] Klingons', { min: 2 }), off);
 const khanTest = titled('khan noonien singh');
 const commandsKhan = commands(commandedPersonnel({ where: khanTest }), 'Khan Noonien Singh');
-const khan = minusWhen(commandsKhan, 2);
+const khan = ownWhen(commandsKhan, 2);
 
 /** Whether a mission's name is of the title {Ceti Alpha V}, any version, in any case. */
 const isCetiAlphaV = (name: string): boolean => {
@@ -32,36 +32,36 @@ const isCetiAlphaV = (name: string): boolean => {
  * Applied outright when the play lands at a Ceti Alpha V slot, its away team or a ship's crew there.
  * `cost` gives the new cost from the printed one.
  */
-const khanAtCetiAlphaV =
-  (cost: (printed: number) => number) =>
-  (play: CostPlay, facts: CostFacts): ModelCost | null => {
-    const slot = play.missionIndex === undefined ? undefined : facts.missions?.[play.missionIndex];
-    if (!slot || !isCetiAlphaV(slot.name)) return null;
-    const khanCommanded = minusWhen(commandsKhan, 0)(play, facts);
-    return khanCommanded ? { cost: cost(play.printed), reason: `${khanCommanded.reason}, at Ceti Alpha V` } : null;
-  };
+const khanAtCetiAlphaV = (cost: (printed: number) => number): CostRowSpec =>
+  own(
+    ({ play, facts, because }) => {
+      const slot = play.missionIndex === undefined ? undefined : facts.missions?.[play.missionIndex];
+      return slot && isCetiAlphaV(slot.name) ? { cost: cost(play.printed), reason: `${because}, at Ceti Alpha V` } : null;
+    },
+    { condition: commandsKhan }
+  );
 
 export const NAMED_GROUP_MODELS: CostModel[] = [
   // "When you play this personnel, if you command two [Pa] Klingons, this personnel is cost -2."
-  { title: 'Kang Vigilant Commander', label: 'Kang', family: 'ownCost', playCost: twoPaKlingons(2) },
-  { title: 'Khod Conniving Captain', label: 'Khod', family: 'ownCost', playCost: twoPaKlingons(2) },
-  { title: 'Koloth Ingratiating Captain', label: 'Koloth', family: 'ownCost', playCost: twoPaKlingons(2) },
-  { title: 'Kor Courageous Governor', label: 'Kor', family: 'ownCost', playCost: twoPaKlingons(2) },
-  { title: 'Kras Merciless Officer', label: 'Kras', family: 'ownCost', playCost: twoPaKlingons(2) },
+  withRows({ title: 'Kang Vigilant Commander', label: 'Kang', family: 'ownCost' }, twoPaKlingons(2)),
+  withRows({ title: 'Khod Conniving Captain', label: 'Khod', family: 'ownCost' }, twoPaKlingons(2)),
+  withRows({ title: 'Koloth Ingratiating Captain', label: 'Koloth', family: 'ownCost' }, twoPaKlingons(2)),
+  withRows({ title: 'Kor Courageous Governor', label: 'Kor', family: 'ownCost' }, twoPaKlingons(2)),
+  withRows({ title: 'Kras Merciless Officer', label: 'Kras', family: 'ownCost' }, twoPaKlingons(2)),
   // "When you play this personnel, if you command two [Pa] Klingons, this personnel is cost -1."
-  { title: 'Korax Instigator', label: 'Korax', family: 'ownCost', playCost: twoPaKlingons(1) },
-  { title: "Ro'suv", family: 'ownCost', playCost: twoPaKlingons(1) },
+  withRows({ title: 'Korax Instigator', label: 'Korax', family: 'ownCost' }, twoPaKlingons(1)),
+  withRows({ title: "Ro'suv", family: 'ownCost' }, twoPaKlingons(1)),
   // "When you play this personnel, if you command two [Pa] Klingons, this personnel is cost -2." (#1737)
-  { title: 'Mara Science Officer', label: 'Mara', family: 'ownCost', playCost: twoPaKlingons(2) },
+  withRows({ title: 'Mara Science Officer', label: 'Mara', family: 'ownCost' }, twoPaKlingons(2)),
   // "When you play this personnel, if you command {Kahless}, this personnel's cost is -1." (#1737)
-  { title: 'Khar', family: 'ownCost', playCost: minusWhen(commands(commandedPersonnel({ where: titled('kahless') }), 'Kahless'), 1) },
+  withRows({ title: 'Khar', family: 'ownCost' }, ownWhen(commands(commandedPersonnel({ where: titled('kahless') }), 'Kahless'), 1)),
   // "When you play this personnel, if you command {Khan Noonien Singh}, he is cost -2."
-  { title: 'Rodriguez', family: 'ownCost', playCost: khan },
-  { title: 'Kati', family: 'ownCost', playCost: khan },
-  { title: 'McPherson', family: 'ownCost', playCost: khan },
-  { title: 'Otto', family: 'ownCost', playCost: khan },
+  withRows({ title: 'Rodriguez', family: 'ownCost' }, khan),
+  withRows({ title: 'Kati', family: 'ownCost' }, khan),
+  withRows({ title: 'McPherson', family: 'ownCost' }, khan),
+  withRows({ title: 'Otto', family: 'ownCost' }, khan),
   // "While you command {Khan Noonien Singh}, you may play this personnel at cost -1 to {Ceti Alpha V}."
-  { title: 'Marla McGivers Superior Woman', label: 'Marla McGivers', family: 'ownCost', playCost: khanAtCetiAlphaV((printed) => printed - 1) },
+  withRows({ title: 'Marla McGivers Superior Woman', label: 'Marla McGivers', family: 'ownCost' }, khanAtCetiAlphaV((printed) => printed - 1)),
   // "While you command {Khan Noonien Singh}, you may play this personnel at cost 1 at {Ceti Alpha V}."
-  { title: 'Pavel A. Chekov Hapless Puppet', label: 'Pavel A. Chekov', family: 'ownCost', playCost: khanAtCetiAlphaV(() => 1) },
+  withRows({ title: 'Pavel A. Chekov Hapless Puppet', label: 'Pavel A. Chekov', family: 'ownCost' }, khanAtCetiAlphaV(() => 1)),
 ];

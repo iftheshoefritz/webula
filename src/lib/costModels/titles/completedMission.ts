@@ -1,6 +1,7 @@
 import { completedMissionRequiring } from '../../tableView';
 import { minusWhen } from '../factsSource';
 import { CostModel } from '../model';
+import { ownWhen, withRows } from '../rows';
 
 // The personnel that cost −4 when the player has completed a mission requiring one of two skills
 // (#1694). A requirement "requires" a skill when the skill appears in it as a word, either side of an
@@ -14,23 +15,22 @@ const ifCompletedRequiring = (...skills: string[]) => minusWhen(completedMission
 
 // Each reads "When you play this personnel, if you have completed a mission requiring <X> or <Y>,
 // he (she) is cost -4."
-const model = (title: string, label: string, ...skills: string[]): CostModel => ({
-  title,
-  label,
-  family: 'ownCost',
-  playCost: ifCompletedRequiring(...skills),
-});
+const model = (title: string, label: string, ...skills: string[]): CostModel =>
+  withRows({ title, label, family: 'ownCost' }, ownWhen(completedMissionRequiring(skills), 4));
 
 /** Tristan Adams's choice (#1761): "You may play this personnel at cost +2 to name a dilemma." */
 export const NAME_DILEMMA_LABEL = '+2: name a dilemma';
 
 // Tristan Adams (#1761): the −4 above when it applies, and always the choice to play him at cost +2 to
-// name a dilemma, from the cost the play has.
-function tristanAdams(base: CostModel): CostModel {
+// name a dilemma, from the cost the play has. A choice, so his own cost stays a hook, not a row.
+function tristanAdams(title: string, label: string, ...skills: string[]): CostModel {
+  const minus = ifCompletedRequiring(...skills);
   return {
-    ...base,
+    title,
+    label,
+    family: 'ownCost',
     playCost: (play, facts) => {
-      const own = base.playCost!(play, facts);
+      const own = minus(play, facts);
       const cost = own?.cost ?? play.printed;
       return {
         cost,
@@ -45,7 +45,7 @@ export const COMPLETED_MISSION_MODELS: CostModel[] = [
   model('Nador Curious Commander', 'Nador', 'Officer', 'Treachery'),
   model('Data Lucasian Chair', 'Data', 'Diplomacy', 'Leadership'),
   // "…if you command a completed mission requiring Anthropology or Treachery, he is cost -4." (#1749)
-  tristanAdams(model('Tristan Adams Deranged Psychiatrist', 'Tristan Adams', 'Anthropology', 'Treachery')),
+  tristanAdams('Tristan Adams Deranged Psychiatrist', 'Tristan Adams', 'Anthropology', 'Treachery'),
   model('A. G. Robinson Prototype Captain', 'A. G. Robinson', 'Astrometrics', 'Navigation'),
   model('Gorkon Visionary Chancellor', 'Gorkon', 'Diplomacy', 'Leadership'),
   model('Kathryn Janeway Regretful Leader', 'Kathryn Janeway', 'Engineer', 'Science'),

@@ -11,7 +11,7 @@
 import { cardDisplayName } from './cardCount';
 import { cardTitleOf } from './cardTitle';
 import { CostFacts, CostPlay, CostReveal, CostSource, CostUse, CountedChoice, PendingDiscount } from './costModels/model';
-import { coreCostsOf, costModelName, costModelOf, costUsesOf, missionCostsOf, personnelCostsOf } from './costModels/registry';
+import { coreCostsOf, costModelName, costModelOf, costUsesOf, missionCostsOf, modelCostAt, personnelCostsOf } from './costModels/registry';
 
 // The segment of a turn, as `TurnSegment` in the practice table names it.
 export type CostSegment = 'playAndDraw' | 'orders' | 'discard';
@@ -228,8 +228,9 @@ function baseCharge(
     };
   }
   const asHand = from === 'hand' || from === 'drawDeck';
-  const price = from === 'discard' ? model?.discardPlayCost : model?.playCost;
-  const suggested = price && facts ? price(play, facts) : null;
+  // The card's own cost (#1888): its row of the played card, or its residual `playCost`; from the discard pile,
+  // its `discardPlayCost`.
+  const suggested = !model || !facts ? null : from === 'discard' ? (model.discardPlayCost?.(play, facts) ?? null) : modelCostAt(model, 'played', play, facts);
   // Cost changes stack (#1699, #1702): the card's own model, then each card of the core that prices its
   // play from the hand, then each mission of the player's that does (#1752), then each unstopped personnel
   // of the player's that does (#1756), then a pending discount, every change summed. The charge keeps one source, whose
