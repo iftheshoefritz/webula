@@ -629,11 +629,19 @@ nor the brig, which holds the opponent's personnel, a known gap since the table 
 whose), "Unique: Yarka Harbinger of the Prophets is already in play"; and any move, played or not, a dilemma
 by hand or the bot's Resolve placement too, of a "(limit one per mission)" card onto a mission card, or a
 "(limit one per ship)" card onto a ship, that already holds a card of its title, "Limit one per mission:
-Self-Replicating Roadblock is already on Moab IV". The move still lands. The entry keeps them
+Self-Replicating Roadblock is already on Moab IV". A play of a card whose `play` permission row fails (#1916,
+`src/lib/modifiers/titles/permissions.ts`: "To play this event, you must command three [Bor] personnel" and its [TOS],
+[AU], [SF], [Fer], [Rom], [Dom], [Vid], [Car], [DS9] and two-icon variants, Delta Flyer Rebuilt's four space missions,
+Finding Our Way's and To Rule in Hell's "must not command a headquarters mission", They're Still Coming Through!'s
+{To Rule in Hell} and Deal With the Count Man's Thief), read on the table before the move, warns once per failed row,
+"Particle 010: you must command three [Bor] personnel" (`playRequirement`); a charged draw from the draw deck while
+Rule of Acquisition #6 is in the core warns "Rule of Acquisition #6: you cannot spend counters to draw cards"
+(`spendToDraw`, `drawWarningsOf`, kept on the `draw` entry's `warnings`), and Draw 7 or an uncharged draw does not.
+The move still lands. The entry keeps them
 (`LogMove.warnings`, `dilemmaResolved.warnings`, `entryRuleWarnings`), its text ends with them ("…; unique:
 Yarka Harbinger of the Prophets is already in play"), one undo takes back both, and with the setting off
 nothing is checked or recorded. The charge chip shows each as a line, `charge-warning` with `data-rule`
-(`unique`, `limitPerMission`, `limitPerShip`), with Counters on or off; with Counters off it shows the
+(`unique`, `limitPerMission`, `limitPerShip`, `playRequirement`, `spendToDraw`), with Counters on or off; with Counters off it shows the
 warnings alone. **Effect steps** (#1863, `src/lib/effectSteps.ts`): a play model and a resolve model are a title and a list of steps, with no `kind`: `draw` (a fixed number, `withoutCompleted` too, up to N, the printed cost of a personnel the player picks, or N after a pick with an icon), `discardFromHand(n)`, `bottomFromHand(n)`, `examine`, `download` (of a test or `copyOfCommanded`, to the hand, aboard a ship, played aboard this ship or on top of the draw deck), `shuffle`, `score` and `exchange`, each with whether it is a "may". A shuffle and a fixed draw, or a draw after a pick, join the step before them: one *stage* (`stagesOf`) is one panel, one action and one record, so Days of Atonement `[discardFromHand(1), draw(2)]` is one step. One action, `effectStep` (its input: `count`, `personnelId`, `ids`, `take`/`bottom`, `shipId`, `handId`/`tableId`, and the `order` and `ruleWarnings` that `withShuffleOrders` fills), applies the next stage of the resolving event (`resolveStageOf`) or, with nothing resolving, of the pending play (`pendingPlayEffectOf(...).stage`); `effectSkip` is Skip and Done. A resolving event's stage is one `effectStep` entry (`ended` on its last), in the words of the entries before it; a play's stage amends its entry as before. The old entries (`resolveDrew`, `resolveBottom`, `resolveDiscardDraw`, `resolveDownloaded`, `resolveExchanged`, and the play records of before) still read, with the same text, and a save mid-resolution resumes at its stage. `PracticeTable`'s `stageView` turns any stage into its panel, so a card whose text is a new order of these steps is a data row and a test. **When you play** (#1800): a personnel or a ship whose title has a model in `PLAY_MODELS`
 (`src/lib/playModels/`, by whole title, `playModelOf`) leaves its effect pending once played, derived from the
 effective log (`pendingPlayEffectOf` in `gameLog.ts`): the latest play of the turn's play and draw, while its
@@ -822,7 +830,7 @@ start with it closed, add `menu=0` to the URL (#1028). The usual check URL is
 `practice_drag.sh` stops with a message when the splash is open, rather than report a drag that
 did not land.
 
-The practice table has thirty-three fixtures. Each one deals the same table on every load.
+The practice table has thirty-four fixtures. Each one deals the same table on every load.
 
 - `?fixture=1` deals a plain new game, like a real one: the missions, **no hand**, and the rest of
   the deck in the draw deck and the dilemma pile. The brig, the core, the dilemma stack and the
@@ -931,6 +939,11 @@ The practice table has thirty-three fixtures. Each one deals the same table on e
   a [Fer] personnel, at the end of the crew of the ship at Bilana System, and Galor, a [Car] ship, at the end of the
   hand (`PRACTICE_ORDERS_TSV`). After "Go to orders" the core cards and Damar in the crew panel show the "Order"
   badge. It keeps its game under `practiceGame:fixture=orders`.
+- `?fixture=permissions` (#1916) deals the `?fixture=piles` table, the same cards and the same ids, with Particle 010,
+  whose play needs three [Bor] personnel, at the end of the hand, and Rule of Acquisition #6 at the end of the core
+  (`PRACTICE_PERMISSIONS_TSV`). With "Check uniqueness and limits" on, a play of Particle 010 into the core shows a
+  `charge-warning` with `data-rule="playRequirement"`, and a draw from the draw deck one with `data-rule="spendToDraw"`.
+  It keeps its game under `practiceGame:fixture=permissions`.
 - `?fixture=unique` (#1821) deals the `?fixture=piles` table, the same cards and the same ids, with
   8 more (`PRACTICE_UNIQUE_TSV`): Yarka Harbinger of the Prophets, a unique personnel, joins the end of the
   crew of the ship at Bilana System; Vina Orion Slave Girl, a unique personnel, goes into the discard pile;

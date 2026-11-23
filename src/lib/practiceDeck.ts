@@ -315,6 +315,13 @@ export const PRACTICE_ORDERS_TSV = `1\tIndebtedness
 export const PRACTICE_ORDERS_CORE = ['Indebtedness', 'Optimism', 'Rule of Acquisition #6'];
 export const PRACTICE_ORDERS_CREW = ['Damar Ambitious Glinn', 'Quark Resistance Informant'];
 export const PRACTICE_ORDERS_HAND = ['Galor'];
+// The cards `?fixture=permissions` (#1916) adds to the `?fixture=piles` table: Particle 010, whose play needs three
+// [Bor] personnel, at the end of the hand, and Rule of Acquisition #6, which forbids a spend of counters to draw, at
+// the end of the core.
+export const PRACTICE_PERMISSIONS_TSV = `1\tParticle 010
+1\tRule of Acquisition #6`;
+export const PRACTICE_PERMISSIONS_CORE = ['Rule of Acquisition #6'];
+export const PRACTICE_PERMISSIONS_HAND = ['Particle 010'];
 export const PRACTICE_DISSIDENT_CORE = 'The New Resistance';
 export const PRACTICE_DISSIDENT_HAND = 'Leeta Rebel Supporter';
 export const PRACTICE_DISSIDENT_DRAW_TOP = 'Damar Cardassian Liberator';
