@@ -31,7 +31,7 @@ jest.mock('next/link', () => {
 });
 
 import React from 'react';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage, { PILE_CAROUSEL_KEY } from '../../../app/decks/practice/PracticeTable';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
@@ -49,6 +49,17 @@ const makePersonnel = (n: number) => ({
 
 // 15 cards: the opening hand takes 7 from the top, so the draw deck holds Personnel 8 to 15, top first.
 const CARDS = Array.from({ length: 15 }, (_, i) => makePersonnel(i + 1));
+
+// 4 invented dilemmas for the dilemma pile (#1900).
+const DILEMMAS = [1, 2, 3, 4].map((n) => ({
+  collectorsinfo: `9D00${n}`,
+  originalName: `Dilemma ${n}`,
+  type: 'dilemma',
+  name: `dilemma ${n}`,
+  imagefile: `dilemma_${n}`,
+  pile: 'dilemmaPile',
+  count: 1,
+}));
 
 // jsdom lays nothing out: give every element a size, so the carousel has room for its cards.
 const clientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
@@ -118,7 +129,7 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
   });
 
   const renderWithDeck = async (carousel: boolean) => {
-    const deck = Object.fromEntries(CARDS.map((c) => [c.collectorsinfo, { count: 1, row: c }]));
+    const deck = Object.fromEntries([...CARDS, ...DILEMMAS].map((c) => [c.collectorsinfo, { count: 1, row: c }]));
     localStorage.setItem('currentDeck', JSON.stringify(deck));
     if (carousel) localStorage.setItem(PILE_CAROUSEL_KEY, JSON.stringify(true));
     (extractDrawDeck as jest.Mock).mockReturnValue(CARDS);
@@ -306,5 +317,57 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
       fireEvent.keyDown(window, { key: 'Escape' });
     });
     expect(screen.queryByTestId('pile-carousel')).not.toBeInTheDocument();
+  });
+
+  it('searches the dilemma pile with Discard, Top, Bottom and Shuffle, and no Download off the dilemma choice (#1900)', async () => {
+    await renderWithDeck(true);
+    await tap(screen.getByRole('button', { name: /^download from the dilemma pile$/i }));
+    expect(screen.getByTestId('pile-carousel')).toHaveAttribute('data-pile', 'dilemmaPile');
+    expect(screen.getByRole('heading', { name: 'Search dilemma pile' })).toBeInTheDocument();
+    expect(screen.getByTestId('card-list-panel-dilemmaPile')).toBeInTheDocument();
+    expect(position()).toBe('1 of 4');
+    expect(middleName()).toBe('Dilemma 1');
+    expect(screen.queryByRole('button', { name: 'Download' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument();
+    expect(within(screen.getByTestId('pile-carousel')).getByRole('button', { name: 'Shuffle' })).toBeInTheDocument();
+    await tap(middleCard());
+    await tap(screen.getByRole('button', { name: 'Selected cards to the bottom of the dilemma pile' }));
+    expect(middleName()).toBe('Dilemma 2');
+    await slideTo(3);
+    expect(middleName()).toBe('Dilemma 1');
+  });
+
+  it('searches the discard pile newest first, with Remove from game and no Shuffle (#1901)', async () => {
+    await renderWithDeck(true);
+    await openSearch();
+    for (let n = 0; n < 3; n += 1) {
+      await tap(middleCard());
+      await tap(screen.getByRole('button', { name: 'Discard' }));
+    }
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Escape' });
+    });
+    expect(screen.queryByTestId('pile-carousel')).not.toBeInTheDocument();
+    await tap(screen.getByAltText('Discard pile').parentElement!);
+    expect(screen.getByTestId('pile-carousel')).toHaveAttribute('data-pile', 'discard');
+    expect(screen.getByRole('heading', { name: 'Search discard pile' })).toBeInTheDocument();
+    expect(screen.getByTestId('card-list-panel-discard')).toBeInTheDocument();
+    expect(position()).toBe('1 of 3');
+    expect(middleName()).toBe('Personnel 10');
+    expect(screen.getByText('Newest')).toBeInTheDocument();
+    expect(screen.getByText('Oldest')).toBeInTheDocument();
+    const carousel = within(screen.getByTestId('pile-carousel'));
+    for (const name of ['Shuffle', 'Download', 'Discard']) {
+      expect(carousel.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+    expect(carousel.queryByRole('button', { name: /to the top of/ })).not.toBeInTheDocument();
+    const remove = screen.getByTestId('remove-from-game-button');
+    expect(remove).toHaveTextContent('Remove from game');
+    expect(remove).toBeDisabled();
+    await tap(middleCard());
+    await tap(remove);
+    expect(screen.getByTestId('remove-from-game-button')).toHaveTextContent('Return to game');
+    await tap(screen.getByTestId('remove-from-game-button'));
+    expect(screen.getByTestId('remove-from-game-button')).toHaveTextContent('Remove from game');
   });
 });
