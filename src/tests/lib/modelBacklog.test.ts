@@ -248,7 +248,8 @@ describe('the coverage report', () => {
         .map((c) => modelledToday('trigger', title, of(title), c.text));
     expect(triggers('Distant Exploration')).toEqual([true]);
     expect(triggers('Li Nalas Legend of Bajor')).toEqual([true]);
-    expect(triggers('Unexpected Difficulties')).toEqual([false]);
+    // A `botDeck` row since #1906.
+    expect(triggers('Unexpected Difficulties')).toEqual([true]);
   });
 
   it('finds the shipped models in the shipped decks', () => {

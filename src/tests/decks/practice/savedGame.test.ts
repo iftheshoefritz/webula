@@ -205,6 +205,15 @@ describe('savedGame', () => {
     expect('botPile' in repaired).toBe(false);
   });
 
+  it('keeps the trigger titles of the bot\'s pile, and drops a bad list (#1906)', () => {
+    const botPile = { id: 'beginner:tos.txt', name: 'TOS', triggers: ['Unexpected Difficulties'] };
+    const game = { ...dealtTable(), opponent: 'bot' as const, botPile };
+    expect(fromSavedGame(JSON.stringify(toSavedGame(game, deck, 'builder')), deck)!.table.botPile).toEqual(botPile);
+    const bad: any = toSavedGame(game, deck, 'builder');
+    bad.table.botPile.triggers = [1];
+    expect('botPile' in fromSavedGame(JSON.stringify(bad), deck)!.table).toBe(false);
+  });
+
   it('keeps the bot deck\'s missions and Song cards, restores a pile saved before #1846, and drops a bad one', () => {
     const botPile = { id: 'beginner:tos.txt', name: 'TOS', missions: { planet: 3, space: 2 }, songCards: 1 };
     const game = { ...dealtTable(), opponent: 'bot' as const, botPile };

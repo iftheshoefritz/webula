@@ -15,6 +15,8 @@
 //   before it took (#1904, Quintessence).
 // - `score`: N points.
 // - `exchange`: a personnel of the hand with one the player commands.
+// - `kill`: up to N of the player's personnel at a mission that pass a test, each to the discard pile, logged as
+//   a kill (#1909).
 //
 // A step that needs no input of the player (a shuffle, a fixed draw or a draw after a pick) runs with the step
 // before it: one step the player acts on, and the steps that follow it on their own, are one *stage*, one panel,
@@ -164,6 +166,22 @@ export interface DiscardTopStep {
 export interface ScoreStep {
   kind: 'score';
   points: number;
+  /** `points` for each card the step before picked (#1909, Ba'ku Planet: "Score 5 points for each."). */
+  perPick?: true;
+  may?: boolean;
+}
+
+/**
+ * "Kill up to three of your [NA] Honor personnel at this mission." (#1909): the player picks up to `upTo` of their
+ * personnel at the mission, stopped or not, never the brig, that pass a test of the download's fields; each goes to
+ * the discard pile, a kill.
+ */
+export interface KillStep {
+  kind: 'kill';
+  upTo: number;
+  test: DownloadTest[];
+  /** The words of the test, for the panel: "[NA] Honor personnel". */
+  testText: string;
   may?: boolean;
 }
 
@@ -192,7 +210,8 @@ export type EffectStep =
   | ShuffleStep
   | DiscardTopStep
   | ScoreStep
-  | ExchangeStep;
+  | ExchangeStep
+  | KillStep;
 
 export type EffectStepKind = EffectStep['kind'];
 
@@ -222,10 +241,19 @@ export const download = (upTo: number, testText: string, test: DownloadTest[]): 
 export const shuffle = (): ShuffleStep => ({ kind: 'shuffle' });
 export const discardTopByDownloadedCost = (): DiscardTopStep => ({ kind: 'discardTop', count: { kind: 'downloadedCost' } });
 export const score = (points: number): ScoreStep => ({ kind: 'score', points, may: true });
+/** A score of `points` for each card the step before picked, which runs with that step. */
+export const scorePerPick = (points: number): ScoreStep => ({ kind: 'score', points, perPick: true });
+export const kill = (upTo: number, testText: string, test: DownloadTest[]): KillStep => ({ kind: 'kill', upTo, test, testText, may: true });
 
 /** Whether a step runs on its own, with no input of the player, so it joins the stage of the step before it. */
 export const isAutomaticStep = (step: EffectStep): boolean =>
-  step.kind === 'shuffle' || step.kind === 'discardTop' || (step.kind === 'draw' && (step.count.kind === 'fixed' || step.count.kind === 'ifPickedIcon'));
+  step.kind === 'shuffle' ||
+  step.kind === 'discardTop' ||
+  (step.kind === 'score' && step.perPick === true) ||
+  (step.kind === 'draw' && (step.count.kind === 'fixed' || step.count.kind === 'ifPickedIcon'));
+
+/** The points of a score step after a step that picked `picks` cards: `points`, or `points` for each pick. */
+export const scorePoints = (step: Pick<ScoreStep, 'points' | 'perPick'>, picks: number): number => (step.perPick ? step.points * picks : step.points);
 
 /** A stage: the step the player acts on (`lead`), then the automatic steps after it, and whether it is a "may". */
 export interface EffectStage {

@@ -113,6 +113,18 @@ export interface TriggerEvent<K extends GameEventKind = GameEventKind> {
 /** What using the trigger costs: destroy or discard the source, discard N cards from hand, or stop the source. */
 export type TriggerUseCost = { kind: 'destroySelf' } | { kind: 'discardSelf' } | { kind: 'discardFromHand'; count: number } | { kind: 'stopSelf' };
 
+/**
+ * A step only the bot takes (#1906), from a `botDeck` row: Unexpected Difficulties's "return the drawn dilemmas to
+ * the bottom of the pile, face up, and draw as many". `botRedraws` in `useBotAttemptStart.ts` decides it and the
+ * `redrawn` of `botAttempt` applies it; no effect subject of the player ever runs it.
+ */
+export interface BotRedrawDilemmasStep {
+  kind: 'botRedrawDilemmas';
+}
+
+/** A step of a trigger row: an effect step, or a step of the bot's own. */
+export type TriggerStep = EffectStep | BotRedrawDilemmasStep;
+
 export interface TriggerRow {
   /** The title, less its version suffix, as the card data names it ("Distant Exploration"). */
   title: string;
@@ -127,7 +139,7 @@ export interface TriggerRow {
   useCost?: TriggerUseCost;
   /** Once per event (the default) or once each turn ("You may do this only once each turn"). */
   once?: 'event' | 'turn';
-  steps: EffectStep[];
+  steps: TriggerStep[];
 }
 
 /** A row of `title` that waits for `event` of `kind` while its card is in `source`. */
@@ -136,7 +148,7 @@ export function trigger<K extends GameEventKind>(
   text: string,
   source: TriggerSource,
   event: TriggerEvent<K>,
-  steps: EffectStep[],
+  steps: TriggerStep[],
   extra: Partial<Pick<TriggerRow, 'condition' | 'may' | 'useCost' | 'once'>> = {}
 ): TriggerRow {
   return { title, text, source, event: event as unknown as TriggerEvent, steps, may: false, ...extra };

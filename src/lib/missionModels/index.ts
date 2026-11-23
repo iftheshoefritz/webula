@@ -18,7 +18,7 @@
 // It imports no React and no reducer.
 
 import { cardTitleOf } from '../cardTitle';
-import { download, draw, score, shuffle, type DownloadStep, type EffectStep, type ScoreStep, type ShuffleStep } from '../effectSteps';
+import { download, draw, kill, score, scorePerPick, shuffle, type DownloadStep, type EffectStep, type KillStep, type ScoreStep, type ShuffleStep } from '../effectSteps';
 import type { AttemptingQuery, PlayTest } from '../tableView';
 
 /** A completion effect that has no effect step yet is kept as data; a download and a score are steps. */
@@ -28,7 +28,9 @@ export type MissionCompletion =
   | { kind: 'discardOrDestroy'; min: number }
   | { kind: 'toDeckBottom'; cap: number }
   | { kind: 'flip' }
-  | { kind: 'score'; minSpecies: number; steps: [ScoreStep] };
+  | { kind: 'score'; minSpecies: number; steps: [ScoreStep] }
+  // A kill of up to N of the player's personnel here that pass a test, then a score for each (#1909, Ba'ku Planet).
+  | { kind: 'kill'; steps: [KillStep, ScoreStep] };
 
 /** A condition of an attempt's start: the attempting personnel, or the cards beneath the mission. */
 export type AttemptCondition = { kind: 'attempting'; query: AttemptingQuery } | { kind: 'noDilemmasBeneath' };
@@ -72,12 +74,28 @@ export interface MissionSpendModel {
   steps: EffectStep[];
 }
 
-/** Requirements the mission adds to each of the player's other missions with requirements. */
-export interface RequirementChange {
-  add: string[];
-  /** Missions that may be attempted by this affiliation icon get none: "non-[Fed]". */
-  exceptIcon?: string;
-}
+/**
+ * A change of requirements: the skills the mission adds to each of the player's other missions with requirements
+ * (Crescent Nebula), or the requirements that replace its own during an attempt by personnel of an affiliation
+ * (#1909, Gelyan Moon: "Your [Fed] personnel may attempt this mission, replacing its requirements during that
+ * attempt with …").
+ */
+export type RequirementChange =
+  | {
+      kind: 'add';
+      add: string[];
+      /** Missions that may be attempted by this affiliation icon get none: "non-[Fed]". */
+      exceptIcon?: string;
+    }
+  | {
+      kind: 'replace';
+      /** The affiliation icon of the attempting personnel, lowercased: "[fed]". */
+      icon: string;
+      /** The affiliation as the card data names it, lowercased, which `icon` reads: "federation". */
+      affiliation: string;
+      /** The requirement text that replaces the printed one, in the form of the card data's `Skills` field. */
+      skills: string;
+    };
 
 export type MissionAbility =
   | { trigger: 'onComplete'; text: string; completion: MissionCompletion }
@@ -332,7 +350,46 @@ export const MISSION_MODELS: MissionModel[] = [
       {
         trigger: 'requirements',
         text: 'Add Intelligence to the requirements of each of your other non-[Fed] missions.',
-        requirements: { add: ['Intelligence'], exceptIcon: '[fed]' },
+        requirements: { kind: 'add', add: ['Intelligence'], exceptIcon: '[fed]' },
+      },
+    ],
+  },
+  {
+    title: 'Gelyan Moon Harness Omega Particle',
+    label: 'Gelyan Moon',
+    abilities: [
+      {
+        trigger: 'requirements',
+        text: 'Your [Fed] personnel may attempt this mission, replacing its requirements during that attempt with Engineer, Medical, Officer, Physics, Science, Security, Transporters, and Cunning>48.',
+        requirements: {
+          kind: 'replace',
+          icon: '[fed]',
+          affiliation: 'federation',
+          skills: 'Engineer, Medical, Officer, Physics, Science, Security, Transporters, and Cunning>48',
+        },
+      },
+    ],
+  },
+  {
+    title: 'Rura Penthe Escape Gulag',
+    label: 'Rura Penthe',
+    abilities: [
+      {
+        trigger: 'requirements',
+        text: 'Your [Kli] personnel may attempt this mission, replacing its requirements during that attempt with Geology, Officer, Security, and Strength>28.',
+        requirements: { kind: 'replace', icon: '[kli]', affiliation: 'klingon', skills: 'Geology, Officer, Security, and Strength>28' },
+      },
+    ],
+  },
+  {
+    // A personnel at this mission: an away team here or a crew of a ship here, stopped or not.
+    title: "Ba'ku Planet Collect Metaphasic Particles",
+    label: "Ba'ku Planet",
+    abilities: [
+      {
+        trigger: 'onComplete',
+        text: 'When you complete this mission, you may kill up to three of your [NA] Honor personnel at this mission. Score 5 points for each.',
+        completion: { kind: 'kill', steps: [kill(3, '[NA] Honor personnel', [{ types: ['personnel'], affiliations: ['non-aligned'], skills: ['honor'] }]), scorePerPick(5)] },
       },
     ],
   },

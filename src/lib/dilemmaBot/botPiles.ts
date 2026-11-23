@@ -7,6 +7,9 @@ import { BeginnerDeck, beginnerDeckId, beginnerDeckTitle } from '../beginnerDeck
 import { ChampionshipDeck, championshipDeckId, championshipDeckTitle } from '../championshipDecks';
 import { DeckCardRow, botAffiliationsOf, botMissionsAndSongsOf, botPileOf } from './pile/pile';
 import { pileTitleOf } from './pile/registry';
+import { BOT_TRIGGER_TITLES, UNEXPECTED_DIFFICULTIES, botTriggerRowsFor, type GameEventKind } from '../triggers';
+
+export { UNEXPECTED_DIFFICULTIES };
 
 /** The id of the Chula pile, the default bot pile. */
 export const CHULA_BOT_PILE_ID = 'chula';
@@ -25,8 +28,13 @@ export interface BotPileChoice {
  */
 export interface BotPileInfo extends BotPileChoice {
   affiliations?: string[];
-  // The deck's `Deck:` section holds Unexpected Difficulties (#1563), so the bot may redraw its dilemmas
-  // once a game. Absent: it does not, as in a save from before #1563.
+  /**
+   * The trigger cards of the deck's `Deck:` section the bot can use (#1906), the titles of the registry's `botDeck`
+   * rows: Unexpected Difficulties lets it redraw its dilemmas once a game. Absent: none.
+   */
+  triggers?: string[];
+  // A save from before #1906: the deck's `Deck:` section holds Unexpected Difficulties (#1563). It still reads, as
+  // `triggers` holding the title (`botPileTriggerTitles`); a new game writes `triggers` instead.
   unexpectedDifficulties?: true;
   /** The planet and the space missions of the deck's `Missions:` section (#1846). Absent: none, as in a save from before #1846. */
   missions?: { planet: number; space: number };
@@ -34,8 +42,13 @@ export interface BotPileInfo extends BotPileChoice {
   songCards?: number;
 }
 
-/** The title of the card that lets the bot redraw its dilemmas once a game (#1563). */
-export const UNEXPECTED_DIFFICULTIES = 'Unexpected Difficulties';
+/** The trigger titles a bot pile holds (#1906): its `triggers`, and Unexpected Difficulties for a save's old boolean. */
+export const botPileTriggerTitles = (pile: Pick<BotPileInfo, 'triggers' | 'unexpectedDifficulties'> | undefined): string[] =>
+  pile ? [...new Set([...(pile.triggers ?? []), ...(pile.unexpectedDifficulties ? [UNEXPECTED_DIFFICULTIES] : [])])] : [];
+
+/** Whether the bot pile holds a trigger row of the registry for an event of `kind` (#1906). */
+export const botPileHasTrigger = (pile: Pick<BotPileInfo, 'triggers' | 'unexpectedDifficulties'> | undefined, kind: GameEventKind): boolean =>
+  botTriggerRowsFor(botPileTriggerTitles(pile), kind).length > 0;
 
 /**
  * Whether a deck file's `Deck:` section, its draw deck, holds `title`, matched through `pileTitleOf` as
@@ -86,14 +99,15 @@ export function botPileChoices(
 /**
  * The bot's dilemma pile from a deck file: the dilemma rows of `deck`, the deck file parsed by
  * `deckFromTsv`, less every row whose title the registry marks `'ignore'` (#1320), and the
- * affiliations of its `Deck:` section, and whether that section holds Unexpected Difficulties (#1563).
+ * affiliations of its `Deck:` section, the trigger titles of the registry that section holds (#1906), and
+ * whether it holds Unexpected Difficulties (#1563).
  * Titles match through `pileTitleOf`, as `botPileOf` keys them.
  */
 export function botPileDeckOf(
   deckText: string,
   deck: DeckList,
   rows: ReadonlyArray<DeckCardRow>,
-): { pile: DeckList; affiliations: string[]; unexpectedDifficulties: boolean; missions: { planet: number; space: number }; songCards: number } {
+): { pile: DeckList; affiliations: string[]; triggers: string[]; unexpectedDifficulties: boolean; missions: { planet: number; space: number }; songCards: number } {
   const ignored = new Set(botPileOf(deckText).ignored);
   const pile: DeckList = {};
   for (const [key, entry] of Object.entries(deck)) {
@@ -104,6 +118,7 @@ export function botPileDeckOf(
   return {
     pile,
     affiliations: botAffiliationsOf(deckText, rows),
+    triggers: BOT_TRIGGER_TITLES.filter((title) => deckSectionHolds(deckText, title)),
     unexpectedDifficulties: deckSectionHolds(deckText, UNEXPECTED_DIFFICULTIES),
     ...botMissionsAndSongsOf(deckText, rows),
   };
