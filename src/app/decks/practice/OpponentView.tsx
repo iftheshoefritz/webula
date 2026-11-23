@@ -12,12 +12,15 @@ import type { CardInstance } from './tableReducer';
 import { faceUpImageSrc } from './TableCard';
 import { DilemmaIcon, OPPONENT_TINT_CLASS, ShipIcon } from './MissionRow';
 import type { LocationSide, OpponentHalf } from './opponent';
+import { MENU_BUTTON_GUTTER, TOUCH_CONTROLS_COLUMN } from './tableScale';
 
 // The strip is as tall as a badge of the badge strip at the minimum screen, and a little more.
 export const OPPONENT_STRIP_HEIGHT = 20; // px
-// The game menu and fullscreen buttons sit in the top left corner (`left-2`, 24 px wide). The
-// strip starts right of them, as the attempt strip does.
-const STRIP_LEFT_GUTTER = 20; // px past the content padding
+// The corner buttons and the turn and score column sit in the left column (`TOUCH_CONTROLS_COLUMN`,
+// #1337), so the strip starts right of it, as the mission row does, and keeps the menu gutter on the
+// right.
+const STRIP_LEFT_GUTTER = TOUCH_CONTROLS_COLUMN; // px past the content padding
+const STRIP_RIGHT_GUTTER = MENU_BUTTON_GUTTER; // px
 // The dilemmas under a mission poke up into the content padding above the mission row
 // (`underMissionHeadroom`), so the strip keeps that much room below it.
 const STRIP_SLIVER_ROOM = 12; // px
@@ -72,7 +75,7 @@ export function OpponentStrip({
       data-testid="opponent-strip"
       data-opponent={half.kind}
       className="flex items-center gap-2 text-[10px] leading-none text-rose-50 shrink-0"
-      style={{ height: OPPONENT_STRIP_HEIGHT, marginLeft: STRIP_LEFT_GUTTER, marginRight: STRIP_LEFT_GUTTER, marginBottom: STRIP_SLIVER_ROOM }}
+      style={{ height: OPPONENT_STRIP_HEIGHT, marginLeft: STRIP_LEFT_GUTTER, marginRight: STRIP_RIGHT_GUTTER, marginBottom: STRIP_SLIVER_ROOM }}
     >
       <span className={`flex items-center gap-2 rounded-full px-2 h-full ${OPPONENT_TINT_CLASS}`}>
         <span className="font-semibold uppercase tracking-wide text-[9px]">{bot ? 'The bot' : 'Opponent'}</span>
