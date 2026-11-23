@@ -50,6 +50,7 @@ export interface DownloadedCard {
   species?: unknown;
   skills?: unknown;
   cost?: unknown;
+  unique?: unknown;
 }
 
 /**
@@ -70,6 +71,8 @@ export interface DownloadTest {
   notKeywords?: string[];
   /** The least printed cost (#1811): "who has a cost of 4 or more". */
   costAtLeast?: number;
+  /** A unique card (#1866): "two unique [Bor] personnel". */
+  unique?: true;
 }
 
 /** The cards of a draw step. */
@@ -182,6 +185,13 @@ export const drawPersonnelCost = (): DrawStep => ({ kind: 'draw', count: { kind:
 export const drawIfPickedIcon = (icon: string, count: number): DrawStep => ({ kind: 'draw', count: { kind: 'ifPickedIcon', icon, count } });
 export const discardFromHand = (count: number, may = false): DiscardFromHandStep => ({ kind: 'discardFromHand', count, ...(may ? { may } : {}) });
 export const bottomFromHand = (count: number): BottomFromHandStep => ({ kind: 'bottomFromHand', count, ordered: true });
+export const download = (upTo: number, testText: string, test: DownloadTest[]): DownloadStep => ({
+  kind: 'download',
+  of: { kind: 'test', test, testText },
+  upTo,
+  to: { kind: 'hand' },
+  may: true,
+});
 export const shuffle = (): ShuffleStep => ({ kind: 'shuffle' });
 export const score = (points: number): ScoreStep => ({ kind: 'score', points, may: true });
 
@@ -286,7 +296,8 @@ export function downloadTakes(of: { test: DownloadTest[] }, card: DownloadedCard
     (!t.species || t.species.some((sp) => species.includes(sp))) &&
     (!t.skills || t.skills.some((sk) => skills.includes(sk))) &&
     (!t.notKeywords || !t.notKeywords.some((k) => keywords.includes(k))) &&
-    (t.costAtLeast === undefined || (Number(card.cost) || 0) >= t.costAtLeast);
+    (t.costAtLeast === undefined || (Number(card.cost) || 0) >= t.costAtLeast) &&
+    (!t.unique || String(card.unique ?? '').toLowerCase() === 'y');
   return of.test.some(passes);
 }
 

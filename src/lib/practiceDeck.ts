@@ -303,6 +303,18 @@ export const PRACTICE_UNIQUE_HAND = [
   'Self-Replicating Roadblock',
   'Inspiring Leader',
 ];
+// The cards `?fixture=orders` (#1866) adds to the `?fixture=piles` table: three events with an order at the end of
+// the core, Damar Ambitious Glinn and Quark Resistance Informant, a [Fer] personnel, at the end of the crew of the
+// ship at Bilana System, and Galor, a [Car] ship for Damar's order, at the end of the hand.
+export const PRACTICE_ORDERS_TSV = `1\tIndebtedness
+1\tOptimism
+1\tRule of Acquisition #6
+1\tDamar Ambitious Glinn
+1\tQuark Resistance Informant
+1\tGalor`;
+export const PRACTICE_ORDERS_CORE = ['Indebtedness', 'Optimism', 'Rule of Acquisition #6'];
+export const PRACTICE_ORDERS_CREW = ['Damar Ambitious Glinn', 'Quark Resistance Informant'];
+export const PRACTICE_ORDERS_HAND = ['Galor'];
 export const PRACTICE_DISSIDENT_CORE = 'The New Resistance';
 export const PRACTICE_DISSIDENT_HAND = 'Leeta Rebel Supporter';
 export const PRACTICE_DISSIDENT_DRAW_TOP = 'Damar Cardassian Liberator';

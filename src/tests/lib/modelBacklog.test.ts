@@ -22,6 +22,7 @@ import {
 } from '../../lib/modelCoverage';
 import { placeCoverageOf } from '../../lib/playPlaces/coverage';
 import { PLAY_MODEL_TITLES } from '../../lib/playModels/coverage';
+import { orderModelOf } from '../../lib/orderModels';
 import { RESOLVE_MODELS } from '../../lib/resolveModels';
 import { cardRows, shippedDecks } from './backlogData';
 
@@ -58,7 +59,7 @@ const BESPOKE: Record<string, Concern[]> = {
 };
 
 /** Whether the registries of today model a clause of `concern` on `title`. */
-export const modelledToday: ModelledBy = (concern, title, card) => {
+export const modelledToday: ModelledBy = (concern, title, card, clause) => {
   const key = title.toLowerCase();
   if (BESPOKE[key]?.includes(concern)) return true;
   switch (concern) {
@@ -76,6 +77,13 @@ export const modelledToday: ModelledBy = (concern, title, card) => {
       return MISSION.has(key) || COST_REGISTRY.has(title) || COST_ROW_TITLES.has(key);
     case 'place':
       return placeCoverageOf({ ...card }) !== 'unread';
+    case 'order': {
+      // The order registry (#1866) by the clause's place among the card's orders, so one row marks one order.
+      const index = clausesOf(card)
+        .filter((c) => c.concern === 'order')
+        .findIndex((c) => c.text === clause);
+      return index >= 0 && orderModelOf(title, index) !== undefined;
+    }
     default:
       return false;
   }
@@ -124,20 +132,31 @@ describe('the coverage report', () => {
 
   it('ranks by decks, marks each clause, and says which titles are within reach', () => {
     const cards = [
-      row('Common', 'Personnel', 'When you play this personnel, draw a card. Order - Stop this personnel.'),
+      row('Common', 'Personnel', 'When you play this personnel, draw a card. When this personnel is stopped, score 5 points.'),
       row('Modelled', 'Event', 'Draw two cards.'),
       row('Rare', 'Event', 'Draw two cards.'),
     ];
     const decks = ['Deck:\n1\tCommon\n1\tModelled\n', 'Deck:\n1\tCommon\n1\tRare\n'];
     const report = coverageReport(cards, decks, (concern, title) => title === 'Modelled' || concern === 'whenPlayed');
     expect(report.rows.map((r) => [r.title, r.decks, r.missing, r.withinReach])).toEqual([
-      ['Common', 2, ['order'], false],
+      ['Common', 2, ['trigger'], false],
       ['Modelled', 1, [], true],
       ['Rare', 1, ['eventResolve'], true],
     ]);
     const md = coverageMarkdown(report);
-    expect(md).toContain('| 2 | Common | Personnel | order | no |');
+    expect(md).toContain('| 2 | Common | Personnel | trigger | no |');
     expect(md).not.toContain('| Modelled | Event');
+  });
+
+  it('marks an order modelled by its own row (#1866): Damar whole, Optimism only its first order', () => {
+    const rows = cardRows();
+    const of = (title: string) => rows.find((r) => r.name === title)!;
+    const orders = (title: string) =>
+      clausesOf(of(title))
+        .filter((c) => c.concern === 'order')
+        .map((c) => modelledToday('order', title, of(title), c.text));
+    expect(orders('Damar Ambitious Glinn')).toEqual([true]);
+    expect(orders('Optimism')).toEqual([true, false, false]);
   });
 
   it('finds the shipped models in the shipped decks', () => {

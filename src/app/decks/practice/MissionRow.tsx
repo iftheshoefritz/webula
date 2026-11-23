@@ -98,6 +98,7 @@ import TableCard, {
   cardBorderWidth,
   fullCardHeight,
 } from './TableCard';
+import { TableCardUseBadge } from './TableCardUseContext';
 import { offsetFor } from './overlapOffset';
 import { useDraggedCardType, usePlayPlaces } from './DraggedCardTypeContext';
 import { highlightClassName, highlightState, playPlaceEligible } from './zoneAccepts';
@@ -252,6 +253,8 @@ function ShipCard({
         draggable
         rangeLeft={rangeLeft}
       />
+      {/* An order of the ship (#1866), at the bottom left, clear of the crew badge and the placed-on pill. */}
+      <TableCardUseBadge id={ship.id} corner="bottomLeft" />
       <ShipCrewBadge
         shipName={cardDisplayName(ship.card)}
         count={crewCount}
