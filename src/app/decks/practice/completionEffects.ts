@@ -7,8 +7,10 @@
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import { hqRowOf, reportsToMatches } from '../../../lib/hqPlayability';
+import { missionAt, personnel } from '../../../lib/tableView';
 import type { GameAction } from './gameLog';
 import { attemptingCards, findInstanceAnywhere, type CardInstance, type TableAction, type TableState } from './tableReducer';
+import { tableViewOf } from './tableView';
 
 export type CompletionEffectKind = 'download' | 'discardToHq' | 'discardOrDestroy' | 'toDeckBottom' | 'flip' | 'score';
 
@@ -99,15 +101,22 @@ const isPersonnel = (c: CardInstance): boolean => c.card?.type === 'personnel';
  */
 export function involvedPersonnel(table: TableState, missionIndex: number): CardInstance[] {
   const { attempt } = table;
+  const view = tableViewOf(table);
+  const instances = (ids: string[]): CardInstance[] => ids.flatMap((id) => findInstanceAnywhere(table, id)?.instance ?? []);
   if (attempt && attempt.missionIndex === missionIndex) {
-    return (attemptingCards(table, missionIndex, attempt.shipId) ?? []).filter((c) => isPersonnel(c) && !c.stopped);
+    // The attempting row (`attemptingCards`): the away team at a planet, the attempting ship's crew at a space mission.
+    const type = missionAt(view, missionIndex)?.type;
+    const { shipId } = attempt;
+    if (shipId === undefined ? type !== 'p' : type !== 's') return [];
+    const row =
+      shipId === undefined
+        ? personnel(view, { unstopped: true, at: missionIndex, where: (p) => p.shipId === undefined })
+        : personnel(view, { unstopped: true, at: missionIndex, aboard: shipId });
+    return instances(row.map((p) => p.id));
   }
-  return (table.missions[missionIndex]?.involved ?? []).flatMap((id) => {
-    const found = findInstanceAnywhere(table, id);
-    const zone = found?.zone;
-    const onTable = typeof zone === 'object' && (zone.zone === 'crew' || (zone.zone === 'missionPile' && zone.pile === 'awayTeam'));
-    return found && onTable && isPersonnel(found.instance) ? [found.instance] : [];
-  });
+  // Those still in an away team or a crew, in the order recorded.
+  const onTable = new Set(personnel(view, { unstopped: false }).map((p) => p.id));
+  return instances((table.missions[missionIndex]?.involved ?? []).filter((id) => onTable.has(id)));
 }
 
 /**
@@ -131,10 +140,14 @@ export const scoreActions = (effect: CompletionEffect): TableAction[] => [{ type
 export const downloadCandidates = (table: TableState, effect: CompletionEffect): CardInstance[] =>
   table.drawDeck.filter((c) => titleOf(c.card) === effect.download);
 
-/** The titles of the personnel the player has on the table: every away team, every crew and the brig. */
+/**
+ * The titles of the personnel the player has on the table: every away team, every crew and the brig. The
+ * selectors never read the brig, so its personnel join by hand.
+ */
 function titlesOnTable(table: TableState): Set<string> {
-  const cards = [...table.brig, ...table.missions.flatMap((s) => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])])];
-  return new Set(cards.filter(isPersonnel).map((c) => titleOf(c.card)));
+  const view = tableViewOf(table);
+  const brig = view.brig.filter((c) => c.type === 'personnel');
+  return new Set([...personnel(view, { unstopped: false }), ...brig].map((c) => c.title));
 }
 
 /**

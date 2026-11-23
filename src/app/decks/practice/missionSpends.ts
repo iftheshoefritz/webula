@@ -13,7 +13,9 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
+import { commands, missions } from '../../../lib/tableView';
 import type { CardInstance, TableState } from './tableReducer';
+import { tableViewOf } from './tableView';
 
 export const EARTH_TITLE = 'Earth Lush and Beautiful Home';
 export const NIMBUS_TITLE = 'Nimbus III Staff Backwater Embassy';
@@ -25,15 +27,8 @@ export const NIMBUS_SPEND_COST = 3;
 
 export type MissionSpendKind = 'earth' | 'nimbus';
 
-/** The title (`cardTitleOf`) of the mission at slot `index`, or ''. */
-export const slotMissionTitle = (table: TableState, index: number): string => {
-  const mission = table.missions[index]?.mission;
-  return mission?.card ? cardTitleOf(cardDisplayName(mission.card)) : '';
-};
-
 /** The slots whose mission has the title `title`, in slot order. */
-export const slotsTitled = (table: TableState, title: string): number[] =>
-  table.missions.flatMap((_, i) => (slotMissionTitle(table, i) === title ? [i] : []));
+export const slotsTitled = (table: TableState, title: string): number[] => missions(tableViewOf(table), { title }).map((m) => m.index);
 
 const startsWithName = (title: string, name: string): boolean => title === name || title.startsWith(`${name} `);
 
@@ -44,9 +39,11 @@ export const isNimbusPersonnel = (card: CardInstance): boolean => {
   return NIMBUS_PERSONNEL.some((name) => startsWithName(title, name));
 };
 
+/** "You command {Unicomplex}": a mission slot of the player's holds a Unicomplex. */
+const UNICOMPLEX = commands({ of: 'missions', titled: 'Unicomplex' }, 'Unicomplex');
+
 /** Whether a mission slot of the player's holds a Unicomplex. */
-export const commandsUnicomplex = (table: TableState): boolean =>
-  table.missions.some((_, i) => startsWithName(slotMissionTitle(table, i), 'Unicomplex'));
+export const commandsUnicomplex = (table: TableState): boolean => UNICOMPLEX.holds(tableViewOf(table));
 
 export interface NimbusSpend {
   slot: number;

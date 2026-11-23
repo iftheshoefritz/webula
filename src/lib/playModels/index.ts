@@ -20,17 +20,13 @@
 // - `'score'` (#1812): the player scores N points on a condition (Annexation Drone, DaiMon Solok, Opaka, Kira Taban).
 // A personnel or a ship with no model plays as before.
 //
-// It imports no React and no reducer: the condition reads the facts of the cost models (`CostFacts`).
+// It imports no React and no reducer: a condition is a shared condition of the table view (`src/lib/tableView.ts`,
+// #1877), read over the facts of the cost models (`CostFacts`) through `costFactsSource`.
 
 import { cardTitleOf } from '../cardTitle';
 import type { CostCoreCard, CostFacts } from '../costModels/model';
-import { missionRequires } from '../costModels/titles/completedMission';
-
-/** "If each of your non-headquarters missions requires <skill>": an empty slot is no mission, and with no such mission it holds. */
-export interface NonHeadquartersRequireCondition {
-  kind: 'nonHeadquartersRequire';
-  skill: string;
-}
+import { costFactsSource } from '../costModels/factsSource';
+import { atThisMission, commands, commandsEvents, Condition, MissionQuery, missionRequires, missions, TableReader } from '../tableView';
 
 /** A condition the table cannot read, such as one of the opponent's: shown as not checked. */
 export interface UncheckedCondition {
@@ -40,23 +36,15 @@ export interface UncheckedCondition {
   text: string;
 }
 
-/** "If your non-<species> is at this mission" (#1810): another personnel at the played card's mission slot, not of the species. */
-export interface OtherSpeciesHereCondition {
-  kind: 'otherSpeciesHere';
-  /** The species, lowercased: "cardassian". */
-  species: string;
-  /** The words of the species, "Cardassian". */
-  name: string;
-}
-
-/** A condition of the table that the model tests on the facts (#1812): "you command three [Fer] personnel". */
-export interface TableCondition {
+/**
+ * A condition of the table (#1812, #1877): a shared condition of the table view, which reads the view or the
+ * facts and the played card's place, "you command three [Fer] personnel".
+ */
+export interface TableCondition extends Condition {
   kind: 'table';
-  text: string;
-  holds: (facts: PlayConditionFacts) => boolean;
 }
 
-export type PlayCondition = NonHeadquartersRequireCondition | OtherSpeciesHereCondition | UncheckedCondition | TableCondition;
+export type PlayCondition = UncheckedCondition | TableCondition;
 
 /** The facts a condition reads: the missions always, the rest of `CostFacts` where the page has them. */
 export type PlayConditionFacts = Pick<CostFacts, 'missions'> & Partial<CostFacts>;
@@ -224,18 +212,34 @@ const download = (title: string, testText: string, ...test: DownloadTest[]): Dow
 const named = (...titles: string[]): DownloadTest => ({ titles: titles.map((t) => t.toLowerCase()) });
 export type PlayModel = DrawUpToThenDiscardModel | DiscardFromHandModel | ExamineTakeModel | DownloadTakeModel | DownloadPlaceModel | ScoreModel;
 
-// The conditions of the score models (#1812). "You command" counts the unstopped personnel (`commanded`), as the
-// cost models do (#1751).
-const commandsCount = (facts: PlayConditionFacts, test: (p: CostFacts['commanded'][number]) => boolean, n: number): boolean =>
-  (facts.commanded ?? []).filter(test).length >= n;
+// The conditions (#1877), each a shared condition of the table view. "You command" counts the unstopped
+// personnel (`commanded`), as the cost models do (#1751). A non-headquarters mission is one with a type: the
+// facts of a test may hold a slot with a name and no type, which is no mission.
+const tableCondition = (c: Condition): TableCondition => ({ kind: 'table', holds: c.holds, text: c.text });
 
-const commandsSpecies = (facts: PlayConditionFacts, species: string): boolean => commandsCount(facts, (p) => p.species.includes(species), 1);
+/** Each of `facts`' typed non-headquarters missions. */
+const NON_HEADQUARTERS: MissionQuery = { headquarters: false, where: (m) => m.type !== '' };
 
-/** A mission card titled `title`: its name is the title, or the title then its subtitle. */
-const titled = (name: string, title: string): boolean => {
-  const n = name.toLowerCase();
-  return n === title || n.startsWith(`${title} `);
+/** "If each of your non-headquarters missions requires <skill>": with no such mission it holds. */
+const nonHeadquartersRequire = (skill: string): TableCondition => tableCondition(missionRequires(skill, { each: true, query: NON_HEADQUARTERS }));
+
+/** "If each of your non-headquarters missions is an [AQ] mission." */
+const nonHeadquartersInAlpha: TableCondition = {
+  kind: 'table',
+  holds: (r: TableReader) => missions(r, NON_HEADQUARTERS).every((m) => m.quadrant === 'a'),
+  text: () => 'each of your non-headquarters missions is an [AQ] mission',
 };
+
+/** "If your non-<species> is at this mission" (#1810): another personnel at the played card's slot, stopped ones too. */
+const otherSpeciesHere = (species: string, name: string): TableCondition =>
+  tableCondition(atThisMission({ unstopped: false, where: (p) => !(p.species ?? []).includes(species) }, `your non-${name} is`));
+
+const threeFerengi = commands({ of: 'personnel', unstopped: true, affiliation: 'ferengi' }, 'three [Fer] personnel', {
+  min: 3,
+  text: 'you command three [Fer] personnel',
+});
+
+const commandsA = (species: string): Condition => commands({ of: 'personnel', unstopped: true, species }, `a ${species}`);
 
 const SCORE_MODELS: ScoreModel[] = [
   // "When you play this personnel, if each of your non-headquarters missions is an [AQ] mission, score 5 points."
@@ -244,11 +248,7 @@ const SCORE_MODELS: ScoreModel[] = [
     title: 'Annexation Drone',
     points: 5,
     may: false,
-    condition: {
-      kind: 'table',
-      text: 'each of your non-headquarters missions is an [AQ] mission',
-      holds: (facts) => (facts.missions ?? []).every((m) => m.type === '' || m.type === 'h' || m.quadrant === 'a'),
-    },
+    condition: nonHeadquartersInAlpha,
     text: 'Score 5 points.',
   },
   // "When you play this personnel, if you command three [Fer] personnel, score 5 points."
@@ -257,11 +257,7 @@ const SCORE_MODELS: ScoreModel[] = [
     title: 'DaiMon Solok Cargo Runner',
     points: 5,
     may: false,
-    condition: {
-      kind: 'table',
-      text: 'you command three [Fer] personnel',
-      holds: (facts) => commandsCount(facts, (p) => p.affiliation === 'ferengi', 3),
-    },
+    condition: tableCondition(threeFerengi),
     text: 'Score 5 points.',
   },
   // "When you play this personnel, if you command {Bajor} and no other headquarters mission, you may score 5 points."
@@ -272,11 +268,8 @@ const SCORE_MODELS: ScoreModel[] = [
     may: true,
     condition: {
       kind: 'table',
-      text: 'you command Bajor and no other headquarters mission',
-      holds: (facts) => {
-        const headquarters = (facts.missions ?? []).filter((m) => m.type === 'h');
-        return headquarters.length === 1 && titled(headquarters[0].name, 'bajor');
-      },
+      holds: (r) => missions(r, { headquarters: true }).length === 1 && missions(r, { headquarters: true, titled: 'Bajor' }).length === 1,
+      text: () => 'you command Bajor and no other headquarters mission',
     },
     text: 'You may score 5 points.',
   },
@@ -297,8 +290,8 @@ const SCORE_MODELS: ScoreModel[] = [
     may: true,
     condition: {
       kind: 'table',
-      text: 'you command a Founder and a Vorta',
-      holds: (facts) => commandsSpecies(facts, 'founder') && commandsSpecies(facts, 'vorta'),
+      holds: (r) => commandsA('founder').holds(r) && commandsA('vorta').holds(r),
+      text: () => 'you command a Founder and a Vorta',
     },
     text: 'You may score 5 points.',
   },
@@ -308,11 +301,7 @@ const SCORE_MODELS: ScoreModel[] = [
     title: 'Klaa Dauntless Hunter',
     points: 5,
     may: false,
-    condition: {
-      kind: 'table',
-      text: 'you command a Maneuver event',
-      holds: (facts) => (facts.events ?? []).some((e) => e.keywords.includes('maneuver')),
-    },
+    condition: tableCondition(commandsEvents({ keyword: 'maneuver', text: 'you command a Maneuver event' })),
     text: 'Score 5 points.',
   },
   // "When you play this personnel, if you command a mission worth 40 or more points and three [Fer] personnel,
@@ -324,9 +313,8 @@ const SCORE_MODELS: ScoreModel[] = [
     may: false,
     condition: {
       kind: 'table',
-      text: 'you command a mission worth 40 or more points and three [Fer] personnel',
-      holds: (facts) =>
-        (facts.missions ?? []).some((m) => m.type !== '' && m.points >= 40) && commandsCount(facts, (p) => p.affiliation === 'ferengi', 3),
+      holds: (r) => missions(r, { where: (m) => m.type !== '' && m.points >= 40 }).length > 0 && threeFerengi.holds(r),
+      text: () => 'you command a mission worth 40 or more points and three [Fer] personnel',
     },
     text: 'Score 5 points.',
   },
@@ -361,7 +349,7 @@ export const PLAY_MODELS: PlayModel[] = [
     title: 'Enabran Tain "Retired" Spymaster',
     drawUpTo: 7,
     discard: 2,
-    condition: { kind: 'nonHeadquartersRequire', skill: 'Intelligence' },
+    condition: nonHeadquartersRequire('Intelligence'),
     text: 'You may draw up to seven cards, then discard two cards from hand.',
   },
   ...DISCARD_A_CARD_TITLES.map(
@@ -428,13 +416,13 @@ export const PLAY_MODELS: PlayModel[] = [
     upTo: 3,
     test: [{ types: ['personnel'], icons: ['[tng]'] }],
     testText: 'up to three [TNG] personnel',
-    condition: { kind: 'nonHeadquartersRequire', skill: 'Biology' },
+    condition: nonHeadquartersRequire('Biology'),
     text: 'You may download up to three [TNG] personnel.',
   },
   // "When you play this personnel, if your non-Cardassian is at this mission, you may download an equipment."
   {
     ...download('Mavek Science Officer', 'an equipment', { types: ['equipment'] }),
-    condition: { kind: 'otherSpeciesHere', species: 'cardassian', name: 'Cardassian' },
+    condition: otherSpeciesHere('cardassian', 'Cardassian'),
   },
   // "When you play this personnel (or ship), you may download <a test>."
   download('Opaka Kai of Bajor', 'a [Baj] personnel', { types: ['personnel'], affiliations: ['bajoran'] }),
@@ -500,11 +488,7 @@ export const PLAY_MODELS: PlayModel[] = [
     test: [{ species: ["jem'hadar"] }],
     testText: "a Jem'Hadar",
     place: { kind: 'aboardShip', affiliation: 'dominion', text: 'your [Dom] ship' },
-    condition: {
-      kind: 'table',
-      text: 'each of your non-headquarters missions is an [AQ] mission',
-      holds: (facts) => (facts.missions ?? []).every((m) => m.type === '' || m.type === 'h' || m.quadrant === 'a'),
-    },
+    condition: nonHeadquartersInAlpha,
     text: "You may download a Jem'Hadar and place it aboard your [Dom] ship.",
   },
   // "When you play this ship, you may download a [TOS] personnel who has a cost of 4 or more and play him or her at
@@ -565,13 +549,6 @@ export interface PlayConditionState {
   text: string;
 }
 
-const conditionWords = (condition: PlayCondition): string =>
-  condition.kind === 'nonHeadquartersRequire'
-    ? `each of your non-headquarters missions requires ${condition.skill}`
-    : condition.kind === 'otherSpeciesHere'
-      ? `your non-${condition.name} is at this mission`
-      : condition.text;
-
 /** Where the played card stands (#1810): the mission slot and its instance id, for "at this mission". */
 export interface PlayedAt {
   missionIndex?: number;
@@ -586,16 +563,10 @@ export interface PlayedAt {
 export function playConditionOf(model: PlayModel, facts: PlayConditionFacts, at: PlayedAt = {}): PlayConditionState | null {
   const condition = model.condition;
   if (!condition) return null;
-  const text = conditionWords(condition);
-  if (condition.kind === 'unchecked') return { status: 'unchecked', text };
-  if (condition.kind === 'otherSpeciesHere') {
-    const here = at.missionIndex === undefined ? [] : (facts.missions?.[at.missionIndex]?.personnel ?? []);
-    const met = here.some((p) => p.id !== at.id && !p.species.includes(condition.species));
-    return { status: met ? 'met' : 'notMet', text };
-  }
-  if (condition.kind === 'table') return { status: condition.holds(facts) ? 'met' : 'notMet', text };
-  const met = (facts.missions ?? []).every((m) => m.type === '' || m.type === 'h' || missionRequires(m, condition.skill));
-  return { status: met ? 'met' : 'notMet', text };
+  if (condition.kind === 'unchecked') return { status: 'unchecked', text: condition.text };
+  // The facts of a test may leave out the lists a source reads as present: none commanded, an empty core.
+  const source = costFactsSource({ commanded: [], core: [], hand: [], ...facts });
+  return { status: condition.holds(source, at) ? 'met' : 'notMet', text: condition.text(source, at) };
 }
 
 /** "Condition met: …", "Condition not met: …" or "Condition not checked: …". */
