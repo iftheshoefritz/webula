@@ -60,6 +60,10 @@ import {
   PRACTICE_DISSIDENT_DRAW_TOP,
   PRACTICE_DISSIDENT_HAND,
   PRACTICE_DISSIDENT_TSV,
+  PRACTICE_ORDERS_CORE,
+  PRACTICE_ORDERS_CREW,
+  PRACTICE_ORDERS_HAND,
+  PRACTICE_ORDERS_TSV,
   PRACTICE_UNIQUE_DISCARDED,
   PRACTICE_UNIQUE_HAND,
   PRACTICE_UNIQUE_IN_PLAY,
@@ -218,8 +222,12 @@ import {
   resolvingRecalled,
   pendingPlayEffectOf,
   downloadPlaceShipsOf,
+  availableOrdersOf,
+  pendingOrderOf,
 } from './gameLog';
 import { playConditionLine } from '../../../lib/playModels';
+import { costNeedsPick, costPickCount, OrderCost } from '../../../lib/orderModels';
+import { OrderCard, orderCostCandidates } from './orders';
 import { downloadTakes, drawWanted, EffectStage, examineCount, examineTakeMax, examineTakeMin, examineTakes, handCount, stepOf } from '../../../lib/effectSteps';
 import {
   CardHoldProvider,
@@ -2393,6 +2401,9 @@ function PracticeDrawContent() {
   // `?fixture=dissident` (#1763) deals the piles table with The New Resistance in the core, a Dissident at the
   // end of the hand and another on top of the draw deck.
   const isDissidentFixture = fixture === 'dissident';
+  // `?fixture=orders` (#1866) deals the piles table with three events with an order in the core, Damar and a [Fer]
+  // personnel in the crew at Bilana System, and a [Car] ship at the end of the hand.
+  const isOrdersFixture = fixture === 'orders';
   // `?fixture=unique` (#1821) deals the piles table with a second copy of a unique personnel in play, of one in
   // the discard pile, and two copies each of a "(limit one per mission)" and a "(limit one per ship)" event.
   const isUniqueFixture = fixture === 'unique';
@@ -2434,6 +2445,7 @@ function PracticeDrawContent() {
     isKmtarFixture ||
     isTainFixture ||
     isDissidentFixture ||
+    isOrdersFixture ||
     isUniqueFixture ||
     isDownloadsFixture ||
     is60sFixture ||
@@ -2781,8 +2793,27 @@ function PracticeDrawContent() {
   // The subject is the card whose play text is resolving: the event, or else the personnel or ship whose
   // "when you play" effect is pending (#1800), derived from the log.
   const pendingPlay = table.resolving ? null : pendingPlayEffectOf(game);
-  const resolvingId = table.resolving?.id ?? (pendingPlay ? `played-${pendingPlay.target.entry}-${pendingPlay.target.move}-${pendingPlay.target.card}` : null);
+  // The order in progress (#1866), the panel's third subject, derived from the log.
+  const pendingOrder = table.resolving ? null : pendingOrderOf(game);
+  const resolvingId =
+    table.resolving?.id ??
+    (pendingPlay
+      ? `played-${pendingPlay.target.entry}-${pendingPlay.target.move}-${pendingPlay.target.card}`
+      : pendingOrder
+        ? `order-${pendingOrder.entry}`
+        : null);
   const [resolvingCollapsed, setResolvingCollapsed] = useState(false);
+  // The orders the table offers (#1866), and the one whose cost the player is choosing, page state: an order whose
+  // cost takes a pick (a discard, a stop, a card present) shows that pick in the panel before it is used.
+  const availableOrders = availableOrdersOf(game);
+  const [orderChoice, setOrderChoice] = useState<{ id: string; index: number } | null>(null);
+  const choosingOrder = orderChoice
+    ? (availableOrders.find((o) => o.instance.id === orderChoice.id && o.model.index === orderChoice.index) ?? null)
+    : null;
+  const startOrder = (o: OrderCard) => {
+    if (costNeedsPick(o.model.cost)) setOrderChoice({ id: o.instance.id, index: o.model.index });
+    else dispatch({ type: 'useOrder', id: o.instance.id, order: o.model.index });
+  };
   const [prevResolvingId, setPrevResolvingId] = useState(resolvingId);
   if (resolvingId !== prevResolvingId) {
     setPrevResolvingId(resolvingId);
@@ -2935,6 +2966,20 @@ function PracticeDrawContent() {
   };
   // The stage of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
   const playedStep: ResolveStep | undefined = pendingPlay ? stageView(pendingPlay.stage, pendingPlay) : undefined;
+  // The stage of the order in progress (#1866), each amending the order's entry, and the pick of an order's cost.
+  const orderStep: ResolveStep | undefined = pendingOrder ? stageView(pendingOrder.stage, null) : undefined;
+  const orderCostStep: ResolveStep | undefined = choosingOrder
+    ? {
+        step: 'orderCost',
+        ...orderCostWords(choosingOrder.model.cost),
+        count: costPickCount(choosingOrder.model.cost),
+        cards: orderCostCandidates(table, choosingOrder),
+        onPay: (ids) => {
+          setOrderChoice(null);
+          dispatch({ type: 'useOrder', id: choosingOrder.instance.id, order: choosingOrder.model.index, ids });
+        },
+      }
+    : undefined;
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -3175,6 +3220,8 @@ function PracticeDrawContent() {
                   ? tainFixtureExtras()
                 : isDissidentFixture
                   ? dissidentFixtureExtras()
+                  : isOrdersFixture
+                    ? ordersFixtureExtras()
                   : isUniqueFixture
                     ? uniqueFixtureExtras()
                   : isDownloadsFixture
@@ -3354,6 +3401,13 @@ function PracticeDrawContent() {
       drawTop: named(PRACTICE_DISSIDENT_DRAW_TOP),
     };
   };
+  // The cards `?fixture=orders` adds (#1866): three events to the core, two personnel to the crew, a ship to the
+  // end of the hand.
+  const ordersFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_ORDERS_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return { hand: [] as any[], crew: named(PRACTICE_ORDERS_CREW), core: named(PRACTICE_ORDERS_CORE), lateHand: named(PRACTICE_ORDERS_HAND) };
+  };
   // The cards `?fixture=unique` adds (#1821): one Yarka to the crew at Bilana System, one Vina to the discard
   // pile, and the other copies to the end of the hand.
   const uniqueFixtureExtras = () => {
@@ -3415,6 +3469,7 @@ function PracticeDrawContent() {
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
+    if (isOrdersFixture) return { ...deck, ...deckFromTsv(PRACTICE_ORDERS_TSV, data) };
     if (isUniqueFixture) return { ...deck, ...deckFromTsv(PRACTICE_UNIQUE_TSV, data) };
     if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
     if (is60sFixture) return { ...deck, ...deckFromTsv(PRACTICE_60S_TSV, data) };
@@ -3508,6 +3563,7 @@ function PracticeDrawContent() {
           isKmtarFixture ||
           isTainFixture ||
           isDissidentFixture ||
+          isOrdersFixture ||
           isUniqueFixture ||
           isDownloadsFixture ||
           is60sFixture ||
@@ -3798,7 +3854,9 @@ function PracticeDrawContent() {
     ? `Resolve ${cardDisplayName(table.resolving.card)} first`
     : pendingPlay
       ? `Resolve ${pendingPlay.name} first`
-      : null;
+      : pendingOrder
+        ? `Resolve ${pendingOrder.name} first`
+        : null;
   const nextTurn = () => {
     if (turnBlockedBy) return;
     dispatch({ type: 'advanceSegment' });
@@ -3859,6 +3917,12 @@ function PracticeDrawContent() {
         });
       }
     }
+  }
+  // The orders of the cards (#1866), in the orders segment only: a card with several modelled orders offers its
+  // first available one.
+  for (const o of availableOrders) {
+    if (tableCardUses.has(o.instance.id)) continue;
+    tableCardUses.set(o.instance.id, { label: `Order of ${o.name}: ${o.model.text}`, short: 'Order', onUse: () => startOrder(o) });
   }
 
   // The spends of counters the missions allow (#1754), in both counter modes: Earth's draw after a play of
@@ -5681,6 +5745,45 @@ function PracticeDrawContent() {
             {pendingPlay && resolvingCollapsed && (
               <ResolvingMini instance={pendingPlay.instance} played onOpen={() => setResolvingCollapsed(false)} />
             )}
+            {/* An order (#1866): the pick of its cost first, with Cancel, then the order in progress, with Skip or Done. */}
+            {choosingOrder && orderCostStep && (
+              <ResolvingPanel
+                instance={choosingOrder.instance}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onCancel={() => setOrderChoice(null)}
+                onViewTable={() => setOrderChoice(null)}
+                step={orderCostStep}
+                played={{
+                  text: choosingOrder.model.text,
+                  condition: null,
+                  started: false,
+                  endable: false,
+                  skippable: false,
+                  onEnd: () => setOrderChoice(null),
+                }}
+              />
+            )}
+            {pendingOrder && !resolvingCollapsed && (
+              <ResolvingPanel
+                instance={pendingOrder.instance}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onViewTable={() => setResolvingCollapsed(true)}
+                step={orderStep}
+                played={{
+                  text: pendingOrder.model.text,
+                  condition: pendingOrder.condition ? playConditionLine(pendingOrder.model, pendingOrder.condition) : null,
+                  started: pendingOrder.steps.length > 0,
+                  endable: true,
+                  skippable: true,
+                  onEnd: () => dispatch({ type: 'effectSkip' }),
+                }}
+              />
+            )}
+            {pendingOrder && resolvingCollapsed && (
+              <ResolvingMini instance={pendingOrder.instance} played onOpen={() => setResolvingCollapsed(false)} />
+            )}
             </MissionSpendProvider>
             </NamedCardProvider>
             </TableCardUseProvider>
@@ -5724,4 +5827,12 @@ export default function PracticeTable() {
       <PracticeDrawContent />
     </Suspense>
   );
+}
+
+// The words of the pick of an order's cost (#1866): the task and the button.
+function orderCostWords(cost: OrderCost): { task: string; action: string } {
+  if (cost.kind === 'discardFromHand') return { task: `Discard ${cost.count === 1 ? cost.text : `${cost.count} × ${cost.text}`} from your hand`, action: 'Discard' };
+  if (cost.kind === 'stopPersonnel') return { task: `Stop ${cost.text}`, action: 'Stop' };
+  if (cost.kind === 'placePresentOnBottom') return { task: `Place ${cost.text} on the bottom of your draw deck`, action: 'Place on bottom' };
+  return { task: '', action: 'Use' };
 }

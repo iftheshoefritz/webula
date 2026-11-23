@@ -344,7 +344,7 @@ export interface PlayConditionState {
  * mission" condition reads the personnel of the slot the card stands at, not the card itself; with no slot it
  * is not met.
  */
-export function playConditionOf(model: PlayModel, facts: PlayConditionFacts, at: PlayedAt = {}): PlayConditionState | null {
+export function playConditionOf(model: Pick<PlayModel, 'condition'>, facts: PlayConditionFacts, at: PlayedAt = {}): PlayConditionState | null {
   const condition = model.condition;
   if (!condition) return null;
   if (condition.kind === 'unchecked') return { status: 'unchecked', text: condition.text };
@@ -354,7 +354,7 @@ export function playConditionOf(model: PlayModel, facts: PlayConditionFacts, at:
 }
 
 /** "Condition met: …", "Condition not met: …" or "Condition not checked: …". */
-export function playConditionLine(model: PlayModel, state: PlayConditionState): string {
+export function playConditionLine(model: Pick<PlayModel, 'condition'>, state: PlayConditionState): string {
   if (state.status === 'met') return `Condition met: ${state.text}`;
   if (state.status === 'notMet') return `Condition not met: ${state.text}`;
   const needs = model.condition?.kind === 'unchecked' ? model.condition.needs : 'the table cannot read it';

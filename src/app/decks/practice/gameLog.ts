@@ -47,6 +47,8 @@ import { completionEffectOf, involvedSpecies } from './completionEffects';
 import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { resolveModelOf, resolveStagesOf } from '../../../lib/resolveModels';
 import { PlayConditionState, PlayConditionStatus, PlayModel, playConditionOf, playModelOf, playStagesOf } from '../../../lib/playModels';
+import { costNeedsPick, costPickCount, OrderModel, orderModelOf, orderStagesOf } from '../../../lib/orderModels';
+import { orderCardOf, orderCardsOf, OrderCard, orderCostCandidates } from './orders';
 import {
   downloadPlaceShips,
   downloadPlayCost,
@@ -374,7 +376,22 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // Dessert Disaster (#1847): the interrupt `card` went to the discard pile, and `to` took the place of
   // `from` in the selection of the revealed `dilemma`.
   | { kind: 'pickReplaced'; card: string; dilemma: string; from: string; to: string }
+  // An order of a card on the table (#1866): the card's instance id and name, which of its orders, what the cost
+  // did, and the record of its steps. Each stage of the order amends this entry while it is the last of the log,
+  // so the cost and every step are one entry and one undo.
+  | { kind: 'orderUsed'; id: string; card: string; order: number; cost?: OrderCostRecord; effect: PlayEffectRecord }
+  // Stages of an order that could not amend its entry, because another entry came after it: the order's entry
+  // `target`, its card, and the stages of this entry. Its undo takes back those stages only.
+  | { kind: 'orderEffect'; target: number; card: string; effect: PlayEffectRecord }
 );
+
+// What the cost of an order did (#1866): the names of the cards it discarded, stopped, or placed on the bottom
+// of the draw deck.
+export interface OrderCostRecord {
+  discarded?: string[];
+  stopped?: string[];
+  placed?: string[];
+}
 
 // The card on the table a use acted on (#1713).
 export interface LogUsedCard {
@@ -446,6 +463,9 @@ export type GameAction =
   | ({ type: 'effectStep' } & EffectStepInput)
   // Skip and Done of the pending "when you play" effect: every stage left is recorded as skipped.
   | { type: 'effectSkip' }
+  // An order of the card `id` on the table (#1866), its `order`-th: the cost, with `ids` the cards its pick took,
+  // and one `orderUsed` entry, whose steps then run as the pending order's stages.
+  | { type: 'useOrder'; id: string; order: number; ids?: string[] }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -893,7 +913,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'missionSpend' } | { type: 'effectStep' } | { type: 'effectSkip' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'missionSpend' } | { type: 'effectStep' } | { type: 'effectSkip' } | { type: 'useOrder' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -993,9 +1013,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'missionSpend') return missionSpendState(state, action);
   if (action.type === 'effectStep') return effectStepState(state, action);
   if (action.type === 'effectSkip') return effectSkipState(state);
+  if (action.type === 'useOrder') return orderUseState(state, action);
   if (action.type === 'setNamed') return setNamedState(state, action);
-  // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event.
-  if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && pendingPlayEffectOf(state)) return state;
+  // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event, and while
+  // an order is (#1866).
+  if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && (pendingPlayEffectOf(state) || pendingOrderOf(state))) return state;
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),
@@ -1188,7 +1210,8 @@ export function withShuffleOrders(
     action.type === 'useCard' ||
     action.type === 'discardForCharge' ||
     action.type === 'cancelResolving' ||
-    action.type === 'effectSkip'
+    action.type === 'effectSkip' ||
+    action.type === 'useOrder'
   ) {
     return action;
   }
@@ -1545,6 +1568,8 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   cardNamed: true,
   selectedAgain: true,
   pickReplaced: true,
+  orderUsed: true,
+  orderEffect: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1772,6 +1797,12 @@ export function logEntryText(entry: LogEntry): string {
         return `${spent}, and drew ${n} ${n === 1 ? 'card' : 'cards'}`;
       }
       return `${spent}, and downloaded ${entry.downloaded ?? 'a card'} into its away team`;
+    }
+    case 'orderUsed':
+      return orderUsedText(entry);
+    case 'orderEffect': {
+      const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
+      return `${card}'s order: ${isPlayEffectRecord(entry.effect) ? orderStepsText(entry.effect) : 'no effect'}`;
     }
     case 'playEffect': {
       // "Enabran Tain: discarded Tricorder and Phaser" (#1800).
@@ -2511,10 +2542,26 @@ export interface EffectStepInput {
 }
 
 // The effect a stage applies to (#1863): the resolving event when one resolves, as the page shows it, otherwise
-// the pending "when you play" effect, and its current stage.
+// a pending ability of a card, and its current stage. The pending abilities are tried in turn
+// (`PENDING_ABILITIES`): the order in progress (#1866, the orders segment), then the "when you play" effect (play
+// and draw). A new kind of ability, such as a trigger, joins that list with its own `pending` reader.
 type EffectSubject =
   | { kind: 'resolving'; event: CardInstance; name: string; stage: EffectStage; last: boolean }
-  | { kind: 'play'; pending: PendingPlayEffect; stage: EffectStage };
+  | { kind: 'play'; pending: PendingPlayEffect; stage: EffectStage }
+  | { kind: 'order'; pending: PendingOrder; stage: EffectStage };
+
+type PendingSubjectReader = (state: { table: TableState; log: LogEntry[] }) => EffectSubject | null;
+
+const PENDING_ABILITIES: PendingSubjectReader[] = [
+  (state) => {
+    const pending = pendingOrderOf(state);
+    return pending ? { kind: 'order', pending, stage: pending.stage } : null;
+  },
+  (state) => {
+    const pending = pendingPlayEffectOf(state);
+    return pending ? { kind: 'play', pending, stage: pending.stage } : null;
+  },
+];
 
 export function effectSubjectOf(state: { table: TableState; log: LogEntry[] }): EffectSubject | null {
   const event = state.table.resolving;
@@ -2524,8 +2571,11 @@ export function effectSubjectOf(state: { table: TableState; log: LogEntry[] }): 
     if (!stage || !model) return null;
     return { kind: 'resolving', event, name: cardName(state.table, event.id), stage, last: stage.index === resolveStagesOf(model).length - 1 };
   }
-  const pending = pendingPlayEffectOf(state);
-  return pending ? { kind: 'play', pending, stage: pending.stage } : null;
+  for (const read of PENDING_ABILITIES) {
+    const subject = read(state);
+    if (subject) return subject;
+  }
+  return null;
 }
 
 /** The name a record gives the stage led by `step` (#1863). */
@@ -2733,6 +2783,7 @@ function effectStepState(state: GameState, input: EffectStepInput): GameState {
     };
     return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
   }
+  if (subject.kind === 'order') return withOrderSteps(state, subject.pending, [ran.record], ran.table);
   const { pending } = subject;
   if (!ran.played) return withPlayEffectSteps(state, pending, [ran.record], ran.table);
   const moves = moveEntry(state.table, [ran.played], false);
@@ -3116,6 +3167,12 @@ export function downloadPlaceShipsOf(table: TableState, pending: PendingPlayEffe
 // is not skipped while the hand holds a card; with an empty hand, Done records that it discarded no card.
 function effectSkipState(state: GameState): GameState {
   if (state.table.resolving) return state;
+  // An order (#1866): every stage left is recorded as skipped. The player chose to use it, so no stage holds it.
+  const order = pendingOrderOf(state);
+  if (order) {
+    const left = orderStagesOf(order.model).slice(order.steps.length);
+    return withOrderSteps(state, order, left.map((s): EffectStepRecord => ({ step: recordStepName(s.lead), skipped: true })), state.table);
+  }
   const pending = pendingPlayEffectOf(state);
   if (!pending) return state;
   const handEmpty = state.table.hand.length === 0;
@@ -3163,4 +3220,165 @@ function setNamedState(state: GameState, action: { id: string; named?: string })
     segment: state.table.segment,
   };
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// An order in progress (#1866): the `orderUsed` entry at `entry`, its card where it is now (on the table, or
+// wherever its cost sent it), the order, its condition, the stages the record holds and the stage that comes next.
+export interface PendingOrder {
+  entry: number;
+  id: string;
+  instance: CardInstance;
+  name: string;
+  model: OrderModel;
+  condition: PlayConditionState | null;
+  steps: EffectStepRecord[];
+  stage: EffectStage;
+}
+
+const isOrderUsed = (entry: LogEntry): entry is Extract<LogEntry, { kind: 'orderUsed' }> =>
+  entry.kind === 'orderUsed' && typeof entry.id === 'string' && typeof entry.card === 'string' && isIndex(entry.order) && isPlayEffectRecord(entry.effect);
+
+// The stages the log holds for the order at `entry`: its own record, then each `orderEffect` entry that names it.
+function orderRecordOf(log: LogEntry[], entry: number): EffectStepRecord[] {
+  const own = log[entry];
+  if (!own || !isOrderUsed(own)) return [];
+  const later = log
+    .slice(entry + 1)
+    .flatMap((e) => (e.kind === 'orderEffect' && e.target === entry && isPlayEffectRecord(e.effect) ? e.effect.steps : []));
+  return [...own.effect.steps, ...later];
+}
+
+// The order in progress (#1866), derived from the log so an undo, a redo and a reload agree: the latest
+// `orderUsed` of the current turn's orders segment, while its record lacks a stage. Its card need not be on the
+// table: a cost may have sent it to the bottom of the draw deck (Four of Nine). The end of the segment ends it, and
+// an unknown or malformed entry is no order. Null otherwise.
+export function pendingOrderOf(state: { table: TableState; log: LogEntry[] }): PendingOrder | null {
+  const { table, log } = state;
+  if (table.segment !== 'orders') return null;
+  for (let i = log.length - 1; i >= 0; i--) {
+    const entry = log[i];
+    if (entry.turn !== table.turn || entrySegment(entry) !== 'orders') return null;
+    if (entry.kind !== 'orderUsed') continue;
+    if (!isOrderUsed(entry)) return null;
+    const model = orderModelOf(entry.card, entry.order);
+    if (!model) return null;
+    const steps = orderRecordOf(log, i);
+    const stage = orderStagesOf(model)[steps.length];
+    const instance = stage ? findInstanceAnywhere(table, entry.id)?.instance : undefined;
+    if (!stage || !instance) return null;
+    const live = playConditionOf(model, costFactsOf(table, []), { id: instance.id });
+    const condition = live && entry.effect.condition ? { ...live, status: entry.effect.condition } : live;
+    return { entry: i, id: entry.id, instance, name: entry.card, model, condition, steps, stage };
+  }
+  return null;
+}
+
+// Whether the order of `order` was used this turn, from the log, so an undo gives it back.
+const orderUsedThisTurn = (log: LogEntry[], turn: number, order: OrderCard): boolean =>
+  log.some((e) => e.turn === turn && e.kind === 'orderUsed' && e.id === order.instance.id && e.order === order.model.index);
+
+/**
+ * The orders the table offers (#1866): in the orders segment, with no attempt in progress, nothing resolving and
+ * no effect or order pending, each order of a card in its own place, less a once-each-turn order used this turn.
+ */
+export function availableOrdersOf(state: { table: TableState; log: LogEntry[] }): OrderCard[] {
+  const { table, log } = state;
+  if (table.segment !== 'orders' || table.attempt || table.resolving || pendingOrderOf(state) || pendingPlayEffectOf(state)) return [];
+  return orderCardsOf(table).filter((o) => !o.model.oncePerTurn || !orderUsedThisTurn(log, table.turn, o));
+}
+
+// The use of an order (#1866): the order must be one the table offers, and the pick must fit its cost, or nothing
+// changes. The cost is paid at once, and the order's one `orderUsed` entry is written, with no step yet. It is no
+// charge: it spends no counter.
+function orderUseState(state: GameState, action: { id: string; order: number; ids?: string[] }): GameState {
+  const order = availableOrdersOf(state).find((o) => o.instance.id === action.id && o.model.index === action.order);
+  if (!order || orderCardOf(state.table, action.id, action.order) === null) return state;
+  const { cost } = order.model;
+  const start = state.table;
+  let table = start;
+  let record: OrderCostRecord | undefined;
+  if (costNeedsPick(cost)) {
+    const ids = Array.isArray(action.ids) ? [...new Set(action.ids)] : [];
+    const allowed = new Set(orderCostCandidates(start, order).map((c) => c.id));
+    if (ids.length !== costPickCount(cost) || ids.length !== (action.ids?.length ?? 0) || !ids.every((id) => allowed.has(id))) return state;
+    const names = ids.map((id) => cardName(start, id));
+    if (cost.kind === 'discardFromHand') {
+      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), table);
+      record = { discarded: names };
+    } else if (cost.kind === 'stopPersonnel') {
+      table = tableReducer(table, { type: 'setStopped', ids, stopped: true });
+      record = { stopped: names };
+    } else {
+      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), table);
+      record = { placed: names };
+    }
+    if (table === start) return state;
+  } else if (cost.kind === 'placeThisOnBottom') {
+    table = tableReducer(table, { type: 'move', id: action.id, to: 'drawDeck', position: 'bottom' });
+    if (table === start) return state;
+    record = { placed: [order.name] };
+  }
+  const condition = playConditionOf(order.model, costFactsOf(start, []), { id: action.id });
+  const entry: LogEntry = {
+    kind: 'orderUsed',
+    id: action.id,
+    card: order.name,
+    order: action.order,
+    ...(record ? { cost: record } : {}),
+    effect: { ...(condition ? { condition: condition.status } : {}), steps: [] },
+    turn: table.turn,
+    segment: table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// Adds `steps` to the record of the order in progress (#1866), with the table they left. While its entry is the
+// last of the log, the steps amend it and the undo snapshot stays the table from before the use, so one undo takes
+// back the cost and every step. Otherwise they go into one `orderEffect` entry, which later steps amend.
+function withOrderSteps(state: GameState, pending: PendingOrder, steps: EffectStepRecord[], table: TableState): GameState {
+  const last = state.log.length - 1;
+  const entry = state.log[last];
+  if (pending.entry === last && entry && isOrderUsed(entry)) {
+    const amended: LogEntry = { ...entry, effect: { ...entry.effect, steps: [...entry.effect.steps, ...steps] } };
+    return { table, log: [...state.log.slice(0, -1), amended], undo: state.undo, redo: [] };
+  }
+  if (entry?.kind === 'orderEffect' && entry.target === pending.entry && isPlayEffectRecord(entry.effect)) {
+    const amended: LogEntry = { ...entry, effect: { ...entry.effect, steps: [...entry.effect.steps, ...steps] } };
+    return { table, log: [...state.log.slice(0, -1), amended], undo: state.undo, redo: [] };
+  }
+  const added: LogEntry = {
+    kind: 'orderEffect',
+    target: pending.entry,
+    card: pending.name,
+    effect: { steps },
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
+  return { table, log: [...state.log, added], undo: [...state.undo, state.table], redo: [] };
+}
+
+// "drew 3 cards", "drew 1 card, then discarded Tricorder", "skipped the draw".
+function orderStepsText(record: PlayEffectRecord): string {
+  return record.steps.map((s) => effectStageClauses(s).join(', ')).join(', then ');
+}
+
+// "Used Damar Ambitious Glinn's order: discarded Hideki Class, drew 3 cards" (#1866).
+function orderUsedText(entry: Extract<LogEntry, { kind: 'orderUsed' }>): string {
+  const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
+  const cost = entry.cost ?? {};
+  const costParts = [
+    ...(isNames(cost.discarded) && cost.discarded.length ? [`discarded ${cardsText(cost.discarded)}`] : []),
+    ...(isNames(cost.stopped) && cost.stopped.length ? [`stopped ${cardsText(cost.stopped)}`] : []),
+    ...(isNames(cost.placed) && cost.placed.length ? [`placed ${cardsText(cost.placed)} on the bottom of the draw deck`] : []),
+  ];
+  const steps = isPlayEffectRecord(entry.effect) ? orderStepsText(entry.effect) : '';
+  const parts = [...costParts, ...(steps ? [steps] : [])];
+  const condition = isPlayEffectRecord(entry.effect)
+    ? entry.effect.condition === 'notMet'
+      ? ' (condition not met)'
+      : entry.effect.condition === 'unchecked'
+        ? ' (condition not checked)'
+        : ''
+    : '';
+  return `Used ${card}'s order${parts.length ? `: ${parts.join(', ')}` : ''}${condition}`;
 }

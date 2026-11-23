@@ -9,7 +9,7 @@ import { hasPlayEffect } from './playModels/coverage';
 // clause has a registry to go in. Pure: the caller passes the cards, the decks and the registries.
 
 /**
- * The gameplay concerns a clause of card text falls under. The first six have a registry today; the
+ * The gameplay concerns a clause of card text falls under. The first eight have a registry today; the
  * rest have none, so a clause of theirs needs a new home before any card of theirs can be modelled.
  */
 export type Concern =
@@ -20,7 +20,7 @@ export type Concern =
   | 'attributes' // a change to Integrity, Cunning, Strength, Weapons, Shields, Range or span
   | 'mission' // a mission's own text: completion, attempt, spend, dilemma cost, prevention
   | 'place' // "you may play … here" or "aboard": where a card may be played (`playPlaces`)
-  | 'order' // "Order - …": an action the player takes
+  | 'order' // "Order - …": an action the player takes (`orderModels`)
   | 'trigger' // "When …", "Whenever …", "At the start/end …", "Response - …"
   | 'ongoing' // a standing rule with no trigger
   | 'interrupt'; // an interrupt card's text
@@ -28,7 +28,7 @@ export type Concern =
 export const CONCERNS: Concern[] = ['dilemma', 'cost', 'whenPlayed', 'eventResolve', 'attributes', 'mission', 'place', 'order', 'trigger', 'ongoing', 'interrupt'];
 
 /** The concerns with a registry today. A clause of any other concern has no place to be modelled yet. */
-export const CONCERNS_WITH_REGISTRY: ReadonlySet<Concern> = new Set<Concern>(['dilemma', 'cost', 'whenPlayed', 'eventResolve', 'attributes', 'mission', 'place']);
+export const CONCERNS_WITH_REGISTRY: ReadonlySet<Concern> = new Set<Concern>(['dilemma', 'cost', 'whenPlayed', 'eventResolve', 'attributes', 'mission', 'place', 'order']);
 
 export interface CoverageCard {
   name: string;
@@ -41,9 +41,10 @@ export interface Clause {
   text: string;
 }
 
+// A sentence ends at a stop, or at a stop inside a closing parenthesis: "(… each of your turns.) Order - …".
 const sentencesOf = (text: string): string[] =>
   text
-    .split(/(?<=[.!?])\s+/)
+    .split(/(?<=[.!?]\)?)\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -125,8 +126,11 @@ export function shippedDeckTitles(deckText: string): Set<string> {
   return titles;
 }
 
-/** Whether the registry of `concern` models the clause of `card`, whose title is `title`. */
-export type ModelledBy = (concern: Concern, title: string, card: CoverageCard) => boolean;
+/**
+ * Whether the registry of `concern` models the clause `clause` of `card`, whose title is `title`. The clause
+ * tells apart the clauses of one concern on one card: Optimism's three orders.
+ */
+export type ModelledBy = (concern: Concern, title: string, card: CoverageCard, clause: string) => boolean;
 
 export interface CoverageRow {
   title: string;
@@ -161,7 +165,7 @@ export function coverageReport(cards: CoverageCard[], decks: string[], modelled:
   for (const title of titles) {
     const card = byTitle.get(title);
     if (!card) continue;
-    const clauses = clausesOf(card).map((c) => ({ ...c, modelled: modelled(c.concern, title, card) }));
+    const clauses = clausesOf(card).map((c) => ({ ...c, modelled: modelled(c.concern, title, card, c.text) }));
     const missing = CONCERNS.filter((k) => clauses.some((c) => c.concern === k && !c.modelled));
     rows.push({
       title,

@@ -73,6 +73,9 @@ export type ResolveStep =
   | { step: 'discardFromHand'; count: number; hand: CardInstance[]; onDiscard: (ids: string[]) => void }
   // The score of a played card (#1812): `points` to the score.
   | { step: 'score'; points: number; onScore: () => void }
+  // The cost of an order (#1866), before the order is used: `count` of the `cards` it may take, "Discard a [Car]
+  // ship from hand", and a button, `action` ("Discard"), that pays it and uses the order.
+  | { step: 'orderCost'; task: string; action: string; count: number; cards: CardInstance[]; onPay: (ids: string[]) => void }
   // The examine of the top of the draw deck of a played card (#1809): the `examined` cards, of which the player
   // takes from `min` to `max` that pass `takes`, and orders the rest for the bottom of the draw deck.
   | {
@@ -637,6 +640,43 @@ function DiscardFromHandStep({ step }: { step: Extract<ResolveStep, { step: 'dis
   );
 }
 
+// The cost of an order (#1866): the cards it may take as a row, a tap picks a card up to `count`, and the button
+// pays the cost once exactly `count` are picked. With too few cards the cost cannot be paid: Cancel ends it.
+function OrderCostStep({ step }: { step: Extract<ResolveStep, { step: 'orderCost' }> }) {
+  const [order, setOrder] = useState<string[]>([]);
+  const shown = new Set(step.cards.map((c) => c.id));
+  const picked = order.filter((id) => shown.has(id));
+  const toggle = (id: string) =>
+    setOrder((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : ids.filter((i) => shown.has(i)).length < step.count ? [...ids, id] : ids));
+  return (
+    <div data-testid="resolve-step-order-cost" className="flex min-h-0 min-w-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">{step.cards.length < step.count ? `${step.task}: none to choose.` : step.task}</p>
+      <div data-testid="resolve-order-cost-cards" className="flex min-w-0 gap-1 overflow-x-auto overscroll-contain pb-1 pt-1.5 pr-1.5">
+        {step.cards.map((c) => (
+          <HandOption
+            key={c.id}
+            instance={c}
+            order={picked.includes(c.id) ? picked.indexOf(c.id) : null}
+            badge={false}
+            pickedLabel="chosen"
+            testId="resolve-order-cost-card"
+            onToggle={() => toggle(c.id)}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        data-testid="resolve-order-cost"
+        className="btn-primary w-full whitespace-nowrap text-sm"
+        disabled={picked.length !== step.count}
+        onClick={() => step.onPay(picked)}
+      >
+        {step.action}
+      </button>
+    </div>
+  );
+}
+
 // The score of a played card (#1812): the points, and one button that adds them to the score.
 function ScoreStep({ step }: { step: Extract<ResolveStep, { step: 'score' }> }) {
   return (
@@ -883,6 +923,8 @@ export function ResolvingPanel({
               <DownloadCardsStep key={`download-cards-${instance.id}`} step={step} />
             ) : step.step === 'discardFromHand' ? (
               <DiscardFromHandStep key={`discard-${instance.id}`} step={step} />
+            ) : step.step === 'orderCost' ? (
+              <OrderCostStep key={`order-cost-${instance.id}`} step={step} />
             ) : step.step === 'draw' ? (
               <DrawStep key={`draw-${instance.id}`} step={step} />
             ) : step.step === 'discardDraw' ? (
