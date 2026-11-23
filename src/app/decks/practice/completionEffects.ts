@@ -1,18 +1,22 @@
 // The effects of completing a mission on the player's own cards (#1757): what each mission's "When you
-// complete this mission" does, the cards each one may pick, and the actions a choice dispatches. The page
-// dispatches one `batch`, the `setMissionCompleted` first and then the effect's actions, so the
-// completion and its effect are one log entry and one undo. No React and no reducer state: it reads a
+// complete this mission" does (the `onComplete` abilities of the mission registry, #1907), the cards each
+// one may pick, and the actions a choice dispatches. The page dispatches one `batch`, the
+// `setMissionCompleted` first and then the effect's actions, so the completion and its effect are one log
+// entry and one undo. No React and no reducer state: it reads a
 // `TableState` and returns plain actions.
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import { hqRowOf, reportsToMatches } from '../../../lib/hqPlayability';
+import { AFFILIATION_ABBREVIATIONS } from '../../../lib/missionRequirements';
+import { downloadTakes, scorePoints, type DownloadTest } from '../../../lib/effectSteps';
+import { abilityOf, missionModelOfCard, missionModelsWith, type CompletionCondition, type CompletionWatch, type MissionCompletion } from '../../../lib/missionModels';
 import { missionAt, personnel } from '../../../lib/tableView';
 import type { GameAction } from './gameLog';
 import { attemptingCards, findInstanceAnywhere, type CardInstance, type TableAction, type TableState } from './tableReducer';
 import { tableViewOf } from './tableView';
 
-export type CompletionEffectKind = 'download' | 'discardToHq' | 'discardOrDestroy' | 'toDeckBottom' | 'flip' | 'score';
+export type CompletionEffectKind = MissionCompletion['kind'];
 
 export interface CompletionEffect {
   title: string;
@@ -31,54 +35,52 @@ export interface CompletionEffect {
   points?: number;
   /** The fewest different species involved for a score. */
   minSpecies?: number;
+  /** The condition of a score (#1908); Cheron's is `species`. */
+  condition?: CompletionCondition;
+  /** The part of a score the table does not model, an opponent's score. */
+  notChecked?: string;
+  /** The missions of the player whose completion fires it, when it is not this mission's own (Earth). */
+  watches?: CompletionWatch;
+  /** A kill (#1909): the most personnel it kills, the test of each, and its words. `points` is scored for each. */
+  upTo?: number;
+  killTest?: DownloadTest[];
+  killText?: string;
 }
 
-const EFFECTS: CompletionEffect[] = [
-  {
-    title: 'Saturn Continue Invasion',
-    label: 'Saturn',
-    kind: 'download',
-    download: 'Population 9 Billion - All Borg',
-    text: 'When you complete this mission, you may download Population 9 Billion - All Borg.',
-  },
-  {
-    title: 'Starbase 718 Investigate Cryosatellite',
-    label: 'Starbase 718',
-    kind: 'discardToHq',
-    cap: 6,
-    text:
-      'When your personnel complete this mission, you may place any number of unique personnel with a total cost of 6 or less from your discard pile at your headquarters mission where they could be played.',
-  },
-  {
-    title: 'Bassen Rift Interdict Genocidal Praetor',
-    label: 'Bassen Rift',
-    kind: 'discardOrDestroy',
-    min: 4,
-    text:
-      "When you complete this mission, each ship here is destroyed unless you place a personnel involved who costs 4 or more in their owner's discard pile.",
-  },
-  {
-    title: 'Aldea Aid Legendary Civilization',
-    label: 'Aldea',
-    kind: 'toDeckBottom',
-    cap: 12,
-    text: "When you complete this mission, place up to 12 total cost of your personnel involved beneath their owners' decks.",
-  },
-  {
-    title: 'Cheron Aid Planetary Recovery',
-    label: 'Cheron',
-    kind: 'score',
-    points: 5,
-    minSpecies: 4,
-    text: 'When you complete this mission, if four or more different species were involved, score 5 points.',
-  },
-  {
-    title: 'Gateway Flee in Terror',
-    label: 'Gateway',
-    kind: 'flip',
-    text: 'When you complete this mission, flip it over.',
-  },
-];
+// The completion of each row of the mission registry with an `onComplete` ability (#1907), in the shape the
+// panel and the log read.
+function completionEffect(title: string, label: string, text: string, completion: MissionCompletion, watches?: CompletionWatch): CompletionEffect {
+  const base = { title, label, text, kind: completion.kind, ...(watches ? { watches } : {}) };
+  switch (completion.kind) {
+    case 'download': {
+      const [step] = completion.steps;
+      return { ...base, download: step.of.kind === 'test' ? step.of.test[0]?.titles?.[0] : undefined };
+    }
+    case 'discardToHq':
+    case 'toDeckBottom':
+      return { ...base, cap: completion.cap };
+    case 'discardOrDestroy':
+      return { ...base, min: completion.min };
+    case 'score':
+      return {
+        ...base,
+        points: completion.steps[0].points,
+        condition: completion.condition,
+        ...(completion.condition.kind === 'species' ? { minSpecies: completion.condition.min } : {}),
+        ...(completion.notChecked ? { notChecked: completion.notChecked } : {}),
+      };
+    case 'kill': {
+      const [step, scoring] = completion.steps;
+      return { ...base, upTo: step.upTo, killTest: step.test, killText: step.testText, points: scoring.points };
+    }
+    case 'flip':
+      return base;
+  }
+}
+
+const EFFECTS: CompletionEffect[] = missionModelsWith('onComplete').map(({ model, ability }) =>
+  completionEffect(model.title, model.label, ability.text, ability.completion, ability.watches)
+);
 
 export const COMPLETION_EFFECTS: ReadonlyMap<string, CompletionEffect> = new Map(EFFECTS.map((e) => [e.title, e]));
 
@@ -87,9 +89,24 @@ const titleOf = (card: CardInstance['card'] | null | undefined): string => (card
 /** The printed cost of a card, 0 when it has none. */
 export const costOf = (c: CardInstance): number => Number(c.card?.cost) || 0;
 
-/** The effect of completing the mission of slot `missionIndex`, or undefined for a mission with none. */
+const missionTypeOf = (table: TableState, missionIndex: number): string =>
+  String(table.missions[missionIndex]?.mission?.card?.missiontype ?? '').toLowerCase().charAt(0);
+
+/**
+ * The effect of completing the mission of slot `missionIndex`, or undefined for a mission with none: its own,
+ * or else that of another of the player's missions that watches it (#1908, Earth Humanity's Home watches every
+ * space mission).
+ */
 export function completionEffectOf(table: TableState, missionIndex: number): CompletionEffect | undefined {
-  return COMPLETION_EFFECTS.get(titleOf(table.missions[missionIndex]?.mission?.card));
+  const own = COMPLETION_EFFECTS.get(titleOf(table.missions[missionIndex]?.mission?.card));
+  if (own && !own.watches) return own;
+  const type = missionTypeOf(table, missionIndex);
+  for (const [i, slot] of table.missions.entries()) {
+    if (i === missionIndex) continue;
+    const watches = abilityOf(missionModelOfCard(slot.mission?.card), 'onComplete')?.watches;
+    if (watches && watches.missionType === type) return COMPLETION_EFFECTS.get(titleOf(slot.mission?.card));
+  }
+  return undefined;
 }
 
 const isPersonnel = (c: CardInstance): boolean => c.card?.type === 'personnel';
@@ -129,12 +146,106 @@ export function involvedSpecies(table: TableState, missionIndex: number): string
   return [...new Set(species.filter(Boolean))];
 }
 
-/** Cheron: whether enough different species were involved to score. */
-export const scoreHolds = (table: TableState, missionIndex: number, effect: CompletionEffect): boolean =>
-  involvedSpecies(table, missionIndex).length >= (effect.minSpecies ?? 0);
+// The number of a skill in the skills of `cards`, "2 Physics Science" counting Physics twice.
+function skillCount(cards: CardInstance[], skill: string): number {
+  let sum = 0;
+  for (const c of cards) {
+    for (const [, count, name] of String(c.card?.skills ?? '').toLowerCase().matchAll(/(?:(\d+)\s+)?([a-z]+)/g)) {
+      if (name === skill) sum += Number(count) || 1;
+    }
+  }
+  return sum;
+}
+
+// The icons of a personnel, its affiliation's and its card's: "[kli]", "[maq]".
+function iconsOfPersonnel(c: CardInstance): string[] {
+  const affiliation = String(c.card?.affiliation ?? '').toLowerCase().trim();
+  const own = String(c.card?.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [];
+  const icon = AFFILIATION_ABBREVIATIONS[affiliation];
+  return [...(icon ? [icon] : []), ...(affiliation.match(/\[[a-z0-9]+\]/g) ?? []), ...own];
+}
+
+/** Every personnel of the player at slot `missionIndex`, stopped ones too: the away team and the crews. */
+export function personnelHere(table: TableState, missionIndex: number): CardInstance[] {
+  const slot = table.missions[missionIndex];
+  if (!slot) return [];
+  return [...slot.awayTeam, ...slot.ships.flatMap((s) => s.crew ?? [])].filter(isPersonnel);
+}
+
+/** Whether the condition of a completion's score holds (#1908); Cheron's counts the species involved. */
+export function scoreHolds(table: TableState, missionIndex: number, effect: CompletionEffect): boolean {
+  const condition: CompletionCondition = effect.condition ?? { kind: 'species', min: effect.minSpecies ?? 0 };
+  switch (condition.kind) {
+    case 'species':
+      return involvedSpecies(table, missionIndex).length >= condition.min;
+    case 'involvedSkills': {
+      const involved = involvedPersonnel(table, missionIndex);
+      return condition.anyOf.some(({ skill, count }) => skillCount(involved, skill) >= count);
+    }
+    case 'involvedLack': {
+      const involved = involvedPersonnel(table, missionIndex);
+      return involved.length > 0 && skillCount(involved, condition.skill) === 0;
+    }
+    case 'hereOneAffiliation': {
+      const here = personnelHere(table, missionIndex);
+      return here.length > 0 && new Set(here.map((c) => String(c.card?.affiliation ?? '').toLowerCase())).size === 1;
+    }
+    case 'hereAll': {
+      const here = personnelHere(table, missionIndex);
+      return here.length > 0 && here.every((c) => iconsOfPersonnel(c).includes(condition.icon));
+    }
+    case 'hereAtLeast':
+      return personnelHere(table, missionIndex).filter((c) => iconsOfPersonnel(c).includes(condition.icon)).length >= condition.count;
+    case 'noOtherCompleted':
+      return !table.missions.some(
+        (slot, i) => i !== missionIndex && slot.completed && (condition.missionType === undefined || missionTypeOf(table, i) === condition.missionType)
+      );
+  }
+}
+
+const capitalized = (skill: string): string => skill.charAt(0).toUpperCase() + skill.slice(1);
+const skillText = ({ skill, count }: { skill: string; count: number }): string => `${count > 1 ? `${count} ` : ''}${capitalized(skill)}`;
+
+/** The words of a score's condition (#1908), for the panel's condition line: "the personnel completing it have 2 Physics or 2 Science". */
+export function completionConditionText(condition: CompletionCondition): string {
+  switch (condition.kind) {
+    case 'species':
+      return `${condition.min} or more different species involved`;
+    case 'involvedSkills':
+      return `the personnel completing it have ${condition.anyOf.map(skillText).join(' or ')}`;
+    case 'involvedLack':
+      return `no personnel completing it has ${capitalized(condition.skill)}`;
+    case 'hereOneAffiliation':
+      return 'each of your personnel here is of the same affiliation';
+    case 'hereAll':
+      return `each of your personnel here is a ${condition.icon.replace(/\[(.)/, (_, c: string) => `[${c.toUpperCase()}`)} personnel`;
+    case 'hereAtLeast':
+      return `you command ${condition.count} ${condition.icon.replace(/\[(.)/, (_, c: string) => `[${c.toUpperCase()}`)} personnel here`;
+    case 'noOtherCompleted':
+      return `you have completed no other ${condition.missionType === 's' ? 'space mission' : 'mission'}`;
+  }
+}
 
 /** Cheron: the score of a completion whose species check holds. */
 export const scoreActions = (effect: CompletionEffect): TableAction[] => [{ type: 'adjustScore', delta: effect.points ?? 0 }];
+
+/**
+ * Ba'ku Planet (#1909): the player's personnel at slot `missionIndex` that pass the kill's test, stopped or not:
+ * the away team, then each ship's crew, never the brig.
+ */
+export function killCandidates(table: TableState, missionIndex: number, effect: CompletionEffect): CardInstance[] {
+  const view = tableViewOf(table);
+  const ids = personnel(view, { unstopped: false, at: missionIndex }).map((p) => p.id);
+  return ids
+    .flatMap((id) => findInstanceAnywhere(table, id)?.instance ?? [])
+    .filter((c) => downloadTakes({ test: effect.killTest ?? [] }, c.card));
+}
+
+/** Ba'ku Planet: each of `ids` to the discard pile, a kill, then `points` for each. */
+export const killActions = (ids: string[], effect: CompletionEffect): TableAction[] => {
+  const points = scorePoints({ points: effect.points ?? 0, perPick: true }, ids.length);
+  return [...ids.map((id): TableAction => ({ type: 'move', id, to: 'discard' })), ...(points ? [{ type: 'adjustScore' as const, delta: points }] : [])];
+};
 
 /** Saturn: the copies of the download's title in the draw deck. */
 export const downloadCandidates = (table: TableState, effect: CompletionEffect): CardInstance[] =>

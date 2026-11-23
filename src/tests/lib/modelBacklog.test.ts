@@ -1,14 +1,11 @@
 import { writeFileSync } from 'fs';
 import { resolve } from 'path';
-import { ATTEMPT_MISSION_TITLES } from '../../app/decks/practice/attemptMissions';
-import { COMPLETION_EFFECTS } from '../../app/decks/practice/completionEffects';
-import { SIGMA_IOTIA_TITLE, TRISTAN_ADAMS_TITLE } from '../../app/decks/practice/dilemmaPrevention';
-import { EARTH_TITLE, NIMBUS_TITLE } from '../../app/decks/practice/missionSpends';
+import { TRISTAN_ADAMS_TITLE } from '../../app/decks/practice/dilemmaPrevention';
 import { ROADBLOCK_TITLE } from '../../app/decks/practice/selfReplicatingRoadblock';
 import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from '../../app/decks/practice/tableReducer';
 import { COST_REGISTRY, COST_ROWS } from '../../lib/costModels/registry';
-import { MISSION_COST_TITLES } from '../../lib/dilemmaBot/pile/missionCost';
-import { MODIFIER_ROWS } from '../../lib/modifiers';
+import { MISSION_MODEL_TITLES } from '../../lib/missionModels';
+import { modifierTitles, type Quantity } from '../../lib/modifiers';
 import { REGISTRY as DILEMMA_REGISTRY } from '../../lib/dilemmaBot/pile/registry';
 import {
   clausesOf,
@@ -18,12 +15,17 @@ import {
   coverageReport,
   CoverageCard,
   ModelledBy,
+  ongoingGroupOf,
+  ongoingPermissionOf,
+  ongoingSentencesOf,
+  SentenceModelledBy,
   shippedDeckTitles,
 } from '../../lib/modelCoverage';
 import { placeCoverageOf } from '../../lib/playPlaces/coverage';
 import { PLAY_MODEL_TITLES } from '../../lib/playModels/coverage';
 import { orderModelOf } from '../../lib/orderModels';
 import { RESOLVE_MODELS } from '../../lib/resolveModels';
+import { TRIGGER_TITLES } from '../../lib/triggers';
 import { cardRows, shippedDecks } from './backlogData';
 
 // The unified model backlog (#1861, part of #1860): every title the shipped decks play, its text split
@@ -35,18 +37,15 @@ const lower = (titles: Iterable<string>) => new Set([...titles].map((t) => t.toL
 
 const PLAY = lower(PLAY_MODEL_TITLES);
 const RESOLVE = lower(RESOLVE_MODELS.map((m) => m.title));
-// The modifier registry (#1887): the attribute, Range and span rows.
-const MODIFIERS = lower(MODIFIER_ROWS.map((r) => r.title));
+// The modifier registry (#1887): the attribute, Range and span rows, never a permission's (#1915).
+const AMOUNTS: Quantity[] = ['integrity', 'cunning', 'strength', 'range', 'weapons', 'shields', 'span', 'quadrantWaiver', 'cost', 'counterLimit'];
+const MODIFIERS = new Set(modifierTitles(AMOUNTS).keys());
 // The cost and counter rows (#1888), so a title with rows and no residual model still counts for `cost`.
 const COST_ROW_TITLES = lower(COST_ROWS.map((r) => r.title));
-const MISSION = lower([
-  ...COMPLETION_EFFECTS.keys(),
-  ...ATTEMPT_MISSION_TITLES,
-  ...MISSION_COST_TITLES,
-  EARTH_TITLE,
-  NIMBUS_TITLE,
-  SIGMA_IOTIA_TITLE,
-]);
+// The trigger registry (#1903): a trigger or an interrupt clause is modelled when the registry holds its title.
+const TRIGGERS = lower(TRIGGER_TITLES);
+// The mission registry (#1907): every row's title.
+const MISSION = lower(MISSION_MODEL_TITLES);
 /**
  * The cards a module of their own models outside every registry, with the concerns of their clauses
  * that module covers. A title here is one more sign of the piecemeal: its home is a file, not a registry.
@@ -84,6 +83,30 @@ export const modelledToday: ModelledBy = (concern, title, card, clause) => {
         .findIndex((c) => c.text === clause);
       return index >= 0 && orderModelOf(title, index) !== undefined;
     }
+    case 'trigger':
+    case 'interrupt':
+      return TRIGGERS.has(key);
+    default:
+      return false;
+  }
+};
+
+/**
+ * Whether the registries of today model one sentence of an `ongoing` clause (#1915): a permission when the title has
+ * a row of its quantity, an attribute change when it has an attribute row, a counter cap when the cost registry holds
+ * the title, and a reminder always.
+ */
+export const ongoingModelledToday: SentenceModelledBy = (title, _card, { text, group }) => {
+  const key = title.toLowerCase();
+  const permission = ongoingPermissionOf(group, text);
+  if (permission) return modifierTitles([permission]).has(key);
+  switch (group) {
+    case 'reminder':
+      return true;
+    case 'attributes':
+      return MODIFIERS.has(key);
+    case 'counterSpend':
+      return COST_REGISTRY.has(title) || COST_ROW_TITLES.has(key);
     default:
       return false;
   }
@@ -124,6 +147,62 @@ describe('the clauses of a card text', () => {
   });
 });
 
+describe('the sentences of an ongoing clause (#1915)', () => {
+  it('names the group of one example sentence per group', () => {
+    const examples: [string, string][] = [
+      ['To play this event, you must command three [Bor] personnel.', 'playRequirement'],
+      ['To play this event, you cannot command a headquarters mission.', 'playRequirement'],
+      ["This personnel may (and must) play to {Ba'ku Planet}.", 'playPlace'],
+      ['Personnel aboard this ship cannot attempt missions.', 'attempt'],
+      ['You cannot begin a mission attempt with fewer than six personnel.', 'attempt'],
+      ['You cannot spend counters to draw cards.', 'counterSpend'],
+      ['Each player cannot spend more than seven counters during their Play and Draw Cards segments.', 'counterSpend'],
+      ['(You do not need to spend all your counters during each of your turns.)', 'reminder'],
+      ['You do not need to spend all your counters on your turns.', 'reminder'],
+      ["The cost of the event in your core that has the highest cost is added to this personnel's attributes.", 'attributes'],
+      ['Each of your Engineer personnel present gains Astrometrics.', 'gain'],
+      ['(She becomes [NA].)', 'gain'],
+      ['To play this event, your opponent must command a ship at a non-headquarters mission.', 'opponent'],
+      ['To command this ship, you must command {To Rule in Hell}.', 'command'],
+      ['That personnel cannot be stopped until the end of this turn.', 'stopImmunity'],
+      ['You may use a card which begins an engagement to begin one involving this ship even if it is at a headquarters mission.', 'engagement'],
+      ['To play this personnel, remove two of your personnel at this mission from the game.', 'playCost'],
+      ['Voyager}.', 'fragment'],
+      ['You may do this only once each turn.', 'fragment'],
+      ['Nothing here matches.', 'unclassified'],
+    ];
+    for (const [sentence, group] of examples) expect([sentence, ongoingGroupOf(sentence)]).toEqual([sentence, group]);
+    expect(ongoingPermissionOf('counterSpend', 'You cannot spend counters to draw cards.')).toBe('spendToDraw');
+    expect(ongoingPermissionOf('counterSpend', 'Each player cannot spend more than seven counters.')).toBeNull();
+  });
+
+  it('names two groups in Coordinated Counterattack', () => {
+    expect(
+      ongoingSentencesOf('To play this event, you must command six [TOS] personnel. Personnel an opponent commands cannot gain skills.').map((s) => s.group)
+    ).toEqual(['playRequirement', 'opponent']);
+  });
+
+  it('shows the primitives of a missing ongoing clause, and its reach', () => {
+    const cards = [
+      row('Gated', 'Event', 'Plays in your core. To play this event, you must command three [Bor] personnel. (You do not need to spend all your counters during each of your turns.)'),
+      row('Hostile', 'Event', 'Plays in your core. Personnel an opponent commands cannot gain skills.'),
+      row('Trellium', 'Equipment', 'Plays aboard your ship.'),
+    ];
+    const decks = ['Deck:\n1\tGated\n1\tHostile\n1\tTrellium\n'];
+    const report = coverageReport(cards, decks, () => false, (_t, _c, s) => s.group === 'reminder');
+    expect(report.rows.map((r) => [r.title, r.missing, r.withinReach])).toEqual([
+      ['Gated', ['ongoing'], true],
+      ['Hostile', ['ongoing'], false],
+      ['Trellium', [], true],
+    ]);
+    const md = coverageMarkdown(report);
+    expect(md).toContain('| 1 | Gated | Event | ongoing (needs: a permission: play) | yes |');
+    expect(md).toContain('| 1 | Hostile | Event | ongoing (needs: an opponent) | no |');
+    expect(md).toContain('## Ongoing by primitive');
+    expect(md).toContain('| reminder | nothing: a reminder | 1 | 1 |');
+  });
+});
+
 describe('the coverage report', () => {
   it('reads every card section of a deck', () => {
     const deck = 'Deck:\n2\tBeta *VP\nDilemmas:\n1\tDelta\nMissions:\n1\tAlpha\nSideboard:\n1\tOmega\n';
@@ -139,12 +218,13 @@ describe('the coverage report', () => {
     const decks = ['Deck:\n1\tCommon\n1\tModelled\n', 'Deck:\n1\tCommon\n1\tRare\n'];
     const report = coverageReport(cards, decks, (concern, title) => title === 'Modelled' || concern === 'whenPlayed');
     expect(report.rows.map((r) => [r.title, r.decks, r.missing, r.withinReach])).toEqual([
-      ['Common', 2, ['trigger'], false],
+      // A trigger has a registry since #1903, so a missing trigger clause is within reach.
+      ['Common', 2, ['trigger'], true],
       ['Modelled', 1, [], true],
       ['Rare', 1, ['eventResolve'], true],
     ]);
     const md = coverageMarkdown(report);
-    expect(md).toContain('| 2 | Common | Personnel | trigger | no |');
+    expect(md).toContain('| 2 | Common | Personnel | trigger | yes |');
     expect(md).not.toContain('| Modelled | Event');
   });
 
@@ -159,8 +239,21 @@ describe('the coverage report', () => {
     expect(orders('Optimism')).toEqual([true, false, false]);
   });
 
+  it('marks a trigger clause modelled when the trigger registry holds its title (#1903)', () => {
+    const rows = cardRows();
+    const of = (title: string) => rows.find((r) => r.name === title)!;
+    const triggers = (title: string) =>
+      clausesOf(of(title))
+        .filter((c) => c.concern === 'trigger')
+        .map((c) => modelledToday('trigger', title, of(title), c.text));
+    expect(triggers('Distant Exploration')).toEqual([true]);
+    expect(triggers('Li Nalas Legend of Bajor')).toEqual([true]);
+    // A `botDeck` row since #1906.
+    expect(triggers('Unexpected Difficulties')).toEqual([true]);
+  });
+
   it('finds the shipped models in the shipped decks', () => {
-    const report = coverageReport(cardRows(), shippedDecks(), modelledToday);
+    const report = coverageReport(cardRows(), shippedDecks(), modelledToday, ongoingModelledToday);
     const of = (title: string) => report.rows.find((r) => r.title === title);
     expect(of('These Are The Voyages')?.clauses.find((c) => c.concern === 'eventResolve')?.modelled).toBe(true);
     expect(report.rows.filter((r) => r.type === 'Dilemma' && !r.missing.length).length).toBeGreaterThan(200);

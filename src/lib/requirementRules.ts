@@ -1,12 +1,19 @@
 // The cards in play that change the requirements of the player's missions (#1828), one rule that the
 // practice table (the bot's requirements and the cost facts) and the deck builder's requirement analysis
-// both read, so the two never disagree. A rule is named by the whole title of its card.
+// both read, so the two never disagree. A rule is the `requirements` ability of a row of the mission registry
+// (#1907), named by the whole title of its card.
 //
 // Crescent Nebula Take Out the Trash: "Add Intelligence to the requirements of each of your other non-[Fed]
 // missions." Every mission of a deck, or of the table, is the player's.
+//
+// Gelyan Moon Harness Omega Particle and Rura Penthe Escape Gulag (#1909): "Your [Fed] personnel may attempt this
+// mission, replacing its requirements during that attempt with …". The bot reads the replacement during an attempt
+// whose every unstopped attempting personnel is of that affiliation (`replacedRequirementsOf`); the deck builder
+// offers it as one more branch of the mission's requirements (`parsedRequirementsOf`). The skills another card
+// adds apply to the replacement too.
 
-import { cardTitleOf } from './cardTitle';
-import { parseMissionRequirements, type ParsedMissionRequirements } from './missionRequirements';
+import { abilityOf, missionModelOfCard } from './missionModels';
+import { parseMissionRequirements, type ParsedMissionRequirements, type SkillMap } from './missionRequirements';
 
 /** A mission as both the deck builder's rows and the table's cards hold it; the card data is lowercased. */
 export interface RequirementMission {
@@ -17,13 +24,12 @@ export interface RequirementMission {
   skills?: string;
 }
 
-const CRESCENT_NEBULA = 'crescent nebula take out the trash';
-
-const titleOf = (m: RequirementMission): string => cardTitleOf(String(m.originalName ?? m.name ?? '')).toLowerCase();
-
-// A [Fed] mission names the [Fed] icon among the affiliations that may attempt it; an "(except [Fed])" does not.
-const isFedMission = (m: RequirementMission): boolean =>
-  /\[fed\]/i.test(String(m.affiliation ?? '').replace(/\(except[^)]*\)/gi, ''));
+// A mission that may be attempted by `icon` ("[fed]") names it among its affiliations; an "(except [Fed])" does not.
+const attemptableBy = (m: RequirementMission, icon: string): boolean =>
+  String(m.affiliation ?? '')
+    .replace(/\(except[^)]*\)/gi, '')
+    .toLowerCase()
+    .includes(icon.toLowerCase());
 
 // A mission with requirements: no headquarters, and a requirement text.
 const hasRequirements = (m: RequirementMission): boolean =>
@@ -34,13 +40,37 @@ const hasRequirements = (m: RequirementMission): boolean =>
  * case of the rules' text ("Intelligence"). An empty slot gets none.
  */
 export function addedRequirements(missions: readonly (RequirementMission | null | undefined)[]): string[][] {
-  const nebulae = missions.flatMap((m, i) => (m && titleOf(m) === CRESCENT_NEBULA ? [i] : []));
+  // The slots of the missions with a `requirements` ability, each with its change.
+  const rules = missions.flatMap((m, i) => {
+    const change = abilityOf(missionModelOfCard(m), 'requirements')?.requirements;
+    return change?.kind === 'add' ? [{ slot: i, change }] : [];
+  });
   return missions.map((m, i) => {
     if (!m || !hasRequirements(m)) return [];
     const added: string[] = [];
-    if (nebulae.some((n) => n !== i) && !isFedMission(m)) added.push('Intelligence');
+    for (const { slot, change } of rules) {
+      if (slot === i || (change.exceptIcon && attemptableBy(m, change.exceptIcon))) continue;
+      for (const skill of change.add) if (!added.includes(skill)) added.push(skill);
+    }
     return added;
   });
+}
+
+/** The replacement of a mission's own requirements (#1909), or undefined for a mission with none. */
+export function requirementReplacementOf(m: RequirementMission | null | undefined): { icon: string; affiliation: string; skills: string } | undefined {
+  const change = abilityOf(missionModelOfCard(m), 'requirements')?.requirements;
+  return change?.kind === 'replace' ? { icon: change.icon, affiliation: change.affiliation, skills: change.skills } : undefined;
+}
+
+/**
+ * The requirement text that replaces the mission's own during an attempt by `attempting`, the affiliations of the
+ * unstopped attempting personnel as the card data has them (#1909): the replacement when there is at least one and
+ * every one has the replacement's affiliation, "federation" in "federation/bajoran" too; undefined otherwise.
+ */
+export function replacedRequirementsOf(m: RequirementMission | null | undefined, attempting: readonly string[]): string | undefined {
+  const replace = requirementReplacementOf(m);
+  if (!replace || !attempting.length) return undefined;
+  return attempting.every((a) => String(a).toLowerCase().includes(replace.affiliation)) ? replace.skills : undefined;
 }
 
 /**
@@ -63,9 +93,39 @@ export const requirementTextsOf = (missions: readonly (RequirementMission | null
 export function parsedRequirementsOf(missions: readonly RequirementMission[]): ParsedMissionRequirements[] {
   const added = addedRequirements(missions);
   return missions.map((m, i) => {
-    const parsed = parseMissionRequirements(String(m.skills ?? ''));
+    const printed = parseMissionRequirements(String(m.skills ?? ''));
+    const replace = requirementReplacementOf(m);
+    const parsed = replace ? withBranch(printed, parseMissionRequirements(replace.skills)) : printed;
     const mandatory = { ...parsed.mandatory };
     for (const skill of added[i]) mandatory[skill.toLowerCase()] = (mandatory[skill.toLowerCase()] ?? 0) + 1;
     return { ...parsed, mandatory };
   });
+}
+
+// The whole skills of each branch of `p`: its mandatory skills with each branch's, or the mandatory alone.
+const wholeBranches = (p: ParsedMissionRequirements): SkillMap[] =>
+  p.orBranches ? p.orBranches.map((b) => sumSkills(p.mandatory, b)) : [p.mandatory];
+
+function sumSkills(a: SkillMap, b: SkillMap): SkillMap {
+  const out: SkillMap = { ...a };
+  for (const [k, n] of Object.entries(b)) out[k] = (out[k] ?? 0) + n;
+  return out;
+}
+
+/**
+ * `p` with the whole requirements of `extra` as one more branch (#1909): the mandatory skills are those every branch
+ * needs, at the least count among them, and each branch keeps what it needs beyond them.
+ */
+function withBranch(p: ParsedMissionRequirements, extra: ParsedMissionRequirements): ParsedMissionRequirements {
+  const branches = [...wholeBranches(p), ...wholeBranches(extra)];
+  const mandatory: SkillMap = {};
+  for (const k of Object.keys(branches[0])) {
+    if (branches.every((b) => b[k] !== undefined)) mandatory[k] = Math.min(...branches.map((b) => b[k]));
+  }
+  const orBranches = branches.map((b) => {
+    const rest: SkillMap = {};
+    for (const [k, n] of Object.entries(b)) if (n - (mandatory[k] ?? 0) > 0) rest[k] = n - (mandatory[k] ?? 0);
+    return rest;
+  });
+  return { mandatory, orBranches };
 }

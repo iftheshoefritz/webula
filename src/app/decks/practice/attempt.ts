@@ -28,7 +28,7 @@ import { missionCostOf } from '../../../lib/dilemmaBot/pile/missionCost';
 import { ATTRIBUTE_REGISTRY, personnelAttributesOnTable, shipAttributesOnTable } from './attributeModels';
 import { shipRangeOnTable } from './shipRange';
 import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
-import { addedRequirements, requirementTextWith } from '../../../lib/requirementRules';
+import { addedRequirements, replacedRequirementsOf, requirementTextWith } from '../../../lib/requirementRules';
 import { ROADBLOCK_TITLE, roadblockReturnOf } from './selfReplicatingRoadblock';
 import { tableViewOf } from './tableView';
 import type { TableView, ViewMission, ViewTableCard } from '../../../lib/tableView';
@@ -322,11 +322,14 @@ function shipRowOnTable(table: TableState, ship: CardInstance | undefined, row: 
 
 // The attempted mission's row with its requirements as the cards in play change them (#1828, Crescent
 // Nebula), so the bot's search, label and Resolve read them. The printed row when nothing changes them.
-function missionRowOnTable(view: TableView, missionIndex: number): CardInstance['card'] | undefined {
+// `attempting` holds the affiliations of the unstopped attempting personnel: an attempt by personnel of the
+// affiliation a mission names replaces its requirements first (#1909, Gelyan Moon, Rura Penthe).
+function missionRowOnTable(view: TableView, missionIndex: number, attempting: readonly string[]): CardInstance['card'] | undefined {
   const card = view.missions[missionIndex]?.card?.row;
   if (!card) return card;
   const added = addedRequirements(view.missions.map((m) => m.card?.row))[missionIndex];
-  return added.length ? { ...card, skills: requirementTextWith(String(card.skills ?? ''), added) } : card;
+  const skills = replacedRequirementsOf(card, attempting) ?? String(card.skills ?? '');
+  return added.length || skills !== String(card.skills ?? '') ? { ...card, skills: requirementTextWith(skills, added) } : card;
 }
 
 // The attempting row of the view, as `attemptingCards` reads the table: the away team at a planet
@@ -359,13 +362,14 @@ export function pileTableInputOf(table: TableState, missionIndex: number, shipId
   const instances = cardText ? attemptingCards(table, missionIndex, shipId) ?? [] : [];
   const instanceOf = (id: string) => instances.find((c) => c.id === id);
   const shipInstance = cardText && ship ? table.missions[missionIndex]?.ships.find((s) => s.id === ship.id) : undefined;
+  const attempting = attemptingViewCards(mission, shipId).filter((c) => c.type === 'personnel' && !c.stopped);
   return {
     cards: attemptingViewCards(mission, shipId).map((c) => ({
       id: c.id,
       card: personnelRowOnTable(table, instanceOf(c.id), c.row, cardText),
       stopped: c.stopped,
     })),
-    mission: missionRowOnTable(view, missionIndex),
+    mission: missionRowOnTable(view, missionIndex, attempting.map((c) => String(c.row.affiliation ?? ''))),
     ship: ship && shipRowOnTable(table, shipInstance, ship.row, cardText),
     placedOn: (mission?.placedOn ?? []).map((c) => c.row),
     returnedHere: namedAt(mission),
@@ -509,7 +513,11 @@ export function attemptMissionRulesOf(table: TableState, panel: AttemptPanel): A
   const found = attemptCards(table, panel);
   if (!found) return { offers: [] };
   const slot = table.missions[found.missionIndex];
-  return attemptMissionRules(slot.mission?.card, found.cards, { underMission: slot.underMission, drawDeck: table.drawDeck });
+  return attemptMissionRules(slot.mission?.card, found.cards, {
+    underMission: slot.underMission,
+    drawDeck: table.drawDeck,
+    missions: table.missions.map((s) => s.mission?.card),
+  });
 }
 
 // The attempt of `/decks/practice?fixture=attempt` (#1169): the `startAttempt` that Start in the

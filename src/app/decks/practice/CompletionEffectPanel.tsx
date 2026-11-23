@@ -4,6 +4,7 @@ import { LAYER_MODAL, LAYER_MODAL_BACKDROP } from '../../../lib/layers';
 import { panelScrollClassName, useScrollsVertically } from './CardListPanel';
 import {
   CompletionEffect,
+  completionConditionText,
   costOf,
   destroyShipsActions,
   discardActions,
@@ -14,8 +15,11 @@ import {
   hqSlotsFor,
   involvedPersonnel,
   involvedSpecies,
+  killActions,
+  killCandidates,
   placeAtHqActions,
   scoreActions,
+  scoreHolds,
   toDeckBottomActions,
   totalCost,
 } from './completionEffects';
@@ -59,7 +63,9 @@ export function CompletionEffectPanel({
           ? discardableInvolved(table, missionIndex, effect)
           : effect.kind === 'toDeckBottom'
             ? involvedPersonnel(table, missionIndex)
-            : [];
+            : effect.kind === 'kill'
+              ? killCandidates(table, missionIndex, effect)
+              : [];
   const scrolls = useScrollsVertically(scrollRef, candidates.length > 0, [candidates.length]);
   const single = effect.kind === 'discardOrDestroy';
   const picked = chosen.flatMap((id) => candidates.filter((c) => c.id === id));
@@ -69,9 +75,12 @@ export function CompletionEffectPanel({
   const hq = hqChoice !== null && hqs.includes(hqChoice) ? hqChoice : hqs[0];
   const ships = table.missions[missionIndex]?.ships ?? [];
   const species = effect.kind === 'score' ? involvedSpecies(table, missionIndex) : [];
-  const scores = effect.kind === 'score' && species.length >= (effect.minSpecies ?? 0);
+  const scores = effect.kind === 'score' && scoreHolds(table, missionIndex, effect);
+  const bySpecies = effect.kind === 'score' && (effect.condition?.kind ?? 'species') === 'species';
+  // A kill takes at most `upTo` (#1909): a tap past it is ignored until a pick is undone.
+  const full = effect.kind === 'kill' && chosen.length >= (effect.upTo ?? 0);
   const toggle = (id: string) =>
-    setChosen((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : single ? [id] : [...ids, id]));
+    setChosen((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : single ? [id] : full ? ids : [...ids, id]));
 
   const confirmActions = (): TableAction[] | null => {
     switch (effect.kind) {
@@ -85,6 +94,8 @@ export function CompletionEffectPanel({
         return picked.length && !overCap ? toDeckBottomActions(chosen) : null;
       case 'score':
         return scores ? scoreActions(effect) : null;
+      case 'kill':
+        return picked.length ? killActions(chosen, effect) : null;
       default:
         return null;
     }
@@ -101,7 +112,9 @@ export function CompletionEffectPanel({
       ? 'No unique personnel in the discard pile can be placed.'
       : effect.kind === 'discardOrDestroy'
         ? `No personnel involved costs ${effect.min} or more.`
-        : 'No personnel involved.';
+        : effect.kind === 'kill'
+          ? `No ${effect.killText} at this mission.`
+          : 'No personnel involved.';
 
   return (
     <>
@@ -121,6 +134,7 @@ export function CompletionEffectPanel({
       >
         <h2 className="text-sm font-semibold text-text-primary">Complete {mission}</h2>
         <p data-testid="completion-effect-text" className="text-xs italic text-text-muted">
+          {effect.watches ? `${effect.title}: ` : ''}
           {effect.text}
         </p>
         {effect.cap !== undefined && (
@@ -128,7 +142,22 @@ export function CompletionEffectPanel({
             Total cost {total} of {effect.cap}
           </p>
         )}
-        {effect.kind === 'score' && (
+        {effect.kind === 'kill' && (
+          <p data-testid="completion-effect-total" className="text-xs text-text-muted">
+            Picked {picked.length} of up to {effect.upTo}: score {(effect.points ?? 0) * picked.length}
+          </p>
+        )}
+        {effect.kind === 'score' && !bySpecies && effect.condition && (
+          <p data-testid="completion-effect-condition" data-met={scores ? 'true' : 'false'} className={`text-sm ${scores ? 'text-text-primary' : 'text-amber-400'}`}>
+            {`Condition ${scores ? 'met' : 'not met'}: ${completionConditionText(effect.condition)}.`}
+          </p>
+        )}
+        {effect.kind === 'score' && effect.notChecked && (
+          <p data-testid="completion-effect-not-checked" className="text-xs text-text-muted">
+            {`Not checked: ${effect.notChecked}.`}
+          </p>
+        )}
+        {bySpecies && (
           <p data-testid="completion-effect-species" data-count={species.length} className={`text-sm ${scores ? 'text-text-primary' : 'text-amber-400'}`}>
             {involvedPersonnel(table, missionIndex).length === 0
               ? 'No personnel involved.'
@@ -153,8 +182,9 @@ export function CompletionEffectPanel({
                         data-testid="completion-effect-candidate"
                         data-card-choice={c.id}
                         aria-pressed={on}
+                        disabled={!on && full}
                         onClick={() => toggle(c.id)}
-                        className={`flex min-h-11 items-center gap-2 rounded border px-2 text-left text-sm ${
+                        className={`flex min-h-11 items-center gap-2 rounded border px-2 text-left text-sm disabled:opacity-40 ${
                           on ? 'border-blue-400 bg-blue-500/20 text-text-primary' : 'border-white/10 text-text-primary'
                         }`}
                       >
@@ -218,7 +248,9 @@ export function CompletionEffectPanel({
                 ? 'Discard'
                 : effect.kind === 'score'
                   ? `Score ${effect.points}`
-                  : 'Confirm'}
+                  : effect.kind === 'kill'
+                    ? `Kill ${picked.length}, score ${(effect.points ?? 0) * picked.length}`
+                    : 'Confirm'}
           </button>
         </div>
       </div>
