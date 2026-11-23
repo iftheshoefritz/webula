@@ -4,11 +4,17 @@
 // card's attributes on the table as it stands. A module with no import of `tableReducer.ts` but its
 // types, so `MissionRow` can read it without loading the reducer.
 
-import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 import {
-  commandedPersonnel,
-  completedMissionCount,
-  distinctTitlesWith,
+  commandsKeywordCard,
+  distinctTitleCount,
+  missions as viewMissions,
+  personnel,
+  ships,
+  type TableView,
+  type ViewMission,
+} from '../../../lib/tableView';
+import type { CardInstance, TableState } from './tableReducer';
+import {
   hasWord,
   isEquipment,
   isNamed,
@@ -18,10 +24,13 @@ import {
   titleKeyOf,
   vornCrewed,
 } from './rangeModels';
-import { shipRangeOnTable } from './shipRange';
+import { shipRangeOf } from './shipRange';
+import { type TableRead, tableReadOf } from './tableView';
 
-// What the attribute models read of the table as it stands (#1667): the mission slots with their
+// What the attribute readers are given of the table as it stands (#1667): the mission slots with their
 // away teams and ships, the core, the hand, the discard pile, the brig (#1684), the score and the Range used.
+// The readers build the table view of it once (#1878), and the models read the view, `TableRead`; a model's
+// `slot` is the `ViewMission` of the slot.
 export type AttributeTable = Pick<TableState, 'missions' | 'core' | 'hand' | 'discard' | 'brig' | 'score' | 'rangeUsed'>;
 
 export interface PersonnelAttributes {
@@ -43,35 +52,35 @@ export interface AttributeModel {
   title: string;
   // An event's model: the change to `target` while the event `self` is placed on the mission card of
   // slot `slot`.
-  eventAttributes?: (self: CardInstance, slot: MissionSlot, target: CardInstance, table: AttributeTable) => AttributeChange;
+  eventAttributes?: (self: CardInstance, slot: ViewMission, target: CardInstance, table: TableRead) => AttributeChange;
   // A mission's model: the change to `target` from the mission card `self` of slot `slot`.
-  missionAttributes?: (self: CardInstance, slot: MissionSlot, target: CardInstance, table: AttributeTable) => AttributeChange;
+  missionAttributes?: (self: CardInstance, slot: ViewMission, target: CardInstance, table: TableRead) => AttributeChange;
   // An event's model in the core: the change to `target` while the event `self` is in the core.
-  coreAttributes?: (self: CardInstance, target: CardInstance, table: AttributeTable) => AttributeChange;
+  coreAttributes?: (self: CardInstance, target: CardInstance, table: TableRead) => AttributeChange;
   // A personnel's model of itself (#1667): the change to its own attributes while `self` is in
   // `group`, the away team or the crew it is in.
-  selfAttributes?: (self: CardInstance, group: CardInstance[], table: AttributeTable) => AttributeChange;
+  selfAttributes?: (self: CardInstance, group: CardInstance[], table: TableRead) => AttributeChange;
   // A personnel's or an equipment's model of its group (#1667, #1683): the change to `target` while
   // `self` and `target` are present together in `group`, an away team or one ship's crew. `target` may
   // be `self`: the text decides whether the source counts too ("each of your other …" leaves it out).
-  groupAttributes?: (self: CardInstance, target: CardInstance, group: CardInstance[], table: AttributeTable) => AttributeChange;
+  groupAttributes?: (self: CardInstance, target: CardInstance, group: CardInstance[], table: TableRead) => AttributeChange;
   // A ship's model of its crew (#1667): the change to `target` aboard the ship `self` of slot `slot`.
-  crewAttributes?: (self: CardInstance, slot: MissionSlot, target: CardInstance, table: AttributeTable) => AttributeChange;
+  crewAttributes?: (self: CardInstance, slot: ViewMission, target: CardInstance, table: TableRead) => AttributeChange;
   // A ship's model of itself (#1671): the change to its own Weapons and Shields while `self` is on
   // the ship row of slot `slot`, as `shipRange` gives its Range.
-  shipAttributes?: (self: CardInstance, slot: MissionSlot, table: AttributeTable) => AttributeChange;
+  shipAttributes?: (self: CardInstance, slot: ViewMission, table: TableRead) => AttributeChange;
   // A ship's model of the personnel at its mission (#1684): the change to `target`, wherever it is,
   // while `self` is on the ship row of slot `slot`. `crewAttributes` reaches only the ship's crew.
-  shipMissionAttributes?: (self: CardInstance, slot: MissionSlot, target: CardInstance, table: AttributeTable) => AttributeChange;
+  shipMissionAttributes?: (self: CardInstance, slot: ViewMission, target: CardInstance, table: TableRead) => AttributeChange;
   // A personnel's model of its ship (#1671): the change to the ship `ship` while `self` is in its
   // crew, as `aboardRange` gives its Range.
-  aboardAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
+  aboardAttributes?: (self: CardInstance, ship: CardInstance, table: TableRead) => AttributeChange;
   // A commanded personnel's model of ships (#1671): the change to the ship `ship` on a ship row while
   // `self` is in an away team or a crew, wherever that is, as `commandedShipRange` gives its Range.
-  commandedShipAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
+  commandedShipAttributes?: (self: CardInstance, ship: CardInstance, table: TableRead) => AttributeChange;
   // An event's model of the ship it is placed on (#1683): the change to the ship `ship` while the event
   // `self` is placed on it, as `placedOnShipRange` gives its Range.
-  placedOnShipAttributes?: (self: CardInstance, ship: CardInstance, table: AttributeTable) => AttributeChange;
+  placedOnShipAttributes?: (self: CardInstance, ship: CardInstance, table: TableRead) => AttributeChange;
 }
 
 const plus = (n: number): AttributeChange => ({ integrity: n, cunning: n, strength: n });
@@ -80,13 +89,10 @@ const shipPlus = (n: number): AttributeChange => (n !== 0 ? { weapons: n, shield
 const ATTRIBUTES_PLUS_ONE: AttributeChange = plus(1);
 const NONE: AttributeChange = {};
 
-// Whether the personnel `p` is at the mission of `slot`: in its away team, or in the crew of a ship
-// of its ship row. A stopped personnel is still there.
-const isAt = (slot: MissionSlot, p: CardInstance): boolean =>
-  slot.awayTeam.some((c) => c.id === p.id) || slot.ships.some((ship) => (ship.crew ?? []).some((c) => c.id === p.id));
-
-// The ships the player commands: every ship of every ship row. In a solo game the player commands every slot.
-const commandedShips = (missions: MissionSlot[]): CardInstance[] => missions.flatMap((slot) => slot.ships);
+// Whether the personnel `p` is at the mission of slot `index` (the view's `at`): in its away team, or in the crew
+// of a ship of its ship row. A stopped personnel is still there.
+const hereAt = (view: TableView, index: number, p: CardInstance): boolean =>
+  personnel(view, { unstopped: false, at: index }).some((c) => c.id === p.id);
 
 // The personnel of `group` other than `self` that pass `test`. A stopped personnel still counts (#1667).
 const othersIn = (self: CardInstance, group: CardInstance[], test: (p: CardInstance) => boolean): CardInstance[] =>
@@ -98,21 +104,25 @@ const hasSkill = (p: CardInstance, skill: string) => hasWord(p.card?.skills, ski
 // A keyword or a species, as the partner tests of `gains.ts` read "an Android" or "an Honor Klingon".
 const hasTrait = (p: CardInstance, trait: string) => hasWord(p.card?.keywords, trait) || hasWord(p.card?.species, trait);
 const isUnique = (p: CardInstance) => String(p.card?.unique ?? '').toLowerCase() === 'y';
-const points = (mission: CardInstance | null) => Number(mission?.card?.points) || 0;
-const isSpaceMission = (mission: CardInstance | null) => String(mission?.card?.missiontype ?? '').toLowerCase() === 's';
-const completedSpaceMissions = (missions: MissionSlot[]) => missions.filter((slot) => slot.completed && isSpaceMission(slot.mission)).length;
+const points = (mission: ViewMission) => Number(mission.card?.row?.points) || 0;
 // The personnel of the discard pile with the skill `skill`, a card removed from the game there too.
-const discardedWith = (discard: CardInstance[], skill: string) => discard.filter((c) => isPersonnel(c) && hasWord(c.card?.skills, skill)).length;
+const discardedWith = ({ discard }: TableView, skill: string) =>
+  discard.filter((c) => c.type === 'personnel' && hasWord(c.row?.skills, skill)).length;
 // The incomplete missions the player commands that are not a headquarters.
-const incompleteNonHeadquarters = (missions: MissionSlot[]) =>
-  missions.filter((slot) => slot.mission && !slot.completed && String(slot.mission.card?.missiontype ?? '').toLowerCase() !== 'h').length;
+const incompleteNonHeadquarters = (view: TableView) => viewMissions(view, { completed: false, headquarters: false }).length;
 // The ship whose crew holds `p`, or undefined for a personnel in an away team or off the table.
-const shipOf = (missions: MissionSlot[], p: CardInstance): CardInstance | undefined =>
-  missions.flatMap((slot) => slot.ships).find((ship) => (ship.crew ?? []).some((c) => c.id === p.id));
+const shipOf = ({ view, instance }: TableRead, p: CardInstance): CardInstance | undefined => {
+  const ship = ships(view).find((s) => s.crew.some((c) => c.id === p.id));
+  return ship && instance(ship.id);
+};
+// The completed missions the player commands, and the space ones among them.
+const completedCount = (view: TableView, type?: string) => viewMissions(view, { completed: true, type }).length;
+// "While no player commands a Temporal event" (Morgan Bateson).
+const TEMPORAL_EVENT = commandsKeywordCard({ keyword: 'temporal', type: 'event' });
 
 // "Weapons +1 for each completed mission you command." (Vidiian Cruiser, Vidiian Interceptor)
-const vidiianWeapons = (_self: CardInstance, _slot: MissionSlot, { missions }: AttributeTable): AttributeChange => {
-  const n = completedMissionCount(missions);
+const vidiianWeapons = (_self: CardInstance, _slot: ViewMission, { view }: TableRead): AttributeChange => {
+  const n = completedCount(view);
   return n > 0 ? { weapons: n } : NONE;
 };
 
@@ -121,26 +131,26 @@ const MODELS: AttributeModel[] = [
     // "Plays on your mission. While this mission is worth 40 or more points, each of your personnel
     // at this mission is attributes +1."
     title: 'U.S.S. Enterprise-J',
-    eventAttributes: (_self, slot, target) =>
-      isPersonnel(target) && points(slot.mission) >= 40 && isAt(slot, target) ? ATTRIBUTES_PLUS_ONE : NONE,
+    eventAttributes: (_self, slot, target, { view }) =>
+      isPersonnel(target) && points(slot) >= 40 && hereAt(view, slot.index, target) ? ATTRIBUTES_PLUS_ONE : NONE,
   },
   {
     // "Each of your personnel here with a cost of 1 or less is attributes +1." "Here" reads as "at
     // this mission": the away team and the crews of the ships here. A personnel with no cost gets none.
     title: 'Orlitus Cluster Astronomical Survey',
-    missionAttributes: (_self, slot, target) => {
+    missionAttributes: (_self, slot, target, { view }) => {
       const cost = String(target.card?.cost ?? '').trim();
-      return isPersonnel(target) && cost !== '' && Number(cost) <= 1 && isAt(slot, target) ? ATTRIBUTES_PLUS_ONE : NONE;
+      return isPersonnel(target) && cost !== '' && Number(cost) <= 1 && hereAt(view, slot.index, target) ? ATTRIBUTES_PLUS_ONE : NONE;
     },
   },
   {
     // "Plays in your core. Your [TN] ships are each Weapons +1 and Shields -1. Your [TN] personnel
     // are each Integrity -1 and Cunning +1."
     title: 'Dark Dissension',
-    coreAttributes: (_self, target, { missions }) => {
+    coreAttributes: (_self, target, { view }) => {
       if (!hasWord(target.card?.icons, 'tn')) return NONE;
-      if (isShip(target) && commandedShips(missions).some((s) => s.id === target.id)) return { weapons: 1, shields: -1 };
-      if (isPersonnel(target) && commandedPersonnel(missions).some((p) => p.id === target.id)) return { integrity: -1, cunning: 1 };
+      if (isShip(target) && ships(view).some((s) => s.id === target.id)) return { weapons: 1, shields: -1 };
+      if (isPersonnel(target) && personnel(view, { unstopped: false }).some((p) => p.id === target.id)) return { integrity: -1, cunning: 1 };
       return NONE;
     },
   },
@@ -148,8 +158,8 @@ const MODELS: AttributeModel[] = [
     // "While you have completed a mission worth 40 or more points, each [AU] personnel present is
     // attributes +1." Nador, an [AU] personnel, is +1 himself.
     title: 'Nador Curious Commander',
-    groupAttributes: (_self, target, _group, { missions }) =>
-      isPersonnel(target) && hasIcon(target, 'au') && missions.some((slot) => slot.completed && points(slot.mission) >= 40)
+    groupAttributes: (_self, target, _group, { view }) =>
+      isPersonnel(target) && hasIcon(target, 'au') && viewMissions(view, { completed: true }).some((m) => points(m) >= 40)
         ? ATTRIBUTES_PLUS_ONE
         : NONE,
   },
@@ -163,15 +173,17 @@ const MODELS: AttributeModel[] = [
     // "While this ship is at a [Bor] mission, personnel aboard it are attributes +1."
     title: "Queen's Borg Sphere Contingency Vessel",
     crewAttributes: (_self, slot, target) =>
-      isPersonnel(target) && hasWord(slot.mission?.card?.affiliation, 'bor') ? ATTRIBUTES_PLUS_ONE : NONE,
+      isPersonnel(target) && hasWord(slot.card?.row?.affiliation, 'bor') ? ATTRIBUTES_PLUS_ONE : NONE,
   },
   {
     // "While you command three [Car] personnel, this personnel is attributes +1 …" Doran counts the
     // other [Car] personnel: his printed affiliation is not Cardassian, so two Dorans do not satisfy
     // each other.
     title: 'Doran',
-    selfAttributes: (self, _group, { missions }) =>
-      othersIn(self, commandedPersonnel(missions), (p) => hasAffiliation(p, 'cardassian')).length >= 3 ? ATTRIBUTES_PLUS_ONE : NONE,
+    selfAttributes: (self, _group, { view }) =>
+      personnel(view, { unstopped: false }).filter((p) => p.id !== self.id && hasWord(p.row?.affiliation, 'cardassian')).length >= 3
+        ? ATTRIBUTES_PLUS_ONE
+        : NONE,
   },
   {
     // "While this personnel is present with your [Baj] personnel, each of your [Fed] personnel present
@@ -188,21 +200,21 @@ const MODELS: AttributeModel[] = [
     // "While you do not command a completed mission, each of your [Vid] personnel present is
     // attributes +1." Bridon, [Vid], is +1 himself.
     title: 'Bridon',
-    groupAttributes: (_self, target, _group, { missions }) =>
-      isPersonnel(target) && hasAffiliation(target, 'vidiian') && !missions.some((slot) => slot.mission && slot.completed)
+    groupAttributes: (_self, target, _group, { view }) =>
+      isPersonnel(target) && hasAffiliation(target, 'vidiian') && completedCount(view) === 0
         ? ATTRIBUTES_PLUS_ONE
         : NONE,
   },
   {
     // "This personnel is attributes -1 for each card in your hand." The readers floor each value at 0.
     title: 'Brennan Scott',
-    selfAttributes: (_self, _group, { hand }) => (hand.length > 0 ? plus(-hand.length) : NONE),
+    selfAttributes: (_self, _group, { view: { hand } }) => (hand.length > 0 ? plus(-hand.length) : NONE),
   },
   {
     // "This personnel is Cunning +1 and Strength +1 for each incomplete non-headquarters mission you command."
     title: 'Drenol',
-    selfAttributes: (_self, _group, { missions }) => {
-      const n = incompleteNonHeadquarters(missions);
+    selfAttributes: (_self, _group, { view }) => {
+      const n = incompleteNonHeadquarters(view);
       return n > 0 ? { cunning: n, strength: n } : NONE;
     },
   },
@@ -215,7 +227,8 @@ const MODELS: AttributeModel[] = [
   {
     // "Each of your [Pa] personnel at this mission is attributes +1."
     title: 'Organia Secure Strategic Base',
-    missionAttributes: (_self, slot, target) => (isPersonnel(target) && hasIcon(target, 'pa') && isAt(slot, target) ? ATTRIBUTES_PLUS_ONE : NONE),
+    missionAttributes: (_self, slot, target, { view }) =>
+      isPersonnel(target) && hasIcon(target, 'pa') && hereAt(view, slot.index, target) ? ATTRIBUTES_PLUS_ONE : NONE,
   },
   {
     // "While your [TNG] personnel who has a cost of 4 or more is present, this personnel is attributes
@@ -243,8 +256,8 @@ const MODELS: AttributeModel[] = [
     // personnel present is attributes +1." The group is that ship's crew; in an away team she gives
     // nothing. She is unique, so she never counts herself.
     title: 'Beverly Crusher Encouraging Commander',
-    groupAttributes: (self, target, _group, { missions }) => {
-      const ship = shipOf(missions, self);
+    groupAttributes: (self, target, _group, table) => {
+      const ship = shipOf(table, self);
       return ship &&
         isNamed(ship, 'U.S.S. Enterprise-D') &&
         isPersonnel(target) &&
@@ -257,7 +270,7 @@ const MODELS: AttributeModel[] = [
   {
     // "While you have no cards in your discard pile, this personnel is Cunning +4, Strength +4 …"
     title: 'Dukat Pah-Wraith Puppet',
-    selfAttributes: (_self, _group, { discard }) => (discard.length === 0 ? { cunning: 4, strength: 4 } : NONE),
+    selfAttributes: (_self, _group, { view: { discard } }) => (discard.length === 0 ? { cunning: 4, strength: 4 } : NONE),
   },
   {
     // "While this personnel is present with a stopped [SF] Dissident personnel, he is attributes +1 …"
@@ -272,39 +285,38 @@ const MODELS: AttributeModel[] = [
     // "While each player has 40 or more points, this personnel is attributes +1 …" In a solo game the
     // player is each player: the score counter.
     title: 'Martinez',
-    selfAttributes: (_self, _group, { score }) => (score >= 40 ? ATTRIBUTES_PLUS_ONE : NONE),
+    selfAttributes: (_self, _group, { view: { score } }) => (score >= 40 ? ATTRIBUTES_PLUS_ONE : NONE),
   },
   {
     // "While you command fewer than two completed missions, this personnel is attributes +1."
     title: 'Motura Eminent Sculptor',
-    selfAttributes: (_self, _group, { missions }) =>
-      missions.filter((slot) => slot.mission && slot.completed).length < 2 ? ATTRIBUTES_PLUS_ONE : NONE,
+    selfAttributes: (_self, _group, { view }) => (completedCount(view) < 2 ? ATTRIBUTES_PLUS_ONE : NONE),
   },
   {
     // "While you command two completed space missions, this personnel is attributes +2."
     title: 'Nadia Myers',
-    selfAttributes: (_self, _group, { missions }) => (completedSpaceMissions(missions) >= 2 ? plus(2) : NONE),
+    selfAttributes: (_self, _group, { view }) => (completedCount(view, 's') >= 2 ? plus(2) : NONE),
   },
   {
     // "This personnel is attributes +1 for each of your completed space missions."
     title: 'Neelix Valued Guide',
-    selfAttributes: (_self, _group, { missions }) => {
-      const n = completedSpaceMissions(missions);
+    selfAttributes: (_self, _group, { view }) => {
+      const n = completedCount(view, 's');
       return n > 0 ? plus(n) : NONE;
     },
   },
   {
     // "While you have six or more cards in hand, this personnel is attributes +3."
     title: 'Nog Bar Owner',
-    selfAttributes: (_self, _group, { hand }) => (hand.length >= 6 ? plus(3) : NONE),
+    selfAttributes: (_self, _group, { view: { hand } }) => (hand.length >= 6 ? plus(3) : NONE),
   },
   {
     // "This personnel is Cunning +1 for each Diplomacy personnel in your discard pile (limit +4). This
     // personnel is Strength +1 for each Security personnel in your discard pile (limit +4)."
     title: 'Odo Curzon Odo',
-    selfAttributes: (_self, _group, { discard }) => ({
-      cunning: Math.min(4, discardedWith(discard, 'diplomacy')),
-      strength: Math.min(4, discardedWith(discard, 'security')),
+    selfAttributes: (_self, _group, { view }) => ({
+      cunning: Math.min(4, discardedWith(view, 'diplomacy')),
+      strength: Math.min(4, discardedWith(view, 'security')),
     }),
   },
   {
@@ -313,12 +325,14 @@ const MODELS: AttributeModel[] = [
     // table less the Range used this turn, the Range left the ship's card shows.
     title: 'Travis Mayweather Damaged Navigator',
     selfAttributes: (self, _group, table) => {
-      const { missions, rangeUsed } = table;
-      const slot = missions.find((s) => isAt(s, self));
-      if (!slot || !String(slot.mission?.card?.keywords ?? '').toLowerCase().includes('region: delphic expanse')) return NONE;
-      return slot.ships.some(
-        (ship) => hasAffiliation(ship, 'starfleet') && shipRangeOnTable(table, ship) - (rangeUsed?.[ship.id] ?? 0) > 5
-      )
+      const { view, instance } = table;
+      const here = personnel(view, { unstopped: false }).find((p) => p.id === self.id);
+      const slot = here && view.missions[here.missionIndex];
+      if (!slot || !String(slot.card?.row?.keywords ?? '').toLowerCase().includes('region: delphic expanse')) return NONE;
+      return slot.ships.some((entry) => {
+        const ship = instance(entry.id);
+        return !!ship && hasAffiliation(ship, 'starfleet') && shipRangeOf(table, ship) - (view.rangeUsed[ship.id] ?? 0) > 5;
+      })
         ? ATTRIBUTES_PLUS_ONE
         : NONE;
     },
@@ -327,8 +341,8 @@ const MODELS: AttributeModel[] = [
   {
     // "While two [Baj] personnel are in your discard pile, this personnel is attributes +2."
     title: 'Akorem Laan Revered Poet',
-    selfAttributes: (_self, _group, { discard }) =>
-      discard.filter((c) => isPersonnel(c) && hasAffiliation(c, 'bajoran')).length >= 2 ? plus(2) : NONE,
+    selfAttributes: (_self, _group, { view: { discard } }) =>
+      discard.filter((c) => c.type === 'personnel' && hasWord(c.row?.affiliation, 'bajoran')).length >= 2 ? plus(2) : NONE,
   },
   {
     // "Each unique personnel present is attributes +1." Artim, unique, is +1 himself.
@@ -445,23 +459,25 @@ const MODELS: AttributeModel[] = [
     // "While you command three [Baj] personnel, this personnel is attributes +1, gains Diplomacy, and
     // becomes [Baj]." The others: the "becomes [Baj]" part is not modelled.
     title: 'Olamu',
-    selfAttributes: (self, _group, { missions }) =>
-      othersIn(self, commandedPersonnel(missions), (p) => hasAffiliation(p, 'bajoran')).length >= 3 ? ATTRIBUTES_PLUS_ONE : NONE,
+    selfAttributes: (self, _group, { view }) =>
+      personnel(view, { unstopped: false }).filter((p) => p.id !== self.id && hasWord(p.row?.affiliation, 'bajoran')).length >= 3
+        ? ATTRIBUTES_PLUS_ONE
+        : NONE,
   },
   {
     // "This personnel is Integrity +1 and Cunning +1 for each incomplete non-headquarters mission you
     // command." Read as Drenol.
     title: 'Nirata',
-    selfAttributes: (_self, _group, { missions }) => {
-      const n = incompleteNonHeadquarters(missions);
+    selfAttributes: (_self, _group, { view }) => {
+      const n = incompleteNonHeadquarters(view);
       return n > 0 ? { integrity: n, cunning: n } : NONE;
     },
   },
   {
     // "For each mission you have completed, this personnel is attributes +1."
     title: 'Norah Satie Starfleet Investigator',
-    selfAttributes: (_self, _group, { missions }) => {
-      const n = completedMissionCount(missions);
+    selfAttributes: (_self, _group, { view }) => {
+      const n = completedCount(view);
       return n > 0 ? plus(n) : NONE;
     },
   },
@@ -469,29 +485,29 @@ const MODELS: AttributeModel[] = [
     // "While you have no cards in hand, this personnel and each of your Leadership personnel present
     // are attributes +1." Hoshi is +1 once, with Leadership or without.
     title: "Hoshi Sato Captain's Woman",
-    groupAttributes: (self, target, _group, { hand }) =>
+    groupAttributes: (self, target, _group, { view: { hand } }) =>
       hand.length === 0 && isPersonnel(target) && (target.id === self.id || hasSkill(target, 'leadership')) ? ATTRIBUTES_PLUS_ONE : NONE,
   },
   {
     // "While your MACO is present, if you have no cards in hand, this personnel is attributes +1 …" He
     // is a MACO himself, and is not present with himself.
     title: 'Malcolm Reed Enthusiastic Major',
-    selfAttributes: (self, group, { hand }) =>
+    selfAttributes: (self, group, { view: { hand } }) =>
       hand.length === 0 && othersIn(self, group, (p) => hasWord(p.card?.keywords, 'maco')).length > 0 ? ATTRIBUTES_PLUS_ONE : NONE,
   },
   {
     // "While you have no cards in hand, this personnel is attributes +1."
     title: "T'Pol Not a Slave",
-    selfAttributes: (_self, _group, { hand }) => (hand.length === 0 ? ATTRIBUTES_PLUS_ONE : NONE),
+    selfAttributes: (_self, _group, { view: { hand } }) => (hand.length === 0 ? ATTRIBUTES_PLUS_ONE : NONE),
   },
   {
     // "While you have no cards in hand, each [AU][SF] personnel present is Cunning +1 (and Integrity +1
     // if they are aboard an [AU][SF] ship)." Archer, [AU][SF], is +1 himself.
     title: 'Jonathan Archer Defiant Commander',
-    groupAttributes: (_self, target, _group, { missions, hand }) => {
+    groupAttributes: (_self, target, _group, table) => {
       const auSf = (c: CardInstance) => hasIcon(c, 'au') && hasAffiliation(c, 'starfleet');
-      if (hand.length > 0 || !isPersonnel(target) || !auSf(target)) return NONE;
-      const ship = shipOf(missions, target);
+      if (table.view.hand.length > 0 || !isPersonnel(target) || !auSf(target)) return NONE;
+      const ship = shipOf(table, target);
       return ship && auSf(ship) ? { integrity: 1, cunning: 1 } : { cunning: 1 };
     },
   },
@@ -499,7 +515,7 @@ const MODELS: AttributeModel[] = [
     // "While each player has four or more cards in hand, this personnel is attributes +1 …" In a solo
     // game the player is each player, as Martinez reads it.
     title: 'Garvey',
-    selfAttributes: (_self, _group, { hand }) => (hand.length >= 4 ? ATTRIBUTES_PLUS_ONE : NONE),
+    selfAttributes: (_self, _group, { view: { hand } }) => (hand.length >= 4 ? ATTRIBUTES_PLUS_ONE : NONE),
   },
   // The cards of #1683, each held by one shipped deck, that need a hook or a reading of their own.
   {
@@ -520,11 +536,11 @@ const MODELS: AttributeModel[] = [
     // your [SF] Dissident personnel is Cunning +1 and Strength +1." A solo table has no opponent ship,
     // as Pi Off Course reads it.
     title: "Humanity's Worst Enemy",
-    coreAttributes: (_self, target, { missions }) =>
+    coreAttributes: (_self, target, { view }) =>
       isPersonnel(target) &&
       hasAffiliation(target, 'starfleet') &&
       hasWord(target.card?.keywords, 'dissident') &&
-      commandedPersonnel(missions).some((p) => p.id === target.id)
+      personnel(view, { unstopped: false }).some((p) => p.id === target.id)
         ? { cunning: 1, strength: 1 }
         : NONE,
   },
@@ -537,14 +553,14 @@ const MODELS: AttributeModel[] = [
     // "While no player commands a Temporal event, this personnel is attributes +1." A Temporal event
     // in the core, or placed on a mission card or a ship.
     title: 'Morgan Bateson Confident Commander',
-    selfAttributes: (_self, _group, table) => (distinctTitlesWith(table, 'temporal', 'event') === 0 ? ATTRIBUTES_PLUS_ONE : NONE),
+    selfAttributes: (_self, _group, { view }) => (TEMPORAL_EVENT.holds(view) ? NONE : ATTRIBUTES_PLUS_ONE),
   },
   {
     // "This personnel is Cunning +1 for each Rule you command that has a different card title." The
     // Rule events in the core, by distinct title.
     title: 'Quark True Ferengi',
-    selfAttributes: (_self, _group, { core }) => {
-      const n = new Set(core.filter((c) => hasWord(c.card?.keywords, 'rule')).map(titleKeyOf)).size;
+    selfAttributes: (_self, _group, { view }) => {
+      const n = distinctTitleCount(view.core.filter((c) => hasWord(c.row?.keywords, 'rule')));
       return n > 0 ? { cunning: n } : NONE;
     },
   },
@@ -552,8 +568,8 @@ const MODELS: AttributeModel[] = [
     // "While you have four or more cards beneath your {Ferenginar}, this personnel is attributes +1 …"
     // The cards under the mission of a slot whose mission is Ferenginar.
     title: 'Tog Lecherous DaiMon',
-    selfAttributes: (_self, _group, { missions }) =>
-      missions.some((slot) => slot.mission && isNamed(slot.mission, 'Ferenginar') && slot.underMission.length >= 4) ? ATTRIBUTES_PLUS_ONE : NONE,
+    selfAttributes: (_self, _group, { view }) =>
+      viewMissions(view, { titled: 'Ferenginar' }).some((m) => m.underMission.length >= 4) ? ATTRIBUTES_PLUS_ONE : NONE,
   },
   { title: 'Nog Defiant Captain', aboardAttributes: (self, ship) => shipPlus(SHIP_CLAUSES.nog(self, ship)) },
   { title: 'Jasad', aboardAttributes: (self, ship, table) => shipPlus(SHIP_CLAUSES.jasad(self, ship, table)) },
@@ -592,7 +608,7 @@ const MODELS: AttributeModel[] = [
   {
     // "While this ship is at a space mission, it is Weapons +2."
     title: "I.K.S. Hegh'ta",
-    shipAttributes: (_self, slot) => (isSpaceMission(slot.mission) ? { weapons: 2 } : NONE),
+    shipAttributes: (_self, slot) => (slot.type === 's' ? { weapons: 2 } : NONE),
   },
   { title: "I.K.S. Qel'Poh Clandestine Vessel", shipAttributes: (self, _slot, table) => shipPlus(SHIP_CLAUSES.qelPohCaptive(self, table)) },
   {
@@ -601,8 +617,8 @@ const MODELS: AttributeModel[] = [
     // the crews of the ships here, as #1664 reads it, the three aboard too.
     title: 'I.K.S. Vorn Ship of Traitors',
     shipAttributes: (self) => shipPlus(SHIP_CLAUSES.vorn(self)),
-    shipMissionAttributes: (self, slot, target) =>
-      isPersonnel(target) && hasSkill(target, 'treachery') && vornCrewed(self) && isAt(slot, target) ? ATTRIBUTES_PLUS_ONE : NONE,
+    shipMissionAttributes: (self, slot, target, { view }) =>
+      isPersonnel(target) && hasSkill(target, 'treachery') && vornCrewed(self) && hereAt(view, slot.index, target) ? ATTRIBUTES_PLUS_ONE : NONE,
   },
   { title: "Te'nari Resistance Flagship", shipAttributes: (self) => shipPlus(SHIP_CLAUSES.tenari(self)) },
   { title: 'U.S.S. Ganges One of the First', shipAttributes: (self) => shipPlus(SHIP_CLAUSES.ganges(self)) },
@@ -627,13 +643,14 @@ export const attributeModelOf = (card: CardInstance | null | undefined): Attribu
 const printed = (card: CardInstance, field: string): number => Number(card.card?.[field]) || 0;
 
 // The away team or the ship's crew `target` is in, with its slot, and the ship for a crew; null for a
-// card in no group: the hand, the brig, the core, the discard or a pile.
-function placeOf(missions: MissionSlot[], target: CardInstance): { slot: MissionSlot; group: CardInstance[]; ship?: CardInstance } | null {
-  for (const slot of missions) {
-    if (slot.awayTeam.some((c) => c.id === target.id)) return { slot, group: slot.awayTeam };
-    for (const ship of slot.ships) {
-      const crew = ship.crew ?? [];
-      if (crew.some((c) => c.id === target.id)) return { slot, group: crew, ship };
+// card in no group: the hand, the brig, the core, the discard or a pile. The group is the instances of the
+// away team or the crew, in their order.
+function placeOf(read: TableRead, target: CardInstance): { slot: ViewMission; group: CardInstance[]; ship?: CardInstance } | null {
+  for (const slot of read.view.missions) {
+    if (slot.awayTeam.some((c) => c.id === target.id)) return { slot, group: read.awayTeam(slot.index) };
+    for (const entry of slot.ships) {
+      const ship = read.instance(entry.id);
+      if (ship && entry.crew.some((c) => c.id === target.id)) return { slot, group: ship.crew ?? [], ship };
     }
   }
   return null;
@@ -645,32 +662,43 @@ function placeOf(missions: MissionSlot[], target: CardInstance): { slot: Mission
 // ship's crew model; for a ship on a ship row (#1671), its own model, the models of its crew, the
 // models of the events placed on it (#1683) and the models of every personnel the player commands that
 // change ships.
-function changesTo(table: AttributeTable, target: CardInstance): AttributeChange[] {
+function changesTo(read: TableRead, target: CardInstance): AttributeChange[] {
+  const { view, instance } = read;
   const changes: AttributeChange[] = [];
   const add = (change: AttributeChange | undefined) => {
     if (change) changes.push(change);
   };
-  for (const slot of table.missions) {
-    if (!slot.mission) continue;
-    for (const event of slot.mission.placedOn ?? []) add(attributeModelOf(event)?.eventAttributes?.(event, slot, target, table));
-    add(attributeModelOf(slot.mission)?.missionAttributes?.(slot.mission, slot, target, table));
-    for (const ship of slot.ships) add(attributeModelOf(ship)?.shipMissionAttributes?.(ship, slot, target, table));
-  }
-  for (const event of table.core) add(attributeModelOf(event)?.coreAttributes?.(event, target, table));
-  const place = placeOf(table.missions, target);
-  if (place) {
-    add(attributeModelOf(target)?.selfAttributes?.(target, place.group, table));
-    for (const source of place.group) {
-      if (isPersonnel(source) || isEquipment(source)) add(attributeModelOf(source)?.groupAttributes?.(source, target, place.group, table));
+  for (const slot of view.missions) {
+    const mission = slot.card ? instance(slot.card.id) : undefined;
+    if (!mission) continue;
+    for (const event of mission.placedOn ?? []) add(attributeModelOf(event)?.eventAttributes?.(event, slot, target, read));
+    add(attributeModelOf(mission)?.missionAttributes?.(mission, slot, target, read));
+    for (const entry of slot.ships) {
+      const ship = instance(entry.id);
+      if (ship) add(attributeModelOf(ship)?.shipMissionAttributes?.(ship, slot, target, read));
     }
-    if (place.ship) add(attributeModelOf(place.ship)?.crewAttributes?.(place.ship, place.slot, target, table));
   }
-  const shipSlot = table.missions.find((slot) => slot.ships.some((s) => s.id === target.id));
+  for (const entry of view.core) {
+    const event = instance(entry.id);
+    if (event) add(attributeModelOf(event)?.coreAttributes?.(event, target, read));
+  }
+  const place = placeOf(read, target);
+  if (place) {
+    add(attributeModelOf(target)?.selfAttributes?.(target, place.group, read));
+    for (const source of place.group) {
+      if (isPersonnel(source) || isEquipment(source)) add(attributeModelOf(source)?.groupAttributes?.(source, target, place.group, read));
+    }
+    if (place.ship) add(attributeModelOf(place.ship)?.crewAttributes?.(place.ship, place.slot, target, read));
+  }
+  const shipSlot = view.missions.find((slot) => slot.ships.some((s) => s.id === target.id));
   if (shipSlot) {
-    add(attributeModelOf(target)?.shipAttributes?.(target, shipSlot, table));
-    for (const p of target.crew ?? []) add(attributeModelOf(p)?.aboardAttributes?.(p, target, table));
-    for (const event of target.placedOn ?? []) add(attributeModelOf(event)?.placedOnShipAttributes?.(event, target, table));
-    for (const p of commandedPersonnel(table.missions)) add(attributeModelOf(p)?.commandedShipAttributes?.(p, target, table));
+    add(attributeModelOf(target)?.shipAttributes?.(target, shipSlot, read));
+    for (const p of target.crew ?? []) add(attributeModelOf(p)?.aboardAttributes?.(p, target, read));
+    for (const event of target.placedOn ?? []) add(attributeModelOf(event)?.placedOnShipAttributes?.(event, target, read));
+    for (const entry of personnel(view, { unstopped: false })) {
+      const p = instance(entry.id);
+      if (p) add(attributeModelOf(p)?.commandedShipAttributes?.(p, target, read));
+    }
   }
   return changes;
 }
@@ -686,7 +714,14 @@ export function personnelAttributesOnTable(
   p: CardInstance,
   cardText = true
 ): PersonnelAttributes {
-  const changes = cardText ? changesTo(table, p) : [];
+  return cardText ? personnelAttributesOf(tableReadOf(table), p) : personnelAttributesWith(p, []);
+}
+
+// A personnel's attributes on the table that `read` holds (#1878), the card text on: `attributesOnTableOf`
+// reads every card from one view.
+export const personnelAttributesOf = (read: TableRead, p: CardInstance): PersonnelAttributes => personnelAttributesWith(p, changesTo(read, p));
+
+function personnelAttributesWith(p: CardInstance, changes: AttributeChange[]): PersonnelAttributes {
   return {
     integrity: total(printed(p, 'integrity'), changes, 'integrity'),
     cunning: total(printed(p, 'cunning'), changes, 'cunning'),
@@ -701,7 +736,13 @@ export function shipAttributesOnTable(
   ship: CardInstance,
   cardText = true
 ): ShipAttributes {
-  const changes = cardText ? changesTo(table, ship) : [];
+  return cardText ? shipAttributesOf(tableReadOf(table), ship) : shipAttributesWith(ship, []);
+}
+
+// A ship's Weapons and Shields on the table that `read` holds (#1878), the card text on.
+export const shipAttributesOf = (read: TableRead, ship: CardInstance): ShipAttributes => shipAttributesWith(ship, changesTo(read, ship));
+
+function shipAttributesWith(ship: CardInstance, changes: AttributeChange[]): ShipAttributes {
   return {
     weapons: total(printed(ship, 'weapons'), changes, 'weapons'),
     shields: total(printed(ship, 'shields'), changes, 'shields'),

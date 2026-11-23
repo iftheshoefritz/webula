@@ -4,8 +4,8 @@
 // `src/app/decks/practice/tableView.ts` builds it from a `TableState`. `costFactsOf` projects `CostFacts` from it,
 // and the cost models evaluate its conditions over their `CostFacts` (#1876); the bot's table input is a
 // projection of it (#1879); the conditions of the "when you play" models and the mission readers of the practice
-// table (Earth's and Nimbus III's spends, the completion effects, the cards in play) read it too (#1877); parts 4
-// and 5 of #1862 move `RangeTable` and `AttributeTable` onto it.
+// table (Earth's and Nimbus III's spends, the completion effects, the cards in play) read it too (#1877); the range,
+// span and attribute models read it in place of `RangeTable` and `AttributeTable` (#1878).
 //
 // "Command" keeps the two meanings the readers of today give it (`docs/ubiquitous-language.md`): the cost and
 // play models count only the unstopped personnel, and the range, attribute and bot readers count the stopped
@@ -455,6 +455,29 @@ export function inPlay(view: TableView): ViewCard[] {
   ];
 }
 
+export interface KeywordCardQuery {
+  /** A keyword, lowercased, matched as a whole word of the `keywords` field: "capture". */
+  keyword: string;
+  /** The lowercased type, "event"; any type when absent. */
+  type?: string;
+}
+
+const fieldWords = (field: unknown): string[] => text(field).split(/[^a-z]+/).filter(Boolean);
+
+/**
+ * The cards the player commands with a keyword (#1683, #1878): the core, then the cards placed on each mission
+ * card and on each ship, of `q.type` when given. Any type, so not `events()`; never a card placed on a core card,
+ * nor the brig. The keyword is a whole word of the field, as `hasWord` of the range models reads it.
+ */
+export function keywordCards(view: TableView, q: KeywordCardQuery): ViewCard[] {
+  const word = q.keyword.toLowerCase();
+  const placed = view.missions.flatMap((m) => [...m.placedOn, ...m.ships.flatMap((ship) => ship.placedOn)]);
+  return [...view.core, ...placed].filter((c) => fieldWords(c.row?.keywords).includes(word) && (!q.type || c.type === q.type));
+}
+
+/** The number of different titles among `cards`, in any case: two copies of one title count once. */
+export const distinctTitleCount = (cards: ViewCard[]): number => new Set(cards.map((c) => c.title.toLowerCase())).size;
+
 /** The plays of the turn so far that pass `test`, oldest first (#1876). */
 export const playsThisTurn = (reader: TableReader, test: (play: CostTurnPlay) => boolean = () => true): CostTurnPlay[] =>
   sourceOf(reader).playsOf().filter(test);
@@ -559,6 +582,20 @@ export function commandsEvents(options: ConditionOptions & { keyword?: string; w
     options
   );
 }
+
+/**
+ * "While you command a <keyword> card" (#1878: I.K.S. Chontay's Maneuver event, Morgan Bateson's Temporal event):
+ * a card of `keywordCards`. It reads a table view; a `CostFacts` source holds no placed card, so it never holds there.
+ */
+export function commandsKeywordCard(q: KeywordCardQuery, options: ConditionOptions = {}): Condition {
+  const n = (reader: TableReader) => (isSource(reader) ? 0 : keywordCards(reader, q).length);
+  return condition(
+    (reader) => n(reader) > 0,
+    () => `you command a ${q.keyword}${q.type ? ` ${q.type}` : ''}`,
+    options
+  );
+}
+
 
 const requirementWords = (text: string): string[] => text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
 
