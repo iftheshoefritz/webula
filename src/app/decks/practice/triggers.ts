@@ -1,5 +1,5 @@
 // The trigger offers of the practice table (#1903, part 1 of #1867), derived from the effective log and never
-// stored: no `TableState` field holds an offer, and a save needs no migration. Nothing shows them yet.
+// stored: no `TableState` field holds an offer, and a save needs no migration. `TriggerOffers` shows them (#1904).
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
@@ -27,6 +27,7 @@ export interface TriggerOffer {
 function followsEntry(entry: LogEntry): { entry?: number } | null {
   switch (entry.kind) {
     case 'triggerUsed':
+    case 'triggerEffect':
     case 'triggerSkipped':
     case 'playEffect':
     case 'chargeCorrected':
@@ -95,8 +96,10 @@ function eventPasses(row: TriggerRow, event: GameEvent, context: TriggerContext,
   return !filter.where || filter.where(event as never, context);
 }
 
-const sameTarget = (a: TriggerTarget, b: TriggerTarget): boolean =>
+/** Whether two offers' addresses are the same offer. */
+export const sameTriggerTarget = (a: TriggerTarget, b: TriggerTarget): boolean =>
   a.entry === b.entry && a.source === b.source && a.row === b.row && a.event === b.event;
+const sameTarget = sameTriggerTarget;
 
 /**
  * The trigger offers of the table (#1903): the rows whose event the last action entry of the effective log
