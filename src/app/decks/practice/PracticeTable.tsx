@@ -243,6 +243,7 @@ import { flatRowMaxOffset, flatRowWidths, pileCardSize, useElementHeight, useEle
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
+import PileCarousel from './PileCarousel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
 import { PILE_CARD_BORDER_STYLE, RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, cardBorderStyle, SMALL_CARD_WIDTH, TableCardImage } from './TableCard';
 import {
@@ -479,6 +480,8 @@ function GameMenu({
   onToggleResolveEvents,
   checkRules,
   onToggleCheckRules,
+  pileCarousel,
+  onTogglePileCarousel,
   botGame,
   botPileName,
   touch,
@@ -527,6 +530,9 @@ function GameMenu({
   // The setting "Check uniqueness and limits" (#1821).
   checkRules: boolean;
   onToggleCheckRules: () => void;
+  // The setting "Search piles in a carousel" (#1899).
+  pileCarousel: boolean;
+  onTogglePileCarousel: () => void;
   // A game against the dilemma bot (#1289), and the name of the bot's pile (#1520).
   botGame: boolean;
   botPileName: string;
@@ -628,6 +634,15 @@ function GameMenu({
                 className={SPLASH_ITEM_CLASS}
               >
                 Check uniqueness and limits: {checkRules ? 'On' : 'Off'}
+              </button>
+              <button
+                type="button"
+                onClick={onTogglePileCarousel}
+                aria-pressed={pileCarousel}
+                data-testid="game-menu-pile-carousel"
+                className={SPLASH_ITEM_CLASS}
+              >
+                Search piles in a carousel: {pileCarousel ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => setView('offline')} className={SPLASH_ITEM_CLASS}>
                 {offlineItemLabel(offline.progress)}
@@ -1056,6 +1071,10 @@ export const RESOLVE_EVENTS_KEY = 'practice-resolve-events';
 
 // The localStorage key of the setting "Check uniqueness and limits" (#1821).
 export const CHECK_RULES_KEY = 'practice-check-rules';
+
+// The localStorage key of the setting "Search piles in a carousel" (#1899): the draw deck's
+// Download control opens `PileCarousel` in place of the grid of `CardListPanel`.
+export const PILE_CAROUSEL_KEY = 'practice-pile-carousel';
 
 function RotateDeviceOverlay() {
   return (
@@ -2480,6 +2499,7 @@ function PracticeDrawContent() {
   // Whether a play or a placement checks uniqueness and the limits per mission and per ship (#1821). It
   // joins each action in `withShuffleOrders`, so the reducer reads no storage; it blocks no move.
   const [checkRulesOn, setCheckRulesOn] = useLocalStorage<boolean>(CHECK_RULES_KEY, false);
+  const [pileCarouselOn, setPileCarouselOn] = useLocalStorage<boolean>(PILE_CAROUSEL_KEY, false);
   // The brief chip of the last charge: the index of its entry in the log. It is page state, so a
   // reload does not bring it back. A newer charge replaces it, undo and redo remove it, and it shows
   // only while its entry is of the current turn, so the next turn removes it too.
@@ -4841,6 +4861,8 @@ function PracticeDrawContent() {
           onToggleResolveEvents={() => setResolveEventsOn((on) => !on)}
           checkRules={checkRulesOn}
           onToggleCheckRules={() => setCheckRulesOn((on) => !on)}
+          pileCarousel={pileCarouselOn}
+          onTogglePileCarousel={() => setPileCarouselOn((on) => !on)}
           botGame={table.opponent === 'bot'}
           botPileName={table.botPile?.name ?? CHULA_BOT_PILE_NAME}
           touch={!finePointer}
@@ -5503,7 +5525,30 @@ function PracticeDrawContent() {
               {/* The core's or the brig's own card list panel (#640), opened by tapping a card
                   already sitting in that zone; or the draw pile's/the dilemma pile's own download
                   panel (#690), opened by the new download control beside each one. */}
-              {openFlatLocation && (
+              {/* #1899: with "Search piles in a carousel" on, the draw deck's search is a carousel,
+                  with the panel's Download, Discard and Shuffle, and Top and Bottom too. */}
+              {openFlatLocation === 'drawDeck' && pileCarouselOn && (
+                <PileCarousel
+                  pile="drawDeck"
+                  cards={openPanelCards ?? []}
+                  onClose={() => {
+                    setOpenFlatLocation(null);
+                    setSelectedCardIds([]);
+                  }}
+                  selectedIds={selectedCardIds}
+                  onToggleSelect={toggleCardSelection}
+                  onSelectIds={setSelectedCardIds}
+                  onShuffle={() => dispatch({ type: 'shuffle', location: 'drawDeck' })}
+                  onDownload={(ids) => downloadSelection('drawDeck', ids)}
+                  onDiscard={discardSelection}
+                  onSendToDeck={(ids, position) => {
+                    sendCardsToDeck('drawDeck', ids, position);
+                    setSelectedCardIds([]);
+                  }}
+                  hidden={draggingInstance !== null}
+                />
+              )}
+              {openFlatLocation && !(openFlatLocation === 'drawDeck' && pileCarouselOn) && (
                 <CardListPanel
                   location={openFlatLocation}
                   cards={openPanelCards ?? []}
