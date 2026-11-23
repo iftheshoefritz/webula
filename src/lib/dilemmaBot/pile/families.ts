@@ -1,4 +1,5 @@
 import { RequirementBranch, SKILL_INDEX, parseRequirementBranches } from '../requirements';
+import { TraitAccess, TraitQuery, traitTest } from '../../tableView';
 import { Attr, ATTR_NAMES, PlayState, skillName } from './play';
 
 // The families of the dilemma registry (#1320, the pilot). A family is a shape of dilemma text with
@@ -47,22 +48,39 @@ export const both = (...effects: Play[]): Play => (s) => effects.forEach((e) => 
 
 // ---- Tests on one personnel ----
 
-export const hasAny = (...skills: string[]): Test => {
-  const ix = skills.map(sk);
-  return described(ix.map(skillName).join(' or '), (s, k) => s.hasSkill(k, ...ix));
+/**
+ * How a dilemma reads personnel `k` of `s.group` (#1868): its skills live, through `PlayState.skill`, so the
+ * blocked skills, the partner-settled profiles and `skillRead` apply; its keywords and icons from `traits`,
+ * which a personnel with none lacks.
+ */
+const PLAY_TRAITS: TraitAccess<PlayState> = {
+  affiliation: (s, k) => s.group[k].affiliation,
+  species: (s, k) => s.group[k].species,
+  skill: (s, k, i) => s.skill(k, i),
+  keywords: (s, k) => s.group[k].traits?.keywords,
+  icons: (s, k) => s.group[k].traits?.icons,
+  missionIndex: () => undefined,
 };
+
+/** A personnel of the group that passes `q`: the table view's trait predicate (#1868), compiled once. */
+export const personnelIs = (q: Omit<TraitQuery, 'at'>): Test => traitTest(q, PLAY_TRAITS);
+
+export const hasAny = (...skills: string[]): Test =>
+  described(skills.map((n) => skillName(sk(n))).join(' or '), personnelIs({ anySkill: skills }));
 export const attrAbove = (a: Attr, n: number): Test => described(`${ATTR_NAMES[a]} > ${n}`, (s, k) => s.attr(k, a) > n);
 export const attrBelow = (a: Attr, n: number): Test => described(`${ATTR_NAMES[a]} < ${n}`, (s, k) => s.attr(k, a) < n);
 export const costAtMost = (n: number): Test => (s, k) => s.group[k].cost <= n;
 export const either = (...tests: Test[]): Test => (s, k) => tests.some((t) => t(s, k));
 export const affiliationIs = (icon: string): Test =>
-  described(`the ${icon.charAt(0).toUpperCase()}${icon.slice(1)} affiliation`, (s, k) => s.group[k].affiliation === icon);
+  described(`the ${icon.charAt(0).toUpperCase()}${icon.slice(1)} affiliation`, personnelIs({ affiliation: icon }));
+/** A species, lowercased, such as `'android'`. */
+export const speciesIs = (species: string): Test => personnelIs({ species });
 /** "A skill required by this mission": a skill some branch of the requirements names. */
 export const hasRequiredSkill: Test = (s, k) => s.requirements.some((b) => b.skills.some((n, i) => n > 0 && s.skill(k, i) > 0));
 /** A printed keyword, lowercased, such as `'admiral'`. A personnel with no `traits` has none. */
-export const keywordIs = (keyword: string): Test => (s, k) => !!s.group[k].traits?.keywords.includes(keyword);
+export const keywordIs = (keyword: string): Test => personnelIs({ keyword });
 /** A printed icon, lowercased, such as `'[cmd]'`. A personnel with no `traits` has none. */
-export const iconIs = (icon: string): Test => (s, k) => !!s.group[k].traits?.icons.includes(icon);
+export const iconIs = (icon: string): Test => personnelIs({ icon });
 
 // ---- The families ----
 

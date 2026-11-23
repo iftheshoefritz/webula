@@ -33,6 +33,10 @@ import { CORE_EVENTS, D, P, PLAYER_AHEAD_RULE, S, dilemmaList, names, playerAhea
 
 const { models, dilemma } = dilemmaList();
 
+const isAdmiral = keywordIs('admiral');
+const isGeneral = keywordIs('general');
+const isCommand = iconIs('[cmd]');
+
 const BOTTOM_OF_DECK = 'a personnel placed on the bottom of the deck counts as killed';
 
 const totalAttrs = (s: PlayState, k: number) => ([0, 1, 2] as Attr[]).reduce((t, a) => t + s.attr(k, a), 0);
@@ -105,7 +109,7 @@ dilemma('Dead Weight', D, 3, 'own', (s) => s.stop(s.unstopped().filter((k) => !h
 
 dilemma('Dignitaries and Witnesses', D, 4, 'unless', (() => {
   const branches = req('3 Leadership');
-  const highRank = (s: PlayState) => s.unstopped().some((k) => keywordIs('admiral')(s, k) || keywordIs('general')(s, k));
+  const highRank = (s: PlayState) => s.unstopped().some((k) => isAdmiral(s, k) || isGeneral(s, k));
   return unlessGroup((s) => highRank(s) || s.has(branches), thenReturns(stopAll), 'an Admiral or a General or 3 Leadership');
 })());
 
@@ -154,7 +158,7 @@ dilemma('Artificial Wormhole', S, 3, 'own', (() => {
 dilemma('Clashing Values', P, 2, 'select-each-without', selectEachWithout(3, hasAny('anthropology', 'science'), 'stop'));
 
 dilemma('Code Forty-Seven', D, 2, 'choose', (s) => {
-  const chosen = s.playerChooses(s.unstopped().filter((k) => iconIs('[cmd]')(s, k)));
+  const chosen = s.playerChooses(s.unstopped().filter((k) => isCommand(s, k)));
   s.stop(chosen);
   if (chosen.reduce((t, k) => t + s.group[k].cost, 0) < 4) s.returnsToPile();
 }, { assumption: 'the player stops one [Cmd] personnel' });
@@ -166,7 +170,7 @@ dilemma('Edo Probe', D, 0, 'no-effect', noEffect, { status: 'ignore' });
 dilemma('Elemental Instability', D, 3, 'own', (s) => {
   botChooses(s.attempt.table.trelliumD ?? 0, 'kill')(s);
   if (!s.live) return;
-  unless('2 Engineer and 2 Science or 2 Acquisition and 2 Biology', (t) => t.stop(t.playerChooses(t.unstopped().filter((k) => iconIs('[cmd]')(t, k)), 2)))(s);
+  unless('2 Engineer and 2 Science or 2 Acquisition and 2 Biology', (t) => t.stop(t.playerChooses(t.unstopped().filter((k) => isCommand(t, k)), 2)))(s);
 });
 
 dilemma('Family', D, 3, 'reveal-or-else', revealOrElse('honor', 'treachery'), { gap: BOTTOM_OF_DECK });

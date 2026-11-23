@@ -23,6 +23,7 @@ import { D, P, S, dilemmaList } from '../define';
 const { models, dilemma } = dilemmaList();
 
 const ATTRS: Attr[] = [0, 1, 2];
+const isHost = keywordIs('host');
 
 // ---- Random selections ----
 
@@ -121,7 +122,7 @@ dilemma('Pandora\'s Box', S, 2, 'unless', unless('Diplomacy, Navigation, and Tre
 dilemma('Pools of Mak\'ala', P, 3, 'unless', (() => {
   const branches = req('2 Exobiology and Cunning>32');
   return unlessGroup(
-    (s) => s.has(branches) || s.unstopped().some((k) => keywordIs('host')(s, k)),
+    (s) => s.has(branches) || s.unstopped().some((k) => isHost(s, k)),
     (s) => {
       s.returnToHand(s.select(1));
       s.stopAll();
