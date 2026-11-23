@@ -1,5 +1,5 @@
 // The missions whose text lets the player spend counters on an action (#1754), by whole title, every
-// version of each. The table only reads what a spend may do here; `gameReducer` checks it again and
+// version of each: the `spend` abilities of the mission registry (#1907). The table only reads what a spend may do here; `gameReducer` checks it again and
 // makes the one log entry (`missionSpend` in `gameLog.ts`).
 //
 // Earth, Lush and Beautiful Home: "When you play a [TOS] card here, you may spend a counter to draw two
@@ -13,19 +13,32 @@
 
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import { commands, missions } from '../../../lib/tableView';
+import type { DownloadStep, DrawStep } from '../../../lib/effectSteps';
+import { missionModelsWith, type MissionSpendKind } from '../../../lib/missionModels';
+import { commands, missions, type PlayTest } from '../../../lib/tableView';
 import type { CardInstance, TableState } from './tableReducer';
 import { tableViewOf } from './tableView';
 
-export const EARTH_TITLE = 'Earth Lush and Beautiful Home';
-export const NIMBUS_TITLE = 'Nimbus III Staff Backwater Embassy';
-export const NIMBUS_PERSONNEL = ['Caithlin Dar', 'Korrd', 'St. John Talbot'] as const;
+// Each spend is the `spend` ability of its row in the mission registry (#1907).
+const spendOf = (kind: MissionSpendKind) => missionModelsWith('spend').find(({ ability }) => ability.spend.kind === kind)!;
+const EARTH = spendOf('earth');
+const NIMBUS = spendOf('nimbus');
+const NIMBUS_DOWNLOAD = NIMBUS.ability.spend.steps.find((s): s is DownloadStep => s.kind === 'download')!;
+const EARTH_DRAW = EARTH.ability.spend.steps.find((s): s is DrawStep => s.kind === 'draw')!;
 
-export const EARTH_SPEND_COST = 1;
-export const EARTH_SPEND_DRAW = 2;
-export const NIMBUS_SPEND_COST = 3;
+export const EARTH_TITLE = EARTH.model.title;
+export const NIMBUS_TITLE = NIMBUS.model.title;
+export const NIMBUS_PERSONNEL: readonly string[] = NIMBUS_DOWNLOAD.of.kind === 'test' ? (NIMBUS_DOWNLOAD.of.test[0]?.titles ?? []) : [];
 
-export type MissionSpendKind = 'earth' | 'nimbus';
+export const EARTH_SPEND_COST = EARTH.ability.spend.counters;
+export const EARTH_SPEND_DRAW = EARTH_DRAW.count.kind === 'fixed' ? EARTH_DRAW.count.count : 0;
+export const NIMBUS_SPEND_COST = NIMBUS.ability.spend.counters;
+
+/** The icon of the card whose play at Earth offers its spend, "[tos]". */
+export const EARTH_PLAY_TEST: PlayTest =
+  EARTH.ability.spend.condition.kind === 'playedHereThisTurn' ? EARTH.ability.spend.condition.play : {};
+
+export type { MissionSpendKind };
 
 /** The slots whose mission has the title `title`, in slot order. */
 export const slotsTitled = (table: TableState, title: string): number[] => missions(tableViewOf(table), { title }).map((m) => m.index);
@@ -40,7 +53,8 @@ export const isNimbusPersonnel = (card: CardInstance): boolean => {
 };
 
 /** "You command {Unicomplex}": a mission slot of the player's holds a Unicomplex. */
-const UNICOMPLEX = commands({ of: 'missions', titled: 'Unicomplex' }, 'Unicomplex');
+const UNICOMPLEX_TITLE = NIMBUS.ability.spend.condition.kind === 'notCommanding' ? NIMBUS.ability.spend.condition.title : 'Unicomplex';
+const UNICOMPLEX = commands({ of: 'missions', titled: UNICOMPLEX_TITLE }, UNICOMPLEX_TITLE);
 
 /** Whether a mission slot of the player's holds a Unicomplex. */
 export const commandsUnicomplex = (table: TableState): boolean => UNICOMPLEX.holds(tableViewOf(table));

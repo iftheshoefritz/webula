@@ -13,12 +13,17 @@
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import { dilemmaRequiresSkill } from '../../../lib/dilemmaBot/pile/requiresSkill';
+import { missionModelsWith, type DilemmaReveal } from '../../../lib/missionModels';
 import { revealedPileAttemptOf } from './attempt';
 import { LogEntry, effectiveLog } from './gameLog';
 import { findInstanceAnywhere, type CardInstance, type TableState } from './tableReducer';
 
-export const SIGMA_IOTIA_TITLE = 'Sigma Iotia II Assess Contamination';
-export const SIGMA_IOTIA = 'Sigma Iotia II';
+// Sigma Iotia II is the prevent ability of its row in the mission registry (#1907); Tristan Adams, a personnel,
+// stays here.
+const SIGMA_IOTIA_ROW = missionModelsWith('onDilemmaReveal').find(({ ability }) => ability.reveal.kind === 'prevent')!;
+const SIGMA_IOTIA_PREVENT = SIGMA_IOTIA_ROW.ability.reveal as Extract<DilemmaReveal, { kind: 'prevent' }>;
+export const SIGMA_IOTIA_TITLE = SIGMA_IOTIA_ROW.model.title;
+export const SIGMA_IOTIA = SIGMA_IOTIA_ROW.model.label;
 export const TRISTAN_ADAMS_TITLE = 'Tristan Adams Deranged Psychiatrist';
 export const TRISTAN_ADAMS = 'Tristan Adams';
 
@@ -54,12 +59,17 @@ export function preventionOf(table: TableState, log: LogEntry[]): string | null 
   if (!snapshot || snapshot.dilemmaId !== top.id || snapshot.resolved) return null;
 
   const mission = table.missions[attempt.missionIndex]?.mission?.card;
-  if (mission && dilemmaTitleOf(mission) === SIGMA_IOTIA_TITLE && !sigmaUsedThisTurn(log, table.turn, cardDisplayName(mission))) {
+  const prevent = SIGMA_IOTIA_PREVENT;
+  if (
+    mission &&
+    dilemmaTitleOf(mission) === SIGMA_IOTIA_TITLE &&
+    !(prevent.oncePerTurn && sigmaUsedThisTurn(log, table.turn, cardDisplayName(mission)))
+  ) {
     const pileAttempt = revealedPileAttemptOf(table);
     const first = pileAttempt
       ? (attempt.botRevealed ?? []).find((id) => {
           const card = findInstanceAnywhere(table, id)?.instance.card;
-          return !!card && printedCost(card) >= 1 && !dilemmaRequiresSkill(card, pileAttempt);
+          return !!card && printedCost(card) >= prevent.minCost && !(prevent.requiresNoSkill && dilemmaRequiresSkill(card, pileAttempt));
         })
       : undefined;
     if (first === top.id) return SIGMA_IOTIA;
