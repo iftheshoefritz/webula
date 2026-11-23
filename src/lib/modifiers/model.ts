@@ -36,7 +36,8 @@ export const ATTRIBUTE_QUANTITIES: readonly AmountQuantity[] = ['integrity', 'cu
  * - `moveMission`: the card of either mission of a move;
  * - `moveShip`: the moving ship;
  * - `played`: the card being played, for its own cost (#1888);
- * - `unstopped`: an unstopped personnel of an away team or a crew, never the brig (#1888).
+ * - `unstopped`: an unstopped personnel of an away team or a crew, never the brig (#1888);
+ * - `attempt`: no card: an earlier dilemma of the attempt (#1889). No evaluator reads it.
  *
  * A cost row of `core` reads its title in the core, and one of `mission` the mission card of one of the player's
  * slots, asked with its slot.
@@ -54,23 +55,37 @@ export type SourcePlace =
   | 'moveMission'
   | 'moveShip'
   | 'played'
-  | 'unstopped';
+  | 'unstopped'
+  | 'attempt';
 
 /**
  * The cards a row changes, relative to its source: the source itself (`self`), each card of its away team or crew,
  * the source counting or not as the change says (`group`), the crew of the source ship (`crew`), the ship the
  * source is aboard or placed on (`itsShip`), every ship on a ship row (`shipsOnRows`), any card, a card off the
  * table too (`any`), or a move: its two missions and its ship (`move`), the card being played (`play`, #1888), or
- * the counters the player may spend this turn (`turnLimit`, #1888).
+ * the counters the player may spend this turn (`turnLimit`, #1888); for an `attempt` row, every attempting
+ * personnel (`attempting`) or the one card of `targetId` (`card`), which no evaluator reads (#1889).
  */
-export type TargetRelation = 'self' | 'group' | 'crew' | 'itsShip' | 'shipsOnRows' | 'any' | 'move' | 'play' | 'turnLimit';
+export type TargetRelation =
+  | 'self'
+  | 'group'
+  | 'crew'
+  | 'itsShip'
+  | 'shipsOnRows'
+  | 'any'
+  | 'move'
+  | 'play'
+  | 'turnLimit'
+  | 'attempting'
+  | 'card';
 
 /**
- * How long a row applies: while its source stands in its place, or for the next play of the turn that passes its
+ * How long a row applies: while its source stands in its place, for the next play of the turn that passes its
  * test (`nextPlay`, #1888: "the next … you play this turn"), a discount the card's own play leaves, which the log
- * keeps (`pendingDiscountsOf`). Part 3 of #1864 adds the scope of an attempt.
+ * keeps (`pendingDiscountsOf`), or for the rest of the attempt (`thisAttempt`, #1889), the bonus and the losses of
+ * the bot's `PileModifiers`, never in the registry.
  */
-export type Scope = 'whileInPlay' | 'nextPlay';
+export type Scope = 'whileInPlay' | 'nextPlay' | 'thisAttempt';
 
 /** A card a row reads: a view card, with its crew for a ship. */
 export type ModifierCard = CrewedCard;
@@ -171,6 +186,8 @@ export interface ModifierRow {
   eachTitleOnce?: boolean;
   /** The name a cost row's suggestions show, when it is not the title: "Seska" (#1888). */
   label?: string;
+  /** The card id of a `card` target. */
+  targetId?: string;
 }
 
 /** Each copy of the title `title` in `source` changes `changes` of `target`, while `whileInPlay`. */

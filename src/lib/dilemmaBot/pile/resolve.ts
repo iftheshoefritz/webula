@@ -3,6 +3,7 @@ import { DilemmaModel, DilemmaPlacement, PersonnelOp, PileAttempt, PileModifiers
 import { LABEL_SEED, LabelRow, modelsOf, withRevealedCost } from './label';
 import { playPileStack, skillName } from './play';
 import { modelOf } from './registry';
+import { attemptModifiersOf, attemptRowsOf } from '../../modifiers/attempt';
 
 // The Resolve of a dilemma the player faces in a bot game (#1588): the effects of the revealed top card
 // on the personnel of the reveal snapshot, reconciled with what the player already did by hand. Like
@@ -203,9 +204,11 @@ export function modifierParts(m: PileModifiers, nameOf: (id: string) => string):
   if (m.abilitiesOff) parts.push('Abilities off');
   if (m.firstSkillOff) parts.push('First skill off');
   if (m.blockedSkills?.length) parts.push(`${m.blockedSkills.map(skillName).join(', ')} blocked`);
-  if (m.attrBonus) parts.push(`${signed(m.attrBonus)} attributes`);
+  // The numeric parts read the attempt rows (#1889).
+  const numeric = attemptModifiersOf(attemptRowsOf(m));
+  if (numeric.attrBonus) parts.push(`${signed(numeric.attrBonus)} attributes`);
   const byLoss = new Map<number, string[]>();
-  for (const [id, loss] of Object.entries(m.attrLoss ?? {})) if (loss > 0) byLoss.set(loss, [...(byLoss.get(loss) ?? []), nameOf(id)]);
+  for (const [id, loss] of Object.entries(numeric.attrLoss ?? {})) byLoss.set(loss, [...(byLoss.get(loss) ?? []), nameOf(id)]);
   for (const [loss, names] of Array.from(byLoss).sort((a, b) => a[0] - b[0])) parts.push(`${signed(-loss)} attributes: ${names.join(', ')}`);
   if (m.overwhelmed) parts.push('Overwhelmed');
   if (m.requirements) parts.push('Requirements changed');
