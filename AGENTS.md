@@ -1338,7 +1338,11 @@ title, with its short label and its abilities, each a trigger and plain data quo
 Nimbus III's download goes to the `DownloadTo` kind `thisAwayTeam`), `requirements` (`requirementRules.ts`),
 and `standingCost` and `attributes`, whose rows stay in `costModels/titles/missionRule.ts` and the modifier rows;
 the registry lists their titles. The hooks keep their names and signatures and read the rows, and the model
-backlog's `mission` concern reads `MISSION_MODEL_TITLES`. A new mission is a row and a test.
+backlog's `mission` concern reads `MISSION_MODEL_TITLES`. A new mission is a row and a test. The rows of #1908 score
+on completion under a condition (`CompletionCondition`: the skills the personnel completing it have or lack, the
+personnel here, no other completed mission), shown as `completion-effect-condition` ("Condition met: …"), with the
+part on an opponent as `completion-effect-not-checked`; Earth Humanity's Home `watches` the completion of each of the
+player's space missions, and Alpha 5 Approach's `anywhere` change applies to every attempt while it is in a slot.
 
 In a bot game (`?fixture=bot`), Start opens straight into `'face'` (#1299). The popup stays open,
 with Start reading "The bot is choosing…", while the bot draws Draw dilemmas and chooses a stack

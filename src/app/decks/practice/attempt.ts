@@ -513,7 +513,11 @@ export function attemptMissionRulesOf(table: TableState, panel: AttemptPanel): A
   const found = attemptCards(table, panel);
   if (!found) return { offers: [] };
   const slot = table.missions[found.missionIndex];
-  return attemptMissionRules(slot.mission?.card, found.cards, { underMission: slot.underMission, drawDeck: table.drawDeck });
+  return attemptMissionRules(slot.mission?.card, found.cards, {
+    underMission: slot.underMission,
+    drawDeck: table.drawDeck,
+    missions: table.missions.map((s) => s.mission?.card),
+  });
 }
 
 // The attempt of `/decks/practice?fixture=attempt` (#1169): the `startAttempt` that Start in the

@@ -44,6 +44,8 @@ const keywordsOf = (card: { keywords?: string } | undefined): string[] =>
 export interface AttemptMissionPlace {
   underMission: CardInstance[];
   drawDeck: CardInstance[];
+  /** The mission cards of the player's slots, for an ability of every attempt (#1908, Alpha 5 Approach). */
+  missions?: ({ name?: string; originalName?: string } | undefined)[];
 }
 
 const titleOf = (card: { name?: string; originalName?: string } | undefined): string =>
@@ -64,21 +66,19 @@ function conditionHolds(condition: AttemptCondition, personnel: CardInstance[], 
   return attemptingHolds(attempting, condition.query);
 }
 
-/**
- * The changes of the attempted mission: `mission` the mission card, `involved` the away team or the
- * crew. Only the unstopped personnel count, the ones the popup counts.
- */
-export function attemptMissionRules(
-  mission: { name?: string; originalName?: string } | undefined,
-  involved: CardInstance[],
-  place: AttemptMissionPlace = { underMission: [], drawDeck: [] }
-): AttemptMissionRules {
+// Two automatic changes are one: their sources joined, their numbers summed.
+const mergeChanges = (changes: AttemptMissionChange[]): AttemptMissionChange | undefined =>
+  changes.length
+    ? { source: changes.map((c) => c.source).join(', '), draw: changes.reduce((n, c) => n + c.draw, 0), spend: changes.reduce((n, c) => n + c.spend, 0) }
+    : undefined;
+
+// The changes of the attempted mission's own ability, `mission` its card.
+function ownRules(mission: { name?: string; originalName?: string } | undefined, personnel: CardInstance[], place: AttemptMissionPlace): AttemptMissionRules {
   const name = mission?.originalName ?? mission?.name;
   if (typeof name !== 'string') return NONE;
   const model = missionModelOf(name);
   const ability = abilityOf(model, 'onAttemptStart');
-  if (!model || !ability) return NONE;
-  const personnel = involved.filter((c) => c.card?.type === 'personnel' && !c.stopped);
+  if (!model || !ability || ability.anywhere) return NONE;
   if (!conditionHolds(ability.condition, personnel, place)) return NONE;
   const { draw, spend, offer } = ability.change;
   const source = model.label;
@@ -99,6 +99,36 @@ export function attemptMissionRules(
       },
     ],
   };
+}
+
+// The automatic changes of the abilities of every attempt, of the missions of the player's slots, each title once.
+function anywhereChanges(personnel: CardInstance[], place: AttemptMissionPlace): AttemptMissionChange[] {
+  const seen = new Set<string>();
+  return (place.missions ?? []).flatMap((card) => {
+    const model = missionModelOf(card?.originalName ?? card?.name);
+    const ability = abilityOf(model, 'onAttemptStart');
+    if (!model || !ability?.anywhere || seen.has(model.title) || !conditionHolds(ability.condition, personnel, place)) return [];
+    seen.add(model.title);
+    return [{ source: model.label, draw: ability.change.draw, spend: ability.change.spend }];
+  });
+}
+
+/**
+ * The changes of the attempted mission: `mission` the mission card, `involved` the away team or the
+ * crew, and those of the missions of `place.missions` whose ability changes every attempt. Only the
+ * unstopped personnel count, the ones the popup counts.
+ */
+export function attemptMissionRules(
+  mission: { name?: string; originalName?: string } | undefined,
+  involved: CardInstance[],
+  place: AttemptMissionPlace = { underMission: [], drawDeck: [] }
+): AttemptMissionRules {
+  const personnel = involved.filter((c) => c.card?.type === 'personnel' && !c.stopped);
+  const own = ownRules(mission, personnel, place);
+  const anywhere = anywhereChanges(personnel, place);
+  if (!anywhere.length) return own;
+  const auto = mergeChanges([...(own.auto ? [own.auto] : []), ...anywhere]);
+  return { ...(auto ? { auto } : {}), offers: own.offers };
 }
 
 /** Whether a change changes the draw or the spend; Caldos IV's download changes neither. */
