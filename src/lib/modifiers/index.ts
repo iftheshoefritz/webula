@@ -8,7 +8,8 @@
 
 import type { TableView, ViewCard, ViewMission, ViewShip, ViewTableCard } from '../tableView';
 import { personnel } from '../tableView';
-import type { AmountContext, AmountQuantity, Delta, ModifierCard, ModifierRow, Quantity, SourcePlace, TargetRelation } from './model';
+import { PERMISSION_QUANTITIES } from './model';
+import type { AmountContext, AmountQuantity, Delta, ModifierCard, ModifierRow, PermissionQuantity, Quantity, SourcePlace, TargetRelation } from './model';
 import { ATTRIBUTE_ROWS } from './titles/attributes';
 import { EVENT_AND_MISSION_ROWS } from './titles/eventsAndMissions';
 import { SHIP_ROWS } from './titles/ships';
@@ -17,7 +18,7 @@ import { isEquipment, isPersonnel, printedOf, rowTitleKey } from './words';
 
 export * from './model';
 
-const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span' | 'cost' | 'counterLimit', [SourcePlace, TargetRelation][]> = {
+const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span' | 'cost' | 'counterLimit' | PermissionQuantity, [SourcePlace, TargetRelation][]> = {
   attributes: [
     ['self', 'self'],
     ['group', 'group'],
@@ -55,16 +56,29 @@ const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span' | 'cost' | 'counterL
     ['core', 'turnLimit'],
     ['unstopped', 'turnLimit'],
   ],
+  // The permissions (#1915), each read by the check of its action: the played card's own requirement and place, a
+  // ship whose crew cannot attempt or a core card that limits every attempt, and a core card that forbids a draw.
+  play: [['played', 'play']],
+  playPlace: [['played', 'play']],
+  attempt: [
+    ['shipRow', 'crew'],
+    ['core', 'attempting'],
+  ],
+  spendToDraw: [['core', 'turnLimit']],
 };
 
+const isPermission = (q: Quantity): q is PermissionQuantity => (PERMISSION_QUANTITIES as readonly Quantity[]).includes(q);
+
 const familyOf = (q: Quantity): keyof typeof AMOUNT_PLACES =>
-  q === 'range'
-    ? 'range'
-    : q === 'span' || q === 'quadrantWaiver'
-      ? 'span'
-      : q === 'cost' || q === 'counterLimit'
-        ? q
-        : 'attributes';
+  isPermission(q)
+    ? q
+    : q === 'range'
+      ? 'range'
+      : q === 'span' || q === 'quadrantWaiver'
+        ? 'span'
+        : q === 'cost' || q === 'counterLimit'
+          ? q
+          : 'attributes';
 
 /** Every row, by title. */
 export const MODIFIER_ROWS: readonly ModifierRow[] = [...ATTRIBUTE_ROWS, ...EVENT_AND_MISSION_ROWS, ...SHIP_ROWS, ...SPAN_ROWS];
@@ -82,8 +96,8 @@ function costRowError(r: ModifierRow): string | null {
 }
 
 /**
- * The rows by title, lowercased. It throws for a row whose source and target no evaluator of one of its quantities
- * reads, for a span row with a condition, for a cost row whose scope its evaluator does not read, and for two rows
+ * The rows by title, lowercased. It throws for a row whose source and target no evaluator (or, for a permission, no
+ * check) of one of its quantities reads, for a permission that neither allows nor forbids, for a span row with a condition, for a cost row whose scope its evaluator does not read, and for two rows
  * of one title that change one quantity from one place.
  */
 export function rowsByTitle(rows: readonly ModifierRow[]): ReadonlyMap<string, readonly ModifierRow[]> {
@@ -96,6 +110,7 @@ export function rowsByTitle(rows: readonly ModifierRow[]): ReadonlyMap<string, r
     const costError = costRowError(r);
     if (costError) throw new Error(`"${r.title}": ${costError}`);
     for (const q of quantities) {
+      if (isPermission(q) && r.changes[q] !== 'allow' && r.changes[q] !== 'forbid') throw new Error(`"${r.title}" changes ${q}, a permission, with neither allow nor forbid`);
       if (!AMOUNT_PLACES[familyOf(q)].some(([s, t]) => s === r.source && t === r.target)) {
         throw new Error(`"${r.title}" changes ${q} from ${r.source} to ${r.target}, a place no evaluator reads`);
       }
@@ -114,7 +129,7 @@ const ROWS_BY_TITLE = rowsByTitle(MODIFIER_ROWS);
 /** The rows of a title, lowercased, less its version suffix. */
 export const modifierRowsOf = (titleKey: string): readonly ModifierRow[] => ROWS_BY_TITLE.get(titleKey) ?? [];
 
-/** The titles with a row of one of `quantities`, in the case of the card data, each once, in row order. */
+/** The titles with a row of one of `quantities` (a permission's too, #1915), in the case of the card data, each once, in row order. */
 export function modifierTitles(quantities: readonly Quantity[]): Map<string, { title: string }> {
   const map = new Map<string, { title: string }>();
   for (const r of MODIFIER_ROWS) {

@@ -8,7 +8,7 @@ import { ROADBLOCK_TITLE } from '../../app/decks/practice/selfReplicatingRoadblo
 import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE } from '../../app/decks/practice/tableReducer';
 import { COST_REGISTRY, COST_ROWS } from '../../lib/costModels/registry';
 import { MISSION_COST_TITLES } from '../../lib/dilemmaBot/pile/missionCost';
-import { MODIFIER_ROWS } from '../../lib/modifiers';
+import { modifierTitles, type Quantity } from '../../lib/modifiers';
 import { REGISTRY as DILEMMA_REGISTRY } from '../../lib/dilemmaBot/pile/registry';
 import {
   clausesOf,
@@ -18,6 +18,10 @@ import {
   coverageReport,
   CoverageCard,
   ModelledBy,
+  ongoingGroupOf,
+  ongoingPermissionOf,
+  ongoingSentencesOf,
+  SentenceModelledBy,
   shippedDeckTitles,
 } from '../../lib/modelCoverage';
 import { placeCoverageOf } from '../../lib/playPlaces/coverage';
@@ -36,8 +40,9 @@ const lower = (titles: Iterable<string>) => new Set([...titles].map((t) => t.toL
 
 const PLAY = lower(PLAY_MODEL_TITLES);
 const RESOLVE = lower(RESOLVE_MODELS.map((m) => m.title));
-// The modifier registry (#1887): the attribute, Range and span rows.
-const MODIFIERS = lower(MODIFIER_ROWS.map((r) => r.title));
+// The modifier registry (#1887): the attribute, Range and span rows, never a permission's (#1915).
+const AMOUNTS: Quantity[] = ['integrity', 'cunning', 'strength', 'range', 'weapons', 'shields', 'span', 'quadrantWaiver', 'cost', 'counterLimit'];
+const MODIFIERS = new Set(modifierTitles(AMOUNTS).keys());
 // The cost and counter rows (#1888), so a title with rows and no residual model still counts for `cost`.
 const COST_ROW_TITLES = lower(COST_ROWS.map((r) => r.title));
 // The trigger registry (#1903): a trigger or an interrupt clause is modelled when the registry holds its title.
@@ -95,6 +100,27 @@ export const modelledToday: ModelledBy = (concern, title, card, clause) => {
   }
 };
 
+/**
+ * Whether the registries of today model one sentence of an `ongoing` clause (#1915): a permission when the title has
+ * a row of its quantity, an attribute change when it has an attribute row, a counter cap when the cost registry holds
+ * the title, and a reminder always.
+ */
+export const ongoingModelledToday: SentenceModelledBy = (title, _card, { text, group }) => {
+  const key = title.toLowerCase();
+  const permission = ongoingPermissionOf(group, text);
+  if (permission) return modifierTitles([permission]).has(key);
+  switch (group) {
+    case 'reminder':
+      return true;
+    case 'attributes':
+      return MODIFIERS.has(key);
+    case 'counterSpend':
+      return COST_REGISTRY.has(title) || COST_ROW_TITLES.has(key);
+    default:
+      return false;
+  }
+};
+
 const row = (name: string, type: string, gametext: string): CoverageCard => ({ name, type, gametext });
 
 describe('the clauses of a card text', () => {
@@ -127,6 +153,62 @@ describe('the clauses of a card text', () => {
   it('files a mission text under the mission, its "you may play" under the place', () => {
     expect(clausesOf(row('Base', 'Mission', 'You may play [Kli] personnel here.')).map((c) => c.concern)).toEqual(['place']);
     expect(clausesOf(row('Rock', 'Mission', 'When you complete this mission, score 5 points.')).map((c) => c.concern)).toEqual(['mission']);
+  });
+});
+
+describe('the sentences of an ongoing clause (#1915)', () => {
+  it('names the group of one example sentence per group', () => {
+    const examples: [string, string][] = [
+      ['To play this event, you must command three [Bor] personnel.', 'playRequirement'],
+      ['To play this event, you cannot command a headquarters mission.', 'playRequirement'],
+      ["This personnel may (and must) play to {Ba'ku Planet}.", 'playPlace'],
+      ['Personnel aboard this ship cannot attempt missions.', 'attempt'],
+      ['You cannot begin a mission attempt with fewer than six personnel.', 'attempt'],
+      ['You cannot spend counters to draw cards.', 'counterSpend'],
+      ['Each player cannot spend more than seven counters during their Play and Draw Cards segments.', 'counterSpend'],
+      ['(You do not need to spend all your counters during each of your turns.)', 'reminder'],
+      ['You do not need to spend all your counters on your turns.', 'reminder'],
+      ["The cost of the event in your core that has the highest cost is added to this personnel's attributes.", 'attributes'],
+      ['Each of your Engineer personnel present gains Astrometrics.', 'gain'],
+      ['(She becomes [NA].)', 'gain'],
+      ['To play this event, your opponent must command a ship at a non-headquarters mission.', 'opponent'],
+      ['To command this ship, you must command {To Rule in Hell}.', 'command'],
+      ['That personnel cannot be stopped until the end of this turn.', 'stopImmunity'],
+      ['You may use a card which begins an engagement to begin one involving this ship even if it is at a headquarters mission.', 'engagement'],
+      ['To play this personnel, remove two of your personnel at this mission from the game.', 'playCost'],
+      ['Voyager}.', 'fragment'],
+      ['You may do this only once each turn.', 'fragment'],
+      ['Nothing here matches.', 'unclassified'],
+    ];
+    for (const [sentence, group] of examples) expect([sentence, ongoingGroupOf(sentence)]).toEqual([sentence, group]);
+    expect(ongoingPermissionOf('counterSpend', 'You cannot spend counters to draw cards.')).toBe('spendToDraw');
+    expect(ongoingPermissionOf('counterSpend', 'Each player cannot spend more than seven counters.')).toBeNull();
+  });
+
+  it('names two groups in Coordinated Counterattack', () => {
+    expect(
+      ongoingSentencesOf('To play this event, you must command six [TOS] personnel. Personnel an opponent commands cannot gain skills.').map((s) => s.group)
+    ).toEqual(['playRequirement', 'opponent']);
+  });
+
+  it('shows the primitives of a missing ongoing clause, and its reach', () => {
+    const cards = [
+      row('Gated', 'Event', 'Plays in your core. To play this event, you must command three [Bor] personnel. (You do not need to spend all your counters during each of your turns.)'),
+      row('Hostile', 'Event', 'Plays in your core. Personnel an opponent commands cannot gain skills.'),
+      row('Trellium', 'Equipment', 'Plays aboard your ship.'),
+    ];
+    const decks = ['Deck:\n1\tGated\n1\tHostile\n1\tTrellium\n'];
+    const report = coverageReport(cards, decks, () => false, (_t, _c, s) => s.group === 'reminder');
+    expect(report.rows.map((r) => [r.title, r.missing, r.withinReach])).toEqual([
+      ['Gated', ['ongoing'], true],
+      ['Hostile', ['ongoing'], false],
+      ['Trellium', [], true],
+    ]);
+    const md = coverageMarkdown(report);
+    expect(md).toContain('| 1 | Gated | Event | ongoing (needs: a permission: play) | yes |');
+    expect(md).toContain('| 1 | Hostile | Event | ongoing (needs: an opponent) | no |');
+    expect(md).toContain('## Ongoing by primitive');
+    expect(md).toContain('| reminder | nothing: a reminder | 1 | 1 |');
   });
 });
 
@@ -179,7 +261,7 @@ describe('the coverage report', () => {
   });
 
   it('finds the shipped models in the shipped decks', () => {
-    const report = coverageReport(cardRows(), shippedDecks(), modelledToday);
+    const report = coverageReport(cardRows(), shippedDecks(), modelledToday, ongoingModelledToday);
     const of = (title: string) => report.rows.find((r) => r.title === title);
     expect(of('These Are The Voyages')?.clauses.find((c) => c.concern === 'eventResolve')?.modelled).toBe(true);
     expect(report.rows.filter((r) => r.type === 'Dilemma' && !r.missing.length).length).toBeGreaterThan(200);

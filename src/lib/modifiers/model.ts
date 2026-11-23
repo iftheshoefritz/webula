@@ -15,7 +15,22 @@ export type AmountQuantity = PersonnelQuantity | ShipQuantity;
  * Every quantity: the amounts, the span total of a move and the 2 between quadrants it adds, the cost of a play
  * and the counters of the turn (#1888).
  */
-export type Quantity = AmountQuantity | 'span' | 'quadrantWaiver' | 'cost' | 'counterLimit';
+export type Quantity = AmountQuantity | 'span' | 'quadrantWaiver' | 'cost' | 'counterLimit' | PermissionQuantity;
+
+/**
+ * The actions a permission allows or forbids (#1915): the play of the card ("To play this event, you must …"), the
+ * place it plays to ("may (and must) play to …"), a mission attempt ("cannot attempt missions") and a spend of
+ * counters to draw ("You cannot spend counters to draw cards"). A permission has no number: it is in no amount's sum.
+ */
+export type PermissionQuantity = 'play' | 'playPlace' | 'attempt' | 'spendToDraw';
+
+export const PERMISSION_QUANTITIES: readonly PermissionQuantity[] = ['play', 'playPlace', 'attempt', 'spendToDraw'];
+
+/**
+ * A permission's change: `forbid`, the action breaks the rule unless the row's condition holds; `allow`, the action
+ * is open where the row says, a place a play may go to.
+ */
+export type Permission = 'allow' | 'forbid';
 
 export const PERSONNEL_QUANTITIES: readonly PersonnelQuantity[] = ['integrity', 'cunning', 'strength'];
 /** The quantities of `ATTRIBUTE_REGISTRY`: a personnel's attributes and a ship's Weapons and Shields. */
@@ -161,7 +176,7 @@ export type LimitChange =
   | { cap: (c: LimitContext) => { amount: number; reason: string } | null; grant?: undefined };
 
 /** What a row changes: each quantity with its own change. One shared change is the same function under each. */
-export interface ModifierChanges extends Partial<Record<AmountQuantity, Delta>> {
+export interface ModifierChanges extends Partial<Record<AmountQuantity, Delta>>, Partial<Record<PermissionQuantity, Permission>> {
   span?: SpanChange;
   /** Whether a move between different quadrants adds no 2. */
   quadrantWaiver?: (m: MoveContext) => boolean;
