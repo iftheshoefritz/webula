@@ -7,12 +7,12 @@
 // from the discard pile, the first turn's grants and the choices of the turn.
 
 import { cardTitleOf } from '../cardTitle';
-import type { Condition } from '../tableView';
-import { personnel } from '../tableView';
+import type { Condition, Selection } from '../tableView';
+import { count, personnel } from '../tableView';
 import { costFactsSource } from './factsSource';
 import type { CostFacts, CostModel, CostPlay, ModelCost } from './model';
-import type { CostChange, LimitChange, ModifierRow, NextPlayDiscount, SourcePlace } from '../modifiers/model';
-import { row } from '../modifiers/model';
+import type { CostChange, CostContext, LimitChange, ModifierRow, NextPlayDiscount, SourcePlace } from '../modifiers/model';
+import { counted, countedAmount, row } from '../modifiers/model';
 
 /** A cost row before the registry gives it its model's title and label. */
 export type CostRowSpec = Omit<ModifierRow, 'title' | 'label'>;
@@ -47,6 +47,16 @@ export const ownWhen = (condition: Condition, n: number): CostRowSpec => own(off
 export const off =
   (n: number): CostChange =>
   (c) => ({ cost: c.play.printed - n, reason: c.because });
+
+/**
+ * A counted change of the printed cost (#1833): `per` for each card of `selection` on the facts, capped by the
+ * signed `limit`, with the words of the row's condition. "Cost -1 for each Borg you command (limit 5)" is `per` −1,
+ * `limit` −5.
+ */
+export function countedCost(selection: Selection, per: number, limit?: number): CostChange {
+  const change = counted((c: CostContext) => count(c.source, selection), per, limit);
+  return Object.assign((c: CostContext) => ({ cost: c.play.printed + countedAmount(change, c), reason: c.because }), { counted: change });
+}
 
 function spec(source: SourcePlace, target: ModifierRow['target'], changes: ModifierRow['changes'], extra: Partial<ModifierRow> = {}): CostRowSpec {
   const { title: _title, ...rest } = row('', source, target, changes, extra);

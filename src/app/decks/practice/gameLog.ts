@@ -62,9 +62,13 @@ import {
   examineTakeMax,
   examineTakeMin,
   examineTakes,
+  discardableFromHand,
   handCount,
+  stagesOf,
   stepOf,
 } from '../../../lib/effectSteps';
+import { triggerRowsOf, type TriggerRow } from '../../../lib/triggers';
+import { pendingTriggersOf, sameTriggerTarget } from './triggers';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, exchangeMatches, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
@@ -143,6 +147,8 @@ export type EffectRecordStepName = 'draw' | 'discard' | 'bottom' | 'examine' | '
 interface EffectStepTail {
   drew?: number;
   shuffled?: boolean;
+  /** The cards a `discardTop` step sent from the top of the draw deck to the discard pile (#1904, Quintessence). */
+  discardedTop?: number;
 }
 
 // The record of one stage of an effect (#1800, #1863), the same for a "when you play" effect and a resolving
@@ -397,9 +403,13 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   | { kind: 'orderEffect'; target: number; card: string; effect: PlayEffectRecord }
   // A trigger the player took (#1903): the offer at `target`, its card's name and the record of its steps. No
   // action makes it yet; `pendingTriggersOf` reads it, so a taken offer is no offer.
-  | { kind: 'triggerUsed'; target: TriggerTarget; card: string; effect: PlayEffectRecord }
-  // A trigger the player skipped (#1903): the offer at `target` and its card's name, so the skip is undone and
-  // survives a reload. No action makes it yet.
+  // `useTrigger` (#1904) writes it: the use cost (`cost`), then each stage amends it while it is the last entry.
+  | { kind: 'triggerUsed'; target: TriggerTarget; card: string; cost?: TriggerCostRecord; effect: PlayEffectRecord }
+  // Stages of a taken trigger that could not amend its entry, because another entry came after it (#1904): the
+  // offer at `target`, its card, and the stages of this entry. Its undo takes back those stages only.
+  | { kind: 'triggerEffect'; target: TriggerTarget; card: string; effect: PlayEffectRecord }
+  // A trigger the player skipped (#1903, `skipTrigger` of #1904): the offer at `target` and its card's name, so the
+  // skip is undone and survives a reload.
   | { kind: 'triggerSkipped'; target: TriggerTarget; card: string }
 );
 
@@ -411,6 +421,14 @@ export interface TriggerTarget {
   source: string;
   row: number;
   event: number;
+}
+
+// What the use cost of a trigger did (#1904): its card destroyed or discarded, its card stopped, or the names of the
+// cards of the hand it discarded.
+export interface TriggerCostRecord {
+  destroyed?: true;
+  stopped?: true;
+  discarded?: string[];
 }
 
 // What the cost of an order did (#1866): the names of the cards it discarded, stopped, or placed on the bottom
@@ -494,6 +512,12 @@ export type GameAction =
   // An order of the card `id` on the table (#1866), its `order`-th: the cost, with `ids` the cards its pick took,
   // and one `orderUsed` entry, whose steps then run as the pending order's stages.
   | { type: 'useOrder'; id: string; order: number; ids?: string[] }
+  // A take of the trigger offer at `target` (#1904): its use cost, with `ids` the cards of the hand a discard takes,
+  // then the stages that need no input, in one `triggerUsed` entry; a stage that needs input is then the pending
+  // trigger's, which `effectStep` and `effectSkip` drive.
+  | { type: 'useTrigger'; target: TriggerTarget; ids?: string[] }
+  // A skip of the trigger offer at `target` (#1904): one `triggerSkipped` entry, undone like any other.
+  | { type: 'skipTrigger'; target: TriggerTarget }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -946,7 +970,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'missionSpend' } | { type: 'effectStep' } | { type: 'effectSkip' } | { type: 'useOrder' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'missionSpend' } | { type: 'effectStep' } | { type: 'effectSkip' } | { type: 'useOrder' } | { type: 'useTrigger' } | { type: 'skipTrigger' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -1047,10 +1071,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'effectStep') return effectStepState(state, action);
   if (action.type === 'effectSkip') return effectSkipState(state);
   if (action.type === 'useOrder') return orderUseState(state, action);
+  if (action.type === 'useTrigger') return triggerUseState(state, action);
+  if (action.type === 'skipTrigger') return triggerSkipState(state, action);
   if (action.type === 'setNamed') return setNamedState(state, action);
   // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event, and while
   // an order is (#1866).
-  if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && (pendingPlayEffectOf(state) || pendingOrderOf(state))) return state;
+  if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && (pendingPlayEffectOf(state) || pendingOrderOf(state) || pendingTriggerOf(state)))
+    return state;
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),
@@ -1248,7 +1275,9 @@ export function withShuffleOrders(
     action.type === 'discardForCharge' ||
     action.type === 'cancelResolving' ||
     action.type === 'effectSkip' ||
-    action.type === 'useOrder'
+    action.type === 'useOrder' ||
+    action.type === 'useTrigger' ||
+    action.type === 'skipTrigger'
   ) {
     return action;
   }
@@ -1609,6 +1638,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   orderUsed: true,
   orderEffect: true,
   triggerUsed: true,
+  triggerEffect: true,
   triggerSkipped: true,
 };
 
@@ -1851,7 +1881,9 @@ export function logEntryText(entry: LogEntry): string {
       const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
       return `${card}'s order: ${isPlayEffectRecord(entry.effect) ? orderStepsText(entry.effect) : 'no effect'}`;
     }
-    case 'triggerUsed': {
+    case 'triggerUsed':
+      return triggerUsedText(entry);
+    case 'triggerEffect': {
       const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
       return `${card}: ${isPlayEffectRecord(entry.effect) ? playEffectText(entry.effect) : 'no effect'}`;
     }
@@ -2601,7 +2633,8 @@ export interface EffectStepInput {
 type EffectSubject =
   | { kind: 'resolving'; event: CardInstance; name: string; stage: EffectStage; last: boolean }
   | { kind: 'play'; pending: PendingPlayEffect; stage: EffectStage }
-  | { kind: 'order'; pending: PendingOrder; stage: EffectStage };
+  | { kind: 'order'; pending: PendingOrder; stage: EffectStage }
+  | { kind: 'trigger'; pending: PendingTrigger; stage: EffectStage };
 
 type PendingSubjectReader = (state: { table: TableState; log: LogEntry[] }) => EffectSubject | null;
 
@@ -2613,6 +2646,10 @@ const PENDING_ABILITIES: PendingSubjectReader[] = [
   (state) => {
     const pending = pendingPlayEffectOf(state);
     return pending ? { kind: 'play', pending, stage: pending.stage } : null;
+  },
+  (state) => {
+    const pending = pendingTriggerOf(state);
+    return pending ? { kind: 'trigger', pending, stage: pending.stage } : null;
   },
 ];
 
@@ -2633,7 +2670,7 @@ export function effectSubjectOf(state: { table: TableState; log: LogEntry[] }): 
 
 /** The name a record gives the stage led by `step` (#1863). */
 export const recordStepName = (step: EffectStep): EffectRecordStepName =>
-  step.kind === 'discardFromHand' ? 'discard' : step.kind === 'bottomFromHand' ? 'bottom' : step.kind;
+  step.kind === 'discardFromHand' || step.kind === 'discardTop' ? 'discard' : step.kind === 'bottomFromHand' ? 'bottom' : step.kind;
 
 // Draws up to `wanted` cards free, as many as the draw deck holds, and gives the real count, 0 included.
 function drawFree(table: TableState, wanted: number): { table: TableState; count: number } {
@@ -2662,6 +2699,8 @@ function runStage(
   let picked: CardInstance | undefined;
   let toTop: string | undefined;
   let played: Extract<TableAction, { type: 'move' }> | undefined;
+  // The cards the stage's download took, for a `discardTop` after it (#1904).
+  let downloaded: CardInstance[] = [];
   const tail: EffectStepTail = {};
   const anyCompleted = start.missions.some((s) => s.completed === true);
   for (const [i, step] of subject.stage.steps.entries()) {
@@ -2697,14 +2736,26 @@ function runStage(
       if (lead) record = { step: 'shuffle' };
       continue;
     }
+    if (step.kind === 'discardTop') {
+      // Quintessence (#1904): as many as the printed cost of the card the download took, as the draw deck holds.
+      const wanted = downloaded.reduce((sum, c) => sum + printedCost(c.card), 0);
+      const top = table.drawDeck.slice(0, wanted);
+      table = top.reduce<TableState>((t, c) => tableReducer(t, { type: 'move', id: c.id, to: 'discard' }), table);
+      tail.discardedTop = top.length;
+      continue;
+    }
     if (!lead) return null;
     if (step.kind === 'discardFromHand' || step.kind === 'bottomFromHand') {
       if (!Array.isArray(input.ids)) return null;
       const ids = [...new Set(input.ids)];
-      const n = handCount(step, table.hand.length);
-      if (ids.length !== input.ids.length || ids.length !== n || !ids.every((id) => table.hand.some((c) => c.id === id))) return null;
+      // A discard with a test (#1904, Six of Ten) takes only the cards of the hand that pass it.
+      const allowed = step.kind === 'discardFromHand' ? discardableFromHand(step, table.hand) : table.hand;
+      const n = handCount(step, allowed.length);
+      if (ids.length !== input.ids.length || ids.length !== n || !ids.every((id) => allowed.some((c) => c.id === id))) return null;
       // An empty hand blocks a discard the rest of its stage depends on (#1745): the discard is the cost of the draw.
       if (step.kind === 'discardFromHand' && n === 0 && subject.stage.steps.length > 1) return null;
+      // A discard with a test is the cost of the stages after it (#1904, Six of Ten): with no such card, the player skips.
+      if (step.kind === 'discardFromHand' && n === 0 && step.test) return null;
       if (step.kind === 'discardFromHand') {
         table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), table);
         record = { step: 'discard', cards: ids.map((id) => cardName(start, id)) };
@@ -2751,6 +2802,7 @@ function runStage(
       const of = step.of;
       if (!ids.every((id) => byId.has(id) && downloadTakes(of, byId.get(id)!.card))) return null;
       const names = ids.map((id) => cardName(start, id));
+      downloaded = ids.map((id) => byId.get(id)!);
       if (step.to.kind === 'hand' || step.to.kind === 'drawDeckTop') {
         table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'hand' }), table);
         // On top of the draw deck (#1811): after the shuffle of its stage.
@@ -2808,7 +2860,12 @@ function runStage(
   if (toTop) table = tableReducer(table, { type: 'move', id: toTop, to: 'drawDeck', position: 'top' });
   if (!record) return null;
   const shuffledTail = record.step === 'download' ? {} : tail.shuffled ? { shuffled: true } : {};
-  return { table, record: { ...record, ...(tail.drew !== undefined ? { drew: tail.drew } : {}), ...shuffledTail }, ...(played ? { played } : {}) };
+  return { table, record: {
+      ...record,
+      ...(tail.drew !== undefined ? { drew: tail.drew } : {}),
+      ...(tail.discardedTop !== undefined ? { discardedTop: tail.discardedTop } : {}),
+      ...shuffledTail,
+    }, ...(played ? { played } : {}) };
 }
 
 // The next stage of the effect being resolved (#1863). A resolving event's stage is one `effectStep` entry, and
@@ -2837,6 +2894,7 @@ function effectStepState(state: GameState, input: EffectStepInput): GameState {
     return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
   }
   if (subject.kind === 'order') return withOrderSteps(state, subject.pending, [ran.record], ran.table);
+  if (subject.kind === 'trigger') return withTriggerSteps(state, subject.pending, [ran.record], ran.table);
   const { pending } = subject;
   if (!ran.played) return withPlayEffectSteps(state, pending, [ran.record], ran.table);
   const moves = moveEntry(state.table, [ran.played], false);
@@ -2975,6 +3033,7 @@ const isEffectStepRecord = (step: unknown): step is EffectStepRecord => {
   if (!s || typeof s.step !== 'string' || !EFFECT_RECORD_STEP_NAMES.has(s.step)) return false;
   if (s.skipped === true) return true;
   if (s.drew !== undefined && !isIndex(s.drew)) return false;
+  if (s.discardedTop !== undefined && !isIndex(s.discardedTop)) return false;
   if (s.step === 'draw' || s.step === 'bottom') return isIndex(s.count);
   if (s.step === 'score') return isIndex(s.points);
   if (s.step === 'shuffle') return true;
@@ -3037,7 +3096,12 @@ function effectStageClauses(s: EffectStepRecord, event?: string): string[] {
           : [`exchanged ${s.fromHand} for ${s.fromTable}`];
     }
   })();
-  return [...own, ...(s.step !== 'download' && shuffled ? ['shuffled the draw deck'] : []), ...(isIndex(s.drew) ? [`drew ${cardsCountText(s.drew)}`] : [])];
+  return [
+    ...own,
+    ...(isIndex(s.discardedTop) ? [`discarded ${cardsCountText(s.discardedTop)} from the top of the draw deck`] : []),
+    ...(s.step !== 'download' && shuffled ? ['shuffled the draw deck'] : []),
+    ...(isIndex(s.drew) ? [`drew ${cardsCountText(s.drew)}`] : []),
+  ];
 }
 
 // "drew 7 cards, then discarded Tricorder and Phaser", "skipped its play text", "drew 3 cards, then skipped the
@@ -3226,6 +3290,20 @@ function effectSkipState(state: GameState): GameState {
   if (order) {
     const left = orderStagesOf(order.model).slice(order.steps.length);
     return withOrderSteps(state, order, left.map((s): EffectStepRecord => ({ step: recordStepName(s.lead), skipped: true })), state.table);
+  }
+  // A taken trigger (#1904): as a "when you play" effect, a first stage that is no "may" (Li Nalas's discard) is not
+  // skipped while the hand holds a card; with an empty hand Done records that it discarded no card.
+  const trigger = pendingTriggerOf(state);
+  if (trigger) {
+    const handEmpty = state.table.hand.length === 0;
+    if (trigger.steps.length === 0 && !trigger.stage.may && !handEmpty) return state;
+    const left = stagesOf(triggerPlayerSteps(trigger.row)).slice(trigger.steps.length);
+    const steps = left.map((s, i): EffectStepRecord =>
+      i === 0 && !s.may && s.lead.kind === 'discardFromHand' && handEmpty && trigger.steps.length === 0
+        ? { step: 'discard', cards: [] }
+        : { step: recordStepName(s.lead), skipped: true }
+    );
+    return withTriggerSteps(state, trigger, steps, state.table);
   }
   const pending = pendingPlayEffectOf(state);
   if (!pending) return state;
@@ -3435,4 +3513,161 @@ function orderUsedText(entry: Extract<LogEntry, { kind: 'orderUsed' }>): string 
         : ''
     : '';
   return `Used ${card}'s order${parts.length ? `: ${parts.join(', ')}` : ''}${condition}`;
+}
+
+// A trigger taken (#1904): the `triggerUsed` entry at `entry`, its offer's address, its row, its card's name and
+// instance (null for the bot's deck, or a card no longer anywhere), the stages the log holds and the stage that
+// comes next.
+export interface PendingTrigger {
+  entry: number;
+  target: TriggerTarget;
+  row: TriggerRow;
+  name: string;
+  instance: CardInstance | null;
+  steps: EffectStepRecord[];
+  stage: EffectStage;
+}
+
+const isTriggerTarget = (t: unknown): t is TriggerTarget => {
+  const x = t as Partial<TriggerTarget> | null | undefined;
+  return !!x && isIndex(x.entry) && typeof x.source === 'string' && isIndex(x.row) && isIndex(x.event);
+};
+
+const isTriggerUsed = (entry: LogEntry): entry is Extract<LogEntry, { kind: 'triggerUsed' }> =>
+  entry.kind === 'triggerUsed' && isTriggerTarget(entry.target) && typeof entry.card === 'string' && isPlayEffectRecord(entry.effect);
+
+// The stages the log holds for the trigger taken at `entry`: its own record, then each `triggerEffect` entry that names
+// its offer.
+function triggerRecordOf(log: LogEntry[], entry: number): EffectStepRecord[] {
+  const own = log[entry];
+  if (!own || !isTriggerUsed(own)) return [];
+  const later = log
+    .slice(entry + 1)
+    .flatMap((e) => (e.kind === 'triggerEffect' && isTriggerTarget(e.target) && sameTriggerTarget(e.target, own.target) && isPlayEffectRecord(e.effect) ? e.effect.steps : []));
+  return [...own.effect.steps, ...later];
+}
+
+/** The steps of a trigger row the player runs: a `botDeck` row's bot-only step (#1906) is never one. */
+const triggerPlayerSteps = (row: TriggerRow): EffectStep[] => row.steps.filter((s): s is EffectStep => s.kind !== 'botRedrawDilemmas');
+
+/**
+ * The trigger in progress (#1904), derived from the log so an undo, a redo and a reload agree: the latest
+ * `triggerUsed` of the current turn while its record lacks a stage of its row. Its card need not be on the table: a
+ * use cost may have destroyed it, and "this personnel is killed" left it in the discard pile. Null otherwise.
+ */
+export function pendingTriggerOf(state: { table: TableState; log: LogEntry[] }): PendingTrigger | null {
+  const { table, log } = state;
+  for (let i = log.length - 1; i >= 0; i--) {
+    const entry = log[i];
+    if (entry.turn !== table.turn) return null;
+    if (entry.kind !== 'triggerUsed') continue;
+    if (!isTriggerUsed(entry)) return null;
+    const row = triggerRowsOf(entry.card)[entry.target.row];
+    if (!row) return null;
+    const steps = triggerRecordOf(log, i);
+    const stage = stagesOf(triggerPlayerSteps(row))[steps.length];
+    if (!stage) return null;
+    const instance = entry.target.source === 'botDeck' ? null : (findInstanceAnywhere(table, entry.target.source)?.instance ?? null);
+    return { entry: i, target: entry.target, row, name: entry.card, instance, steps, stage };
+  }
+  return null;
+}
+
+// Whether a stage runs with no input of the player (#1904): a score, or a fixed draw. A take runs these at once.
+const stageNeedsNoInput = (stage: EffectStage): boolean =>
+  stage.lead.kind === 'score' || (stage.lead.kind === 'draw' && stage.lead.count.kind === 'fixed');
+
+// The take of a trigger offer (#1904): the offer must be one the table lists, and the pick must fit its use cost, or
+// nothing changes. The cost is paid, the `triggerUsed` entry is written, and each stage that needs no input runs at
+// once into that entry, so one undo takes back the cost and those stages.
+function triggerUseState(state: GameState, action: { target: TriggerTarget; ids?: string[] }): GameState {
+  const offer = pendingTriggersOf(state).find((o) => sameTriggerTarget(o.target, action.target));
+  if (!offer) return state;
+  const start = state.table;
+  let table = start;
+  let cost: TriggerCostRecord | undefined;
+  const useCost = offer.row.useCost;
+  if (useCost) {
+    const source = offer.source;
+    if (useCost.kind === 'discardFromHand') {
+      const ids = Array.isArray(action.ids) ? [...new Set(action.ids)] : [];
+      if (ids.length !== useCost.count || ids.length !== (action.ids?.length ?? 0) || !ids.every((id) => start.hand.some((c) => c.id === id))) return state;
+      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), table);
+      cost = { discarded: ids.map((id) => cardName(start, id)) };
+    } else {
+      if (!source) return state;
+      table =
+        useCost.kind === 'stopSelf'
+          ? tableReducer(table, { type: 'setStopped', ids: [source.id], stopped: true })
+          : tableReducer(table, { type: 'move', id: source.id, to: 'discard' });
+      cost = useCost.kind === 'stopSelf' ? { stopped: true } : { destroyed: true };
+    }
+    if (table === start) return state;
+  }
+  const entry: Extract<LogEntry, { kind: 'triggerUsed' }> = {
+    kind: 'triggerUsed',
+    target: { ...action.target },
+    card: offer.name,
+    ...(cost ? { cost } : {}),
+    effect: { steps: [] },
+    turn: table.turn,
+    segment: table.segment,
+  };
+  let next: GameState = { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+  // The stages that need no input, in order, each amending the entry.
+  for (;;) {
+    const pending = pendingTriggerOf(next);
+    if (!pending || pending.entry !== next.log.length - 1 || !stageNeedsNoInput(pending.stage)) break;
+    const ran = runStage(next, { kind: 'trigger', pending, stage: pending.stage }, {});
+    if (!ran) break;
+    next = withTriggerSteps(next, pending, [ran.record], ran.table);
+  }
+  return next;
+}
+
+// The skip of a trigger offer (#1904): one `triggerSkipped` entry, which changes no card.
+function triggerSkipState(state: GameState, action: { target: TriggerTarget }): GameState {
+  const offer = pendingTriggersOf(state).find((o) => sameTriggerTarget(o.target, action.target));
+  if (!offer) return state;
+  const entry: LogEntry = { kind: 'triggerSkipped', target: { ...action.target }, card: offer.name, turn: state.table.turn, segment: state.table.segment };
+  return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// Adds `steps` to the record of the trigger in progress (#1904), with the table they left. While its entry is the last
+// of the log, the steps amend it and the undo snapshot stays the table from before the take, so one undo takes back
+// the cost and every step. Otherwise they go into one `triggerEffect` entry, which later steps amend.
+function withTriggerSteps(state: GameState, pending: PendingTrigger, steps: EffectStepRecord[], table: TableState): GameState {
+  const last = state.log.length - 1;
+  const entry = state.log[last];
+  if (pending.entry === last && entry && isTriggerUsed(entry)) {
+    const amended: LogEntry = { ...entry, effect: { ...entry.effect, steps: [...entry.effect.steps, ...steps] } };
+    return { table, log: [...state.log.slice(0, -1), amended], undo: state.undo, redo: [] };
+  }
+  if (entry?.kind === 'triggerEffect' && isTriggerTarget(entry.target) && sameTriggerTarget(entry.target, pending.target) && isPlayEffectRecord(entry.effect)) {
+    const amended: LogEntry = { ...entry, effect: { ...entry.effect, steps: [...entry.effect.steps, ...steps] } };
+    return { table, log: [...state.log.slice(0, -1), amended], undo: state.undo, redo: [] };
+  }
+  const added: LogEntry = {
+    kind: 'triggerEffect',
+    target: { ...pending.target },
+    card: pending.name,
+    effect: { steps },
+    turn: state.table.turn,
+    segment: state.table.segment,
+  };
+  return { table, log: [...state.log, added], undo: [...state.undo, state.table], redo: [] };
+}
+
+// "Distant Exploration: scored 5 points", "Hurried Departure: destroyed it, then scored 10 points" (#1904).
+function triggerUsedText(entry: Extract<LogEntry, { kind: 'triggerUsed' }>): string {
+  const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
+  const cost = entry.cost ?? {};
+  const costParts = [
+    ...(cost.destroyed === true ? ['destroyed it'] : []),
+    ...(cost.stopped === true ? ['stopped it'] : []),
+    ...(isNames(cost.discarded) && cost.discarded.length ? [`discarded ${cardsText(cost.discarded)}`] : []),
+  ];
+  const steps = isPlayEffectRecord(entry.effect) && entry.effect.steps.length ? playEffectText(entry.effect) : '';
+  const parts = [...costParts, ...(steps ? [steps] : [])];
+  return `${card}: ${parts.length ? parts.join(', then ') : 'used'}`;
 }

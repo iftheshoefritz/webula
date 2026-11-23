@@ -322,6 +322,20 @@ export const PRACTICE_PERMISSIONS_TSV = `1\tParticle 010
 1\tRule of Acquisition #6`;
 export const PRACTICE_PERMISSIONS_CORE = ['Rule of Acquisition #6'];
 export const PRACTICE_PERMISSIONS_HAND = ['Particle 010'];
+// The cards `?fixture=triggers` (#1904) adds to the `?fixture=piles` table: VIP Welcome at the end of the core,
+// Enrique Muniz Dependable Troubleshooter at the end of the crew of the ship at Bilana System, U.S.S. Enterprise-E
+// Federation Envoy on the ship row of Moab IV, a [Fed] planet mission, so its completion offers the Envoy's score,
+// and Elim Garak Cold-Blooded Mastermind, a [DS9] Cardassian of cost 3, at the end of the hand, whose play offers
+// both VIP Welcome's draw and Enrique's.
+export const PRACTICE_TRIGGERS_TSV = `1\tVIP Welcome
+1\tEnrique Muniz Dependable Troubleshooter
+1\tElim Garak Cold-Blooded Mastermind
+1\tU.S.S. Enterprise-E Federation Envoy`;
+export const PRACTICE_TRIGGERS_CORE = ['VIP Welcome'];
+export const PRACTICE_TRIGGERS_CREW = ['Enrique Muniz Dependable Troubleshooter'];
+export const PRACTICE_TRIGGERS_HAND = ['Elim Garak Cold-Blooded Mastermind'];
+export const PRACTICE_TRIGGERS_SHIP = 'U.S.S. Enterprise-E Federation Envoy';
+export const PRACTICE_TRIGGERS_SHIP_SLOT = 0;
 export const PRACTICE_DISSIDENT_CORE = 'The New Resistance';
 export const PRACTICE_DISSIDENT_HAND = 'Leeta Rebel Supporter';
 export const PRACTICE_DISSIDENT_DRAW_TOP = 'Damar Cardassian Liberator';

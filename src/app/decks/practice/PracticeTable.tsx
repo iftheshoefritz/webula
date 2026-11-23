@@ -64,6 +64,12 @@ import {
   PRACTICE_ORDERS_CREW,
   PRACTICE_ORDERS_HAND,
   PRACTICE_ORDERS_TSV,
+  PRACTICE_TRIGGERS_CORE,
+  PRACTICE_TRIGGERS_CREW,
+  PRACTICE_TRIGGERS_HAND,
+  PRACTICE_TRIGGERS_SHIP,
+  PRACTICE_TRIGGERS_SHIP_SLOT,
+  PRACTICE_TRIGGERS_TSV,
   PRACTICE_UNIQUE_DISCARDED,
   PRACTICE_UNIQUE_HAND,
   PRACTICE_UNIQUE_IN_PLAY,
@@ -227,11 +233,14 @@ import {
   downloadPlaceShipsOf,
   availableOrdersOf,
   pendingOrderOf,
+  pendingTriggerOf,
 } from './gameLog';
+import { pendingTriggersOf } from './triggers';
+import { TriggerOffers } from './TriggerOffers';
 import { playConditionLine } from '../../../lib/playModels';
 import { costNeedsPick, costPickCount, OrderCost } from '../../../lib/orderModels';
 import { OrderCard, orderCostCandidates } from './orders';
-import { downloadTakes, drawWanted, EffectStage, examineCount, examineTakeMax, examineTakeMin, examineTakes, handCount, stepOf } from '../../../lib/effectSteps';
+import { discardableFromHand, downloadTakes, drawWanted, EffectStage, examineCount, examineTakeMax, examineTakeMin, examineTakes, handCount, stepOf } from '../../../lib/effectSteps';
 import {
   CardHoldProvider,
   NO_CALLOUT_STYLE,
@@ -2426,6 +2435,9 @@ function PracticeDrawContent() {
   // `?fixture=orders` (#1866) deals the piles table with three events with an order in the core, Damar and a [Fer]
   // personnel in the crew at Bilana System, and a [Car] ship at the end of the hand.
   const isOrdersFixture = fixture === 'orders';
+  // `?fixture=triggers` (#1904) deals the piles table with VIP Welcome in the core, Enrique Muniz in the crew at
+  // Bilana System, U.S.S. Enterprise-E Federation Envoy on the ship row of Moab IV, and a [DS9] Cardassian in hand.
+  const isTriggersFixture = fixture === 'triggers';
   // `?fixture=unique` (#1821) deals the piles table with a second copy of a unique personnel in play, of one in
   // the discard pile, and two copies each of a "(limit one per mission)" and a "(limit one per ship)" event.
   const isUniqueFixture = fixture === 'unique';
@@ -2471,6 +2483,7 @@ function PracticeDrawContent() {
     isTainFixture ||
     isDissidentFixture ||
     isOrdersFixture ||
+    isTriggersFixture ||
     isUniqueFixture ||
     isDownloadsFixture ||
     is60sFixture ||
@@ -2822,13 +2835,19 @@ function PracticeDrawContent() {
   const pendingPlay = table.resolving ? null : pendingPlayEffectOf(game);
   // The order in progress (#1866), the panel's third subject, derived from the log.
   const pendingOrder = table.resolving ? null : pendingOrderOf(game);
+  // A trigger taken whose stages need input (#1904), the panel's fourth subject, derived from the log; and the
+  // offers of the last action, which wait while any subject is in progress.
+  const pendingTrigger = table.resolving ? null : pendingTriggerOf(game);
+  const triggerOffers = pendingTriggersOf(game);
   const resolvingId =
     table.resolving?.id ??
     (pendingPlay
       ? `played-${pendingPlay.target.entry}-${pendingPlay.target.move}-${pendingPlay.target.card}`
       : pendingOrder
         ? `order-${pendingOrder.entry}`
-        : null);
+        : pendingTrigger
+          ? `trigger-${pendingTrigger.entry}`
+          : null);
   const [resolvingCollapsed, setResolvingCollapsed] = useState(false);
   // The orders the table offers (#1866), and the one whose cost the player is choosing, page state: an order whose
   // cost takes a pick (a discard, a stop, a card present) shows that pick in the panel before it is used.
@@ -2885,7 +2904,9 @@ function PracticeDrawContent() {
             hand: table.hand,
             onDiscardDraw: (id) => send({ ids: [id] }),
           };
-        return { step: 'discardFromHand', count: handCount(step, table.hand.length), hand: table.hand, onDiscard: (ids) => send({ ids }) };
+        // A discard with a test (#1904, Six of Ten) lists only the cards of the hand that pass it.
+        const hand = discardableFromHand(step, table.hand);
+        return { step: 'discardFromHand', count: handCount(step, hand.length), hand, onDiscard: (ids) => send({ ids }) };
       }
       case 'bottomFromHand':
         return { step: 'bottom', count: handCount(step, table.hand.length), hand: table.hand, onPlace: (ids) => send({ ids }) };
@@ -2963,6 +2984,7 @@ function PracticeDrawContent() {
             : {}),
         };
       case 'shuffle':
+      case 'discardTop':
         return undefined;
     }
   };
@@ -2999,6 +3021,8 @@ function PracticeDrawContent() {
   const playedStep: ResolveStep | undefined = pendingPlay ? stageView(pendingPlay.stage, pendingPlay) : undefined;
   // The stage of the order in progress (#1866), each amending the order's entry, and the pick of an order's cost.
   const orderStep: ResolveStep | undefined = pendingOrder ? stageView(pendingOrder.stage, null) : undefined;
+  // The stage of the trigger in progress (#1904), each amending the trigger's entry.
+  const triggerStep: ResolveStep | undefined = pendingTrigger ? stageView(pendingTrigger.stage, null) : undefined;
   const orderCostStep: ResolveStep | undefined = choosingOrder
     ? {
         step: 'orderCost',
@@ -3258,6 +3282,8 @@ function PracticeDrawContent() {
                   ? dissidentFixtureExtras()
                   : isOrdersFixture
                     ? ordersFixtureExtras()
+                  : isTriggersFixture
+                    ? triggersFixtureExtras()
                   : isUniqueFixture
                     ? uniqueFixtureExtras()
                   : isDownloadsFixture
@@ -3452,6 +3478,19 @@ function PracticeDrawContent() {
     const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
     return { hand: [] as any[], crew: named(PRACTICE_ORDERS_CREW), core: named(PRACTICE_ORDERS_CORE), lateHand: named(PRACTICE_ORDERS_HAND) };
   };
+  // The cards `?fixture=triggers` adds (#1904): an event to the core, a personnel to the crew, a ship to the ship row
+  // of Moab IV, a personnel to the end of the hand.
+  const triggersFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_TRIGGERS_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return {
+      hand: [] as any[],
+      crew: named(PRACTICE_TRIGGERS_CREW),
+      core: named(PRACTICE_TRIGGERS_CORE),
+      lateHand: named(PRACTICE_TRIGGERS_HAND),
+      ships: named([PRACTICE_TRIGGERS_SHIP]).map((row) => ({ slot: PRACTICE_TRIGGERS_SHIP_SLOT, row })),
+    };
+  };
   // The cards `?fixture=unique` adds (#1821): one Yarka to the crew at Bilana System, one Vina to the discard
   // pile, and the other copies to the end of the hand.
   const uniqueFixtureExtras = () => {
@@ -3514,6 +3553,7 @@ function PracticeDrawContent() {
     if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
     if (isOrdersFixture) return { ...deck, ...deckFromTsv(PRACTICE_ORDERS_TSV, data) };
+    if (isTriggersFixture) return { ...deck, ...deckFromTsv(PRACTICE_TRIGGERS_TSV, data) };
     if (isUniqueFixture) return { ...deck, ...deckFromTsv(PRACTICE_UNIQUE_TSV, data) };
     if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
     if (is60sFixture) return { ...deck, ...deckFromTsv(PRACTICE_60S_TSV, data) };
@@ -3609,6 +3649,7 @@ function PracticeDrawContent() {
           isTainFixture ||
           isDissidentFixture ||
           isOrdersFixture ||
+          isTriggersFixture ||
           isUniqueFixture ||
           isDownloadsFixture ||
           is60sFixture ||
@@ -3902,7 +3943,9 @@ function PracticeDrawContent() {
       ? `Resolve ${pendingPlay.name} first`
       : pendingOrder
         ? `Resolve ${pendingOrder.name} first`
-        : null;
+        : pendingTrigger
+          ? `Resolve ${pendingTrigger.name} first`
+          : null;
   const nextTurn = () => {
     if (turnBlockedBy) return;
     dispatch({ type: 'advanceSegment' });
@@ -5870,6 +5913,37 @@ function PracticeDrawContent() {
             {pendingOrder && resolvingCollapsed && (
               <ResolvingMini instance={pendingOrder.instance} played onOpen={() => setResolvingCollapsed(false)} />
             )}
+            {/* A trigger taken (#1904): its source card, the trigger's text and the step, with Skip or Done. */}
+            {pendingTrigger?.instance && !resolvingCollapsed && (
+              <ResolvingPanel
+                instance={pendingTrigger.instance}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onViewTable={() => setResolvingCollapsed(true)}
+                step={triggerStep}
+                played={{
+                  text: pendingTrigger.row.text,
+                  condition: null,
+                  started: pendingTrigger.steps.length > 0,
+                  // A first step that is no "may" (Li Nalas's discard) has no Skip; with an empty hand Done ends it.
+                  endable: pendingTrigger.steps.length > 0 || pendingTrigger.stage.may || table.hand.length === 0,
+                  skippable: pendingTrigger.stage.may,
+                  onEnd: () => dispatch({ type: 'effectSkip' }),
+                }}
+              />
+            )}
+            {pendingTrigger?.instance && resolvingCollapsed && (
+              <ResolvingMini instance={pendingTrigger.instance} played onOpen={() => setResolvingCollapsed(false)} />
+            )}
+            {/* The trigger offers of the last action (#1904), below the charge chip. */}
+            <TriggerOffers
+              offers={triggerOffers}
+              chipShown={chargeChipShown}
+              hidden={draggingInstance !== null}
+              escapeActive={!gameMenuOpen}
+              onUse={(offer) => dispatch({ type: 'useTrigger', target: offer.target })}
+              onSkip={(offer) => dispatch({ type: 'skipTrigger', target: offer.target })}
+            />
             </MissionSpendProvider>
             </NamedCardProvider>
             </TableCardUseProvider>
