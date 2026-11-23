@@ -30,7 +30,8 @@ export const ATTRIBUTE_QUANTITIES: readonly AmountQuantity[] = ['integrity', 'cu
  * - `core`: the core;
  * - `commanded`: a personnel in an away team or a crew, stopped too;
  * - `moveMission`: the card of either mission of a move;
- * - `moveShip`: the moving ship.
+ * - `moveShip`: the moving ship;
+ * - `attempt`: no card: an earlier dilemma of the attempt (#1889). No evaluator reads it.
  */
 export type SourcePlace =
   | 'self'
@@ -43,18 +44,24 @@ export type SourcePlace =
   | 'core'
   | 'commanded'
   | 'moveMission'
-  | 'moveShip';
+  | 'moveShip'
+  | 'attempt';
 
 /**
  * The cards a row changes, relative to its source: the source itself (`self`), each card of its away team or crew,
  * the source counting or not as the change says (`group`), the crew of the source ship (`crew`), the ship the
  * source is aboard or placed on (`itsShip`), every ship on a ship row (`shipsOnRows`), any card, a card off the
- * table too (`any`), or a move: its two missions and its ship (`move`).
+ * table too (`any`), or a move: its two missions and its ship (`move`); for an `attempt` row, every attempting
+ * personnel (`attempting`) or the one card of `targetId` (`card`), which no evaluator reads.
  */
-export type TargetRelation = 'self' | 'group' | 'crew' | 'itsShip' | 'shipsOnRows' | 'any' | 'move';
+export type TargetRelation = 'self' | 'group' | 'crew' | 'itsShip' | 'shipsOnRows' | 'any' | 'move' | 'attempting' | 'card';
 
-/** How long a row applies: while its source stands in its place. Parts 2 and 3 of #1864 add theirs. */
-export type Scope = 'whileInPlay';
+/**
+ * How long a row applies: while its source stands in its place (`whileInPlay`), or for the rest of the attempt
+ * (`thisAttempt`, #1889), the bonus and the losses of the bot's `PileModifiers`, never in the registry. Part 2 of
+ * #1864 adds the scopes of a cost.
+ */
+export type Scope = 'whileInPlay' | 'thisAttempt';
 
 /** A card a row reads: a view card, with its crew for a ship. */
 export type ModifierCard = CrewedCard;
@@ -111,6 +118,8 @@ export interface ModifierRow {
   scope: Scope;
   /** Each title counts once for a target, however many copies stand there. No row of #1887 sets it. */
   eachTitleOnce?: boolean;
+  /** The card id of a `card` target. */
+  targetId?: string;
 }
 
 /** Each copy of the title `title` in `source` changes `changes` of `target`, while `whileInPlay`. */
