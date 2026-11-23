@@ -4,7 +4,9 @@
 // uniqueness and limits" is on, so the reducer reads no storage.
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import type { CardInstance, MoveTarget, TableState, TableZone } from './tableReducer';
+import { inPlay } from '../../../lib/tableView';
+import { findInstanceAnywhere, type CardInstance, type MoveTarget, type TableState, type TableZone } from './tableReducer';
+import { tableViewOf } from './tableView';
 
 export type RuleWarning =
   | { rule: 'unique'; title: string }
@@ -29,22 +31,10 @@ const gametextOf = (card: any): string => String(card?.gametext ?? '').toLowerCa
 export const limitsOnePerMission = (card: any): boolean => gametextOf(card).includes(LIMIT_PER_MISSION);
 export const limitsOnePerShip = (card: any): boolean => gametextOf(card).includes(LIMIT_PER_SHIP);
 
-// Every card the player has in play: the away teams, the ship rows, the crews, the core, and the cards
-// placed on a mission card, a ship or a core card. Not the hand, the draw deck, the discard pile (a card
-// removed from the game too), the dilemma pile, hand and stack, the cards under a mission, the
-// resolving zone, nor the brig: the brig holds the opponent's personnel, which are in play for the
-// rules, but the table does not model whose card is whose, so the check ignores it (a known gap).
-export function inPlayCards(table: TableState): CardInstance[] {
-  const withPlaced = (cards: CardInstance[]): CardInstance[] => cards.flatMap((c) => [c, ...(c.placedOn ?? [])]);
-  return [
-    ...table.missions.flatMap((slot) => [
-      ...(slot.mission?.placedOn ?? []),
-      ...withPlaced(slot.awayTeam),
-      ...slot.ships.flatMap((ship) => [ship, ...(ship.placedOn ?? []), ...withPlaced(ship.crew ?? [])]),
-    ]),
-    ...withPlaced(table.core),
-  ];
-}
+// Every card the player has in play, as `inPlay` of the table view reads it (#1877): never the brig, whose
+// owner the table does not know (a known gap).
+export const inPlayCards = (table: TableState): CardInstance[] =>
+  inPlay(tableViewOf(table)).flatMap((c) => findInstanceAnywhere(table, c.id)?.instance ?? []);
 
 // The card a placement lands on, for the limits: a mission card or a ship, by its name.
 function placedOnTarget(table: TableState, zone: TableZone | MoveTarget): { kind: 'mission' | 'ship'; card: CardInstance } | null {
@@ -66,7 +56,7 @@ export function ruleWarningsOf(table: TableState, instance: CardInstance, landed
   const warnings: RuleWarning[] = [];
   const key = titleKey(instance.card);
   const title = titleOf(instance.card);
-  if (play && isUniqueCard(instance.card) && inPlayCards(table).some((c) => c.id !== instance.id && titleKey(c.card) === key)) {
+  if (play && isUniqueCard(instance.card) && inPlay(tableViewOf(table)).some((c) => c.id !== instance.id && c.title.toLowerCase() === key)) {
     warnings.push({ rule: 'unique', title });
   }
   const target = placedOnTarget(table, landed);

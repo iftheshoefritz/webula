@@ -2,14 +2,17 @@
 // range, attribute and bot readers will share, its selectors, and the conditions of the card texts built from
 // them. It imports no React and nothing of the practice table (#1298); `tableViewOf` in
 // `src/app/decks/practice/tableView.ts` builds it from a `TableState`. `costFactsOf` projects `CostFacts` from it,
-// and the cost models evaluate its conditions over their `CostFacts` (#1876); parts 3 to 5 of #1862 move
-// `RangeTable`, `AttributeTable`, `PileTableInput` and `BotTableFacts` onto it.
+// and the cost models evaluate its conditions over their `CostFacts` (#1876); the bot's table input is a
+// projection of it (#1879); the conditions of the "when you play" models and the mission readers of the practice
+// table (Earth's and Nimbus III's spends, the completion effects, the cards in play) read it too (#1877); parts 4
+// and 5 of #1862 move `RangeTable` and `AttributeTable` onto it.
 //
 // "Command" keeps the two meanings the readers of today give it (`docs/ubiquitous-language.md`): the cost and
 // play models count only the unstopped personnel, and the range, attribute and bot readers count the stopped
 // ones too. So every selector of personnel takes `unstopped`, never a default. The brig is outside every
 // selector; the view keeps it, with its ownership gap ("in play").
 
+import { cardTitleOf } from './cardTitle';
 import { SKILL_INDEX } from './dilemmaBot/requirements';
 import type { PartnerTraits } from './dilemmaBot/gains';
 import type { BotPileInfo } from './dilemmaBot/botPiles';
@@ -353,6 +356,10 @@ export interface MissionQuery {
   type?: string;
   /** "a", "g", "d" or "q". */
   quadrant?: string;
+  /** The whole title, `cardTitleOf` of the name in the case of the card data: "Nimbus III Staff Backwater Embassy". */
+  title?: string;
+  /** A version of the title in any case: the title is `titled`, or `titled` then its subtitle ("Bajor", "Unicomplex"). */
+  titled?: string;
   where?: (m: SourceMission) => boolean;
 }
 
@@ -393,6 +400,12 @@ export function events(reader: TableReader, q: EventQuery = {}): SourceEvent[] {
     .filter((e) => (q.keyword === undefined || e.keywords.includes(q.keyword.toLowerCase())) && (!q.where || q.where(e)));
 }
 
+const isTitled = (title: string, name: string): boolean => {
+  const t = title.toLowerCase();
+  const n = name.toLowerCase();
+  return t === n || t.startsWith(`${n} `);
+};
+
 /** The mission slots that pass `q`; the empty ones only with `includeEmpty`. */
 export function missions(view: TableView, q?: MissionQuery): ViewMission[];
 export function missions(reader: TableReader, q?: MissionQuery): SourceMission[];
@@ -407,6 +420,8 @@ export function missions(reader: TableReader, q: MissionQuery = {}): SourceMissi
         (q.headquarters === undefined || (m.type === 'h') === q.headquarters) &&
         (q.type === undefined || m.type === q.type.toLowerCase()) &&
         (q.quadrant === undefined || m.quadrant === q.quadrant.toLowerCase()) &&
+        (q.title === undefined || cardTitleOf(m.name) === q.title) &&
+        (q.titled === undefined || isTitled(cardTitleOf(m.name), q.titled)) &&
         (!q.where || q.where(m))
     );
 }
@@ -420,6 +435,24 @@ export function core(reader: TableReader, q: CoreQuery = {}): SourceCoreCard[] {
   return sourceOf(reader)
     .coreOf()
     .filter((c) => q.title === undefined || c.title === q.title);
+}
+
+/**
+ * Every card the player has in play (#1821, #1877): the cards placed on the mission cards, the away teams and
+ * the crews with the cards placed on them, the ships with theirs, and the core with its. Never the hand, a pile,
+ * the cards under a mission, the resolving zone, nor the brig: the brig holds the opponent's personnel, in play
+ * for the rules, but the table does not know whose card is whose (a known gap).
+ */
+export function inPlay(view: TableView): ViewCard[] {
+  const withPlaced = (cards: ViewCard[]): ViewCard[] => cards.flatMap((c) => [c, ...c.placedOn]);
+  return [
+    ...view.missions.flatMap((m) => [
+      ...m.placedOn,
+      ...withPlaced(m.awayTeam),
+      ...m.ships.flatMap((ship) => [ship, ...ship.placedOn, ...withPlaced(ship.crew)]),
+    ]),
+    ...withPlaced(view.core),
+  ];
 }
 
 /** The plays of the turn so far that pass `test`, oldest first (#1876). */
@@ -535,13 +568,13 @@ export const requiresSkill = (mission: Pick<SourceMission, 'requirements'>, skil
 
 /**
  * "A mission requiring <skill>": some mission of `query` names `skill`. `each: true` is "each of your
- * non-headquarters missions requires <skill>" (`playConditionOf`): an empty slot is no mission, and with no
- * such mission it holds.
+ * non-headquarters missions requires <skill>" (`playConditionOf`): every non-headquarters mission of `query`, an
+ * empty slot no mission, and with no such mission it holds.
  */
 export function missionRequires(skill: string, options: ConditionOptions & { each?: boolean; query?: MissionQuery } = {}): Condition {
   if (options.each) {
     return condition(
-      (view) => missions(view, { headquarters: false }).every((m) => requiresSkill(m, skill)),
+      (view) => missions(view, { ...options.query, headquarters: false }).every((m) => requiresSkill(m, skill)),
       () => `each of your non-headquarters missions requires ${skill}`,
       options
     );

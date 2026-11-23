@@ -35,7 +35,8 @@ export const printedCostOf = (c: CardInstance): number => {
 
 const viewCardOf = (c: CardInstance): ViewCard => ({
   id: c.id,
-  title: c.card ? cardTitleOf(cardDisplayName(c.card)) : '',
+  // A row with no name, as a test's invented card may have, has the title ''.
+  title: c.card ? cardTitleOf(cardDisplayName(c.card) ?? '') : '',
   type: text(c.card?.type),
   cost: printedCostOf(c),
   row: c.card,
@@ -72,7 +73,7 @@ function missionOf(slot: MissionSlot, index: number, requirements: string): View
     completed: slot.completed === true,
     flipped: slot.mission?.flipped === true,
     card: slot.mission ? viewCardOf(slot.mission) : null,
-    name: card ? cardDisplayName(card) : '',
+    name: card ? (cardDisplayName(card) ?? '') : '',
     requirements: card ? requirements : '',
     points: Number.isFinite(points) ? points : 0,
     type: text(card?.missiontype).charAt(0),
