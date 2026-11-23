@@ -243,7 +243,7 @@ import { flatRowMaxOffset, flatRowWidths, pileCardSize, useElementHeight, useEle
 import { useTableSensors } from './panelScrollSensor';
 import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
-import PileCarousel from './PileCarousel';
+import PileCarousel, { CarouselPile } from './PileCarousel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
 import { PILE_CARD_BORDER_STYLE, RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, cardBorderStyle, SMALL_CARD_WIDTH, TableCardImage } from './TableCard';
 import {
@@ -3050,6 +3050,11 @@ function PracticeDrawContent() {
   // own download panel (#690), is open, if any — only one at a time. Tracked the same way
   // `openPile` tracks a mission's open pile: a piece of UI state with no effect on the table.
   const [openFlatLocation, setOpenFlatLocation] = useState<FlatPanelLocation | null>(null);
+  // The pile whose search shows as a carousel (#1899, #1900, #1901), or null for the grid panel.
+  const carouselPile: CarouselPile | null =
+    pileCarouselOn && (openFlatLocation === 'drawDeck' || openFlatLocation === 'dilemmaPile' || openFlatLocation === 'discard')
+      ? openFlatLocation
+      : null;
   // The dilemma stack mounts only in the attempt layout (#1170), so its panel closes with it,
   // adjusted during render on the change of `attemptLayoutShows`.
   const [prevAttemptLayoutShows, setPrevAttemptLayoutShows] = useState(attemptLayoutShows);
@@ -5529,12 +5534,14 @@ function PracticeDrawContent() {
               {/* The core's or the brig's own card list panel (#640), opened by tapping a card
                   already sitting in that zone; or the draw pile's/the dilemma pile's own download
                   panel (#690), opened by the new download control beside each one. */}
-              {/* #1899: with "Search piles in a carousel" on, the draw deck's search is a carousel,
-                  with the panel's Download, Discard and Shuffle, and Top and Bottom too. */}
-              {openFlatLocation === 'drawDeck' && pileCarouselOn && (
+              {/* #1899, #1900, #1901: with "Search piles in a carousel" on, the search of the draw
+                  deck, the dilemma pile and the discard pile is a carousel with each panel's own
+                  actions, and Top and Bottom for the two decks. The discard pile shows its newest card
+                  first. */}
+              {carouselPile && (
                 <PileCarousel
-                  pile="drawDeck"
-                  cards={openPanelCards ?? []}
+                  pile={carouselPile}
+                  cards={carouselPile === 'discard' ? [...(openPanelCards ?? [])].reverse() : (openPanelCards ?? [])}
                   onClose={() => {
                     setOpenFlatLocation(null);
                     setSelectedCardIds([]);
@@ -5542,17 +5549,30 @@ function PracticeDrawContent() {
                   selectedIds={selectedCardIds}
                   onToggleSelect={toggleCardSelection}
                   onSelectIds={setSelectedCardIds}
-                  onShuffle={() => dispatch({ type: 'shuffle', location: 'drawDeck' })}
-                  onDownload={(ids) => downloadSelection('drawDeck', ids)}
-                  onDiscard={discardSelection}
-                  onSendToDeck={(ids, position) => {
-                    sendCardsToDeck('drawDeck', ids, position);
-                    setSelectedCardIds([]);
-                  }}
+                  onShuffle={
+                    carouselPile === 'discard' ? undefined : () => dispatch({ type: 'shuffle', location: carouselPile })
+                  }
+                  // The dilemma pile's Download moves cards into the dilemma hand, so it is offered only
+                  // while the dilemma hand shows (#1223), as in the panel.
+                  onDownload={
+                    carouselPile === 'drawDeck' || (carouselPile === 'dilemmaPile' && dilemmaHandShows)
+                      ? (ids) => downloadSelection(carouselPile, ids)
+                      : undefined
+                  }
+                  onDiscard={carouselPile === 'discard' ? undefined : discardSelection}
+                  onSendToDeck={
+                    carouselPile === 'discard'
+                      ? undefined
+                      : (ids, position) => {
+                          sendCardsToDeck(carouselPile, ids, position);
+                          setSelectedCardIds([]);
+                        }
+                  }
+                  onSetRemovedFromGame={carouselPile === 'discard' ? setRemovedFromGameForSelection : undefined}
                   hidden={draggingInstance !== null}
                 />
               )}
-              {openFlatLocation && !(openFlatLocation === 'drawDeck' && pileCarouselOn) && (
+              {openFlatLocation && !carouselPile && (
                 <CardListPanel
                   location={openFlatLocation}
                   cards={openPanelCards ?? []}

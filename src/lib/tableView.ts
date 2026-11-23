@@ -13,6 +13,7 @@
 // selector; the view keeps it, with its ownership gap ("in play").
 
 import { cardTitleOf } from './cardTitle';
+import { isCommanderOf } from './commander';
 import { SKILL_INDEX } from './dilemmaBot/requirements';
 import type { PartnerTraits } from './dilemmaBot/gains';
 import type { BotPileInfo } from './dilemmaBot/botPiles';
@@ -738,4 +739,20 @@ export function firstThisTurn(test: (play: CostTurnPlay) => boolean, what: strin
     () => `first ${what} this turn`,
     options
   );
+}
+
+/**
+ * "If you command a staffed ship at that mission with its Commander aboard" (#1903, Mission Accomplished): a ship
+ * on the ship row of the slot `at.missionIndex` whose crew holds a personnel, as the bot reads "staffed"
+ * (`shipsAtMission`), and its Commander (`isCommanderOf`). It reads a table view; a `CostFacts` source knows no
+ * crew, so it never holds there.
+ */
+export function shipWithCommanderAt(options: ConditionOptions = {}): Condition {
+  const found = (reader: TableReader, at: ConditionAt | undefined): boolean => {
+    if (isSource(reader) || at?.missionIndex === undefined) return false;
+    return (reader.missions[at.missionIndex]?.ships ?? []).some((ship) =>
+      ship.crew.some((c) => c.type === 'personnel' && isCommanderOf(String(c.row?.keywords ?? ''), ship.title))
+    );
+  };
+  return condition(found, () => 'you command a staffed ship at that mission with its Commander aboard', options);
 }

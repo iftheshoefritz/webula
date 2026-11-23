@@ -21,6 +21,7 @@ import { placeCoverageOf } from '../../lib/playPlaces/coverage';
 import { PLAY_MODEL_TITLES } from '../../lib/playModels/coverage';
 import { orderModelOf } from '../../lib/orderModels';
 import { RESOLVE_MODELS } from '../../lib/resolveModels';
+import { TRIGGER_TITLES } from '../../lib/triggers';
 import { cardRows, shippedDecks } from './backlogData';
 
 // The unified model backlog (#1861, part of #1860): every title the shipped decks play, its text split
@@ -36,6 +37,8 @@ const RESOLVE = lower(RESOLVE_MODELS.map((m) => m.title));
 const MODIFIERS = lower(MODIFIER_ROWS.map((r) => r.title));
 // The cost and counter rows (#1888), so a title with rows and no residual model still counts for `cost`.
 const COST_ROW_TITLES = lower(COST_ROWS.map((r) => r.title));
+// The trigger registry (#1903): a trigger or an interrupt clause is modelled when the registry holds its title.
+const TRIGGERS = lower(TRIGGER_TITLES);
 // The mission registry (#1907): every row's title.
 const MISSION = lower(MISSION_MODEL_TITLES);
 /**
@@ -75,6 +78,9 @@ export const modelledToday: ModelledBy = (concern, title, card, clause) => {
         .findIndex((c) => c.text === clause);
       return index >= 0 && orderModelOf(title, index) !== undefined;
     }
+    case 'trigger':
+    case 'interrupt':
+      return TRIGGERS.has(key);
     default:
       return false;
   }
@@ -130,12 +136,13 @@ describe('the coverage report', () => {
     const decks = ['Deck:\n1\tCommon\n1\tModelled\n', 'Deck:\n1\tCommon\n1\tRare\n'];
     const report = coverageReport(cards, decks, (concern, title) => title === 'Modelled' || concern === 'whenPlayed');
     expect(report.rows.map((r) => [r.title, r.decks, r.missing, r.withinReach])).toEqual([
-      ['Common', 2, ['trigger'], false],
+      // A trigger has a registry since #1903, so a missing trigger clause is within reach.
+      ['Common', 2, ['trigger'], true],
       ['Modelled', 1, [], true],
       ['Rare', 1, ['eventResolve'], true],
     ]);
     const md = coverageMarkdown(report);
-    expect(md).toContain('| 2 | Common | Personnel | trigger | no |');
+    expect(md).toContain('| 2 | Common | Personnel | trigger | yes |');
     expect(md).not.toContain('| Modelled | Event');
   });
 
@@ -148,6 +155,18 @@ describe('the coverage report', () => {
         .map((c) => modelledToday('order', title, of(title), c.text));
     expect(orders('Damar Ambitious Glinn')).toEqual([true]);
     expect(orders('Optimism')).toEqual([true, false, false]);
+  });
+
+  it('marks a trigger clause modelled when the trigger registry holds its title (#1903)', () => {
+    const rows = cardRows();
+    const of = (title: string) => rows.find((r) => r.name === title)!;
+    const triggers = (title: string) =>
+      clausesOf(of(title))
+        .filter((c) => c.concern === 'trigger')
+        .map((c) => modelledToday('trigger', title, of(title), c.text));
+    expect(triggers('Distant Exploration')).toEqual([true]);
+    expect(triggers('Li Nalas Legend of Bajor')).toEqual([true]);
+    expect(triggers('Unexpected Difficulties')).toEqual([false]);
   });
 
   it('finds the shipped models in the shipped decks', () => {
