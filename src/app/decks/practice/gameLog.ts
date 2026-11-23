@@ -383,7 +383,23 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // Stages of an order that could not amend its entry, because another entry came after it: the order's entry
   // `target`, its card, and the stages of this entry. Its undo takes back those stages only.
   | { kind: 'orderEffect'; target: number; card: string; effect: PlayEffectRecord }
+  // A trigger the player took (#1903): the offer at `target`, its card's name and the record of its steps. No
+  // action makes it yet; `pendingTriggersOf` reads it, so a taken offer is no offer.
+  | { kind: 'triggerUsed'; target: TriggerTarget; card: string; effect: PlayEffectRecord }
+  // A trigger the player skipped (#1903): the offer at `target` and its card's name, so the skip is undone and
+  // survives a reload. No action makes it yet.
+  | { kind: 'triggerSkipped'; target: TriggerTarget; card: string }
 );
+
+// One trigger offer of the log (#1903), addressed as `ChargeTarget` addresses a play: the index of the action's
+// entry, the instance id of the source card (`botDeck` for the bot's deck), the row among its title's rows, and the
+// event among the entry's events.
+export interface TriggerTarget {
+  entry: number;
+  source: string;
+  row: number;
+  event: number;
+}
 
 // What the cost of an order did (#1866): the names of the cards it discarded, stopped, or placed on the bottom
 // of the draw deck.
@@ -1570,6 +1586,8 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   pickReplaced: true,
   orderUsed: true,
   orderEffect: true,
+  triggerUsed: true,
+  triggerSkipped: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1804,6 +1822,12 @@ export function logEntryText(entry: LogEntry): string {
       const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
       return `${card}'s order: ${isPlayEffectRecord(entry.effect) ? orderStepsText(entry.effect) : 'no effect'}`;
     }
+    case 'triggerUsed': {
+      const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
+      return `${card}: ${isPlayEffectRecord(entry.effect) ? playEffectText(entry.effect) : 'no effect'}`;
+    }
+    case 'triggerSkipped':
+      return `Skipped ${typeof entry.card === 'string' && entry.card ? entry.card : 'a card'}`;
     case 'playEffect': {
       // "Enabran Tain: discarded Tricorder and Phaser" (#1800).
       const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
