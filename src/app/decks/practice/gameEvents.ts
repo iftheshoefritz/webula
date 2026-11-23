@@ -189,7 +189,12 @@ function entryEvents(entry: LogEntry, table: TableState): GameEvent[] {
       return [attemptEvent(table, entry.mission, true), { kind: 'dilemmasDrawn', count: typeof entry.drew === 'number' ? entry.drew : 0, bot: true }];
     case 'missionCompleted': {
       const event = entry.completed === true ? completedEvent(table, entry.mission) : null;
-      return event ? [event] : [];
+      // Ba'ku Planet (#1909): the personnel its completion killed, after the completion.
+      const killed = entry.completed === true ? names(entry.effect?.killed) : [];
+      const kills: GameEvent[] = killed.length
+        ? [{ kind: 'killed', cards: killed.map((n) => namedCard(table, n, (f) => f.place === 'discard')), byDilemma: false }]
+        : [];
+      return [...(event ? [event] : []), ...kills];
     }
     case 'flip': {
       const event = revealedEvent(table, entry);
