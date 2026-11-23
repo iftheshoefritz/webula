@@ -155,10 +155,10 @@ describe('the way out of a recalled event (#1764)', () => {
   });
 
   it('a recalled Miracle Working ends its resolve model removed from the game, in its one last entry', () => {
-    const drawn = play(initialGameState(table()), toResolving('mw'), { type: 'resolveDraw' });
+    const drawn = play(initialGameState(table()), toResolving('mw'), { type: 'effectStep' });
     expect(resolvingRecalled(drawn)).toBe(true);
     const ids = drawn.table.hand.slice(0, 3).map((c) => c.id);
-    const after = play(drawn, { type: 'resolveBottom', ids });
+    const after = play(drawn, { type: 'effectStep', ids });
     const mw = after.table.discard.find((c) => c.id === 'mw');
     expect(mw?.removedFromGame).toBe(true);
     expect(after.table.discard[after.table.discard.length - 1].id).toBe('mw');
@@ -170,8 +170,8 @@ describe('the way out of a recalled event (#1764)', () => {
   });
 
   it('a Miracle Working played from the hand still ends in the discard pile', () => {
-    const drawn = play(initialGameState(table({ discard: [], hand: [MIRACLE, deckCard('h1'), deckCard('h2'), deckCard('h3')] })), toResolving('mw'), { type: 'resolveDraw' });
-    const after = play(drawn, { type: 'resolveBottom', ids: drawn.table.hand.slice(0, 3).map((c) => c.id) });
+    const drawn = play(initialGameState(table({ discard: [], hand: [MIRACLE, deckCard('h1'), deckCard('h2'), deckCard('h3')] })), toResolving('mw'), { type: 'effectStep' });
+    const after = play(drawn, { type: 'effectStep', ids: drawn.table.hand.slice(0, 3).map((c) => c.id) });
     expect(after.table.discard.find((c) => c.id === 'mw')?.removedFromGame).toBeUndefined();
     expect(logEntryText(after.log[after.log.length - 1])).toContain('Miracle Working went to the discard pile');
   });

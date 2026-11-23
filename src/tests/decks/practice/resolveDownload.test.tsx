@@ -9,7 +9,7 @@ import {
   initialGameState,
   isLogEntry,
   logEntryText,
-  resolveStepOf,
+  resolveStageOf,
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { downloadCopyOf } from '../../../app/decks/practice/personnelChoice';
@@ -65,14 +65,18 @@ function resolvingGame(t: TableState): GameState {
 }
 
 const download = (game: GameState, personnelId: string, order?: string[]) => {
-  const action: GameAction = { type: 'resolveDownload', personnelId, ...(order ? { order } : {}) };
+  const action: GameAction = { type: 'effectStep', personnelId, ...(order ? { order } : {}) };
   return gameReducer(game, withShuffleOrders(game.table, action, game.log));
 };
 
 describe('the Second Edition model (#1746)', () => {
   it('is a download of a copy, with a draw for an [AU] personnel, and has the one step', () => {
-    expect(resolveModelOf('Second Edition')).toEqual({ kind: 'downloadCopy', title: 'Second Edition', drawIfIcon: '[au]', draw: 1 });
-    expect(resolveStepOf(resolvingGame(table()))).toBe('download');
+    expect(resolveModelOf('Second Edition')?.steps).toEqual([
+      { kind: 'download', of: { kind: 'copyOfCommanded' }, upTo: 1, to: { kind: 'hand' } },
+      { kind: 'shuffle' },
+      { kind: 'draw', count: { kind: 'ifPickedIcon', icon: '[au]', count: 1 } },
+    ]);
+    expect(resolveStageOf(resolvingGame(table()))?.lead.kind).toBe('download');
   });
 
   it('finds the copy by title, for a commanded personnel, stopped or not, never the brig', () => {
@@ -86,8 +90,8 @@ describe('the Second Edition model (#1746)', () => {
 
   it('chooses the shuffle on the page: an order of the draw deck less the copy', () => {
     const game = resolvingGame(table());
-    const action = withShuffleOrders(game.table, { type: 'resolveDownload', personnelId: 'ann' }, game.log);
-    expect(action.type === 'resolveDownload' && [...action.order!].sort()).toEqual(['bo2', 'cy2', 'd1', 'd2', 'd3', 'd4']);
+    const action = withShuffleOrders(game.table, { type: 'effectStep', personnelId: 'ann' }, game.log);
+    expect(action.type === 'effectStep' && [...action.order!].sort()).toEqual(['bo2', 'cy2', 'd1', 'd2', 'd3', 'd4']);
   });
 });
 
@@ -101,7 +105,7 @@ describe('the download (#1746)', () => {
     expect(after.table.drawDeck.map((c) => c.id)).toEqual(order);
     expect(after.table.discard.map((c) => c.id)).toEqual(['ev']);
     expect(after.table.resolving).toBeNull();
-    expect(resolveStepOf(after)).toBeNull();
+    expect(resolveStageOf(after)).toBeNull();
     expect(after.log).toHaveLength(game.log.length + 1);
     const entry = after.log[after.log.length - 1];
     expect(logEntryText(entry)).toBe(
@@ -135,7 +139,7 @@ describe('the download (#1746)', () => {
     for (const id of ['dee', 'cy', 'nobody']) expect(download(game, id)).toBe(game);
     const idle = { ...game, table: { ...game.table, resolving: null } };
     expect(download(idle, 'ann')).toBe(idle);
-    expect(gameReducer(game, { type: 'resolveDraw' })).toBe(game);
+    expect(gameReducer(game, { type: 'effectStep' })).toBe(game);
   });
 });
 

@@ -17,10 +17,15 @@ import {
   examineTakeMax,
   examineTakeMin,
   examineTakes,
-  ExamineTakeModel,
   playModelOf,
-  playStepsOf,
+  PlayModel,
+  playStagesOf,
 } from '../../../lib/playModels';
+import { recordStepName } from '../../../app/decks/practice/gameLog';
+import { stepOf } from '../../../lib/effectSteps';
+
+// The stages of a model as the record names them (#1863), and whether each is a "may".
+const stageSummary = (m: PlayModel) => playStagesOf(m).map((s) => ({ step: recordStepName(s.lead), may: s.may }));
 
 // Issue #1809: the "when you play" kind "examine the top N, take one into hand, place the rest on the bottom",
 // with Requisitions Drone, Lenara Kahn and Keiko O'Brien. With invented deck cards, and the real titles, the
@@ -66,13 +71,13 @@ const dispatch = (game: GameState, action: Parameters<typeof withShuffleOrders>[
 const played = (id = 'drone', t: TableState = table()): GameState => dispatch(initialGameState(t), { type: 'move', id, to: AWAY_TEAM });
 const lastText = (game: GameState) => logEntryText(game.log[game.log.length - 1]);
 const ids = (cards: CardInstance[]) => cards.map((c) => c.id);
-const model = (name: string) => playModelOf(name) as ExamineTakeModel;
+const model = (name: string) => stepOf(playModelOf(name)!.steps, 'examine')!;
 
 describe('the examine models (#1809)', () => {
   it('Requisitions Drone, its *VP too, examines four and must take one of any card', () => {
     const drone = model('Requisitions Drone *VP');
-    expect(drone).toMatchObject({ kind: 'examineTake', examine: 4, mustTake: true });
-    expect(playStepsOf(drone)).toEqual([{ step: 'examine', may: true }]);
+    expect(drone).toMatchObject({ kind: 'examine', count: 4, mustTake: true });
+    expect(stageSummary(playModelOf('Requisitions Drone *VP')!)).toEqual([{ step: 'examine', may: true }]);
     expect(DECK.slice(0, 4).every((c) => examineTakes(drone, c.card))).toBe(true);
     expect(examineTakeMin(drone, DECK.slice(0, 4).map((c) => c.card), 1)).toBe(1);
   });
@@ -109,13 +114,13 @@ describe('the examine step (#1809)', () => {
   it('a play of Requisitions Drone leaves it in the away team with its examine pending', () => {
     const game = played();
     expect(ids(game.table.missions[0].awayTeam)).toEqual(['drone']);
-    expect(pendingPlayEffectOf(game)).toMatchObject({ id: 'drone', step: { step: 'examine' } });
+    expect(pendingPlayEffectOf(game)).toMatchObject({ id: 'drone', stage: { lead: { kind: 'examine' } } });
   });
 
   it('take one and order the rest: the card goes to the hand, the rest to the bottom in order, one entry, one undo', () => {
     const start = played();
     const before = start.undo[start.undo.length - 1];
-    const done = dispatch(start, { type: 'playEffectExamine', take: ['d2'], bottom: ['d4', 'd1', 'd3'] });
+    const done = dispatch(start, { type: 'effectStep', take: ['d2'], bottom: ['d4', 'd1', 'd3'] });
     expect(done.log).toHaveLength(1);
     expect(ids(done.table.hand)).toEqual(['lenara', 'keiko', 'd2']);
     expect(done.table.hand[2].face).toBe('up');
@@ -132,7 +137,7 @@ describe('the examine step (#1809)', () => {
 
   it('Skip leaves the draw deck as it was, in one entry', () => {
     const start = played();
-    const skipped = dispatch(start, { type: 'playEffectSkip' });
+    const skipped = dispatch(start, { type: 'effectSkip' });
     expect(skipped.log).toHaveLength(1);
     expect(skipped.table.drawDeck).toBe(start.table.drawDeck);
     expect(lastText(skipped)).toBe('Played Requisitions Drone at Mission 0 (cost 2); skipped its play text');
@@ -140,27 +145,27 @@ describe('the examine step (#1809)', () => {
 
   it('a deck shorter than four examines what it holds', () => {
     const start = played('drone', table(DECK.slice(0, 2)));
-    const done = dispatch(start, { type: 'playEffectExamine', take: ['d1'], bottom: ['d2'] });
+    const done = dispatch(start, { type: 'effectStep', take: ['d1'], bottom: ['d2'] });
     expect(ids(done.table.drawDeck)).toEqual(['d2']);
     expect(lastText(done)).toContain('; took Card d1, placed 1 on the bottom');
   });
 
   it('refuses a card the test does not allow, a missing take for the Drone, two takes and a wrong set of cards', () => {
     const lenara = played('lenara');
-    expect(gameReducer(lenara, { type: 'playEffectExamine', take: ['d1'], bottom: ['d2', 'd3', 'd4'] })).toBe(lenara);
-    const none = gameReducer(lenara, { type: 'playEffectExamine', take: [], bottom: ['d4', 'd3', 'd2', 'd1'] });
+    expect(gameReducer(lenara, { type: 'effectStep', take: ['d1'], bottom: ['d2', 'd3', 'd4'] })).toBe(lenara);
+    const none = gameReducer(lenara, { type: 'effectStep', take: [], bottom: ['d4', 'd3', 'd2', 'd1'] });
     expect(ids(none.table.drawDeck)).toEqual(['d5', 'd6', 'd4', 'd3', 'd2', 'd1']);
     expect(lastText(none)).toContain('; took no card, placed 4 on the bottom');
 
     const drone = played();
-    expect(gameReducer(drone, { type: 'playEffectExamine', take: [], bottom: ['d1', 'd2', 'd3', 'd4'] })).toBe(drone);
-    expect(gameReducer(drone, { type: 'playEffectExamine', take: ['d1', 'd2'], bottom: ['d3', 'd4'] })).toBe(drone);
-    expect(gameReducer(drone, { type: 'playEffectExamine', take: ['d1'], bottom: ['d2', 'd3', 'd5'] })).toBe(drone);
-    expect(gameReducer(drone, { type: 'playEffectExamine', take: ['d1'], bottom: ['d2', 'd3'] })).toBe(drone);
+    expect(gameReducer(drone, { type: 'effectStep', take: [], bottom: ['d1', 'd2', 'd3', 'd4'] })).toBe(drone);
+    expect(gameReducer(drone, { type: 'effectStep', take: ['d1', 'd2'], bottom: ['d3', 'd4'] })).toBe(drone);
+    expect(gameReducer(drone, { type: 'effectStep', take: ['d1'], bottom: ['d2', 'd3', 'd5'] })).toBe(drone);
+    expect(gameReducer(drone, { type: 'effectStep', take: ['d1'], bottom: ['d2', 'd3'] })).toBe(drone);
 
     const keiko = played('keiko');
-    expect(gameReducer(keiko, { type: 'playEffectExamine', take: ['d2'], bottom: ['d1', 'd3', 'd4'] })).toBe(keiko);
-    expect(ids(gameReducer(keiko, { type: 'playEffectExamine', take: ['d3'], bottom: ['d1', 'd2', 'd4'] }).table.hand)).toContain('d3');
+    expect(gameReducer(keiko, { type: 'effectStep', take: ['d2'], bottom: ['d1', 'd3', 'd4'] })).toBe(keiko);
+    expect(ids(gameReducer(keiko, { type: 'effectStep', take: ['d3'], bottom: ['d1', 'd2', 'd4'] }).table.hand)).toContain('d3');
   });
 });
 
@@ -177,7 +182,7 @@ describe('the examine panel (#1809)', () => {
           escapeActive={false}
           onViewTable={jest.fn()}
           step={{ step: 'examineTake', examined, min: 0, max: 1, takes: (c) => examineTakes(lenara, c.card), testText: 'an event', onApply }}
-          played={{ text: lenara.text, condition: null, started: false, endable: true, skippable: true, onEnd: jest.fn() }}
+          played={{ text: playModelOf('Lenara Kahn Wormhole Theorist')!.text, condition: null, started: false, endable: true, skippable: true, onEnd: jest.fn() }}
         />
       </DndContext>
     );
@@ -201,7 +206,7 @@ describe('the examine panel (#1809)', () => {
           escapeActive={false}
           onViewTable={jest.fn()}
           step={{ step: 'examineTake', examined: DECK.slice(0, 2), min: 1, max: 1, takes: () => true, onApply: jest.fn() }}
-          played={{ text: drone.text, condition: null, started: false, endable: true, skippable: true, onEnd: jest.fn() }}
+          played={{ text: playModelOf('Requisitions Drone')!.text, condition: null, started: false, endable: true, skippable: true, onEnd: jest.fn() }}
         />
       </DndContext>
     );

@@ -15,7 +15,18 @@ import {
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { ResolvingPanel } from '../../../app/decks/practice/ResolvingPanel';
-import { downloadTakes, DownloadPlaceModel, playConditionLine, playModelOf, playStepsOf } from '../../../lib/playModels';
+import { downloadTakes, playConditionLine, playModelOf, PlayModel, playStagesOf } from '../../../lib/playModels';
+import { recordStepName, type PendingPlayEffect } from '../../../app/decks/practice/gameLog';
+import { stepOf } from '../../../lib/effectSteps';
+
+// The stages of a model as the record names them (#1863), and whether each is a "may".
+const stageSummary = (m: PlayModel) => playStagesOf(m).map((s) => ({ step: recordStepName(s.lead), may: s.may }));
+const stageName = (p: PendingPlayEffect | null) => (p ? recordStepName(p.stage.lead) : undefined);
+// The test of a model's download step.
+const downloadOf = (m: PlayModel) => {
+  const of = stepOf(m.steps, 'download')?.of;
+  return of?.kind === 'test' ? of : { test: [] };
+};
 
 // Issue #1811: the "when you play" kind "download to the played card's place", with Gelnon Aloof Tactician, U.S.S.
 // Enterprise Where She Belongs and Reconnaissance Drone. With invented deck cards, and the real titles, the keys of
@@ -66,17 +77,17 @@ const playEnterprise = (t: TableState = table()) => dispatch(initialGameState(t)
 const playDrone = (t: TableState = table()) => dispatch(initialGameState(t), { type: 'move', id: 'drone', to: toAwayTeam(0) });
 const lastText = (game: GameState) => logEntryText(game.log[game.log.length - 1]);
 const ids = (cards: CardInstance[]) => cards.map((c) => c.id);
-const model = (name: string) => playModelOf(name) as DownloadPlaceModel;
-const passing = (name: string, cards: CardInstance[] = DECK) => cards.filter((c) => downloadTakes(model(name), c.card)).map((c) => c.id);
+const model = (name: string) => playModelOf(name)!;
+const passing = (name: string, cards: CardInstance[] = DECK) => cards.filter((c) => downloadTakes(downloadOf(model(name)), c.card)).map((c) => c.id);
 
 describe('the download-to-a-place models (#1811)', () => {
   it('each title, its *VP too, is a "may" download', () => {
     for (const name of ['Gelnon Aloof Tactician', 'U.S.S. Enterprise Where She Belongs *VP', 'Reconnaissance Drone']) {
       const m = model(name);
-      expect(m.kind).toBe('downloadPlace');
-      expect(playStepsOf(m)).toEqual([{ step: 'download', may: true }]);
+      expect(stepOf(m.steps, 'download')?.to.kind).not.toBe('hand');
+      expect(stageSummary(m)).toEqual([{ step: 'download', may: true }]);
     }
-    expect(model('Gelnon Aloof Tactician *VP').place).toEqual({ kind: 'aboardShip', affiliation: 'dominion', text: 'your [Dom] ship' });
+    expect(stepOf(model('Gelnon Aloof Tactician *VP').steps, 'download')?.to).toEqual({ kind: 'aboardShip', affiliation: 'dominion', text: 'your [Dom] ship' });
   });
 
   it('the tests: a Jem\'Hadar, a [TOS] personnel of cost 4 or more, a non-Drone personnel', () => {
@@ -93,9 +104,9 @@ describe('the download-to-a-place models (#1811)', () => {
 
   it("Gelnon's ships are the [Dom] ships, his mission's first; the Enterprise's only itself", () => {
     const gelnon = playGelnon();
-    expect(ids(downloadPlaceShipsOf(gelnon.table, pendingPlayEffectOf(gelnon)!))).toEqual(['dom3', 'dom0']);
+    expect(ids(downloadPlaceShipsOf(gelnon.table, pendingPlayEffectOf(gelnon)!, stepOf(model('Gelnon Aloof Tactician').steps, 'download')!.to))).toEqual(['dom3', 'dom0']);
     const ent = playEnterprise();
-    expect(ids(downloadPlaceShipsOf(ent.table, pendingPlayEffectOf(ent)!))).toEqual(['ent']);
+    expect(ids(downloadPlaceShipsOf(ent.table, pendingPlayEffectOf(ent)!, stepOf(model('U.S.S. Enterprise Where She Belongs').steps, 'download')!.to))).toEqual(['ent']);
   });
 });
 
@@ -103,9 +114,9 @@ describe('the download-to-a-place step (#1811)', () => {
   it('Gelnon places a Jem\'Hadar aboard the chosen [Dom] ship, shuffled in the carried order, one entry, one undo', () => {
     const start = playGelnon();
     const before = start.undo[start.undo.length - 1];
-    const action = withShuffleOrders(start.table, { type: 'playEffectDownload', ids: ['jh'], shipId: 'dom0' }, start.log);
+    const action = withShuffleOrders(start.table, { type: 'effectStep', ids: ['jh'], shipId: 'dom0' }, start.log);
     expect([...(action as { order: string[] }).order].sort()).toEqual(['d1', 'ev', 'k3', 'k5']);
-    const done = gameReducer(start, { type: 'playEffectDownload', ids: ['jh'], shipId: 'dom0', order: ['ev', 'k3', 'd1', 'k5'] });
+    const done = gameReducer(start, { type: 'effectStep', ids: ['jh'], shipId: 'dom0', order: ['ev', 'k3', 'd1', 'k5'] });
     expect(done.log).toHaveLength(1);
     expect(ids(done.table.missions[0].ships[0].crew ?? [])).toEqual(['jh']);
     expect(ids(done.table.drawDeck)).toEqual(['ev', 'k3', 'd1', 'k5']);
@@ -117,16 +128,16 @@ describe('the download-to-a-place step (#1811)', () => {
 
   it('Gelnon refuses a ship that is not a [Dom] ship, and a card the test does not allow', () => {
     const start = playGelnon();
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['jh'], shipId: 'fed1' })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['jh'] })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['k5'], shipId: 'dom0' })).toBe(start);
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['jh', 'jh'], shipId: 'dom0' })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['jh'], shipId: 'fed1' })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['jh'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['k5'], shipId: 'dom0' })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['jh', 'jh'], shipId: 'dom0' })).toBe(start);
   });
 
   it('the Enterprise plays a [TOS] personnel of cost 5 aboard itself at cost 1, in the same entry, one undo for both', () => {
     const start = playEnterprise();
     const before = start.undo[start.undo.length - 1];
-    const done = dispatch(start, { type: 'playEffectDownload', ids: ['k5'], shipId: 'ent' });
+    const done = dispatch(start, { type: 'effectStep', ids: ['k5'], shipId: 'ent' });
     expect(done.log).toHaveLength(1);
     expect(ids(done.table.missions[2].ships[0].crew ?? [])).toEqual(['k5']);
     expect(done.table.drawDeck).toHaveLength(4);
@@ -146,7 +157,7 @@ describe('the download-to-a-place step (#1811)', () => {
 
   it('after a correction of its charge, the Enterprise\'s step and second play are one new entry, one undo', () => {
     const corrected = dispatch(playEnterprise(), { type: 'correctCharge', target: { entry: 0, move: 0, card: 0 }, cost: 3 });
-    const done = dispatch(corrected, { type: 'playEffectDownload', ids: ['k5'], shipId: 'ent' });
+    const done = dispatch(corrected, { type: 'effectStep', ids: ['k5'], shipId: 'ent' });
     expect(done.log).toHaveLength(3);
     expect(lastText(done)).toBe(
       'U.S.S. Enterprise Where She Belongs: downloaded Card k5, shuffled the draw deck; played Card k5 to the crew of U.S.S. Enterprise Where She Belongs (cost 1, U.S.S. Enterprise Where She Belongs: played aboard this ship at cost −4)'
@@ -155,7 +166,7 @@ describe('the download-to-a-place step (#1811)', () => {
     expect(segmentCounters(done.log)?.cards).toBe(8);
     const undone = gameReducer(done, { type: 'undo' });
     expect(undone.table).toBe(corrected.table);
-    expect(pendingPlayEffectOf(undone)?.step.step).toBe('download');
+    expect(stageName(pendingPlayEffectOf(undone))).toBe('download');
   });
 
   it("the Enterprise's cost choice, which ignores its next ability, ends the download", () => {
@@ -168,18 +179,18 @@ describe('the download-to-a-place step (#1811)', () => {
 
   it('Reconnaissance Drone puts the card on top of the draw deck, after the shuffle', () => {
     const start = playDrone();
-    const action = withShuffleOrders(start.table, { type: 'playEffectDownload', ids: ['k3'] }, start.log);
+    const action = withShuffleOrders(start.table, { type: 'effectStep', ids: ['k3'] }, start.log);
     expect([...(action as { order: string[] }).order].sort()).toEqual(['d1', 'ev', 'jh', 'k5']);
-    const done = gameReducer(start, { type: 'playEffectDownload', ids: ['k3'], order: ['ev', 'jh', 'd1', 'k5'] });
+    const done = gameReducer(start, { type: 'effectStep', ids: ['k3'], order: ['ev', 'jh', 'd1', 'k5'] });
     expect(ids(done.table.drawDeck)).toEqual(['k3', 'ev', 'jh', 'd1', 'k5']);
     expect(done.log).toHaveLength(1);
     expect(lastText(done)).toContain('; downloaded Card k3, shuffled the draw deck, placed it on top of the draw deck');
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['d1'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['d1'] })).toBe(start);
   });
 
   it('Skip leaves the draw deck as it was', () => {
     for (const start of [playGelnon(), playEnterprise(), playDrone()]) {
-      const skipped = dispatch(start, { type: 'playEffectSkip' });
+      const skipped = dispatch(start, { type: 'effectSkip' });
       expect(skipped.log).toHaveLength(1);
       expect(skipped.table.drawDeck).toBe(start.table.drawDeck);
       expect(pendingPlayEffectOf(skipped)).toBeNull();
@@ -188,8 +199,8 @@ describe('the download-to-a-place step (#1811)', () => {
 
   it('no match: nothing to download, and Skip still ends it', () => {
     const start = playEnterprise(table('a', DECK.filter((c) => c.id !== 'k5')));
-    expect(gameReducer(start, { type: 'playEffectDownload', ids: ['k3'], shipId: 'ent' })).toBe(start);
-    expect(pendingPlayEffectOf(dispatch(start, { type: 'playEffectSkip' }))).toBeNull();
+    expect(gameReducer(start, { type: 'effectStep', ids: ['k3'], shipId: 'ent' })).toBe(start);
+    expect(pendingPlayEffectOf(dispatch(start, { type: 'effectSkip' }))).toBeNull();
   });
 });
 

@@ -5,12 +5,13 @@ import {
   initialGameState,
   isLogEntry,
   logEntryText,
-  resolveStepOf,
+  resolveStageOf,
   turnCounters,
   withShuffleOrders,
 } from '../../../app/decks/practice/gameLog';
 import { personnelCandidateGroups } from '../../../app/decks/practice/personnelChoice';
 import { resolveModelOf } from '../../../lib/resolveModels';
+import { bottomFromHand, draw, drawPersonnelCost } from '../../../lib/effectSteps';
 
 // Issue #1739: the resolve models of These Are The Voyages and Miracle Working: a free draw, then cards
 // of the hand to the bottom of the draw deck, each step one entry and one undo. With invented cards.
@@ -57,8 +58,8 @@ const spent = (state: GameState) => turnCounters(state.log, state.table.turn).sp
 
 describe('the resolve models (#1739)', () => {
   it('holds These Are The Voyages and Miracle Working by title', () => {
-    expect(resolveModelOf('These Are The Voyages')).toMatchObject({ kind: 'drawThenBottom', draw: { kind: 'personnelCost' }, bottomFromHand: 3 });
-    expect(resolveModelOf('Miracle Working')).toMatchObject({ draw: { kind: 'fixed', count: 4 }, bottomFromHand: 3 });
+    expect(resolveModelOf('These Are The Voyages')?.steps).toEqual([drawPersonnelCost(), bottomFromHand(3)]);
+    expect(resolveModelOf('Miracle Working')?.steps).toEqual([draw(4), bottomFromHand(3)]);
     expect(resolveModelOf('At What Cost?')).toBeUndefined();
   });
 
@@ -72,51 +73,51 @@ describe('the resolve models (#1739)', () => {
 
 describe('the draw step of These Are The Voyages (#1739)', () => {
   it('starts at the draw step', () => {
-    expect(resolveStepOf(resolvingGame(table()))).toBe('draw');
+    expect(resolveStageOf(resolvingGame(table()))?.lead.kind).toBe('draw');
   });
 
   it('draws the printed cost of the chosen personnel, free, in one entry that one undo takes back', () => {
     const start = resolvingGame(table());
     const before = spent(start);
-    const drew = gameReducer(start, { type: 'resolveDraw', personnelId: 'data' });
+    const drew = gameReducer(start, { type: 'effectStep', personnelId: 'data' });
     expect(drew.table.hand.map((c) => c.id)).toEqual(['h1', 'd1', 'd2', 'd3', 'd4']);
     expect(drew.log).toHaveLength(start.log.length + 1);
     expect(logEntryText(drew.log[drew.log.length - 1])).toBe('Drew 4 cards (These Are The Voyages, Data cost 4)');
     expect(spent(drew)).toBe(before);
-    expect(resolveStepOf(drew)).toBe('bottom');
+    expect(resolveStageOf(drew)?.lead.kind).toBe('bottomFromHand');
     const undone = gameReducer(drew, { type: 'undo' });
     expect(undone.table).toBe(start.table);
-    expect(resolveStepOf(undone)).toBe('draw');
+    expect(resolveStageOf(undone)?.lead.kind).toBe('draw');
   });
 
   it('lets a stopped personnel set the draw', () => {
-    const drew = gameReducer(resolvingGame(table()), { type: 'resolveDraw', personnelId: 'worf' });
+    const drew = gameReducer(resolvingGame(table()), { type: 'effectStep', personnelId: 'worf' });
     expect(drew.table.hand).toHaveLength(4);
   });
 
   it('refuses a personnel of the brig, an unknown one and a second draw', () => {
     const start = resolvingGame(table());
-    expect(gameReducer(start, { type: 'resolveDraw', personnelId: 'prisoner' })).toBe(start);
-    expect(gameReducer(start, { type: 'resolveDraw' })).toBe(start);
-    const drew = gameReducer(start, { type: 'resolveDraw', personnelId: 'data' });
-    expect(gameReducer(drew, { type: 'resolveDraw', personnelId: 'data' })).toBe(drew);
+    expect(gameReducer(start, { type: 'effectStep', personnelId: 'prisoner' })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep' })).toBe(start);
+    const drew = gameReducer(start, { type: 'effectStep', personnelId: 'data' });
+    expect(gameReducer(drew, { type: 'effectStep', personnelId: 'data' })).toBe(drew);
   });
 
   it('draws what a short deck holds, and an empty deck logs 0 and moves on', () => {
-    const short = gameReducer(resolvingGame(table(2)), { type: 'resolveDraw', personnelId: 'data' });
+    const short = gameReducer(resolvingGame(table(2)), { type: 'effectStep', personnelId: 'data' });
     expect(logEntryText(short.log[short.log.length - 1])).toBe('Drew 2 cards (These Are The Voyages, Data cost 4)');
-    const empty = gameReducer(resolvingGame(table(0)), { type: 'resolveDraw', personnelId: 'data' });
+    const empty = gameReducer(resolvingGame(table(0)), { type: 'effectStep', personnelId: 'data' });
     expect(logEntryText(empty.log[empty.log.length - 1])).toBe('Drew 0 cards (These Are The Voyages, Data cost 4)');
-    expect(resolveStepOf(empty)).toBe('bottom');
+    expect(resolveStageOf(empty)?.lead.kind).toBe('bottomFromHand');
   });
 });
 
 describe('the bottom step (#1739)', () => {
-  const drawn = () => gameReducer(resolvingGame(table()), { type: 'resolveDraw', personnelId: 'data' });
+  const drawn = () => gameReducer(resolvingGame(table()), { type: 'effectStep', personnelId: 'data' });
 
   it('puts the chosen cards on the bottom in order and the event in the discard pile, in one entry', () => {
     const start = drawn();
-    const placed = gameReducer(start, { type: 'resolveBottom', ids: ['d2', 'h1', 'd4'] });
+    const placed = gameReducer(start, { type: 'effectStep', ids: ['d2', 'h1', 'd4'] });
     expect(placed.table.drawDeck.slice(-3).map((c) => c.id)).toEqual(['d2', 'h1', 'd4']);
     expect(placed.table.hand.map((c) => c.id)).toEqual(['d1', 'd3']);
     expect(placed.table.discard.map((c) => c.id)).toEqual(['tatv']);
@@ -128,22 +129,22 @@ describe('the bottom step (#1739)', () => {
     expect(spent(placed)).toBe(spent(start));
     const undone = gameReducer(placed, { type: 'undo' });
     expect(undone.table).toBe(start.table);
-    expect(resolveStepOf(undone)).toBe('bottom');
+    expect(resolveStageOf(undone)?.lead.kind).toBe('bottomFromHand');
   });
 
   it('takes exactly min(3, hand) different cards of the hand', () => {
     const start = drawn();
-    expect(gameReducer(start, { type: 'resolveBottom', ids: ['d1', 'd2'] })).toBe(start);
-    expect(gameReducer(start, { type: 'resolveBottom', ids: ['d1', 'd1', 'd2'] })).toBe(start);
-    expect(gameReducer(start, { type: 'resolveBottom', ids: ['d1', 'd2', 'd9'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['d1', 'd2'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['d1', 'd1', 'd2'] })).toBe(start);
+    expect(gameReducer(start, { type: 'effectStep', ids: ['d1', 'd2', 'd9'] })).toBe(start);
     // Before the draw the step is the draw, so nothing goes to the bottom.
     const before = resolvingGame(table());
-    expect(gameReducer(before, { type: 'resolveBottom', ids: ['h1'] })).toBe(before);
+    expect(gameReducer(before, { type: 'effectStep', ids: ['h1'] })).toBe(before);
   });
 
   it('takes the whole hand when it holds fewer than three', () => {
-    const empty = gameReducer(resolvingGame(table(0)), { type: 'resolveDraw', personnelId: 'data' });
-    const placed = gameReducer(empty, { type: 'resolveBottom', ids: ['h1'] });
+    const empty = gameReducer(resolvingGame(table(0)), { type: 'effectStep', personnelId: 'data' });
+    const placed = gameReducer(empty, { type: 'effectStep', ids: ['h1'] });
     expect(placed.table.drawDeck.map((c) => c.id)).toEqual(['h1']);
     expect(logEntryText(placed.log[placed.log.length - 1])).toBe(
       'Put 1 card on the bottom of the draw deck, and These Are The Voyages went to the discard pile'
@@ -153,7 +154,7 @@ describe('the bottom step (#1739)', () => {
 
 describe('Miracle Working (#1739)', () => {
   it('draws four with no choice of personnel', () => {
-    const drew = gameReducer(resolvingGame(table(10, MIRACLE)), { type: 'resolveDraw' });
+    const drew = gameReducer(resolvingGame(table(10, MIRACLE)), { type: 'effectStep' });
     expect(drew.table.hand).toHaveLength(5);
     expect(logEntryText(drew.log[drew.log.length - 1])).toBe('Drew 4 cards (Miracle Working)');
   });
@@ -161,23 +162,23 @@ describe('Miracle Working (#1739)', () => {
 
 describe('the step and the log (#1739)', () => {
   it('reads the draw of an earlier copy as no draw of this one', () => {
-    const first = gameReducer(resolvingGame(table()), { type: 'resolveDraw', personnelId: 'data' });
-    const done = gameReducer(first, { type: 'resolveBottom', ids: ['d1', 'd2', 'd3'] });
+    const first = gameReducer(resolvingGame(table()), { type: 'effectStep', personnelId: 'data' });
+    const done = gameReducer(first, { type: 'effectStep', ids: ['d1', 'd2', 'd3'] });
     // A second copy goes into the resolving zone.
     const copy = event('tatv2', 'These Are The Voyages');
     const withCopy = { ...done, table: { ...done.table, hand: [...done.table.hand, copy] } };
     const played = gameReducer(withCopy, withShuffleOrders(withCopy.table, { type: 'move', id: 'tatv2', to: 'resolving' }, withCopy.log));
-    expect(resolveStepOf(played)).toBe('draw');
+    expect(resolveStageOf(played)?.lead.kind).toBe('draw');
   });
 
   it('has no step for an event with no model, or nothing resolving', () => {
-    expect(resolveStepOf(resolvingGame(table(10, event('x', 'At What Cost?'))))).toBeNull();
-    expect(resolveStepOf(initialGameState(initialTableState))).toBeNull();
+    expect(resolveStageOf(resolvingGame(table(10, event('x', 'At What Cost?'))))).toBeNull();
+    expect(resolveStageOf(initialGameState(initialTableState))).toBeNull();
   });
 
   it('keeps both entries through a save', () => {
-    const drew = gameReducer(resolvingGame(table()), { type: 'resolveDraw', personnelId: 'data' });
-    const placed = gameReducer(drew, { type: 'resolveBottom', ids: ['d1', 'd2', 'd3'] });
+    const drew = gameReducer(resolvingGame(table()), { type: 'effectStep', personnelId: 'data' });
+    const placed = gameReducer(drew, { type: 'effectStep', ids: ['d1', 'd2', 'd3'] });
     for (const entry of JSON.parse(JSON.stringify(placed.log.slice(-2)))) expect(isLogEntry(entry)).toBe(true);
   });
 });
