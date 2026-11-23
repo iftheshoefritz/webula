@@ -5,7 +5,7 @@
 import type { CostSource, CostUse } from '../../../lib/costModels/model';
 import { arrayMove } from '@dnd-kit/sortable';
 import { shuffleArray } from '../deckBuilderUtils';
-import type { BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
+import { botPileHasTrigger, type BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import type { PileModifiers } from '../../../lib/dilemmaBot/pile/model';
 import type { PileSteps } from '../../../lib/dilemmaBot/pile/resolve';
 import { moveSpanTotal, printedRange, printedSpan } from './shipRange';
@@ -1381,7 +1381,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
       if (drawnCards.some((c) => !c) || pile.length + drawn.length !== state.dilemmaPile.length) return state;
       const { redrawn } = action;
       if (redrawn) {
-        if (state.botUsedUnexpectedDifficulties || !state.botPile?.unexpectedDifficulties) return state;
+        if (state.botUsedUnexpectedDifficulties || !botPileHasTrigger(state.botPile, 'dilemmasDrawn')) return state;
         if (!redrawn.every((id) => state.dilemmaPile.some((c) => c.id === id))) return state;
       }
       // The drawn cards enter the dilemma hand as the choice-phase draw puts them, counted, then the

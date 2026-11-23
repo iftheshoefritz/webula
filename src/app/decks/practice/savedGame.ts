@@ -280,6 +280,7 @@ const isValidBotPile = (botPile: unknown): boolean =>
   typeof botPile.name === 'string' &&
   (botPile.affiliations === undefined ||
     (Array.isArray(botPile.affiliations) && botPile.affiliations.every((a: unknown) => typeof a === 'string'))) &&
+  (botPile.triggers === undefined || (Array.isArray(botPile.triggers) && botPile.triggers.every((t: unknown) => typeof t === 'string'))) &&
   (botPile.unexpectedDifficulties === undefined || botPile.unexpectedDifficulties === true) &&
   (botPile.missions === undefined || (isObject(botPile.missions) && isWhole(botPile.missions.planet) && isWhole(botPile.missions.space))) &&
   (botPile.songCards === undefined || isWhole(botPile.songCards));

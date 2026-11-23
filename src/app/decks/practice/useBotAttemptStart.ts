@@ -5,6 +5,7 @@ import { TableSearchRequest, answerSearch } from '../../../lib/dilemmaBot/search
 import { seededRandom } from '../../../lib/dilemmaBot/simulator';
 import { useSearchWorker } from '../../../lib/dilemmaBot/useSearchWorker';
 import { useLatest } from '../../../hooks/useLatest';
+import { botPileHasTrigger } from '../../../lib/dilemmaBot/botPiles';
 import { pileTableInputOf } from './attempt';
 import { CardInstance, TableAction, TableState, drawFromDilemmaPile } from './tableReducer';
 
@@ -18,11 +19,12 @@ export const newBotSeed = (): number => Math.floor(Math.random() * 2 ** 31);
 export const UNEXPECTED_DIFFICULTIES_MIN_DRAWN = 4;
 
 /**
- * Whether the bot uses Unexpected Difficulties on its draw (#1563): its deck holds the card, it has not
- * used it this game, it drew at least 4, and the search found that no stack can end the attempt.
+ * Whether the bot uses Unexpected Difficulties on its draw (#1563): its pile holds a trigger row of the
+ * registry for `dilemmasDrawn` (#1906), it has not used it this game, it drew at least 4, and the search
+ * found that no stack can end the attempt.
  */
 export const botRedraws = (table: TableState, drawnCount: number, result: PileSearchResult): boolean =>
-  !!table.botPile?.unexpectedDifficulties &&
+  botPileHasTrigger(table.botPile, 'dilemmasDrawn') &&
   !table.botUsedUnexpectedDifficulties &&
   drawnCount >= UNEXPECTED_DIFFICULTIES_MIN_DRAWN &&
   result.mode === 'cannot-fail';
