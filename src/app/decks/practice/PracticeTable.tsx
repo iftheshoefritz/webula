@@ -4001,7 +4001,7 @@ function PracticeDrawContent() {
   // A use of a card on the table for a play (#1713), Delivery Boy's, from the chip, the list or the card.
   const cardUseHandlers: UseHandlers = {
     onUse: (target, id) => dispatch({ type: 'useCard', target, id }),
-    available: (use) => costUseAvailable(table, use),
+    available: (use) => costUseAvailable(table, use, game.log),
   };
   // A choice that discards the top of the draw deck (#1744), Type III Galor's, from the chip or the list.
   const deckDiscardHandlers: DeckDiscardHandlers = {
@@ -4023,7 +4023,7 @@ function PracticeDrawContent() {
   if (turnCountersOn && table.segment === 'playAndDraw') {
     for (const charge of [...turnCharges(game.log, turn)].reverse()) {
       for (const use of charge.uses ?? []) {
-        if (use.used || tableCardUses.has(use.id) || !costUseAvailable(table, use)) continue;
+        if (use.used || tableCardUses.has(use.id) || !costUseAvailable(table, use, game.log)) continue;
         tableCardUses.set(use.id, {
           label: `${use.label} on ${charge.card ?? 'a card'}`,
           onUse: () => cardUseHandlers.onUse(charge.target, use.id),

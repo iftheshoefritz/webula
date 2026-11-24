@@ -10,6 +10,7 @@
 import type { EffectStep } from '../effectSteps';
 import type { CostTurnPlay } from '../costModels/model';
 import type { Condition, MissionQuery, TableView, ViewCard, ViewMission } from '../tableView';
+import type { UseLimit } from '../useLimit';
 
 /** A card an event names: its display name as the log keeps it, and its instance id where the table still holds it. */
 export interface GameEventCard {
@@ -151,8 +152,11 @@ export interface TriggerRow {
   /** "You may": the player may skip it. The table never forces an offer either way. */
   may: boolean;
   useCost?: TriggerUseCost;
-  /** Once per event (the default) or once each turn ("You may do this only once each turn"). */
-  once?: 'event' | 'turn';
+  /**
+   * "You may do this only once each turn" (#1834): at most `times` uses of the card's row each turn. Every row is
+   * offered once per event in any case.
+   */
+  limit?: UseLimit;
   steps: TriggerStep[];
 }
 
@@ -163,7 +167,7 @@ export function trigger<K extends GameEventKind>(
   source: TriggerSource,
   event: TriggerEvent<K>,
   steps: TriggerStep[],
-  extra: Partial<Pick<TriggerRow, 'condition' | 'may' | 'useCost' | 'once'>> = {}
+  extra: Partial<Pick<TriggerRow, 'condition' | 'may' | 'useCost' | 'limit'>> = {}
 ): TriggerRow {
   return { title, text, source, event: event as unknown as TriggerEvent, steps, may: false, ...extra };
 }

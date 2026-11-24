@@ -20,6 +20,7 @@
 import { cardTitleOf } from '../cardTitle';
 import { download, draw, kill, score, scorePerPick, shuffle, type DownloadStep, type EffectStep, type KillStep, type ScoreStep, type ShuffleStep } from '../effectSteps';
 import type { AttemptingQuery, PlayTest } from '../tableView';
+import { ONCE_EACH_TURN, type UseLimit } from '../useLimit';
 
 /**
  * A condition of a completion's score (#1908). "Involved" is the personnel completing it (`involvedPersonnel`),
@@ -85,7 +86,7 @@ export interface RevealedDilemmaTest {
 export type DilemmaReveal =
   | { kind: 'cost'; change: number; dilemma: RevealedDilemmaTest }
   // "The first dilemma your personnel face here each turn that has a cost of 1 or more and does not require a skill."
-  | { kind: 'prevent'; minCost: number; requiresNoSkill: true; oncePerTurn: true };
+  | { kind: 'prevent'; minCost: number; requiresNoSkill: true; limit: UseLimit };
 
 export type MissionSpendKind = 'earth' | 'nimbus';
 
@@ -95,7 +96,8 @@ export interface MissionSpendModel {
   kind: MissionSpendKind;
   counters: number;
   condition: { kind: 'playedHereThisTurn'; play: PlayTest } | { kind: 'notCommanding'; title: string };
-  oncePerTurn?: true;
+  /** "You may do this only once each turn" (#1834). */
+  limit?: UseLimit;
   steps: EffectStep[];
 }
 
@@ -427,7 +429,7 @@ export const MISSION_MODELS: MissionModel[] = [
       {
         trigger: 'onDilemmaReveal',
         text: 'The first dilemma your personnel face here each turn that has a cost of 1 or more and does not require a skill is prevented and overcome.',
-        reveal: { kind: 'prevent', minCost: 1, requiresNoSkill: true, oncePerTurn: true },
+        reveal: { kind: 'prevent', minCost: 1, requiresNoSkill: true, limit: ONCE_EACH_TURN },
       },
     ],
   },
@@ -440,7 +442,7 @@ export const MISSION_MODELS: MissionModel[] = [
       {
         trigger: 'spend',
         text: 'When you play a [TOS] card here, you may spend a counter to draw two cards. You may do this only once each turn.',
-        spend: { kind: 'earth', counters: 1, condition: { kind: 'playedHereThisTurn', play: { icon: '[tos]' } }, oncePerTurn: true, steps: [draw(2)] },
+        spend: { kind: 'earth', counters: 1, condition: { kind: 'playedHereThisTurn', play: { icon: '[tos]' } }, limit: ONCE_EACH_TURN, steps: [draw(2)] },
       },
     ],
   },

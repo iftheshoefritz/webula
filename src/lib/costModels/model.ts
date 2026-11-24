@@ -5,6 +5,7 @@
 
 import type { PartnerTraits } from '../dilemmaBot/gains';
 import type { ModifierRow } from '../modifiers/model';
+import { isUseLimit, type UseLimit } from '../useLimit';
 
 /**
  * The shape of the text a model reads. `'ownCost'`: a card that changes its own cost. `'limit'`: a card
@@ -401,6 +402,8 @@ export interface CostUse {
   label: string;
   amount: number;
   effect: CostUseEffect;
+  /** "Only once each turn" of the card's text (#1834): the use is not offered past it, whichever play it serves. */
+  limit?: UseLimit;
 }
 
 /** Whether `use` is a well-formed use, so a malformed save reads as no use. */
@@ -413,7 +416,8 @@ export const isCostUse = (use: unknown): use is CostUse => {
     typeof u.label === 'string' &&
     typeof u.amount === 'number' &&
     Number.isFinite(u.amount) &&
-    (u.effect === 'destroy' || u.effect === 'stop' || u.effect === 'revealTop')
+    (u.effect === 'destroy' || u.effect === 'stop' || u.effect === 'revealTop') &&
+    (u.limit === undefined || isUseLimit(u.limit))
   );
 };
 
@@ -465,6 +469,8 @@ export interface CostModel {
    * stands where its text says, by instance id. The registry adds the model's name and the label.
    */
   usesForPlay?: (play: CostPlay, facts: CostFacts) => { id: string; amount: number; effect: CostUseEffect }[];
+  /** The use limit of `usesForPlay` (#1834), counted per copy over the turn's plays. None: one use per copy per play. */
+  useLimit?: UseLimit;
   /** The counters the card adds to the turn's limit while the table stands as `facts` say, or null (#1655). */
   limitGrant?: (facts: CostFacts) => { amount: number; reason: string } | null;
   /**

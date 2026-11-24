@@ -15,13 +15,15 @@
 // Next, for the orders still in the backlog: stop this card, destroy this card, lose points, return this card to
 // hand, and the choice of one of several effects.
 //
-// The condition is shown and never enforced. A once-each-turn order is not offered again that turn once used.
+// The condition is shown and never enforced. An order with a `limit` (#1834) is not offered again that turn once
+// used that many times.
 //
 // It imports no React and no reducer.
 
 import { cardTitleOf } from '../cardTitle';
 import { bottomFromHand, discardFromHand, download, draw, DownloadTest, drawUpTo, EffectStage, EffectStep, shuffle, stagesOf } from '../effectSteps';
 import type { PlayCondition } from '../playModels';
+import { ONCE_EACH_TURN, UseLimit } from '../useLimit';
 
 export type OrderCost =
   | { kind: 'none' }
@@ -42,8 +44,8 @@ export interface OrderModel {
   text: string;
   cost: OrderCost;
   condition?: PlayCondition;
-  /** "You may do this only once each turn." */
-  oncePerTurn?: true;
+  /** "You may do this only once each turn": at most `times` uses each turn (#1834). */
+  limit?: UseLimit;
   steps: EffectStep[];
 }
 
@@ -56,7 +58,7 @@ export const ORDER_MODELS: OrderModel[] = [
     index: 0,
     text: 'Discard a [Car] ship from hand to draw three cards. You may do this only once each turn.',
     cost: { kind: 'discardFromHand', count: 1, test: [{ types: ['ship'], affiliations: ['cardassian'] }], text: 'a [Car] ship' },
-    oncePerTurn: true,
+    limit: ONCE_EACH_TURN,
     steps: [draw(3)],
   },
   // "Order - Discard a card from hand to download a [Voy] ship. You may do this only once each turn."
@@ -65,7 +67,7 @@ export const ORDER_MODELS: OrderModel[] = [
     index: 0,
     text: 'Discard a card from hand to download a [Voy] ship. You may do this only once each turn.',
     cost: { kind: 'discardFromHand', count: 1, text: 'a card' },
-    oncePerTurn: true,
+    limit: ONCE_EACH_TURN,
     steps: [download(1, 'a [Voy] ship', [{ types: ['ship'], icons: ['[voy]'] }]), shuffle()],
   },
   // "Order - Place this personnel on the bottom of his owner's deck to download two unique [Bor] personnel."
@@ -82,7 +84,7 @@ export const ORDER_MODELS: OrderModel[] = [
     index: 0,
     text: 'Draw a card and then discard a card from hand. You may do this only once each turn.',
     cost: NONE,
-    oncePerTurn: true,
+    limit: ONCE_EACH_TURN,
     steps: [draw(1), discardFromHand(1)],
   },
   // "Order - Discard a [SF] ship from hand to draw up to two cards. You may do this only once each turn."
@@ -91,7 +93,7 @@ export const ORDER_MODELS: OrderModel[] = [
     index: 0,
     text: 'Discard a [SF] ship from hand to draw up to two cards. You may do this only once each turn.',
     cost: { kind: 'discardFromHand', count: 1, test: [{ types: ['ship'], affiliations: ['starfleet'] }], text: 'a [SF] ship' },
-    oncePerTurn: true,
+    limit: ONCE_EACH_TURN,
     steps: [drawUpTo(2, false)],
   },
   // "Order - Stop one of your [Fer] personnel to draw a card."
@@ -109,7 +111,7 @@ export const ORDER_MODELS: OrderModel[] = [
     index: 0,
     text: "Place your equipment present on the bottom of its owner's deck to draw two cards. You may do this only once each turn.",
     cost: { kind: 'placePresentOnBottom', types: ['equipment'], text: 'your equipment present' },
-    oncePerTurn: true,
+    limit: ONCE_EACH_TURN,
     steps: [draw(2)],
   },
   // "Order - Place a card from hand on the bottom of your deck."

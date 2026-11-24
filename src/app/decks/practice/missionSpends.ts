@@ -31,6 +31,8 @@ export const NIMBUS_TITLE = NIMBUS.model.title;
 export const NIMBUS_PERSONNEL: readonly string[] = NIMBUS_DOWNLOAD.of.kind === 'test' ? (NIMBUS_DOWNLOAD.of.test[0]?.titles ?? []) : [];
 
 export const EARTH_SPEND_COST = EARTH.ability.spend.counters;
+/** Earth's "only once each turn" (#1834). */
+export const EARTH_SPEND_LIMIT = EARTH.ability.spend.limit;
 export const EARTH_SPEND_DRAW = EARTH_DRAW.count.kind === 'fixed' ? EARTH_DRAW.count.count : 0;
 export const NIMBUS_SPEND_COST = NIMBUS.ability.spend.counters;
 

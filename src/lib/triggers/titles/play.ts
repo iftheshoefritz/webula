@@ -3,6 +3,7 @@
 import { draw } from '../../effectSteps';
 import { personnel, type TableView, type ViewTableCard } from '../../tableView';
 import { trigger, type GameEventOf, type TriggerRow } from '../model';
+import { ONCE_EACH_TURN } from '../../useLimit';
 
 // The played personnel as the table holds it now, by its instance id, or null when it is not on the table.
 function playedPersonnel(event: GameEventOf<'played'>, view: TableView): ViewTableCard | null {
@@ -27,7 +28,7 @@ export const PLAY_TRIGGER_ROWS: TriggerRow[] = [
       },
     },
     [draw(1, { may: true })],
-    { may: true, once: 'turn' }
+    { may: true, limit: ONCE_EACH_TURN }
   ),
   // "To play this event, you must command three [TNG] personnel. Plays in your core. When a player plays a personnel
   // who costs 3 or more, he or she may draw a card." The player's own plays only (#1904).
