@@ -81,6 +81,9 @@ import {
   PRACTICE_60S_DRAW_TOP,
   PRACTICE_60S_HAND,
   PRACTICE_60S_TSV,
+  PRACTICE_PERMISSIONS_CORE,
+  PRACTICE_PERMISSIONS_HAND,
+  PRACTICE_PERMISSIONS_TSV,
   PRACTICE_RECALL_TSV,
   PRACTICE_KMTAR_TSV,
   PRACTICE_TAIN_HAND,
@@ -122,6 +125,7 @@ import type { OfflineDeck } from './offlineDecks';
 import {
   AttemptPhase,
   nextSegmentOf,
+  HAND_LIMIT,
   TurnSegment,
   CardInstance,
   MissionPileName,
@@ -291,7 +295,7 @@ import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point } from './ta
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
-import { ResolveCandidates, ResolvePrompt, presentationOf } from './ResolvePrompt';
+import { DiscardPrompt, ResolveCandidates, ResolvePrompt, presentationOf } from './ResolvePrompt';
 import { resolveModelOf } from '../../../lib/resolveModels';
 import {
   DILEMMA_STACK_CHOICE_END_LABELS,
@@ -2444,6 +2448,9 @@ function PracticeDrawContent() {
   // `?fixture=60s` (#1826) deals the piles table with Blue Skies in the core, and Tavana, Qartum, The Crossing and a
   // Federation personnel at the end of the hand.
   const is60sFixture = fixture === '60s';
+  // `?fixture=permissions` (#1916) deals the piles table with Particle 010 at the end of the hand and Rule of
+  // Acquisition #6 in the core, for the warnings of a play requirement and of a spend of counters to draw.
+  const isPermissionsFixture = fixture === 'permissions';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2481,6 +2488,7 @@ function PracticeDrawContent() {
     isUniqueFixture ||
     isDownloadsFixture ||
     is60sFixture ||
+    isPermissionsFixture ||
     isAttemptFixture ||
     isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -3010,6 +3018,29 @@ function PracticeDrawContent() {
       return live.includes(id) ? live.filter((i) => i !== id) : live.length < max ? [...live, id] : live;
     });
   };
+  // Issue #1928: the discard segment asks for the cards over the hand limit in the hand arc, with the prompt of
+  // #1870. It opens by itself each time the turn enters the segment with an excess, and opens the hand arc there;
+  // Cancel or Escape closes it for the rest of the segment. Discard moves the picks to the discard pile in one
+  // `batch`, one entry and one undo, and never advances the turn: with no excess left the prompt hides, and an undo
+  // of the discard brings it back. It waits while an event resolves in its own prompt.
+  const discardExcess = table.segment === 'discard' ? Math.max(0, table.hand.length - HAND_LIMIT) : 0;
+  const discardKey = `${table.turn}:${table.segment}`;
+  const [prevDiscardKey, setPrevDiscardKey] = useState(discardKey);
+  const [discardChoice, setDiscardChoice] = useState<string[]>([]);
+  const [discardPromptClosed, setDiscardPromptClosed] = useState(false);
+  if (discardKey !== prevDiscardKey) {
+    setPrevDiscardKey(discardKey);
+    setDiscardChoice([]);
+    setDiscardPromptClosed(false);
+    if (discardExcess > 0) setOpenHand('hand');
+  }
+  const discardPromptShows = discardExcess > 0 && !discardPromptClosed && !promptStep;
+  const discardPicks = discardPromptShows ? discardChoice.filter((id) => table.hand.some((c) => c.id === id)) : [];
+  const toggleDiscardPick = (id: string) =>
+    setDiscardChoice((ids) => {
+      const live = ids.filter((i) => table.hand.some((c) => c.id === i));
+      return live.includes(id) ? live.filter((i) => i !== id) : live.length < discardExcess ? [...live, id] : live;
+    });
   // The stage of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
   const playedStep: ResolveStep | undefined = pendingPlay ? stageView(pendingPlay.stage, pendingPlay) : undefined;
   // The stage of the order in progress (#1866), each amending the order's entry, and the pick of an order's cost.
@@ -3283,7 +3314,9 @@ function PracticeDrawContent() {
                     ? downloadsFixtureExtras()
                     : is60sFixture
                       ? sixtySFixtureExtras()
-                      : null
+                      : isPermissionsFixture
+                        ? permissionsFixtureExtras()
+                        : null
       : null;
     const extraKeys = new Set(
       extras
@@ -3456,6 +3489,12 @@ function PracticeDrawContent() {
       drawTop: named(PRACTICE_DISSIDENT_DRAW_TOP),
     };
   };
+  // The cards `?fixture=permissions` adds (#1916): Rule of Acquisition #6 to the core, Particle 010 to the end of the hand.
+  const permissionsFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_PERMISSIONS_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return { hand: [] as any[], crew: [] as any[], core: named(PRACTICE_PERMISSIONS_CORE), lateHand: named(PRACTICE_PERMISSIONS_HAND) };
+  };
   // The cards `?fixture=orders` adds (#1866): three events to the core, two personnel to the crew, a ship to the
   // end of the hand.
   const ordersFixtureExtras = () => {
@@ -3542,6 +3581,7 @@ function PracticeDrawContent() {
     if (isUniqueFixture) return { ...deck, ...deckFromTsv(PRACTICE_UNIQUE_TSV, data) };
     if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
     if (is60sFixture) return { ...deck, ...deckFromTsv(PRACTICE_60S_TSV, data) };
+    if (isPermissionsFixture) return { ...deck, ...deckFromTsv(PRACTICE_PERMISSIONS_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = {
       ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
@@ -3637,6 +3677,7 @@ function PracticeDrawContent() {
           isUniqueFixture ||
           isDownloadsFixture ||
           is60sFixture ||
+          isPermissionsFixture ||
           isAttemptFixture ||
           isBotFixture,
         attemptFixturePhase,
@@ -5484,7 +5525,13 @@ function PracticeDrawContent() {
                 // brig box, so only there the hand keeps the left end; elsewhere it sits in the
                 // middle of the screen (#1496).
                 closedFanSide={dilemmaHandShows ? 'left' : 'center'}
-                choice={promptStep?.step === 'bottom' ? { ids: bottomPicks, onToggle: toggleBottomPick } : undefined}
+                choice={
+                  promptStep?.step === 'bottom'
+                    ? { ids: bottomPicks, onToggle: toggleBottomPick }
+                    : discardPromptShows
+                      ? { ids: discardPicks, onToggle: toggleDiscardPick }
+                      : undefined
+                }
               />
               {dilemmaHandShows && (
                 <CardHand
@@ -5834,6 +5881,27 @@ function PracticeDrawContent() {
                   />
                 )}
               </>
+            )}
+            {/* The discard segment's prompt (#1928): the excess cards, picked in the hand arc. */}
+            {discardPromptShows && (
+              <DiscardPrompt
+                count={discardExcess}
+                picks={discardPicks}
+                chipShown={chargeChipShown}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onDiscard={(ids) => {
+                  const actions: Extract<TableAction, { type: 'move' }>[] = ids.map((id) => ({ type: 'move', id, to: 'discard' }));
+                  dispatch({ type: 'batch', actions });
+                  markLanded(actions);
+                  setDiscardChoice([]);
+                  setOpenHand(null);
+                }}
+                onCancel={() => {
+                  setDiscardPromptClosed(true);
+                  setDiscardChoice([]);
+                }}
+              />
             )}
             {/* The played card of a pending "when you play" effect (#1800): Done or Skip, and no Cancel. */}
             {pendingPlay && !resolvingCollapsed && (

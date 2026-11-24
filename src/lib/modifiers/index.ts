@@ -12,6 +12,7 @@ import { countedAmount, PERMISSION_QUANTITIES } from './model';
 import type { AmountContext, AmountQuantity, CountedChange, Delta, ModifierCard, ModifierRow, PermissionQuantity, Quantity, SourcePlace, TargetRelation } from './model';
 import { ATTRIBUTE_ROWS } from './titles/attributes';
 import { EVENT_AND_MISSION_ROWS } from './titles/eventsAndMissions';
+import { PERMISSION_ROWS } from './titles/permissions';
 import { SHIP_ROWS } from './titles/ships';
 import { SPAN_ROWS } from './titles/span';
 import { isEquipment, isPersonnel, printedOf, rowTitleKey } from './words';
@@ -80,8 +81,8 @@ const familyOf = (q: Quantity): keyof typeof AMOUNT_PLACES =>
           ? q
           : 'attributes';
 
-/** Every row, by title. */
-export const MODIFIER_ROWS: readonly ModifierRow[] = [...ATTRIBUTE_ROWS, ...EVENT_AND_MISSION_ROWS, ...SHIP_ROWS, ...SPAN_ROWS];
+/** Every row, by title: the amounts, the span, and the permissions (#1916). */
+export const MODIFIER_ROWS: readonly ModifierRow[] = [...ATTRIBUTE_ROWS, ...EVENT_AND_MISSION_ROWS, ...SHIP_ROWS, ...SPAN_ROWS, ...PERMISSION_ROWS];
 
 // Why a cost row's scope or its once-per-title does not fit what its evaluator reads (#1888), or null: a
 // `nextPlay` row is a discount the card's own play leaves, every other cost row a change while its card stands, and
@@ -128,6 +129,16 @@ const ROWS_BY_TITLE = rowsByTitle(MODIFIER_ROWS);
 
 /** The rows of a title, lowercased, less its version suffix. */
 export const modifierRowsOf = (titleKey: string): readonly ModifierRow[] => ROWS_BY_TITLE.get(titleKey) ?? [];
+
+/**
+ * The permission rows of `card` (a row of the card data) at `source` that forbid `quantity` and break the rule on
+ * `view` (#1916): each row with no condition, or whose condition fails. One per rule broken, in row order.
+ */
+export function forbiddenBy(view: TableView, card: any, source: SourcePlace, quantity: PermissionQuantity): ModifierRow[] {
+  return modifierRowsOf(rowTitleKey(card)).filter(
+    (r) => r.source === source && r.changes[quantity] === 'forbid' && (!r.condition || !r.condition.holds(view))
+  );
+}
 
 /** The titles with a row of one of `quantities` (a permission's too, #1915), in the case of the card data, each once, in row order. */
 export function modifierTitles(quantities: readonly Quantity[]): Map<string, { title: string }> {

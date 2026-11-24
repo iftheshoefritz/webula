@@ -41,7 +41,7 @@ import {
 } from './tableReducer';
 import { drawSpend, drawSpendText } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
-import { ruleWarningsIn, ruleWarningsOf, ruleWarningText, type RuleWarning } from './playRules';
+import { drawWarningsOf, ruleNamedFirst, ruleWarningsIn, ruleWarningsOf, ruleWarningText, type RuleWarning } from './playRules';
 import { revealPicksOf } from './attempt';
 import { completionEffectOf, involvedSpecies } from './completionEffects';
 import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
@@ -210,7 +210,15 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // A draw that reached a face-up dilemma shuffled the dilemma pile first (#1283), and `shuffled`
   // says so.
   // `cost` is the 1 counter a draw from the draw deck costs in the play and draw segment (#1606).
-  | { kind: 'draw'; from: 'drawDeck' | 'dilemmaPile'; to: 'hand' | 'dilemmaHand'; shuffled?: true; cost?: number }
+  | {
+      kind: 'draw';
+      from: 'drawDeck' | 'dilemmaPile';
+      to: 'hand' | 'dilemmaHand';
+      shuffled?: true;
+      cost?: number;
+      // The play rules a charged draw broke (#1916): Rule of Acquisition #6's "You cannot spend counters to draw cards".
+      warnings?: RuleWarning[];
+    }
   // One player action, so one entry, even when its cards went to more than one place (a group
   // dropped on a mission sends a ship to the ship row and a personnel to the away team). A
   // download shuffles the pile after its moves, and `shuffled` names it.
@@ -742,6 +750,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         to: action.to as 'hand' | 'dilemmaHand',
         ...(drawReshuffles(before, action) ? { shuffled: true as const } : {}),
         ...(typeof action.cost === 'number' ? { cost: action.cost } : {}),
+        ...(action.ruleWarnings?.length ? { warnings: [...action.ruleWarnings] } : {}),
       };
     case 'move': {
       const moves = moveEntry(before, [action], false);
@@ -1227,6 +1236,10 @@ function withRuleWarnings(table: TableState, actions: TableAction[]): TableActio
         const warnings = ruleWarningsOf(state, found.instance, landed.zone, typeof a.cost === 'number');
         if (warnings.length) out = { ...a, ruleWarnings: warnings };
       }
+    } else if (a.type === 'drawCard' && a.from === 'drawDeck' && typeof a.cost === 'number' && a.ruleWarnings === undefined) {
+      // A charged draw (#1916): a spend of counters to draw, which a card in the core may forbid.
+      const warnings = drawWarningsOf(state);
+      if (warnings.length) out = { ...a, ruleWarnings: warnings };
     } else if (a.type === 'resolveDilemma' && a.move && a.ruleWarnings === undefined) {
       const found = findInstanceAnywhere(state, a.dilemmaId);
       const warnings = found ? ruleWarningsOf(state, found.instance, a.move.to, false) : [];
@@ -1549,7 +1562,8 @@ const warningsText = (warnings: unknown): string =>
   ruleWarningsIn(warnings)
     .map((w) => {
       const text = ruleWarningText(w);
-      return `; ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+      // "Unique: …" reads "unique: …"; a permission's warning starts with its card's title, which keeps its case.
+      return `; ${ruleNamedFirst(w) ? text.charAt(0).toLowerCase() : text.charAt(0)}${text.slice(1)}`;
     })
     .join('');
 
@@ -1641,7 +1655,7 @@ export function logEntryText(entry: LogEntry): string {
   switch (entry.kind) {
     case 'draw': {
       const cost = typeof entry.cost === 'number' ? ` (cost ${entry.cost})` : '';
-      const drew = `drew a ${entry.from === 'drawDeck' ? 'card' : 'dilemma'} from ${placeText({ kind: entry.from })} into ${placeText({ kind: entry.to })}${cost}`;
+      const drew = `drew a ${entry.from === 'drawDeck' ? 'card' : 'dilemma'} from ${placeText({ kind: entry.from })} into ${placeText({ kind: entry.to })}${cost}${warningsText(entry.warnings)}`;
       return entry.shuffled ? `Shuffled ${placeText({ kind: entry.from })}, then ${drew}` : capitalize(drew);
     }
     case 'move': {
@@ -2919,7 +2933,7 @@ export function actionCharged(action: GameAction): boolean {
 export function actionWarned(action: GameAction): boolean {
   if (action.type === 'effectStep') return !!action.ruleWarnings?.length;
   const actions = action.type === 'batch' ? action.actions : [action];
-  return actions.some((a) => (a.type === 'move' || a.type === 'resolveDilemma') && !!a.ruleWarnings?.length);
+  return actions.some((a) => (a.type === 'move' || a.type === 'resolveDilemma' || a.type === 'drawCard') && !!a.ruleWarnings?.length);
 }
 
 // The warnings of the play rules an entry recorded (#1821), from its moves or its resolved dilemma's
@@ -2927,6 +2941,7 @@ export function actionWarned(action: GameAction): boolean {
 export function entryRuleWarnings(entry: LogEntry | undefined): RuleWarning[] {
   if (entry?.kind === 'move') return entry.moves.flatMap((m) => ruleWarningsIn(m.warnings));
   if (entry?.kind === 'dilemmaResolved') return ruleWarningsIn(entry.warnings);
+  if (entry?.kind === 'draw') return ruleWarningsIn(entry.warnings);
   return [];
 }
 
