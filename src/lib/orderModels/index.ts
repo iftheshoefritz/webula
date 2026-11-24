@@ -12,6 +12,8 @@
 //   owner's deck".
 // - `placePresentOnBottom`: one card of a type in the card's own group (its away team or crew), "Place your
 //   equipment present on the bottom of its owner's deck".
+// - `placeFromDiscardOnThis`: one card of the discard pile that passes a test, placed on the order's own card,
+//   "Place a personnel from your discard pile on this event" (#1837).
 // Next, for the orders still in the backlog: stop this card, destroy this card, lose points, return this card to
 // hand, and the choice of one of several effects.
 //
@@ -21,7 +23,7 @@
 // It imports no React and no reducer.
 
 import { cardTitleOf } from '../cardTitle';
-import { bottomFromHand, discardFromHand, download, draw, DownloadTest, drawUpTo, EffectStage, EffectStep, shuffle, stagesOf } from '../effectSteps';
+import { bottomFromHand, chooseSkill, discardFromHand, download, draw, DownloadTest, drawUpTo, EffectStage, EffectStep, shuffle, stagesOf } from '../effectSteps';
 import type { PlayCondition } from '../playModels';
 import { ONCE_EACH_TURN, UseLimit } from '../useLimit';
 
@@ -30,7 +32,8 @@ export type OrderCost =
   | { kind: 'discardFromHand'; count: number; test?: DownloadTest[]; text: string }
   | { kind: 'stopPersonnel'; test: DownloadTest[]; text: string }
   | { kind: 'placeThisOnBottom' }
-  | { kind: 'placePresentOnBottom'; types: string[]; text: string };
+  | { kind: 'placePresentOnBottom'; types: string[]; text: string }
+  | { kind: 'placeFromDiscardOnThis'; test: DownloadTest[]; text: string };
 
 export type OrderCostKind = OrderCost['kind'];
 
@@ -122,6 +125,18 @@ export const ORDER_MODELS: OrderModel[] = [
     cost: NONE,
     steps: [bottomFromHand(1)],
   },
+  // "Order - Place a personnel from your discard pile on this event to add one of their skills (except Acquisition,
+  // Intelligence, Law, or Telepathy) to the requirements of each mission in play. This effect lasts until you lose
+  // command of this event or this order is executed again." (#1837) The choice is kept on the event; the requirement
+  // change is its row in `requirementRules.ts`.
+  {
+    title: 'Renewal Scroll',
+    index: 0,
+    text:
+      'Place a personnel from your discard pile on this event to add one of their skills (except Acquisition, Intelligence, Law, or Telepathy) to the requirements of each mission in play. This effect lasts until you lose command of this event or this order is executed again.',
+    cost: { kind: 'placeFromDiscardOnThis', test: [{ types: ['personnel'] }], text: 'a personnel from your discard pile' },
+    steps: [chooseSkill(['Acquisition', 'Intelligence', 'Law', 'Telepathy'])],
+  },
   // Optimism's first order of three: "Order - Place a card from hand on the bottom of your deck."
   {
     title: 'Optimism',
@@ -149,7 +164,7 @@ export const orderStagesOf = (model: OrderModel): EffectStage[] => stagesOf(mode
 
 /** Whether the cost asks the player for cards: a discard, a personnel to stop, a card present to place. */
 export const costNeedsPick = (cost: OrderCost): boolean =>
-  cost.kind === 'discardFromHand' || cost.kind === 'stopPersonnel' || cost.kind === 'placePresentOnBottom';
+  cost.kind === 'discardFromHand' || cost.kind === 'stopPersonnel' || cost.kind === 'placePresentOnBottom' || cost.kind === 'placeFromDiscardOnThis';
 
 /** How many cards the cost's pick takes. */
 export const costPickCount = (cost: OrderCost): number => (cost.kind === 'discardFromHand' ? cost.count : costNeedsPick(cost) ? 1 : 0);

@@ -17,6 +17,8 @@
 // - `exchange`: a personnel of the hand with one the player commands.
 // - `kill`: up to N of the player's personnel at a mission that pass a test, each to the discard pile, logged as
 //   a kill (#1909).
+// - `chooseSkill`: a recorded choice (#1837): one skill of the card the order's cost last placed on its card, less an
+//   exclusion list, kept on the order's card as its `named` until the card moves (Renewal Scroll).
 //
 // A step that needs no input of the player (a shuffle, a fixed draw or a draw after a pick) runs with the step
 // before it: one step the player acts on, and the steps that follow it on their own, are one *stage*, one panel,
@@ -201,7 +203,19 @@ export interface ExchangeStep {
   may?: boolean;
 }
 
+/**
+ * A recorded choice (#1837): "to add one of their skills (except Acquisition, Intelligence, Law, or Telepathy)". The
+ * player picks one skill of the card last placed on the subject's own card, less `exclude`; the pick is kept on that
+ * card (`CardInstance.named`), which any move of the card clears, and a second use replaces it.
+ */
+export interface ChooseSkillStep {
+  kind: 'chooseSkill';
+  /** The skills that may not be chosen, as `SKILLS` writes them ("Acquisition"). */
+  exclude: string[];
+}
+
 export type EffectStep =
+  | ChooseSkillStep
   | DrawStep
   | DiscardFromHandStep
   | BottomFromHandStep
@@ -243,6 +257,7 @@ export const discardTopByDownloadedCost = (): DiscardTopStep => ({ kind: 'discar
 export const score = (points: number): ScoreStep => ({ kind: 'score', points, may: true });
 /** A score of `points` for each card the step before picked, which runs with that step. */
 export const scorePerPick = (points: number): ScoreStep => ({ kind: 'score', points, perPick: true });
+export const chooseSkill = (exclude: string[]): ChooseSkillStep => ({ kind: 'chooseSkill', exclude });
 export const kill = (upTo: number, testText: string, test: DownloadTest[]): KillStep => ({ kind: 'kill', upTo, test, testText, may: true });
 
 /** Whether a step runs on its own, with no input of the player, so it joins the stage of the step before it. */

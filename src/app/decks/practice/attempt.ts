@@ -332,7 +332,10 @@ function shipRowOnTable(table: TableState, ship: CardInstance | undefined, row: 
 function missionRowOnTable(view: TableView, missionIndex: number, attempting: readonly string[]): CardInstance['card'] | undefined {
   const card = view.missions[missionIndex]?.card?.row;
   if (!card) return card;
-  const added = addedRequirements(view.missions.map((m) => m.card?.row))[missionIndex];
+  const added = addedRequirements(
+    view.missions.map((m) => m.card?.row),
+    view.core
+  )[missionIndex];
   const skills = replacedRequirementsOf(card, attempting) ?? String(card.skills ?? '');
   return added.length || skills !== String(card.skills ?? '') ? { ...card, skills: requirementTextWith(skills, added) } : card;
 }

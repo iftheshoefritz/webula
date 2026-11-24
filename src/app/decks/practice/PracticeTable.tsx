@@ -62,6 +62,7 @@ import {
   PRACTICE_DISSIDENT_HAND,
   PRACTICE_DISSIDENT_TSV,
   PRACTICE_ORDERS_CORE,
+  PRACTICE_ORDERS_DISCARD,
   PRACTICE_ORDERS_CREW,
   PRACTICE_ORDERS_HAND,
   PRACTICE_ORDERS_TSV,
@@ -243,7 +244,7 @@ import { pendingTriggersOf } from './triggers';
 import { TriggerOffers } from './TriggerOffers';
 import { playConditionLine } from '../../../lib/playModels';
 import { costNeedsPick, costPickCount, OrderCost } from '../../../lib/orderModels';
-import { OrderCard, orderCostCandidates } from './orders';
+import { chooseSkillCardOf, chooseSkillOptions, OrderCard, orderCostCandidates } from './orders';
 import { discardableFromHand, downloadTakes, drawWanted, EffectStage, examineCount, examineTakeMax, examineTakeMin, examineTakes, handCount, stepOf } from '../../../lib/effectSteps';
 import {
   CardHoldProvider,
@@ -2886,7 +2887,8 @@ function PracticeDrawContent() {
   // The panel of a stage of an effect (#1863), the resolving event's or the pending "when you play" effect's: one
   // builder for both, by the kind of the stage's first step, each dispatching the one `effectStep` action.
   const anyMissionCompleted = table.missions.some((s) => s.completed === true);
-  const stageView = (stage: EffectStage, played: PendingPlayEffect | null): ResolveStep | undefined => {
+  // `sourceId` is the card whose ability the stage is, for a step that reads it (#1837, an order's choice).
+  const stageView = (stage: EffectStage, played: PendingPlayEffect | null, sourceId?: string): ResolveStep | undefined => {
     const step = stage.lead;
     const send = (input: EffectStepInput) => dispatch({ type: 'effectStep', ...input });
     switch (step.kind) {
@@ -2968,6 +2970,12 @@ function PracticeDrawContent() {
       }
       case 'score':
         return { step: 'score', points: step.points, onScore: () => send({}) };
+      case 'chooseSkill': {
+        // Renewal Scroll (#1837): a skill of the card the order placed on its card.
+        if (!sourceId) return undefined;
+        const card = chooseSkillCardOf(table, sourceId);
+        return { step: 'chooseSkill', ...(card ? { card } : {}), skills: chooseSkillOptions(table, sourceId, step), onChoose: (skill) => send({ skill }) };
+      }
       case 'exchange':
         return {
           step: 'exchange',
@@ -3049,7 +3057,7 @@ function PracticeDrawContent() {
   // The stage of the pending "when you play" effect (#1800), derived from the log, each amending the play's entry.
   const playedStep: ResolveStep | undefined = pendingPlay ? stageView(pendingPlay.stage, pendingPlay) : undefined;
   // The stage of the order in progress (#1866), each amending the order's entry, and the pick of an order's cost.
-  const orderStep: ResolveStep | undefined = pendingOrder ? stageView(pendingOrder.stage, null) : undefined;
+  const orderStep: ResolveStep | undefined = pendingOrder ? stageView(pendingOrder.stage, null, pendingOrder.id) : undefined;
   // The stage of the trigger in progress (#1904), each amending the trigger's entry.
   const triggerStep: ResolveStep | undefined = pendingTrigger ? stageView(pendingTrigger.stage, null) : undefined;
   const orderCostStep: ResolveStep | undefined = choosingOrder
@@ -3505,7 +3513,13 @@ function PracticeDrawContent() {
   const ordersFixtureExtras = () => {
     const rows = extractDrawDeck(deckFromTsv(PRACTICE_ORDERS_TSV, data));
     const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
-    return { hand: [] as any[], crew: named(PRACTICE_ORDERS_CREW), core: named(PRACTICE_ORDERS_CORE), lateHand: named(PRACTICE_ORDERS_HAND) };
+    return {
+      hand: [] as any[],
+      crew: named(PRACTICE_ORDERS_CREW),
+      core: named(PRACTICE_ORDERS_CORE),
+      lateHand: named(PRACTICE_ORDERS_HAND),
+      discard: named(PRACTICE_ORDERS_DISCARD),
+    };
   };
   // The cards `?fixture=triggers` adds (#1904): an event to the core, a personnel to the crew, a ship to the ship row
   // of Moab IV, a personnel to the end of the hand.
@@ -6062,5 +6076,6 @@ function orderCostWords(cost: OrderCost): { task: string; action: string } {
   if (cost.kind === 'discardFromHand') return { task: `Discard ${cost.count === 1 ? cost.text : `${cost.count} × ${cost.text}`} from your hand`, action: 'Discard' };
   if (cost.kind === 'stopPersonnel') return { task: `Stop ${cost.text}`, action: 'Stop' };
   if (cost.kind === 'placePresentOnBottom') return { task: `Place ${cost.text} on the bottom of your draw deck`, action: 'Place on bottom' };
+  if (cost.kind === 'placeFromDiscardOnThis') return { task: `Place ${cost.text} on this card`, action: 'Place' };
   return { task: '', action: 'Use' };
 }
