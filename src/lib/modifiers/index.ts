@@ -7,7 +7,7 @@
 // (#1298); `attributeModels.ts` and `shipRange.ts` keep the public readers and build the view once.
 
 import type { TableView, ViewCard, ViewMission, ViewShip, ViewTableCard } from '../tableView';
-import { cardHasTraits, personnel } from '../tableView';
+import { cardHasTraits, personnel, regionsOf } from '../tableView';
 import { countedAmount, PERMISSION_QUANTITIES } from './model';
 import type { AmountContext, AmountQuantity, CountedChange, Delta, ModifierCard, ModifierRow, PermissionQuantity, Quantity, SourcePlace, TargetRelation } from './model';
 import { ATTRIBUTE_ROWS } from './titles/attributes';
@@ -319,9 +319,22 @@ export function skillsGainedOf(view: TableView, target: ModifierCard): string[] 
 export const QUADRANT_SPAN = 2;
 
 /**
+ * What a move takes off between two missions of the same Region (#1941). Rulebook v4, "2. Execute Orders" ›
+ * "Order – Move a Ship", p. 10: "If the two missions have the same "Region: X" keyword, subtract two."
+ */
+export const REGION_SPAN = 2;
+
+/** Whether the two missions share a "Region: X" keyword. */
+export const shareRegion = (from: ViewCard, to: ViewCard): boolean => {
+  const of = (c: ViewCard) => regionsOf(String(c.row?.keywords ?? ''));
+  const theirs = of(to);
+  return of(from).some((r) => theirs.includes(r));
+};
+
+/**
  * The span total of a move of `ship` from the mission card `from` to `to` (#1635, #1648, #1827): the printed spans,
  * plus 2 when both slots hold a mission and their quadrants differ, unless a row of either mission, of the ship or
- * of the core waives it; then, when both slots hold a mission, the reductions of the core, a floor of 0, and the
+ * of the core waives it, less 2 when the two missions share a Region (#1941), both rules of the game; then, when both slots hold a mission, the reductions of the core, a floor of 0, and the
  * set values of the core, in core order. With `cardText` false no row applies.
  */
 export function spanOf(
@@ -341,7 +354,8 @@ export function spanOf(
     const waived = cardText && (waives(from, 'moveMission') || waives(to, 'moveMission') || waives(ship, 'moveShip') || core.some((c) => waives(c, 'core')));
     if (!waived) total += QUADRANT_SPAN;
   }
-  if (!from || !to || !cardText) return total;
+  if (from && to && shareRegion(from, to)) total -= REGION_SPAN;
+  if (!from || !to || !cardText) return Math.max(0, total);
   for (const source of core) {
     for (const r of rows(source, 'core', 'span')) {
       const change = r.changes.span;

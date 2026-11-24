@@ -59,7 +59,7 @@ comparisons in the code are lowercase.
 | dilemma type | `dilemmatype` | dual, planet, or space. |
 | quadrant | `quadrant` | Alpha, Beta, Delta, Gamma, Mirror. |
 | span | `span` | The move cost of a mission. |
-| span total | `moveSpanTotal` in `src/app/decks/practice/shipRange.ts` | The range a move between two missions uses (#1635): the two printed spans, plus 2 between two quadrants (`QUADRANT_SPAN`) unless a card waives it. `TableState.rangeUsed` adds it up per ship. |
+| span total | `moveSpanTotal` in `src/app/decks/practice/shipRange.ts` | The range a move between two missions uses (#1635): the two printed spans, plus 2 between two quadrants (`QUADRANT_SPAN`) unless a card waives it, less 2 when the two missions share a "Region: X" keyword (`REGION_SPAN`, `shareRegion`, #1941; Rulebook v4, "Order – Move a Ship", p. 10), never below 0. `TableState.rangeUsed` adds it up per ship. |
 | Range on the table | `shipRangeOnTable` in `shipRange.ts` | A ship's printed Range plus what the card text in play gives it (#1635), read at each move. The log's "left" and the ship's "used/Range" pill read it. |
 | range and span models | the modifier rows of `src/lib/modifiers/titles/` whose quantity is `range`, `span` or `quadrantWaiver`; `RANGE_SPAN_REGISTRY` in `src/app/decks/practice/rangeModels.ts`, their titles | One or more rows per card whose text changes a ship's Range or a span total, by the title less its version suffix (`cardTitleOf`, `src/lib/cardTitle.ts`). The hooks of `RangeSpanModel` were replaced by rows in #1887; `RANGE_SPAN_REGISTRY` is a read-only index of their titles. |
 | static modifier (not a rulebook term) | `ModifierRow` in `src/lib/modifiers/model.ts`, `MODIFIER_ROWS` in `src/lib/modifiers/index.ts` (#1887) | One card text that changes a quantity while its card is in play, as plain data: `title`, `source` (the place the card must stand), `target` (relative to the source), `changes` (each quantity with its change), an optional `condition` of the table view (`Condition`), and `scope`. Rows live by what they change under `src/lib/modifiers/titles/`. One evaluator per quantity reads them: `attributeOf` and `rangeOf` sum the changes and floor the total at 0, `spanOf` applies the waiver, the reductions, the floor and the set values in that order. `eachTitleOnce` counts a title once for a target: the cost rows of a mission and of a personnel set it (#1888). The cost rows (#1888) live on their cost model, `CostModel.rows` (`withRows` and the builders `own`, `ownWhen`, `inCore`, `atMission`, `byPersonnel`, `onLimit` and `nextPlay` of `src/lib/costModels/rows.ts`), gathered in registry order as `COST_ROWS`, and carry the `label` their suggestions show; their condition is read over `costFactsSource`. One evaluator reads them: `rowCost` for a cost, `rowLimit` for the counters. |
@@ -311,19 +311,24 @@ holds this rule at the top of the file.
 
 ## 6. Rulebook terms the code does not model
 
-The deck builder and the practice table do not run the rules. The practice table
+The deck builder and the practice table do not enforce the rules. The practice table
 lets you drag any card to almost any zone; `zoneAccepts.ts` only changes a
-highlight, and a drop always lands.
+highlight, and a drop always lands. Where the table checks a rule, it warns
+(`RuleWarning`, with "Check uniqueness and limits" on) and never refuses.
 
-So the code has no name for these rulebook terms:
+Many rulebook terms now have a code name in the sections above: the turn segments
+(`TableState.segment`), counters and cost, an order action on a card (`ORDER_MODELS`),
+a response action (`TriggerRow`), prevent (`preventionOf`, #1761), exchange and
+replace (`exchange` of `effectSteps.ts`, #1765, #1826; `replacedRequirementsOf`, #1909),
+a download that puts a card into play (`DownloadTo`, #1811), and in play (`inPlay`,
+#1821). The code still has no name for these rulebook terms:
 
-- the orders: beam personnel, move a ship, attempt a mission, order actions
-- overcoming a dilemma (the dilemma bot checks the mission requirements, see [section 9](#9-the-dilemma-bot); the practice table models a mission attempt only as `TableState.attempt`, and facing dilemmas only as a phase of it, `Attempt.phase`, see [section 4](#4-the-practice-table); a phase is the attempt's, a segment the turn's)
+- the orders beam personnel and move a ship as orders: the table moves the cards by drag, and a move only records the span total (`rangeUsed`); staffing is not checked
+- overcoming a dilemma as a rule (the dilemma bot checks the mission requirements, see [section 9](#9-the-dilemma-bot); the practice table models a mission attempt as `TableState.attempt`, facing dilemmas as a phase of it, `Attempt.phase`, see [section 4](#4-the-practice-table); a phase is the attempt's, a segment the turn's), and checking mission requirements at a completion
 - owner, and "an opponent's" (for "command" and "your", see [section 4](#4-the-practice-table), the table view)
 - combat, engagement, damage, captive
-- equipped with, response action, prevent, replace, exchange (the dilemma bot reads "present with", see [section 9](#9-the-dilemma-bot))
-- download as a card effect that puts a card into play (the practice table models only the part that takes a chosen card from a pile into the hand, see [section 4](#4-the-practice-table))
-- in play and not in play
+- equipped with (the dilemma bot reads "present with", see [section 9](#9-the-dilemma-bot))
+- winning the game (`SCORE_MAX` below)
 
 Do not invent a name for one of these in a component. If you need one, add the
 rulebook term to this file first, then use it.
@@ -342,7 +347,7 @@ gives the reason, so that the next reader does not open the same issue again.
 | `SMALL_CARD_WIDTH`, `SMALL_CARD_ART_HEIGHT` | A size of the screen, not a card type. The small card is not a ship: it sizes a ship in the ship row, but also every card of any type in the core and the brig, and part of the height of the dilemma stack. The names were `SHIP_CARD_WIDTH` and `SHIP_CARD_ART_HEIGHT` until #931. They sit in `TableCard.tsx` beside `TABLE_CARD_WIDTH` and `TABLE_CARD_ART_HEIGHT`, the larger size. |
 | `SCORE_MAX = 140` | The win score is 100 in a normal game, but certain cards change it. This codebase does not model those cards. It only allows a higher maximum, so the counter can show a score above 100. |
 | `resetWithPiles`, `?fixture=piles` | The fixture deal of the practice table, a test scaffold and not a game step (#854). "Seed" is the rulebook word for placing cards at the start of a game, so no fixture name says it: the constants are `FIXTURE_AWAY_TEAM`, `FIXTURE_CREW`, `FIXTURE_BRIG`, `FIXTURE_CORE`, `FIXTURE_PLACED`, `FIXTURE_UNDER_MISSION` and `FIXTURE_DILEMMA_STACK` (#1024), and `FIXTURE_SHIP_SLOT` names the mission of the crewed ship and of the dilemmas under it (#1166), and the parameter of `dealDeck` is `fixturePiles`. The real start of a game is "deal" and the action `reset`. The action and the URL value keep "piles", because a change of the URL breaks the browser checks of `AGENTS.md`. |
-| The hand takes any number of cards | The rulebook applies the limit of seven at the discard step of a turn, and this codebase does not model the steps of a turn. The practice table never stops a drop. |
+| The hand takes any number of cards | The rulebook applies the limit of seven in the Discard Excess Cards segment. The table models that segment (#1605) and prompts for the discard (`DiscardPrompt`, #1928), but the hand itself never stops a drop. |
 
 ## 8. Cases found by the second search
 
