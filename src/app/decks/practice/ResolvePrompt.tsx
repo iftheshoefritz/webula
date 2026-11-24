@@ -52,6 +52,74 @@ export function useChargeChipBottom(chipShown: boolean): number | null {
   return chipShown ? bottom : null;
 }
 
+// The bar of a prompt (#1870, #1928): the task, the count of the picks, the confirm button and an optional Cancel,
+// at the top centre, below the charge chip. `prefix` names its test ids: `resolve-prompt`, `discard-prompt`.
+function PromptBar({
+  prefix,
+  dataStep,
+  task,
+  done,
+  count,
+  confirm,
+  onConfirm,
+  onCancel,
+  chipShown,
+  hidden,
+}: {
+  prefix: string;
+  dataStep?: string;
+  task: string;
+  done: number;
+  count: number;
+  confirm: string;
+  onConfirm: () => void;
+  onCancel?: () => void;
+  chipShown: boolean;
+  hidden: boolean;
+}) {
+  const chipBottom = useChargeChipBottom(chipShown);
+  return (
+    <div
+      role="status"
+      data-testid={prefix}
+      data-step={dataStep}
+      className={`fixed left-1/2 -translate-x-1/2 ${LAYER_RESOLVE_PROMPT} flex items-center gap-2 rounded-md border border-white/10 bg-bg-secondary/95 px-2 py-1 shadow-lg`}
+      style={{
+        top: chipBottom !== null ? chipBottom + PROMPT_GAP : `calc(0.5rem + ${SAFE_INSET_CSS.top})`,
+        maxWidth: 'calc(100vw - 9rem)',
+        visibility: hidden ? 'hidden' : 'visible',
+        pointerEvents: hidden ? 'none' : undefined,
+      }}
+    >
+      <span data-testid={`${prefix}-task`} className="min-w-0 truncate text-xs text-text-primary">
+        {task}
+      </span>
+      <span data-testid={`${prefix}-count`} className="shrink-0 text-xs text-text-muted">
+        {done} of {count}
+      </span>
+      <button
+        type="button"
+        data-testid={`${prefix}-done`}
+        className="btn-primary h-7 shrink-0 whitespace-nowrap px-2 text-xs"
+        disabled={done !== count}
+        onClick={onConfirm}
+      >
+        {confirm}
+      </button>
+      {onCancel && (
+        <button
+          type="button"
+          data-testid={`${prefix}-cancel`}
+          className="btn-primary h-7 shrink-0 whitespace-nowrap bg-none bg-white/[0.05] px-2 text-xs"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function ResolvePrompt({
   step,
   picks,
@@ -77,52 +145,66 @@ export function ResolvePrompt({
   useEscapeLayer(() => {
     if (!hidden) onCollapse();
   }, escapeActive);
-  const chipBottom = useChargeChipBottom(chipShown);
   const draw = step.step === 'draw';
   const chosen = draw ? step.groups.flatMap((g) => g.cards).find((c) => c.id === picks[0]) : undefined;
   const count = draw ? 1 : step.count;
-  const done = draw ? (chosen ? 1 : 0) : picks.length;
-  const complete = done === count;
   return (
-    <div
-      role="status"
-      data-testid="resolve-prompt"
-      data-step={step.step}
-      className={`fixed left-1/2 -translate-x-1/2 ${LAYER_RESOLVE_PROMPT} flex items-center gap-2 rounded-md border border-white/10 bg-bg-secondary/95 px-2 py-1 shadow-lg`}
-      style={{
-        top: chipBottom !== null ? chipBottom + PROMPT_GAP : `calc(0.5rem + ${SAFE_INSET_CSS.top})`,
-        maxWidth: 'calc(100vw - 9rem)',
-        visibility: hidden ? 'hidden' : 'visible',
-        pointerEvents: hidden ? 'none' : undefined,
-      }}
-    >
-      <span data-testid="resolve-prompt-task" className="min-w-0 truncate text-xs text-text-primary">
-        {draw ? 'Choose one of your personnel: draw its cost' : `Choose ${count} ${count === 1 ? 'card' : 'cards'} of your hand for the bottom`}
-      </span>
-      <span data-testid="resolve-prompt-count" className="shrink-0 text-xs text-text-muted">
-        {done} of {count}
-      </span>
-      <button
-        type="button"
-        data-testid="resolve-prompt-done"
-        className="btn-primary h-7 shrink-0 whitespace-nowrap px-2 text-xs"
-        disabled={!complete}
-        onClick={() => (draw ? step.onDraw(chosen?.id) : step.onPlace(picks))}
-      >
-        {draw ? (chosen ? `Draw ${printedCost(chosen.card.card)}` : 'Draw') : 'Place on bottom'}
-      </button>
-      {/* Cancel shows before the draw only, as the panel's: after it, Cancel would leave the free draws in the hand. */}
-      {draw && (
-        <button
-          type="button"
-          data-testid="resolve-prompt-cancel"
-          className="btn-primary h-7 shrink-0 whitespace-nowrap bg-none bg-white/[0.05] px-2 text-xs"
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      )}
-    </div>
+    <PromptBar
+      prefix="resolve-prompt"
+      dataStep={step.step}
+      task={draw ? 'Choose one of your personnel: draw its cost' : `Choose ${count} ${count === 1 ? 'card' : 'cards'} of your hand for the bottom`}
+      done={draw ? (chosen ? 1 : 0) : picks.length}
+      count={count}
+      confirm={draw ? (chosen ? `Draw ${printedCost(chosen.card.card)}` : 'Draw') : 'Place on bottom'}
+      onConfirm={() => (draw ? step.onDraw(chosen?.id) : step.onPlace(picks))}
+      // Cancel shows before the draw only, as the panel's: after it, Cancel would leave the free draws in the hand.
+      onCancel={draw ? onCancel : undefined}
+      chipShown={chipShown}
+      hidden={hidden}
+    />
+  );
+}
+
+/**
+ * The prompt of the discard segment (#1928): while the turn is in the discard segment and the hand holds more than
+ * the hand limit, the player picks the excess cards in the hand arc, in tap order, and Discard moves them to the
+ * discard pile in one log entry. It never advances the turn. Cancel and Escape close it and leave the segment as it
+ * is, free to drag cards by hand.
+ */
+export function DiscardPrompt({
+  count,
+  picks,
+  chipShown,
+  hidden,
+  escapeActive,
+  onDiscard,
+  onCancel,
+}: {
+  // The cards over the hand limit.
+  count: number;
+  // The picks still in the hand, in tap order.
+  picks: string[];
+  chipShown: boolean;
+  hidden: boolean;
+  escapeActive: boolean;
+  onDiscard: (ids: string[]) => void;
+  onCancel: () => void;
+}) {
+  useEscapeLayer(() => {
+    if (!hidden) onCancel();
+  }, escapeActive);
+  return (
+    <PromptBar
+      prefix="discard-prompt"
+      task={`Discard ${count} ${count === 1 ? 'card' : 'cards'}`}
+      done={picks.length}
+      count={count}
+      confirm={`Discard ${count}`}
+      onConfirm={() => onDiscard(picks)}
+      onCancel={onCancel}
+      chipShown={chipShown}
+      hidden={hidden}
+    />
   );
 }
 
