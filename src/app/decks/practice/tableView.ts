@@ -132,10 +132,15 @@ export type TableViewInput = Pick<TableState, 'missions' | 'core' | 'hand' | 'di
 /** The table view of a part of the table: the piles it lacks are empty, its turn 1 in play and draw, its score 0. */
 export function tableViewOfInput(table: TableViewInput, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): TableView {
   // The requirements as the cards in play change them (#1828, Crescent Nebula), as the bot reads them.
-  const requirements = requirementTextsOf(table.missions.map((m) => m.mission?.card));
+  // A card of the core with a requirement row adds its recorded choice (#1837, Renewal Scroll).
+  const core = (table.core ?? []).map(viewCardOf);
+  const requirements = requirementTextsOf(
+    table.missions.map((m) => m.mission?.card),
+    core
+  );
   return {
     missions: table.missions.map((slot, i) => missionOf(slot, i, text(requirements[i]))),
-    core: (table.core ?? []).map(viewCardOf),
+    core,
     hand: (table.hand ?? []).map(pileCardOf),
     discard: (table.discard ?? []).map(pileCardOf),
     drawDeck: (table.drawDeck ?? []).map(pileCardOf),

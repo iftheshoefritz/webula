@@ -11,7 +11,15 @@
 // whose every unstopped attempting personnel is of that affiliation (`replacedRequirementsOf`); the deck builder
 // offers it as one more branch of the mission's requirements (`parsedRequirementsOf`). The skills another card
 // adds apply to the replacement too.
+//
+// A card in play that is no mission changes requirements too (#1837): a row of `CARD_REQUIREMENT_ROWS`, by the whole
+// title of a card of the core. Renewal Scroll: "Order - Place a personnel from your discard pile on this event to add
+// one of their skills (…) to the requirements of each mission in play. This effect lasts until you lose command of
+// this event or this order is executed again." Its skill is the choice its order recorded on the card (`named`), which
+// any move of the card clears, so the change ends when it leaves the core. The deck builder sees no table, so it
+// passes no cards.
 
+import { cardTitleOf } from './cardTitle';
 import { abilityOf, missionModelOfCard } from './missionModels';
 import { parseMissionRequirements, type ParsedMissionRequirements, type SkillMap } from './missionRequirements';
 
@@ -35,11 +43,58 @@ const attemptableBy = (m: RequirementMission, icon: string): boolean =>
 const hasRequirements = (m: RequirementMission): boolean =>
   String(m.missiontype ?? '').toLowerCase().charAt(0) !== 'h' && String(m.skills ?? '').trim() !== '';
 
+/** A card in play that is no mission, as a requirement row reads it: its whole title and its recorded choice. */
+export interface RequirementCard {
+  title: string;
+  /** The choice an order or a play recorded on the card (`CardInstance.named`): a skill, "Diplomacy". */
+  named?: string;
+}
+
+/**
+ * A card that adds a skill to the requirements of missions (#1837): its whole title, the clause, which missions
+ * (`each`: every mission in play with requirements) and the skill it adds (`named`: the card's recorded choice).
+ */
+export interface CardRequirementRow {
+  title: string;
+  text: string;
+  missions: 'each';
+  add: 'named';
+}
+
+export const CARD_REQUIREMENT_ROWS: CardRequirementRow[] = [
+  {
+    title: 'Renewal Scroll',
+    text: 'Order - Place a personnel from your discard pile on this event to add one of their skills (except Acquisition, Intelligence, Law, or Telepathy) to the requirements of each mission in play.',
+    missions: 'each',
+    add: 'named',
+  },
+];
+
+const CARD_ROWS = new Map(CARD_REQUIREMENT_ROWS.map((r) => [r.title.toLowerCase(), r]));
+
+/** The requirement row of a card in play, by its whole title, or undefined. */
+export const cardRequirementRowOf = (title: string): CardRequirementRow | undefined => CARD_ROWS.get(cardTitleOf(title).toLowerCase());
+
+// The skills the cards of `cards` add to every mission with requirements, in the order of the cards.
+function cardAdds(cards: readonly (RequirementCard | null | undefined)[]): string[] {
+  const added: string[] = [];
+  for (const c of cards) {
+    if (!c?.named || !cardRequirementRowOf(c.title)) continue;
+    if (!added.includes(c.named)) added.push(c.named);
+  }
+  return added;
+}
+
 /**
  * The skills the cards in play add to the requirements of each mission of `missions`, by index, in the
- * case of the rules' text ("Intelligence"). An empty slot gets none.
+ * case of the rules' text ("Intelligence"). An empty slot gets none. `cards` are the cards in play that are no
+ * mission, the core (#1837); the deck builder passes none.
  */
-export function addedRequirements(missions: readonly (RequirementMission | null | undefined)[]): string[][] {
+export function addedRequirements(
+  missions: readonly (RequirementMission | null | undefined)[],
+  cards: readonly (RequirementCard | null | undefined)[] = []
+): string[][] {
+  const fromCards = cardAdds(cards);
   // The slots of the missions with a `requirements` ability, each with its change.
   const rules = missions.flatMap((m, i) => {
     const change = abilityOf(missionModelOfCard(m), 'requirements')?.requirements;
@@ -52,6 +107,7 @@ export function addedRequirements(missions: readonly (RequirementMission | null 
       if (slot === i || (change.exceptIcon && attemptableBy(m, change.exceptIcon))) continue;
       for (const skill of change.add) if (!added.includes(skill)) added.push(skill);
     }
+    for (const skill of fromCards) if (!added.includes(skill)) added.push(skill);
     return added;
   });
 }
@@ -81,8 +137,11 @@ export const requirementTextWith = (skills: string, added: readonly string[]): s
   added.length ? `${added.join(', ')}, (${skills})` : skills;
 
 /** The requirement text of each mission of `missions` on the table, as the cards in play change it. */
-export const requirementTextsOf = (missions: readonly (RequirementMission | null | undefined)[]): string[] => {
-  const added = addedRequirements(missions);
+export const requirementTextsOf = (
+  missions: readonly (RequirementMission | null | undefined)[],
+  cards: readonly (RequirementCard | null | undefined)[] = []
+): string[] => {
+  const added = addedRequirements(missions, cards);
   return missions.map((m, i) => requirementTextWith(String(m?.skills ?? ''), added[i]));
 };
 

@@ -50,7 +50,7 @@ import { resolveModelOf, resolveStagesOf } from '../../../lib/resolveModels';
 import { PlayConditionState, PlayConditionStatus, PlayModel, playConditionOf, playModelOf, playStagesOf } from '../../../lib/playModels';
 import { costNeedsPick, costPickCount, OrderModel, orderModelOf, orderStagesOf } from '../../../lib/orderModels';
 import { withinUseLimit, type UseLimit } from '../../../lib/useLimit';
-import { orderCardOf, orderCardsOf, OrderCard, orderCostCandidates } from './orders';
+import { chooseSkillOptions, orderCardOf, orderCardsOf, OrderCard, orderCostCandidates } from './orders';
 import {
   downloadPlaceShips,
   downloadPlayCost,
@@ -146,7 +146,7 @@ export interface LogMove {
 }
 
 // The names of the stages a record holds (#1863), by the kind of the stage's first step (`recordStepName`).
-export type EffectRecordStepName = 'draw' | 'discard' | 'bottom' | 'examine' | 'download' | 'shuffle' | 'score' | 'exchange' | 'kill';
+export type EffectRecordStepName = 'draw' | 'discard' | 'bottom' | 'examine' | 'download' | 'shuffle' | 'score' | 'exchange' | 'kill' | 'choose';
 
 // What the steps of a stage did after its first (#1863): the cards an automatic draw drew, and whether the draw
 // deck was shuffled. A download is read as shuffled unless `shuffled` is false, as every download before #1863 was.
@@ -178,6 +178,8 @@ export type EffectStepRecord = EffectStepTail &
     | { step: 'score'; points: number }
     // An exchange (#1765): the hand's personnel and the table's; `replaced` when the table's went to the discard pile.
     | { step: 'exchange'; fromHand: string; fromTable: string; replaced?: true }
+    // A recorded choice (#1837, Renewal Scroll): the skill chosen, kept on the order's card.
+    | { step: 'choose'; skill: string }
     | { step: EffectRecordStepName; skipped: true }
   );
 
@@ -461,6 +463,8 @@ export interface OrderCostRecord {
   discarded?: string[];
   stopped?: string[];
   placed?: string[];
+  // The cards of the discard pile placed on the order's own card (#1837, Renewal Scroll).
+  placedOnThis?: string[];
 }
 
 // The card on the table a use acted on (#1713).
@@ -2665,6 +2669,8 @@ export interface EffectStepInput {
   tableId?: string;
   order?: string[];
   ruleWarnings?: RuleWarning[];
+  /** The skill a `chooseSkill` step records (#1837). */
+  skill?: string;
 }
 
 // The effect a stage applies to (#1863): the resolving event when one resolves, as the page shows it, otherwise
@@ -2711,7 +2717,13 @@ export function effectSubjectOf(state: { table: TableState; log: LogEntry[] }): 
 
 /** The name a record gives the stage led by `step` (#1863). */
 export const recordStepName = (step: EffectStep): EffectRecordStepName =>
-  step.kind === 'discardFromHand' || step.kind === 'discardTop' ? 'discard' : step.kind === 'bottomFromHand' ? 'bottom' : step.kind;
+  step.kind === 'discardFromHand' || step.kind === 'discardTop'
+    ? 'discard'
+    : step.kind === 'bottomFromHand'
+      ? 'bottom'
+      : step.kind === 'chooseSkill'
+        ? 'choose'
+        : step.kind;
 
 // Draws up to `wanted` cards free, as many as the draw deck holds, and gives the real count, 0 included.
 function drawFree(table: TableState, wanted: number): { table: TableState; count: number } {
@@ -2869,6 +2881,14 @@ function runStage(
       table = boarded;
       if (cost !== null) played = move;
       record = { step: 'download', cards: names, ...(cost === null ? { placed: `aboard ${cardName(start, ship.id)}` } : {}), ...unshuffled };
+      continue;
+    }
+    if (step.kind === 'chooseSkill') {
+      // Renewal Scroll (#1837): one skill of the card the order's cost placed on its card, kept on that card.
+      if (subject.kind !== 'order' || typeof input.skill !== 'string') return null;
+      if (!chooseSkillOptions(table, subject.pending.id, step).includes(input.skill)) return null;
+      table = tableReducer(table, { type: 'setNamed', id: subject.pending.id, named: input.skill });
+      record = { step: 'choose', skill: input.skill };
       continue;
     }
     if (step.kind === 'score') {
@@ -3065,7 +3085,7 @@ function missionSpendState(
   return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
 }
 
-const EFFECT_RECORD_STEP_NAMES: ReadonlySet<string> = new Set<EffectRecordStepName>(['draw', 'discard', 'bottom', 'examine', 'download', 'shuffle', 'score', 'exchange']);
+const EFFECT_RECORD_STEP_NAMES: ReadonlySet<string> = new Set<EffectRecordStepName>(['draw', 'discard', 'bottom', 'examine', 'download', 'shuffle', 'score', 'exchange', 'choose']);
 
 const isNames = (value: unknown): value is string[] => Array.isArray(value) && value.every((c) => typeof c === 'string');
 
@@ -3080,6 +3100,7 @@ const isEffectStepRecord = (step: unknown): step is EffectStepRecord => {
   if (s.step === 'shuffle') return true;
   if (s.step === 'examine') return isIndex(s.bottom) && isNames(s.taken);
   if (s.step === 'exchange') return typeof s.fromHand === 'string' && typeof s.fromTable === 'string';
+  if (s.step === 'choose') return typeof s.skill === 'string' && s.skill !== '';
   return isNames(s.cards);
 };
 
@@ -3135,6 +3156,8 @@ function effectStageClauses(s: EffectStepRecord, event?: string): string[] {
         return s.replaced === true
           ? [`replaced ${s.fromTable} with ${s.fromHand}`, `${s.fromTable} went to the discard pile`]
           : [`exchanged ${s.fromHand} for ${s.fromTable}`];
+      case 'choose':
+        return [`chose ${s.skill}`];
     }
   })();
   return [
@@ -3522,6 +3545,9 @@ function orderUseState(state: GameState, action: { id: string; order: number; id
     } else if (cost.kind === 'stopPersonnel') {
       table = tableReducer(table, { type: 'setStopped', ids, stopped: true });
       record = { stopped: names };
+    } else if (cost.kind === 'placeFromDiscardOnThis') {
+      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: { zone: 'on', targetId: action.id } }), table);
+      record = { placedOnThis: names };
     } else {
       table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), table);
       record = { placed: names };
@@ -3584,6 +3610,7 @@ function orderUsedText(entry: Extract<LogEntry, { kind: 'orderUsed' }>): string 
     ...(isNames(cost.discarded) && cost.discarded.length ? [`discarded ${cardsText(cost.discarded)}`] : []),
     ...(isNames(cost.stopped) && cost.stopped.length ? [`stopped ${cardsText(cost.stopped)}`] : []),
     ...(isNames(cost.placed) && cost.placed.length ? [`placed ${cardsText(cost.placed)} on the bottom of the draw deck`] : []),
+    ...(isNames(cost.placedOnThis) && cost.placedOnThis.length ? [`placed ${cardsText(cost.placedOnThis)} on it`] : []),
   ];
   const steps = isPlayEffectRecord(entry.effect) ? orderStepsText(entry.effect) : '';
   const parts = [...costParts, ...(steps ? [steps] : [])];

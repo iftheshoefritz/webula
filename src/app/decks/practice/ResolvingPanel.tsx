@@ -73,6 +73,8 @@ export type ResolveStep =
   | { step: 'discardFromHand'; count: number; hand: CardInstance[]; onDiscard: (ids: string[]) => void }
   // The score of a played card (#1812): `points` to the score.
   | { step: 'score'; points: number; onScore: () => void }
+  // A recorded choice (#1837, Renewal Scroll): one of the `skills` of the `card` the order placed on its card.
+  | { step: 'chooseSkill'; card?: CardInstance; skills: string[]; onChoose: (skill: string) => void }
   // The cost of an order (#1866), before the order is used: `count` of the `cards` it may take, "Discard a [Car]
   // ship from hand", and a button, `action` ("Discard"), that pays it and uses the order.
   | { step: 'orderCost'; task: string; action: string; count: number; cards: CardInstance[]; onPay: (ids: string[]) => void }
@@ -677,6 +679,45 @@ function OrderCostStep({ step }: { step: Extract<ResolveStep, { step: 'orderCost
   );
 }
 
+// A recorded choice (#1837): the skills of the card the order placed, a tap picks one (another tap moves the pick),
+// and the button records it. With no skill to choose it says so, and Skip or Done ends the order.
+function ChooseSkillStep({ step }: { step: Extract<ResolveStep, { step: 'chooseSkill' }> }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const chosen = picked && step.skills.includes(picked) ? picked : null;
+  const of = step.card ? cardDisplayName(step.card.card) : 'the placed card';
+  return (
+    <div data-testid="resolve-step-choose-skill" className="flex min-h-0 flex-col gap-2">
+      <p className="text-sm text-text-primary">{step.skills.length ? `Choose a skill of ${of}` : `${of} has no skill to choose.`}</p>
+      <div className="flex flex-wrap gap-1">
+        {step.skills.map((skill) => (
+          <button
+            key={skill}
+            type="button"
+            data-testid="resolve-skill"
+            data-skill={skill}
+            aria-pressed={chosen === skill}
+            className={`rounded-full border px-2 py-0.5 text-xs ${chosen === skill ? 'border-accent bg-accent text-white' : 'border-bg-raised text-text-primary'}`}
+            onClick={() => setPicked(skill)}
+          >
+            {skill}
+          </button>
+        ))}
+      </div>
+      {step.skills.length > 0 && (
+        <button
+          type="button"
+          data-testid="resolve-choose-skill"
+          className="btn-primary w-full whitespace-nowrap text-sm"
+          disabled={!chosen}
+          onClick={() => chosen && step.onChoose(chosen)}
+        >
+          {chosen ? `Choose ${chosen}` : 'Choose a skill'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // The score of a played card (#1812): the points, and one button that adds them to the score.
 function ScoreStep({ step }: { step: Extract<ResolveStep, { step: 'score' }> }) {
   return (
@@ -917,6 +958,8 @@ export function ResolvingPanel({
               <DrawUpToStep key={`draw-up-to-${instance.id}`} step={step} />
             ) : step.step === 'score' ? (
               <ScoreStep step={step} />
+            ) : step.step === 'chooseSkill' ? (
+              <ChooseSkillStep key={`choose-skill-${instance.id}`} step={step} />
             ) : step.step === 'examineTake' ? (
               <ExamineTakeStep key={`examine-${instance.id}`} step={step} />
             ) : step.step === 'downloadCards' ? (

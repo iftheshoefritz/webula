@@ -316,8 +316,12 @@ export const PRACTICE_ORDERS_TSV = `1\tIndebtedness
 1\tRule of Acquisition #6
 1\tDamar Ambitious Glinn
 1\tQuark Resistance Informant
-1\tGalor`;
-export const PRACTICE_ORDERS_CORE = ['Indebtedness', 'Optimism', 'Rule of Acquisition #6'];
+1\tGalor
+1\tRenewal Scroll
+1\tKira Nerys The Intendant`;
+// Renewal Scroll (#1837) ends the core, and Kira Nerys The Intendant, a personnel for its order, is in the discard pile.
+export const PRACTICE_ORDERS_CORE = ['Indebtedness', 'Optimism', 'Rule of Acquisition #6', 'Renewal Scroll'];
+export const PRACTICE_ORDERS_DISCARD = ['Kira Nerys The Intendant'];
 export const PRACTICE_ORDERS_CREW = ['Damar Ambitious Glinn', 'Quark Resistance Informant'];
 export const PRACTICE_ORDERS_HAND = ['Galor'];
 // The cards `?fixture=permissions` (#1916) adds to the `?fixture=piles` table: Particle 010, whose play needs three
