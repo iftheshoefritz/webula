@@ -81,6 +81,9 @@ import {
   PRACTICE_60S_DRAW_TOP,
   PRACTICE_60S_HAND,
   PRACTICE_60S_TSV,
+  PRACTICE_PERMISSIONS_CORE,
+  PRACTICE_PERMISSIONS_HAND,
+  PRACTICE_PERMISSIONS_TSV,
   PRACTICE_RECALL_TSV,
   PRACTICE_KMTAR_TSV,
   PRACTICE_TAIN_HAND,
@@ -2444,6 +2447,9 @@ function PracticeDrawContent() {
   // `?fixture=60s` (#1826) deals the piles table with Blue Skies in the core, and Tavana, Qartum, The Crossing and a
   // Federation personnel at the end of the hand.
   const is60sFixture = fixture === '60s';
+  // `?fixture=permissions` (#1916) deals the piles table with Particle 010 at the end of the hand and Rule of
+  // Acquisition #6 in the core, for the warnings of a play requirement and of a spend of counters to draw.
+  const isPermissionsFixture = fixture === 'permissions';
   // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
   // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
   // the dilemma choice, with no stack.
@@ -2481,6 +2487,7 @@ function PracticeDrawContent() {
     isUniqueFixture ||
     isDownloadsFixture ||
     is60sFixture ||
+    isPermissionsFixture ||
     isAttemptFixture ||
     isBotFixture;
   const gameKey = practiceGameKey(isFixture ? fixture : null);
@@ -3283,7 +3290,9 @@ function PracticeDrawContent() {
                     ? downloadsFixtureExtras()
                     : is60sFixture
                       ? sixtySFixtureExtras()
-                      : null
+                      : isPermissionsFixture
+                        ? permissionsFixtureExtras()
+                        : null
       : null;
     const extraKeys = new Set(
       extras
@@ -3456,6 +3465,12 @@ function PracticeDrawContent() {
       drawTop: named(PRACTICE_DISSIDENT_DRAW_TOP),
     };
   };
+  // The cards `?fixture=permissions` adds (#1916): Rule of Acquisition #6 to the core, Particle 010 to the end of the hand.
+  const permissionsFixtureExtras = () => {
+    const rows = extractDrawDeck(deckFromTsv(PRACTICE_PERMISSIONS_TSV, data));
+    const named = (names: string[]) => names.flatMap((name) => rows.filter((r: any) => r.originalName === name));
+    return { hand: [] as any[], crew: [] as any[], core: named(PRACTICE_PERMISSIONS_CORE), lateHand: named(PRACTICE_PERMISSIONS_HAND) };
+  };
   // The cards `?fixture=orders` adds (#1866): three events to the core, two personnel to the crew, a ship to the
   // end of the hand.
   const ordersFixtureExtras = () => {
@@ -3542,6 +3557,7 @@ function PracticeDrawContent() {
     if (isUniqueFixture) return { ...deck, ...deckFromTsv(PRACTICE_UNIQUE_TSV, data) };
     if (isDownloadsFixture) return { ...deck, ...deckFromTsv(PRACTICE_DOWNLOADS_TSV, data) };
     if (is60sFixture) return { ...deck, ...deckFromTsv(PRACTICE_60S_TSV, data) };
+    if (isPermissionsFixture) return { ...deck, ...deckFromTsv(PRACTICE_PERMISSIONS_TSV, data) };
     if (!isBotFixture) return deck;
     const botDeck = {
       ...mergeDeckPiles(deck, chulaPileDeck(data), ['dilemmaPile']),
@@ -3637,6 +3653,7 @@ function PracticeDrawContent() {
           isUniqueFixture ||
           isDownloadsFixture ||
           is60sFixture ||
+          isPermissionsFixture ||
           isAttemptFixture ||
           isBotFixture,
         attemptFixturePhase,

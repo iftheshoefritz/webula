@@ -338,7 +338,7 @@ export type TableAction =
   // pile in the order the page chose (#1401), so the reducer calls no random function.
   // `cost` is the charge of the draw in the play and draw segment (#1606, `drawCharge`), which the
   // page adds before the dispatch for the log. The reducer ignores it, as it ignores `counted`.
-  | { type: 'drawCard'; from: FlatZone; to: FlatZone; counted?: boolean; order?: string[]; cost?: number }
+  | { type: 'drawCard'; from: FlatZone; to: FlatZone; counted?: boolean; order?: string[]; cost?: number; ruleWarnings?: RuleWarning[] }
   // `position` chooses which end of the destination array the moved card lands on: 'bottom'
   // (the default, when omitted) keeps every existing call site's behaviour — the moved card (and
   // any crew it releases) goes after the destination's existing cards, same as always. 'top'
