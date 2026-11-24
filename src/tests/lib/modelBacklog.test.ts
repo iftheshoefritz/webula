@@ -106,6 +106,9 @@ export const ongoingModelledToday: SentenceModelledBy = (title, _card, { text, g
       return true;
     case 'attributes':
       return MODIFIERS.has(key);
+    case 'gain':
+      // A skill another personnel gains (#1836).
+      return modifierTitles(['skills']).has(key);
     case 'counterSpend':
       return COST_REGISTRY.has(title) || COST_ROW_TITLES.has(key);
     default:

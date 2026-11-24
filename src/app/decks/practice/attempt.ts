@@ -30,7 +30,8 @@ import { shipRangeOnTable } from './shipRange';
 import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
 import { addedRequirements, replacedRequirementsOf, requirementTextWith } from '../../../lib/requirementRules';
 import { ROADBLOCK_TITLE, roadblockReturnOf } from './selfReplicatingRoadblock';
-import { tableViewOf } from './tableView';
+import { modifierCardOf, tableReadOf, tableViewOf } from './tableView';
+import { skillsGainedOf } from '../../../lib/modifiers';
 import type { TableView, ViewMission, ViewTableCard } from '../../../lib/tableView';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -305,9 +306,13 @@ export function revealPicksOf(table: TableState, rand: Rand): string[][] | undef
 // A personnel's row with its Integrity, Cunning and Strength on the table (#1665), the attribute
 // models of #1664 added to the printed values, when `cardText` is on; the row as it is otherwise, and
 // for any card that is not a personnel. The attribute models read the `TableState` and its instance.
+// The skills the cards on the table give it (#1836), `skillsGainedOf`, follow its printed skills, so the bot counts a
+// skill it gains as one more level.
 function personnelRowOnTable(table: TableState, card: CardInstance | undefined, row: CardInstance['card'], cardText: boolean): CardInstance['card'] {
   if (!cardText || !card || row?.type !== 'personnel') return row;
-  return { ...row, ...personnelAttributesOnTable(table, card, true) };
+  const gained = skillsGainedOf(tableReadOf(table).view, modifierCardOf(card));
+  const skills = gained.length ? { skills: [String(row.skills ?? '').trim(), ...gained].filter(Boolean).join(' ') } : {};
+  return { ...row, ...personnelAttributesOnTable(table, card, true), ...skills };
 }
 
 // A ship's row with its Range, Weapons and Shields on the table (#1665) when `cardText` is on.

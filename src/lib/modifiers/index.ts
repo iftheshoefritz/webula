@@ -7,7 +7,7 @@
 // (#1298); `attributeModels.ts` and `shipRange.ts` keep the public readers and build the view once.
 
 import type { TableView, ViewCard, ViewMission, ViewShip, ViewTableCard } from '../tableView';
-import { personnel } from '../tableView';
+import { cardHasTraits, personnel } from '../tableView';
 import { countedAmount, PERMISSION_QUANTITIES } from './model';
 import type { AmountContext, AmountQuantity, CountedChange, Delta, ModifierCard, ModifierRow, PermissionQuantity, Quantity, SourcePlace, TargetRelation } from './model';
 import { ATTRIBUTE_ROWS } from './titles/attributes';
@@ -15,11 +15,12 @@ import { EVENT_AND_MISSION_ROWS } from './titles/eventsAndMissions';
 import { PERMISSION_ROWS } from './titles/permissions';
 import { SHIP_ROWS } from './titles/ships';
 import { SPAN_ROWS } from './titles/span';
+import { SKILL_ROWS } from './titles/skills';
 import { isEquipment, isPersonnel, printedOf, rowTitleKey } from './words';
 
 export * from './model';
 
-const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span' | 'cost' | 'counterLimit' | PermissionQuantity, [SourcePlace, TargetRelation][]> = {
+const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span' | 'cost' | 'counterLimit' | 'skills' | PermissionQuantity, [SourcePlace, TargetRelation][]> = {
   attributes: [
     ['self', 'self'],
     ['group', 'group'],
@@ -66,6 +67,13 @@ const AMOUNT_PLACES: Record<'attributes' | 'range' | 'span' | 'cost' | 'counterL
     ['core', 'attempting'],
   ],
   spendToDraw: [['core', 'turnLimit']],
+  // The skill gains (#1836), read by `skillsGainedOf`: an equipment or a personnel of a group gives its group ("your
+  // personnel present"), a ship its crew ("aboard this ship"), and a core event every personnel.
+  skills: [
+    ['group', 'group'],
+    ['shipRow', 'crew'],
+    ['core', 'any'],
+  ],
 };
 
 const isPermission = (q: Quantity): q is PermissionQuantity => (PERMISSION_QUANTITIES as readonly Quantity[]).includes(q);
@@ -77,12 +85,12 @@ const familyOf = (q: Quantity): keyof typeof AMOUNT_PLACES =>
       ? 'range'
       : q === 'span' || q === 'quadrantWaiver'
         ? 'span'
-        : q === 'cost' || q === 'counterLimit'
+        : q === 'cost' || q === 'counterLimit' || q === 'skills'
           ? q
           : 'attributes';
 
 /** Every row, by title: the amounts, the span, and the permissions (#1916). */
-export const MODIFIER_ROWS: readonly ModifierRow[] = [...ATTRIBUTE_ROWS, ...EVENT_AND_MISSION_ROWS, ...SHIP_ROWS, ...SPAN_ROWS, ...PERMISSION_ROWS];
+export const MODIFIER_ROWS: readonly ModifierRow[] = [...ATTRIBUTE_ROWS, ...EVENT_AND_MISSION_ROWS, ...SHIP_ROWS, ...SPAN_ROWS, ...PERMISSION_ROWS, ...SKILL_ROWS];
 
 // Why a cost row's scope or its once-per-title does not fit what its evaluator reads (#1888), or null: a
 // `nextPlay` row is a discount the card's own play leaves, every other cost row a change while its card stands, and
@@ -277,6 +285,35 @@ export function attributeOf(view: TableView, target: ModifierCard, quantity: Exc
 /** The sum of the changes of `quantity` an ability made to the card `id` for the rest of the attempt (#1835). */
 export const timedOf = (view: TableView, id: string, quantity: AmountQuantity): number =>
   (view.timed ?? []).reduce((sum, t) => sum + (t.targetId === id ? (t.changes[quantity] ?? 0) : 0), 0);
+
+/**
+ * The skills `target`, a personnel of an away team or a crew, gains on the table (#1836): the `skills` rows of each
+ * personnel and equipment of its group, of its ship for a crew, and of each core event, whose condition holds and
+ * whose `who` and `where` it passes, in that order. Each skill once per level a row gives; a card off the table
+ * gains none.
+ */
+export function skillsGainedOf(view: TableView, target: ModifierCard): string[] {
+  const place = groupOf(view, target.id);
+  if (!place || !isPersonnel(place.card)) return [];
+  const self = place.card;
+  const rangeOfShip = (s: ModifierCard) => rangeOf(view, s);
+  const c = { rangeOf: rangeOfShip, target: self, slot: place.slot, group: place.group, ship: place.ship };
+  const gained: string[] = [];
+  const add = (card: ViewCard, source: SourcePlace, relation: TargetRelation) => {
+    for (const r of rowsAt(view, card, source, relation, 'skills')) {
+      const g = r.changes.skills!;
+      const { unique, ...traits } = g.who ?? {};
+      if (unique !== undefined && self.unique !== unique) continue;
+      if (Object.keys(traits).length && !cardHasTraits(traits, self)) continue;
+      if (g.where && !g.where({ ...c, view, source: card })) continue;
+      gained.push(...g.gain);
+    }
+  };
+  for (const source of place.group) if (isPersonnel(source) || isEquipment(source)) add(source, 'group', 'group');
+  if (place.ship) add(place.ship, 'shipRow', 'crew');
+  for (const event of view.core) add(event, 'core', 'any');
+  return gained;
+}
 
 /** What a move adds between two different quadrants (#1635). */
 export const QUADRANT_SPAN = 2;
