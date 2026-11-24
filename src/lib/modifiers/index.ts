@@ -232,7 +232,7 @@ export function rangeOf(view: TableView, target: ModifierCard): number {
     for (const p of personnel(view, { unstopped: false })) range.add(view, p, 'commanded', 'shipsOnRows', c);
     for (const event of view.core) range.add(view, event, 'core', 'shipsOnRows', c);
   }
-  return Math.max(0, printedOf(ship, 'range') + range.total());
+  return Math.max(0, printedOf(ship, 'range') + range.total() + timedOf(view, ship.id, 'range'));
 }
 
 /**
@@ -271,8 +271,12 @@ export function attributeOf(view: TableView, target: ModifierCard, quantity: Exc
     for (const event of onRow.ship.placedOn) sum.add(view, event, 'placedOnShip', 'itsShip', c);
     for (const p of personnel(view, { unstopped: false })) sum.add(view, p, 'commanded', 'shipsOnRows', c);
   }
-  return Math.max(0, printedOf(target, quantity) + sum.total());
+  return Math.max(0, printedOf(target, quantity) + sum.total() + timedOf(view, target.id, quantity));
 }
+
+/** The sum of the changes of `quantity` an ability made to the card `id` for the rest of the attempt (#1835). */
+export const timedOf = (view: TableView, id: string, quantity: AmountQuantity): number =>
+  (view.timed ?? []).reduce((sum, t) => sum + (t.targetId === id ? (t.changes[quantity] ?? 0) : 0), 0);
 
 /** What a move adds between two different quadrants (#1635). */
 export const QUADRANT_SPAN = 2;

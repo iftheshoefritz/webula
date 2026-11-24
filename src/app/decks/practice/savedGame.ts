@@ -257,6 +257,20 @@ const isValidRevealSnapshot = (snapshot: unknown): boolean =>
   // The roll at the reveal (#1594).
   (snapshot.picks === undefined || (Array.isArray(snapshot.picks) && snapshot.picks.every(isIdList)));
 
+// The changes an ability made for the rest of the attempt (#1835): ids, a title and numbers.
+const TIMED_QUANTITIES = ['integrity', 'cunning', 'strength', 'range', 'weapons', 'shields'];
+const isValidTimed = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.every(
+    (t: unknown) =>
+      isObject(t) &&
+      typeof t.title === 'string' &&
+      typeof t.sourceId === 'string' &&
+      typeof t.targetId === 'string' &&
+      isObject(t.changes) &&
+      Object.entries(t.changes).every(([q, n]) => TIMED_QUANTITIES.includes(q) && typeof n === 'number' && Number.isFinite(n))
+  );
+
 const isFlag = (value: unknown) => value === undefined || value === true;
 const isWhole = (value: unknown) => typeof value === 'number' && Number.isInteger(value);
 const isTriple = (value: unknown) => Array.isArray(value) && value.length === 3 && value.every(isWhole);
@@ -318,6 +332,10 @@ function repairTable(table: TableState): TableState {
   // A malformed reveal snapshot (#1587) drops alone, and the attempt stays.
   if (table.attempt && table.attempt.revealSnapshot !== undefined && !isValidRevealSnapshot(table.attempt.revealSnapshot)) {
     delete table.attempt.revealSnapshot;
+  }
+  // Malformed timed changes (#1835) drop alone, and the attempt stays.
+  if (table.attempt && table.attempt.timed !== undefined && !isValidTimed(table.attempt.timed)) {
+    delete table.attempt.timed;
   }
   // Malformed modifiers (#1597) drop alone, from the attempt or from its snapshot, and the attempt stays.
   if (table.attempt && table.attempt.modifiers !== undefined && !isValidModifiers(table.attempt.modifiers)) {

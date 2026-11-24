@@ -5,6 +5,7 @@ import { cardTitleOf } from '../cardTitle';
 import type { GameEventKind, TriggerRow } from './model';
 import { BOT_TRIGGER_ROWS } from './titles/bot';
 import { COMPLETION_TRIGGER_ROWS } from './titles/completion';
+import { DELAYED_TRIGGER_ROWS } from './titles/delayed';
 import { PERSONNEL_TRIGGER_ROWS } from './titles/personnel';
 import { PLAY_TRIGGER_ROWS } from './titles/play';
 import { REVEAL_TRIGGER_ROWS } from './titles/reveal';
@@ -24,6 +25,7 @@ export const TRIGGER_ROWS: readonly TriggerRow[] = [
   ...PERSONNEL_TRIGGER_ROWS,
   ...REVEAL_TRIGGER_ROWS,
   ...BOT_TRIGGER_ROWS,
+  ...DELAYED_TRIGGER_ROWS,
 ];
 
 const BY_TITLE = new Map<string, TriggerRow[]>();

@@ -112,7 +112,13 @@ export interface TriggerEvent<K extends GameEventKind = GameEventKind> {
 }
 
 /** What using the trigger costs: destroy or discard the source, discard N cards from hand, or stop the source. */
-export type TriggerUseCost = { kind: 'destroySelf' } | { kind: 'discardSelf' } | { kind: 'discardFromHand'; count: number } | { kind: 'stopSelf' };
+export type TriggerUseCost =
+  | { kind: 'destroySelf' }
+  | { kind: 'discardSelf' }
+  | { kind: 'discardFromHand'; count: number }
+  | { kind: 'stopSelf' }
+  // The source is killed: to the discard pile (#1835).
+  | { kind: 'killSelf' };
 
 /**
  * A step only the bot takes (#1906), from a `botDeck` row: Unexpected Difficulties's "return the drawn dilemmas to
@@ -157,6 +163,12 @@ export interface TriggerRow {
    * offered once per event in any case.
    */
   limit?: UseLimit;
+  /**
+   * A delayed trigger (#1835): the row is offered only when the source card used its attempt ability of this index
+   * in the turn before the `turnStarted` event, with a kill at the end of the turn, as its `attemptAbilityUsed`
+   * entry records.
+   */
+  afterAbility?: number;
   steps: TriggerStep[];
 }
 

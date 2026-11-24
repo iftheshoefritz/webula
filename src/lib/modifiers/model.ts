@@ -273,3 +273,18 @@ export function rowLimits(r: Pick<ModifierRow, 'changes'>): number[] {
   if (typeof cost === 'function' && cost.counted?.limit !== undefined) limits.push(cost.counted.limit);
   return limits;
 }
+
+/**
+ * A change an effect made for the rest of the attempt (#1835): "make the ship he is aboard Weapons +5 until the end
+ * of this mission attempt". Plain numbers, so the save keeps it on `Attempt.timed` and `endAttempt` ends it; the
+ * view carries it (`TableView.timed`), and `attributeOf` and `rangeOf` add it to the card of `targetId`.
+ */
+export interface TimedChange {
+  /** The title of the card whose ability made it. */
+  title: string;
+  /** The instance id of that card. */
+  sourceId: string;
+  /** The instance id of the card it changes. */
+  targetId: string;
+  changes: Partial<Record<AmountQuantity, number>>;
+}

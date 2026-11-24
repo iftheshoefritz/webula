@@ -127,7 +127,7 @@ const eventsOf = (table: Pick<TableState, 'core' | 'missions'>): ViewEvent[] => 
  * a `TableState` optional. The range and attribute readers take such a part of the table.
  */
 export type TableViewInput = Pick<TableState, 'missions' | 'core' | 'hand' | 'discard' | 'brig'> &
-  Partial<Pick<TableState, 'drawDeck' | 'dilemmaPile' | 'score' | 'turn' | 'segment' | 'opponent' | 'botPile' | 'rangeUsed'>>;
+  Partial<Pick<TableState, 'drawDeck' | 'dilemmaPile' | 'score' | 'turn' | 'segment' | 'opponent' | 'botPile' | 'rangeUsed' | 'attempt'>>;
 
 /** The table view of a part of the table: the piles it lacks are empty, its turn 1 in play and draw, its score 0. */
 export function tableViewOfInput(table: TableViewInput, pending: PendingDiscount[] = [], plays: CostTurnPlay[] = []): TableView {
@@ -148,6 +148,8 @@ export function tableViewOfInput(table: TableViewInput, pending: PendingDiscount
     segment: table.segment ?? 'playAndDraw',
     rangeUsed: table.rangeUsed ?? {},
     ...(table.botPile ? { botPile: table.botPile } : {}),
+    // The changes an ability made for the rest of the attempt (#1835).
+    ...(table.attempt?.timed?.length ? { timed: table.attempt.timed } : {}),
     plays,
     pending,
   };

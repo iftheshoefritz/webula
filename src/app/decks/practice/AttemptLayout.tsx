@@ -88,11 +88,21 @@ import { VIEW_FULL_TABLE_HOLD_ID } from './viewFullTableHold';
 
 export { VIEW_FULL_TABLE_HOLD_ID };
 
+/** One attempt ability's button (#1835): the card's id, its words, its clause, and its use. */
+export interface AttemptAbilityButton {
+  key: string;
+  cardId: string;
+  label: string;
+  title: string;
+  onUse: () => void;
+}
+
 export default function AttemptLayout({
   parked = false,
   viewFullTableHoldEnabled = false,
   modifiersText = '',
   donePrompt = null,
+  abilities = [],
   attempt,
   slot,
   sizes,
@@ -132,6 +142,8 @@ export default function AttemptLayout({
   // The prompt by Done (#1600, #1760, `attemptDonePromptText`), "No one left" or "Stack overcome": Done is
   // emphasised, with the prompt. Null: none.
   donePrompt?: string | null;
+  // The attempt abilities the table offers (#1835), one button each: "Storil: Weapons +5".
+  abilities?: AttemptAbilityButton[];
   attempt: Attempt;
   slot: MissionSlot;
   sizes: AttemptSizes;
@@ -339,6 +351,19 @@ export default function AttemptLayout({
             {modifiersText}
           </span>
         )}
+        {abilities.map((a) => (
+          <button
+            key={a.key}
+            type="button"
+            data-testid="attempt-ability"
+            data-source-id={a.cardId}
+            title={a.title}
+            onClick={a.onUse}
+            className="btn-primary shrink-0 whitespace-nowrap !px-2 !py-1 text-xs"
+          >
+            {a.label}
+          </button>
+        ))}
         {!botGame && attempt.phase === 'choose' && (
           <AttemptDrawDilemma attempt={attempt} canDraw={canDrawDilemma} onDraw={onDrawDilemma} />
         )}
