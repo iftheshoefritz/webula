@@ -12,6 +12,8 @@ import { moveSpanTotal, printedRange, printedSpan } from './shipRange';
 import { drawSpend } from './drawSpend';
 import type { RuleWarning } from './playRules';
 import { cardTitleOf } from '../../../lib/cardTitle';
+import { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE, triggerRowsOf, type GameEventOf, type TriggerContext } from '../../../lib/triggers';
+import { tableViewOf, viewCardOf } from './tableView';
 
 export type Face = 'up' | 'down';
 // The core and the brig (#603) are two more flat, top-level zones: the core for any card not at
@@ -966,9 +968,9 @@ export function resolvableSnapshot(table: TableState, dilemmaId: string): boolea
   return revealedTopCard(table)?.id === dilemmaId && snapshot?.dilemmaId === dilemmaId && !snapshot.resolved;
 }
 
-// The player cards that change the kept roll of a bot game's revealed top card (#1847).
-export const SELECT_AGAIN_TITLE = "Let's Try That Again, Shall We?";
-export const REPLACE_PICK_TITLE = 'Dessert Disaster';
+// The player cards that change the kept roll of a bot game's revealed top card (#1847), trigger rows since #1905
+// (`src/lib/triggers/titles/reveal.ts`).
+export { REPLACE_PICK_TITLE, SELECT_AGAIN_TITLE };
 
 const titled = (card: CardInstance, title: string) => !!card.card?.originalName && cardTitleOf(card.card.originalName) === title;
 const hasStaffingIcon = (card: CardInstance) => /\[(cmd|stf)\]/.test(String(card.card?.icons ?? '').toLowerCase());
@@ -981,18 +983,43 @@ function rolledSnapshotOf(table: TableState): RevealSnapshot | undefined {
   return snapshot;
 }
 
-// The copy of Let's Try That Again in the core that can select again (#1847), or undefined: the revealed
-// top card's own kind is planet (`dilemmatype` `p`, never a dual dilemma), and its roll is kept.
-export function selectAgainEventOf(table: TableState): CardInstance | undefined {
-  if (!rolledSnapshotOf(table) || revealedTopCard(table)?.card?.dilemmatype !== 'p') return undefined;
-  return table.core.find((c) => titled(c, SELECT_AGAIN_TITLE));
+// The standing reveal (#1905): the `dilemmaRevealed` event of the unresolved top card with a kept roll, as
+// `gameEventsOf` reads it at the flip, for as long as the card stays unresolved; null with none.
+function standingRevealOf(table: TableState): GameEventOf<'dilemmaRevealed'> | null {
+  const snapshot = rolledSnapshotOf(table);
+  const top = revealedTopCard(table);
+  if (!snapshot || !top) return null;
+  const name = top.card?.originalName ?? '';
+  return { kind: 'dilemmaRevealed', dilemma: { id: top.id, name }, dilemmaType: String(top.card?.dilemmatype ?? '').toLowerCase(), picks: snapshot.picks! };
 }
 
-// The swaps Dessert Disaster offers (#1847), or null: the copy in the hand, the picked personnel with no
-// staffing icon, and the unstopped, unpicked [Stf] personnel of the attempting row, by id.
+// The first card of `title` in its trigger row's source place (the core or the hand) whose row the standing reveal
+// fires (#1905), or undefined: the revealed card's buttons read the rows of `titles/reveal.ts` this way.
+function revealTriggerSourceOf(table: TableState, title: string): CardInstance | undefined {
+  const event = standingRevealOf(table);
+  const row = triggerRowsOf(title)[0];
+  if (!event || !row || row.event.kind !== 'dilemmaRevealed') return undefined;
+  const place = row.source === 'core' ? table.core : row.source === 'hand' ? table.hand : [];
+  const source = place.find((c) => titled(c, title));
+  if (!source) return undefined;
+  const view = tableViewOf(table);
+  const passes = !row.event.where || (row.event.where as (e: GameEventOf<'dilemmaRevealed'>, c: TriggerContext) => boolean)(event, { view, source: viewCardOf(source) });
+  return passes ? source : undefined;
+}
+
+// The copy of Let's Try That Again in the core that can select again (#1847), or undefined: its trigger row's
+// filter (#1905) holds for the revealed top card, whose own kind is planet (`dilemmatype` `p`, never a dual
+// dilemma), and whose roll is kept.
+export function selectAgainEventOf(table: TableState): CardInstance | undefined {
+  return revealTriggerSourceOf(table, SELECT_AGAIN_TITLE);
+}
+
+// The swaps Dessert Disaster offers (#1847), or null: the copy in the hand whose trigger row (#1905) the revealed
+// top card fires, the picked personnel with no staffing icon, and the unstopped, unpicked [Stf] personnel of the
+// attempting row, by id.
 export function replacePickOptionsOf(table: TableState): { cardId: string; from: string[]; to: string[] } | null {
   const snapshot = rolledSnapshotOf(table);
-  const interrupt = snapshot && table.hand.find((c) => titled(c, REPLACE_PICK_TITLE));
+  const interrupt = snapshot && revealTriggerSourceOf(table, REPLACE_PICK_TITLE);
   const { attempt } = table;
   if (!snapshot || !interrupt || !attempt) return null;
   const picked = new Set(snapshot.picks!.flat());
