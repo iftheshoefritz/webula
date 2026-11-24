@@ -15,7 +15,7 @@ import { cardTitleOf } from '../../../lib/cardTitle';
 import { dilemmaRequiresSkill } from '../../../lib/dilemmaBot/pile/requiresSkill';
 import { missionModelsWith, type DilemmaReveal } from '../../../lib/missionModels';
 import { revealedPileAttemptOf } from './attempt';
-import { LogEntry, effectiveLog } from './gameLog';
+import { LogEntry, abilityUsable, effectiveLog } from './gameLog';
 import { findInstanceAnywhere, type CardInstance, type TableState } from './tableReducer';
 
 // Sigma Iotia II is the prevent ability of its row in the mission registry (#1907); Tristan Adams, a personnel,
@@ -63,7 +63,7 @@ export function preventionOf(table: TableState, log: LogEntry[]): string | null 
   if (
     mission &&
     dilemmaTitleOf(mission) === SIGMA_IOTIA_TITLE &&
-    !(prevent.oncePerTurn && sigmaUsedThisTurn(log, table.turn, cardDisplayName(mission)))
+    abilityUsable(log, table.turn, { kind: 'prevent', mission: cardDisplayName(mission), prevented: SIGMA_IOTIA }, prevent.limit)
   ) {
     const pileAttempt = revealedPileAttemptOf(table);
     const first = pileAttempt
@@ -83,11 +83,6 @@ export function preventionOf(table: TableState, log: LogEntry[]): string | null 
     if (faces) return TRISTAN_ADAMS;
   }
   return null;
-}
-
-// Whether a Resolve this turn already used Sigma Iotia II at the mission named `mission`.
-function sigmaUsedThisTurn(log: LogEntry[], turn: number, mission: string): boolean {
-  return log.some((e) => e.kind === 'dilemmaResolved' && e.turn === turn && e.prevented === SIGMA_IOTIA && typeof e.went === 'string' && e.went.includes(mission));
 }
 
 /**
