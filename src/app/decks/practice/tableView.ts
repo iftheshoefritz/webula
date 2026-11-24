@@ -8,7 +8,7 @@ import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
 import type { CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
-import { personnel } from '../../../lib/tableView';
+import { personnel, regionsOf } from '../../../lib/tableView';
 import type { TableView, ViewCard, ViewEvent, ViewMission, ViewPileCard, ViewShip, ViewTableCard } from '../../../lib/tableView';
 import type { CardInstance, MissionSlot, TableState } from './tableReducer';
 
@@ -17,8 +17,7 @@ const text = (v: unknown): string => String(v ?? '').toLowerCase();
 /** The icons of an affiliation field that is a list of icons, "[fed][sf]"; a sentence gives none (#1696). */
 export const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(affiliation) ? (affiliation.match(/\[[a-z0-9]+\]/g) ?? []) : []);
 
-/** Every "Region: <name>." clause of a mission's keywords, lowercased (#1696). */
-export const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
+export { regionsOf } from '../../../lib/tableView';
 
 export const keywordsOf = (c: CardInstance): string[] => [
   ...new Set(

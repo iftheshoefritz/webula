@@ -20,11 +20,12 @@ export const QUADRANT_SPAN = SPAN_BETWEEN_QUADRANTS;
 // The span total of a move of `ship` from the mission of slot `fromIndex` to the mission of slot
 // `toIndex` (#1635): the printed spans of the two missions, plus 2 when both slots hold a mission and
 // their quadrants differ, unless a modifier row of either mission, of the ship or of an event in the
-// core waives it (#1648). An empty slot, or a mission with no quadrant, adds no 2. The rows of the
+// core waives it (#1648). An empty slot, or a mission with no quadrant, adds no 2. Two missions that share a
+// "Region: X" keyword take 2 off (#1941, Rulebook v4, "Order – Move a Ship", p. 10). The rows of the
 // core's events then take their reductions off the total, which never goes below 0, and last
 // set the total a move requires (Shadows of the Night, #1827): `spanOf` of `src/lib/modifiers` (#1887). With
 // `cardText` false, the setting "Apply card text to attributes" off (#1668), no row applies: the
-// printed spans, and the 2 between quadrants, a rule of the game.
+// printed spans, the 2 between quadrants and the 2 of a shared Region, rules of the game.
 export function moveSpanTotal(
   missions: MissionSlot[],
   fromIndex: number,

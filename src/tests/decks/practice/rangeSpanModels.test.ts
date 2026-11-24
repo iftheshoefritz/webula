@@ -59,6 +59,52 @@ describe('the span total of a move (#1635)', () => {
     expect(moveSpanTotal(t.missions, 2, 3, s)).toBe(6);
   });
 
+  // Rulebook v4, "2. Execute Orders" › "Order – Move a Ship", p. 10: "If the two missions have the same
+  // "Region: X" keyword, subtract two." (#1941)
+  describe('the same Region (#1941)', () => {
+    const inRegion = (name: string, quadrant: string, keywords: string, span = '2') =>
+      card(name, 'mission', { span, quadrant, keywords });
+
+    it('takes 2 off a move between two missions of the same Region, with card text on or off', () => {
+      const t = tableOf([
+        inRegion('Bajor', 'a', 'region: bajor system.', '2'),
+        inRegion('Second Moon', 'a', 'region: bajor system.', '3'),
+      ]);
+      expect(moveSpanTotal(t.missions, 0, 1, s)).toBe(3);
+      expect(moveSpanTotal(t.missions, 1, 0, s)).toBe(3);
+      expect(moveSpanTotal(t.missions, 0, 1, s, [], false)).toBe(3);
+    });
+
+    it('reads a Region among other keywords, in any case', () => {
+      const t = tableOf([
+        inRegion('Bajor', 'a', 'Bajoran Resistance. Region: Bajor System.'),
+        inRegion('Second Moon', 'a', 'region: bajor system.'),
+      ]);
+      expect(moveSpanTotal(t.missions, 0, 1, s)).toBe(2);
+    });
+
+    it('takes nothing off between two different Regions, or a Region and none', () => {
+      const t = tableOf([
+        inRegion('Bajor', 'a', 'region: bajor system.'),
+        inRegion('Neutral', 'a', 'region: neutral zone.'),
+        mission('Plain', 'a'),
+      ]);
+      expect(moveSpanTotal(t.missions, 0, 1, s)).toBe(4);
+      expect(moveSpanTotal(t.missions, 0, 2, s)).toBe(4);
+    });
+
+    it('adds the 2 between quadrants and takes the 2 of the Region on one move', () => {
+      const t = tableOf([inRegion('Here', 'a', 'region: badlands.'), inRegion('There', 'g', 'region: badlands.')]);
+      expect(moveSpanTotal(t.missions, 0, 1, s)).toBe(4);
+    });
+
+    it('never goes below 0', () => {
+      const t = tableOf([inRegion('One', 'a', 'region: x.', '0'), inRegion('Two', 'a', 'region: x.', '1')]);
+      expect(moveSpanTotal(t.missions, 0, 1, s)).toBe(0);
+      expect(moveSpanTotal(t.missions, 0, 1, s, [], false)).toBe(0);
+    });
+  });
+
   it('adds no 2 for a move to or from an empty slot', () => {
     const t = tableOf([mission('Gamma', 'g'), null]);
     expect(moveSpanTotal(t.missions, 0, 1, s)).toBe(2);
@@ -287,7 +333,8 @@ describe('the Range from the missions commanded (#1648)', () => {
     const nz = (name: string) => card(name, 'mission', { span: '1', quadrant: 'a', keywords: 'region: neutral zone.' });
     const two = tableOf([nz('One'), nz('Two'), mission('Alpha', 'a', '1')], [pi]);
     expect(shipRangeOnTable(two, pi)).toBe(9);
-    moveAgrees(two, pi, 1, 2, 7);
+    // To the mission with no Region: two Neutral Zone missions share a Region, so a move between them is 0 (#1941).
+    moveAgrees(two, pi, 2, 2, 7);
     expect(shipRangeOnTable(tableOf([nz('One'), nz('Two'), nz('Three'), nz('Four')]), pi)).toBe(10);
     expect(shipRangeOnTable(tableOf([mission('Alpha', 'a')]), pi)).toBe(7);
   });

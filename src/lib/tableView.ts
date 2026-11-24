@@ -21,6 +21,10 @@ import { differentAffiliations, type CostTurnPlay, type PendingDiscount } from '
 import type { TimedChange } from './modifiers/model';
 
 /** A row of the card data, lowercased by `parseCardData`, with its `originalName`. */
+/** Every "Region: <name>." clause of a mission's keywords, lowercased (#1696): "Region: Bajor System." gives "bajor system". */
+export const regionsOf = (keywords: string): string[] =>
+  [...keywords.toLowerCase().matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
+
 export type ViewRow = any;
 
 /** Any card of the view: its instance id, its title (`cardTitleOf` of `cardDisplayName`) and its row. */
