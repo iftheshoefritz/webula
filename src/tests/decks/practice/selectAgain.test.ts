@@ -21,6 +21,8 @@ import {
   tableReducer,
 } from '../../../app/decks/practice/tableReducer';
 import { gameReducer, initialGameState, logEntryText, withShuffleOrders } from '../../../app/decks/practice/gameLog';
+import { pendingTriggersOf } from '../../../app/decks/practice/triggers';
+import { TRIGGER_TITLES, onRevealedCard, triggerRowsOf } from '../../../lib/triggers';
 
 jest.mock('posthog-js', () => ({ capture: jest.fn() }));
 
@@ -193,5 +195,29 @@ describe('Dessert Disaster (#1847)', () => {
   it('keeps the fixture card pile of the select-again cards apart from the piles deal', () => {
     const rows = extractDrawDeck(deckFromTsv(PRACTICE_BOT_SELECT_AGAIN_TSV, data));
     expect(rows.map((r: any) => cardPileFor(r))).toEqual(['drawDeck', 'drawDeck']);
+  });
+});
+
+// #1905: both cards are trigger rows of `dilemmaRevealed`, taken on the revealed card's own buttons, never as chips.
+describe('the reveal trigger rows (#1905)', () => {
+  it('registers a row for each title, read on the revealed card', () => {
+    const select = triggerRowsOf(SELECT_AGAIN_TITLE);
+    const replace = triggerRowsOf(REPLACE_PICK_TITLE);
+    expect(select).toHaveLength(1);
+    expect(replace).toHaveLength(1);
+    expect(select[0]).toMatchObject({ source: 'core', may: true, useCost: { kind: 'destroySelf' }, event: { kind: 'dilemmaRevealed' } });
+    expect(replace[0]).toMatchObject({ source: 'hand', may: true, useCost: { kind: 'discardSelf' }, event: { kind: 'dilemmaRevealed' } });
+    expect(onRevealedCard(select[0])).toBe(true);
+    expect(onRevealedCard(replace[0])).toBe(true);
+    expect(TRIGGER_TITLES).toEqual(expect.arrayContaining([SELECT_AGAIN_TITLE, REPLACE_PICK_TITLE]));
+  });
+
+  it('lists no offer chip for either while the buttons show', () => {
+    const table = dealSelectAgain();
+    expect(selectAgainEventOf(table)).toBeDefined();
+    const log = [{ kind: 'flip', cards: [{ name: table.dilemmaStack[0].card.originalName, face: 'up' }] } as never];
+    const offers = pendingTriggersOf({ table, log });
+    expect(offers.map((o) => o.row.title)).not.toEqual(expect.arrayContaining([SELECT_AGAIN_TITLE]));
+    expect(offers.map((o) => o.row.title)).not.toEqual(expect.arrayContaining([REPLACE_PICK_TITLE]));
   });
 });

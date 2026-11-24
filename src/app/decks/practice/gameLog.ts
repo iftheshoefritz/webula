@@ -3590,7 +3590,8 @@ function triggerRecordOf(log: LogEntry[], entry: number): EffectStepRecord[] {
 }
 
 /** The steps of a trigger row the player runs: a `botDeck` row's bot-only step (#1906) is never one. */
-const triggerPlayerSteps = (row: TriggerRow): EffectStep[] => row.steps.filter((s): s is EffectStep => s.kind !== 'botRedrawDilemmas');
+const triggerPlayerSteps = (row: TriggerRow): EffectStep[] =>
+  row.steps.filter((s): s is EffectStep => s.kind !== 'botRedrawDilemmas' && s.kind !== 'selectAgain' && s.kind !== 'replacePick');
 
 /**
  * The trigger in progress (#1904), derived from the log so an undo, a redo and a reload agree: the latest
