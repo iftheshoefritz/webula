@@ -46,10 +46,12 @@ describe('the counted change (#1833)', () => {
 
 // The "(limit …)" phrases of a game text that cap a number, signed: "(limit +4)", "(limit -3/+3)", and "(limit 5)"
 // beside a cost reduction as −5. A use limit ("per turn") and a play rule ("one per ship") are no cap on a number,
-// and the pattern does not match them.
+// and the pattern does not match them. An "Order - …" sentence is an order's effect, which the order registry models
+// (#1866), and a modifier row never holds its cap (I.S.S. Avenger's "attributes +1 (limit +2)", #1916).
 function printedLimits(text: string): number[] {
   const limits: number[] = [];
   for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+    if (/^order\s*-/i.test(sentence)) continue;
     for (const m of sentence.matchAll(/\(limit ([+-]?\d+)(?:\/([+-]?\d+))?\)/gi)) {
       for (const part of [m[1], m[2]]) {
         if (part === undefined) continue;
@@ -79,6 +81,7 @@ describe('every printed "(limit N)" of a modelled title has its row limit (#1833
     expect(printedLimits('Integrity -1 and Strength +1 for each non-Bajoran present (limit -3/+3).')).toEqual([-3, 3]);
     expect(printedLimits('When you play this ship, it is cost -1 for each Borg you command (limit 5).')).toEqual([-5]);
     expect(printedLimits('Plays on your ship (limit one per ship). Order - (Limit 2 per turn)')).toEqual([]);
+    expect(printedLimits('Order - Discard a card from hand to make this ship attributes +1 (limit +2) until the end of the turn.')).toEqual([]);
   });
 
   it('finds the capped titles in the card data', () => {

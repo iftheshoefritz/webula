@@ -588,6 +588,26 @@ export function commands(selection: Selection | Selection[], what: string, optio
 }
 
 /**
+ * "You must not command <what>" (#1916): holds while `selection` selects nothing. A negated condition has no default
+ * words, so each card gives its own: "you must not command a headquarters mission".
+ */
+export function commandsNone(selection: Selection | Selection[], options: Required<ConditionOptions>): Condition {
+  return condition((view) => count(view, selection) === 0, () => options.text, options);
+}
+
+/**
+ * "You must command {<name>}" (#1916, They're Still Coming Through!'s {To Rule in Hell}): a card of that title, or
+ * of the title then its subtitle, in play (`inPlay`). It reads a table view; a `CostFacts` source never holds it.
+ */
+export function commandsCardTitled(name: string, options: ConditionOptions = {}): Condition {
+  return condition(
+    (reader) => !isSource(reader) && inPlay(reader).some((c) => isTitled(c.title, name)),
+    () => `you command {${name}}`,
+    options
+  );
+}
+
+/**
  * "For each <what> you command (limit `limit`)" (`forEach` in `commanded.ts`): holds for one or more, "you
  * command 6 Borg (limit 5)".
  */

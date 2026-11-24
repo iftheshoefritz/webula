@@ -26,6 +26,7 @@ import { orderModelOf } from '../../lib/orderModels';
 import { RESOLVE_MODELS } from '../../lib/resolveModels';
 import { TRIGGER_TITLES } from '../../lib/triggers';
 import { cardRows, shippedDecks } from './backlogData';
+import { draftMarkdown, draftReport } from '../../lib/cardDrafts';
 
 // The unified model backlog (#1861, part of #1860): every title the shipped decks play, its text split
 // into clauses, each clause filed under a gameplay concern and checked against that concern's registry.
@@ -259,6 +260,16 @@ describe('the coverage report', () => {
     if (out) {
       const md = coverageMarkdown(report);
       if (out.endsWith('.md')) writeFileSync(resolve(process.cwd(), out), md);
+      else console.log(md);
+    }
+    // The drafts of #1869: `CARD_DRAFTS=<path>.md` writes the review file, `CARD_DRAFTS=1` prints it; with
+    // `CARD_DRAFTS_SCOPE=all` it reads every title of the card data, one deck each, not only the shipped decks.
+    const drafts = process.env.CARD_DRAFTS;
+    if (drafts) {
+      const all = process.env.CARD_DRAFTS_SCOPE === 'all';
+      const scope = all ? coverageReport(cardRows(), [`Deck:\n${cardRows().map((r) => `1\t${r.name}`).join('\n')}\n`], modelledToday, ongoingModelledToday) : report;
+      const md = draftMarkdown(draftReport(scope));
+      if (drafts.endsWith('.md')) writeFileSync(resolve(process.cwd(), drafts), md);
       else console.log(md);
     }
   });

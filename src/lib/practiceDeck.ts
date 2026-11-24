@@ -315,6 +315,13 @@ export const PRACTICE_ORDERS_TSV = `1\tIndebtedness
 export const PRACTICE_ORDERS_CORE = ['Indebtedness', 'Optimism', 'Rule of Acquisition #6'];
 export const PRACTICE_ORDERS_CREW = ['Damar Ambitious Glinn', 'Quark Resistance Informant'];
 export const PRACTICE_ORDERS_HAND = ['Galor'];
+// The cards `?fixture=permissions` (#1916) adds to the `?fixture=piles` table: Particle 010, whose play needs three
+// [Bor] personnel, at the end of the hand, and Rule of Acquisition #6, which forbids a spend of counters to draw, at
+// the end of the core.
+export const PRACTICE_PERMISSIONS_TSV = `1\tParticle 010
+1\tRule of Acquisition #6`;
+export const PRACTICE_PERMISSIONS_CORE = ['Rule of Acquisition #6'];
+export const PRACTICE_PERMISSIONS_HAND = ['Particle 010'];
 // The cards `?fixture=triggers` (#1904) adds to the `?fixture=piles` table: VIP Welcome at the end of the core,
 // Enrique Muniz Dependable Troubleshooter at the end of the crew of the ship at Bilana System, U.S.S. Enterprise-E
 // Federation Envoy on the ship row of Moab IV, a [Fed] planet mission, so its completion offers the Envoy's score,
