@@ -2,7 +2,7 @@
 // of `titles/` build their rows from it with no import of `index.ts`, which imports them.
 
 import type { CostFacts, CostPlay, ModelCost } from '../costModels/model';
-import type { Condition, TableSource, TableView, ViewCard, ViewMission, ViewShip, ViewTableCard } from '../tableView';
+import type { Condition, TableSource, TableView, TraitQuery, ViewCard, ViewMission, ViewShip, ViewTableCard } from '../tableView';
 import type { CrewedCard } from './words';
 
 /** A personnel's attributes. */
@@ -15,7 +15,7 @@ export type AmountQuantity = PersonnelQuantity | ShipQuantity;
  * Every quantity: the amounts, the span total of a move and the 2 between quadrants it adds, the cost of a play
  * and the counters of the turn (#1888).
  */
-export type Quantity = AmountQuantity | 'span' | 'quadrantWaiver' | 'cost' | 'counterLimit' | PermissionQuantity;
+export type Quantity = AmountQuantity | 'span' | 'quadrantWaiver' | 'cost' | 'counterLimit' | 'skills' | PermissionQuantity;
 
 /**
  * The actions a permission allows or forbids (#1915): the play of the card ("To play this event, you must …"), the
@@ -203,6 +203,18 @@ export type LimitChange =
   | { grant: (c: LimitContext) => { amount: number; reason: string } | null; cap?: undefined }
   | { cap: (c: LimitContext) => { amount: number; reason: string } | null; grant?: undefined };
 
+/**
+ * The skills a row gives (#1836), added to a personnel's printed skills: "Each of your non-unique Science personnel
+ * present gains Exobiology, Programming, and Transporters." `gain` spells each skill as the card data does, once
+ * per level; `who` is the printed traits a target must have, and `unique` its uniqueness; `where` any other test,
+ * over the target and its place.
+ */
+export interface SkillGain {
+  gain: string[];
+  who?: TraitQuery & { unique?: boolean };
+  where?: (c: AmountContext) => boolean;
+}
+
 /** What a row changes: each quantity with its own change. One shared change is the same function under each. */
 export interface ModifierChanges extends Partial<Record<AmountQuantity, Delta>>, Partial<Record<PermissionQuantity, Permission>> {
   span?: SpanChange;
@@ -211,6 +223,8 @@ export interface ModifierChanges extends Partial<Record<AmountQuantity, Delta>>,
   /** The cost of a play: a change while the source stands, or the discount of the next play (`nextPlay`). */
   cost?: CostChange | NextPlayDiscount;
   counterLimit?: LimitChange;
+  /** The skills it gives (#1836). */
+  skills?: SkillGain;
 }
 
 export interface ModifierRow {
