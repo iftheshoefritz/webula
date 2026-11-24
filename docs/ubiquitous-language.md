@@ -4,6 +4,12 @@ This file maps the words of the *Star Trek* CCG Second Edition Rulebook (version
 April 2015, <https://www.trekcc.org/op/rulebook.pdf>) to the identifiers in this
 codebase.
 
+The rulebook's text is in [`docs/rulebook/`](rulebook/README.md) (#1939), one file
+per section, and the Glossary with one heading per entry. Read the rule there, not
+from memory, and when a model or a question depends on a rule, cite its section and
+page with a quote, for example: Rulebook v4, "2. Execute Orders" › "Facing
+Dilemmas", p. 11 ([07-execute-orders.md](rulebook/07-execute-orders.md)).
+
 Use it for two reasons:
 
 1. To name a new thing with the word the rulebook already uses.

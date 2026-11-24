@@ -70,6 +70,23 @@ concept the code does not model yet.
 The file also lists the places where the code uses a word differently from the
 rulebook, such as `pile`, `draw`, `deck` and `reportsto`.
 
+### The rulebook
+
+`docs/rulebook/` holds the text of the Second Edition Rulebook, version 4, April 2015
+(#1939), verbatim, one Markdown file per top-level section and the Glossary with one
+`##` heading per entry. `docs/rulebook/README.md` lists the files, the icon names
+(`[Fed]`, `[Cmd]` as in the card data) and how to find the page of a line. When a
+model, a test or the answer to a rules question depends on a rule, such as how an
+ability is timed, answer from these files, not from memory, and cite the section and
+the page with a quote, in the code comment, the issue or the pull request:
+
+```bash
+grep -rn "facing a dilemma" docs/rulebook/
+grep -n "^## " docs/rulebook/13-glossary.md   # the Glossary's entries
+```
+
+Later rulings of The Continuing Committee can override version 4.
+
 ### Deck Structure
 Decks are organized into three piles (see `docs/ubiquitous-language.md`):
 - `mission` - Mission cards
