@@ -199,6 +199,11 @@ describe('the trigger registry (#1903)', () => {
     for (const row of TRIGGER_ROWS) {
       const data = cards.get(row.title);
       expect([row.title, data !== undefined]).toEqual([row.title, true]);
+      // A delayed trigger (#1835) quotes the sentence of the ability that sets it up, a clause of another concern.
+      if (row.afterAbility !== undefined) {
+        expect([row.title, data!.text.includes(row.text)]).toEqual([row.title, true]);
+        continue;
+      }
       const triggers = clausesOf({ name: row.title, type: data!.type, gametext: data!.text }).filter((c) => c.concern === 'trigger' || c.concern === 'interrupt');
       expect([row.title, triggers.some((c) => c.text.endsWith(row.text))]).toEqual([row.title, true]);
     }

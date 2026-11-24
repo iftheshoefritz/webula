@@ -94,6 +94,13 @@ function eventPasses(row: TriggerRow, event: GameEvent, context: TriggerContext,
   return !filter.where || filter.where(event as never, context);
 }
 
+// Whether the card `id` used its attempt ability `ability` with a kill at the end of the turn (#1835), in the turn
+// before `turn`, in an entry before `index`.
+const setUpBefore = (log: LogEntry[], index: number, id: string, ability: number, turn: number): boolean =>
+  log
+    .slice(0, index)
+    .some((e) => e.kind === 'attemptAbilityUsed' && e.id === id && e.ability === ability && e.killAtEndOfTurn === true && e.turn === turn - 1);
+
 /** Whether two offers' addresses are the same offer. */
 export const sameTriggerTarget = (a: TriggerTarget, b: TriggerTarget): boolean =>
   a.entry === b.entry && a.source === b.source && a.row === b.row && a.event === b.event;
@@ -133,6 +140,8 @@ export function pendingTriggersOf(state: { table: TableState; log: LogEntry[] })
         const sourceCard: ViewCard | null = instance ? viewCardOf(instance) : null;
         const context: TriggerContext = { view: viewOf(), source: sourceCard, ...(slot !== undefined ? { sourceSlot: viewOf().missions[slot] } : {}) };
         if (!eventPasses(row, event, context, instance?.id)) continue;
+        if (row.afterAbility !== undefined && !(instance && event.kind === 'turnStarted' && setUpBefore(log, index, instance.id, row.afterAbility, event.turn)))
+          continue;
         const missionIndex = eventMissionIndex(event);
         if (row.condition && !row.condition.holds(viewOf(), { ...(missionIndex !== undefined ? { missionIndex } : {}), ...(instance ? { id: instance.id } : {}) }))
           continue;

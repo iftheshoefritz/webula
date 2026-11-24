@@ -53,6 +53,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
   PRACTICE_ATTRIBUTES_CORE,
   PRACTICE_ATTRIBUTES_TSV,
+  PRACTICE_ATTRIBUTES_STORIL_TSV,
   PRACTICE_COMPLETION_TSV,
   PRACTICE_SET67_TSV,
   PRACTICE_KMTAR_HAND,
@@ -286,6 +287,7 @@ import { RangeUsedProvider } from './RangeUsedContext';
 import { TableCardUse, TableCardUseProvider } from './TableCardUseContext';
 import { shipRangesOnTable } from './shipRange';
 import { attributesOnTableOf } from './attributesOnTable';
+import { attemptAbilitiesOf } from './attemptAbilities';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { dragPlayPlaces, highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
@@ -2637,10 +2639,11 @@ function PracticeDrawContent() {
           brig: table.brig,
           score: table.score,
           rangeUsed: table.rangeUsed,
+          attempt: table.attempt,
         },
         cardTextOn
       ),
-    [table.missions, table.core, table.hand, table.discard, table.brig, table.score, table.rangeUsed, cardTextOn]
+    [table.missions, table.core, table.hand, table.discard, table.brig, table.score, table.rangeUsed, table.attempt, cardTextOn]
   );
   const rangeUsedInfo = useMemo(
     () => ({
@@ -3429,7 +3432,7 @@ function PracticeDrawContent() {
   };
   // The cards `?fixture=attributes` adds (#1666), split into the crew's and the core's.
   const attributesFixtureExtras = () => {
-    const rows = extractDrawDeck(deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data));
+    const rows = extractDrawDeck(deckFromTsv(`${PRACTICE_ATTRIBUTES_TSV}\n${PRACTICE_ATTRIBUTES_STORIL_TSV}`, data));
     const core = (row: any) => PRACTICE_ATTRIBUTES_CORE.includes(row.originalName);
     return {
       hand: [] as any[],
@@ -3574,7 +3577,7 @@ function PracticeDrawContent() {
     const deck = deckFromTsv(PRACTICE_DECK_TSV, data);
     if (isRecallFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data), ...deckFromTsv('1\tMiracle Working', data) };
     if (isCostsFixture) return { ...deck, ...deckFromTsv(PRACTICE_COSTS_TSV, data) };
-    if (isAttributesFixture) return { ...deck, ...deckFromTsv(PRACTICE_ATTRIBUTES_TSV, data) };
+    if (isAttributesFixture) return { ...deck, ...deckFromTsv(`${PRACTICE_ATTRIBUTES_TSV}\n${PRACTICE_ATTRIBUTES_STORIL_TSV}`, data) };
     if (isDissidentFixture) return { ...deck, ...deckFromTsv(PRACTICE_DISSIDENT_TSV, data) };
     if (isOrdersFixture) return { ...deck, ...deckFromTsv(PRACTICE_ORDERS_TSV, data) };
     if (isTriggersFixture) return { ...deck, ...deckFromTsv(PRACTICE_TRIGGERS_TSV, data) };
@@ -5238,6 +5241,13 @@ function PracticeDrawContent() {
                   viewFullTableHoldEnabled={viewFullTableHoldEnabled}
                   modifiersText={attemptModifiersText(table)}
                   donePrompt={attemptDonePromptText(table)}
+                  abilities={attemptAbilitiesOf(game).map((o) => ({
+                    key: `${o.id}:${o.ability.index}`,
+                    cardId: o.id,
+                    label: `${o.name.split(' ')[0]}: ${o.ability.label}`,
+                    title: `${o.name}: ${o.ability.text}`,
+                    onUse: () => dispatch({ type: 'useAttemptAbility', id: o.id, index: o.ability.index }),
+                  }))}
                   attempt={table.attempt}
                   slot={missions[table.attempt.missionIndex]}
                   sizes={attemptSizes}

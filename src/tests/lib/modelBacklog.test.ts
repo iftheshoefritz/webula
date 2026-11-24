@@ -25,6 +25,7 @@ import { PLAY_MODEL_TITLES } from '../../lib/playModels/coverage';
 import { orderModelOf } from '../../lib/orderModels';
 import { RESOLVE_MODELS } from '../../lib/resolveModels';
 import { TRIGGER_TITLES } from '../../lib/triggers';
+import { ATTEMPT_ABILITY_TITLES } from '../../lib/attemptAbilities';
 import { cardRows, shippedDecks } from './backlogData';
 import { draftMarkdown, draftReport } from '../../lib/cardDrafts';
 
@@ -44,6 +45,7 @@ const MODIFIERS = new Set(modifierTitles(AMOUNTS).keys());
 const COST_ROW_TITLES = lower(COST_ROWS.map((r) => r.title));
 // The trigger registry (#1903): a trigger or an interrupt clause is modelled when the registry holds its title.
 const TRIGGERS = lower(TRIGGER_TITLES);
+const ATTEMPT_ABILITIES = lower(ATTEMPT_ABILITY_TITLES);
 // The mission registry (#1907): every row's title.
 const MISSION = lower(MISSION_MODEL_TITLES);
 /**
@@ -69,7 +71,8 @@ export const modelledToday: ModelledBy = (concern, title, card, clause) => {
     case 'eventResolve':
       return RESOLVE.has(key);
     case 'attributes':
-      return MODIFIERS.has(key);
+      // An attempt ability (#1835) changes attributes for the rest of the attempt.
+      return MODIFIERS.has(key) || ATTEMPT_ABILITIES.has(key);
     case 'mission':
       return MISSION.has(key) || COST_REGISTRY.has(title) || COST_ROW_TITLES.has(key);
     case 'place':

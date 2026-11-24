@@ -70,6 +70,9 @@ import {
 } from '../../../lib/effectSteps';
 import { triggerRowsOf, type TriggerRow } from '../../../lib/triggers';
 import { pendingTriggersOf, sameTriggerTarget } from './triggers';
+import { attemptAbilitiesOf, modifyStepOf } from './attemptAbilities';
+import { changesText, killsAtEndOfTurn } from '../../../lib/attemptAbilities';
+import type { AmountQuantity } from '../../../lib/modifiers/model';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, exchangeMatches, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
 import type { CostSource, CostTurnPlay, CostUse, CostUseEffect, LimitCap, LimitGrant, PendingDiscount, TurnLimitChoice } from '../../../lib/costModels/model';
@@ -413,6 +416,18 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // A trigger the player skipped (#1903, `skipTrigger` of #1904): the offer at `target` and its card's name, so the
   // skip is undone and survives a reload.
   | { kind: 'triggerSkipped'; target: TriggerTarget; card: string }
+  // An attempt ability the player used (#1835): the card's id and name, the ability's index, the name of the card it
+  // changed and the change, for the rest of the attempt, and whether it set up the kill at the end of the turn, which
+  // the delayed trigger rows read (`afterAbility`).
+  | {
+      kind: 'attemptAbilityUsed';
+      id: string;
+      card: string;
+      ability: number;
+      target: string;
+      changes: Partial<Record<AmountQuantity, number>>;
+      killAtEndOfTurn?: true;
+    }
 );
 
 // One trigger offer of the log (#1903), addressed as `ChargeTarget` addresses a play: the index of the action's
@@ -429,6 +444,8 @@ export interface TriggerTarget {
 // cards of the hand it discarded.
 export interface TriggerCostRecord {
   destroyed?: true;
+  // The source was killed (#1835).
+  killed?: true;
   stopped?: true;
   discarded?: string[];
 }
@@ -520,6 +537,9 @@ export type GameAction =
   | { type: 'useTrigger'; target: TriggerTarget; ids?: string[] }
   // A skip of the trigger offer at `target` (#1904): one `triggerSkipped` entry, undone like any other.
   | { type: 'skipTrigger'; target: TriggerTarget }
+  // A use of the attempt ability `index` of the card `id` (#1835): its change for the rest of the attempt on
+  // `Attempt.timed`, in one `attemptAbilityUsed` entry, which also sets up its delayed kill.
+  | { type: 'useAttemptAbility'; id: string; index: number }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -972,7 +992,7 @@ function completionEntry(
 // action, so the entry of `nextTurn` heads the group of the new turn.
 export function logEntryFor(
   before: TableState,
-  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'missionSpend' } | { type: 'effectStep' } | { type: 'effectSkip' } | { type: 'useOrder' } | { type: 'useTrigger' } | { type: 'skipTrigger' }>,
+  action: Exclude<GameAction, { type: 'undo' } | { type: 'redo' } | { type: 'correctCharge' } | { type: 'adjustCounterLimit' } | { type: 'dismissDiscount' } | { type: 'choosePersonnel' } | { type: 'downloadForCharge' } | { type: 'useCard' } | { type: 'discardForCharge' } | { type: 'cancelResolving' } | { type: 'missionSpend' } | { type: 'effectStep' } | { type: 'effectSkip' } | { type: 'useOrder' } | { type: 'useTrigger' } | { type: 'skipTrigger' } | { type: 'useAttemptAbility' }>,
   after: TableState,
 ): LogEntry | null {
   let body: EntryBody | null;
@@ -1075,6 +1095,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === 'useOrder') return orderUseState(state, action);
   if (action.type === 'useTrigger') return triggerUseState(state, action);
   if (action.type === 'skipTrigger') return triggerSkipState(state, action);
+  if (action.type === 'useAttemptAbility') return attemptAbilityUseState(state, action);
   if (action.type === 'setNamed') return setNamedState(state, action);
   // The turn waits while a "when you play" effect is pending (#1800), as it does for a resolving event, and while
   // an order is (#1866).
@@ -1279,7 +1300,8 @@ export function withShuffleOrders(
     action.type === 'effectSkip' ||
     action.type === 'useOrder' ||
     action.type === 'useTrigger' ||
-    action.type === 'skipTrigger'
+    action.type === 'skipTrigger' ||
+    action.type === 'useAttemptAbility'
   ) {
     return action;
   }
@@ -1642,6 +1664,7 @@ export const LOG_ENTRY_KINDS: Record<LogEntry['kind'], true> = {
   triggerUsed: true,
   triggerEffect: true,
   triggerSkipped: true,
+  attemptAbilityUsed: true,
 };
 
 // A saved entry (#1400) loads only when it is an object with a numeric turn and a kind the log knows.
@@ -1889,6 +1912,8 @@ export function logEntryText(entry: LogEntry): string {
       const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
       return `${card}: ${isPlayEffectRecord(entry.effect) ? playEffectText(entry.effect) : 'no effect'}`;
     }
+    case 'attemptAbilityUsed':
+      return attemptAbilityUsedText(entry);
     case 'triggerSkipped':
       return `Skipped ${typeof entry.card === 'string' && entry.card ? entry.card : 'a card'}`;
     case 'playEffect': {
@@ -3420,7 +3445,8 @@ export type AbilityKey =
   | { kind: 'trigger'; id: string; index: number }
   | { kind: 'tableUse'; id: string; title: string }
   | { kind: 'missionSpend'; mission: string; spend: MissionSpendKind }
-  | { kind: 'prevent'; mission: string; prevented: string };
+  | { kind: 'prevent'; mission: string; prevented: string }
+  | { kind: 'attemptAbility'; id: string; index: number };
 
 // Whether `entry` is one use of the ability `key`.
 function isUseOf(entry: LogEntry, key: AbilityKey): boolean {
@@ -3433,6 +3459,8 @@ function isUseOf(entry: LogEntry, key: AbilityKey): boolean {
       return entry.kind === 'chargeCorrected' && isUsedCard(entry.used) && entry.used.id === key.id && entry.source === key.title;
     case 'missionSpend':
       return entry.kind === 'missionSpend' && entry.spend === key.spend && entry.mission === key.mission;
+    case 'attemptAbility':
+      return entry.kind === 'attemptAbilityUsed' && entry.id === key.id && entry.ability === key.index;
     case 'prevent':
       return entry.kind === 'dilemmaResolved' && entry.prevented === key.prevented && typeof entry.went === 'string' && entry.went.includes(key.mission);
   }
@@ -3643,7 +3671,7 @@ function triggerUseState(state: GameState, action: { target: TriggerTarget; ids?
         useCost.kind === 'stopSelf'
           ? tableReducer(table, { type: 'setStopped', ids: [source.id], stopped: true })
           : tableReducer(table, { type: 'move', id: source.id, to: 'discard' });
-      cost = useCost.kind === 'stopSelf' ? { stopped: true } : { destroyed: true };
+      cost = useCost.kind === 'stopSelf' ? { stopped: true } : useCost.kind === 'killSelf' ? { killed: true } : { destroyed: true };
     }
     if (table === start) return state;
   }
@@ -3674,6 +3702,41 @@ function triggerSkipState(state: GameState, action: { target: TriggerTarget }): 
   if (!offer) return state;
   const entry: LogEntry = { kind: 'triggerSkipped', target: { ...action.target }, card: offer.name, turn: state.table.turn, segment: state.table.segment };
   return { table: state.table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// The use of an attempt ability (#1835): its change goes on `Attempt.timed`, for the rest of the attempt, in one
+// `attemptAbilityUsed` entry, which one undo takes back. Refused unless the table offers it.
+function attemptAbilityUseState(state: GameState, action: { id: string; index: number }): GameState {
+  const offer = attemptAbilitiesOf(state).find((o) => o.id === action.id && o.ability.index === action.index);
+  const attempt = state.table.attempt;
+  if (!offer || !attempt) return state;
+  const changes = modifyStepOf(offer.ability)?.changes ?? {};
+  const timed = Object.keys(changes).length
+    ? [...(attempt.timed ?? []), { title: offer.ability.title, sourceId: offer.id, targetId: offer.targetId, changes: { ...changes } }]
+    : attempt.timed;
+  const table: TableState = { ...state.table, attempt: { ...attempt, ...(timed ? { timed } : {}) } };
+  const entry: LogEntry = {
+    kind: 'attemptAbilityUsed',
+    id: offer.id,
+    card: offer.name,
+    ability: offer.ability.index,
+    target: offer.targetName,
+    changes: { ...changes },
+    ...(killsAtEndOfTurn(offer.ability) ? { killAtEndOfTurn: true as const } : {}),
+    turn: table.turn,
+    segment: table.segment,
+  };
+  return { table, log: [...state.log, entry], undo: [...state.undo, state.table], redo: [] };
+}
+
+// "Storil Courageous Captain: made U.S.S. Saratoga Weapons +5 until the end of this mission attempt; it is killed at
+// the end of this turn" (#1835).
+function attemptAbilityUsedText(entry: Extract<LogEntry, { kind: 'attemptAbilityUsed' }>): string {
+  const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
+  const target = typeof entry.target === 'string' && entry.target ? entry.target : 'a card';
+  const changes = entry.changes && typeof entry.changes === 'object' ? changesText(entry.changes) : '';
+  const made = changes ? `made ${target === card ? 'itself' : target} ${changes} until the end of this mission attempt` : 'used';
+  return `${card}: ${made}${entry.killAtEndOfTurn === true ? '; it is killed at the end of this turn' : ''}`;
 }
 
 // Adds `steps` to the record of the trigger in progress (#1904), with the table they left. While its entry is the last
@@ -3707,6 +3770,7 @@ function triggerUsedText(entry: Extract<LogEntry, { kind: 'triggerUsed' }>): str
   const cost = entry.cost ?? {};
   const costParts = [
     ...(cost.destroyed === true ? ['destroyed it'] : []),
+    ...(cost.killed === true ? ['killed it'] : []),
     ...(cost.stopped === true ? ['stopped it'] : []),
     ...(isNames(cost.discarded) && cost.discarded.length ? [`discarded ${cardsText(cost.discarded)}`] : []),
   ];

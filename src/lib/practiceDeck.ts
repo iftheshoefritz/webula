@@ -240,6 +240,11 @@ export const PRACTICE_ATTRIBUTES_TSV = `1\tKira Nerys Reformed Collaborator
 1\tDark Dissension
 1\tSoliton Wave`;
 
+// The card the page's `?fixture=attributes` adds after those (#1835): Storil Courageous Captain joins the crew
+// after Kira, for his attempt ability, with the last id. The digest tests of the fixture read
+// `PRACTICE_ATTRIBUTES_TSV` alone.
+export const PRACTICE_ATTRIBUTES_STORIL_TSV = `1\tStoril Courageous Captain`;
+
 // The names of the cards of `PRACTICE_ATTRIBUTES_TSV` that go into the core, in core order; the rest
 // go into the crew.
 export const PRACTICE_ATTRIBUTES_CORE = ['Dark Dissension', 'Soliton Wave'];

@@ -18,6 +18,7 @@ import { SKILL_INDEX } from './dilemmaBot/requirements';
 import type { PartnerTraits } from './dilemmaBot/gains';
 import type { BotPileInfo } from './dilemmaBot/botPiles';
 import { differentAffiliations, type CostTurnPlay, type PendingDiscount } from './costModels/model';
+import type { TimedChange } from './modifiers/model';
 
 /** A row of the card data, lowercased by `parseCardData`, with its `originalName`. */
 export type ViewRow = any;
@@ -122,6 +123,8 @@ export interface TableView {
   plays: CostTurnPlay[];
   /** From the log: the pending discounts of the turn, as the caller gives them. */
   pending: PendingDiscount[];
+  /** The changes an ability made for the rest of the attempt (#1835), from `Attempt.timed`; absent: none. */
+  timed?: TimedChange[];
 }
 
 // The sources (#1876). A selector and a condition read a table through a `TableSource`: a `TableView`, or an

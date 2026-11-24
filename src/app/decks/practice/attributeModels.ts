@@ -12,7 +12,8 @@ import { modifierCardOf, type TableRead, tableReadOf } from './tableView';
 // What the attribute readers are given of the table as it stands (#1667): the mission slots with their
 // away teams and ships, the core, the hand, the discard pile, the brig (#1684), the score and the Range used.
 // The readers build the table view of it once (#1878), and the modifier rows read the view.
-export type AttributeTable = Pick<TableState, 'missions' | 'core' | 'hand' | 'discard' | 'brig' | 'score' | 'rangeUsed'>;
+// The attempt carries the changes an ability made for the rest of it (#1835).
+export type AttributeTable = Pick<TableState, 'missions' | 'core' | 'hand' | 'discard' | 'brig' | 'score' | 'rangeUsed'> & Partial<Pick<TableState, 'attempt'>>;
 
 export interface PersonnelAttributes {
   integrity: number;

@@ -2,6 +2,7 @@
 // issue #130) rather than several `useState` calls so every zone move goes through one place
 // and later slices can add zones/actions without touching how existing zones behave.
 
+import type { TimedChange } from '../../../lib/modifiers/model';
 import type { CostSource, CostUse } from '../../../lib/costModels/model';
 import { arrayMove } from '@dnd-kit/sortable';
 import { shuffleArray } from '../deckBuilderUtils';
@@ -278,6 +279,10 @@ export interface Attempt {
   // the page, and every later bot read of the attempt takes it from here, so a change of the setting
   // takes effect at the next attempt. Absent: off, as in a save from before #1665.
   cardText?: true;
+  // The changes the player's abilities made for the rest of the attempt (#1835), "Weapons +5 until the end of
+  // this mission attempt": only `useAttemptAbility` adds one, so one undo takes it back, and it ends with the
+  // attempt. Absent: none, as in a save from before #1835.
+  timed?: TimedChange[];
 }
 
 // What a start of an attempt carries besides the attempt's fields (#1759).
