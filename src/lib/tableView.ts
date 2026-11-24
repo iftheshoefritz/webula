@@ -327,6 +327,9 @@ const printedTraits = (q: TraitQuery): ((c: Traits) => boolean) => {
   return (c) => test(c, 0);
 };
 
+/** Whether a card of the view has the printed traits of `q` (#1836). */
+export const cardHasTraits = (q: TraitQuery, c: ViewTableCard): boolean => printedTraits(q)(c);
+
 export interface PersonnelQuery extends TraitQuery {
   /**
    * Required (#1875): `true` leaves the stopped personnel out, as the cost and play models count "you command"
