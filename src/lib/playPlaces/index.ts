@@ -11,6 +11,8 @@
 //   ship" (U.S.S. Relativity), with their conditions;
 // - the played card's own text: "aboard your [X] ship", "aboard your {Ship}", "at your {Mission}",
 //   "to the same mission as your {Ship}" (`parse.ts`);
+// - a `playPlace` permission row of the card (#1917), "may (and must) play to {Ba'ku Planet}": the slot of that
+//   mission, and then no other source;
 // - `PLACE_MODELS`, by title, for the texts the parser does not read.
 //
 // A cost the text names ("at cost +2") stays with the cost registry: a text with a cost and no place adds
@@ -18,6 +20,7 @@
 
 import { cardTitleOf } from '../cardTitle';
 import { hasCardSpecificHqLocation, hqRowOf, reportsToMatches } from '../hqPlayability';
+import { modifierRowsOf } from '../modifiers';
 import { placeClausesOf, type CardSpec, type OwnPlace, type PlaceCardRow, type PlaceClause, type PlaceCondition } from './parse';
 
 export type { PlaceCardRow } from './parse';
@@ -272,9 +275,16 @@ export function playPlacesOfRow(card: PlaceCardRow, table: PlaceTable): PlayPlac
   const places = emptyPlaces();
   const add: PlaceAdder = { slot: (i) => addSlot(places, table, i, card), crew: (id) => places.crews.add(id) };
 
+  const title = titleOf(card);
+  // "May (and must) play to {Ba'ku Planet}" (#1917): the slot of that mission, and no other place.
+  const mustPlayTo = modifierRowsOf(title).flatMap((r) => (r.source === 'played' && r.changes.playPlace === 'forbid' && r.playTo ? [r.playTo] : []));
+  if (mustPlayTo.length) {
+    for (const i of slotsWhere(table, (s) => mustPlayTo.some((m) => titleMatches(s.mission, m)))) add.slot(i);
+    return places;
+  }
+
   for (const i of headquartersSlots(table, card)) add.slot(i);
 
-  const title = titleOf(card);
   const model = modelOf(title);
   if (model?.places) model.places(card, table, add);
   else if (!hasCardSpecificHqLocation(str(card.name))) {

@@ -288,6 +288,9 @@ export interface AttemptStartExtras {
   // page chose for the shuffle after it.
   downloadId?: string;
   downloadOrder?: string[];
+  // The rules the attempt breaks as it begins (#1917, `attemptWarningsOf`), which `withShuffleOrders` stamps while
+  // "Check uniqueness and limits" is on. The reducer ignores them and the log keeps them.
+  ruleWarnings?: RuleWarning[];
 }
 
 export interface RevealSnapshot {

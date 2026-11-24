@@ -182,6 +182,8 @@ import { DilemmaNamePicker } from './DilemmaNamePicker';
 import { NamedCardProvider, type NamedCards } from './NamedCardContext';
 import { ROADBLOCK_TITLE, isRoadblock, nameableCardTitles, roadblockToNameOf } from './selfReplicatingRoadblock';
 import useLocalStorage from '../../../hooks/useLocalStorage';
+import { attemptWarningsOf } from './attemptRules';
+import { ruleWarningText } from './playRules';
 import { AttemptDialog } from './AttemptPanel';
 import { useBotAttemptStart } from './useBotAttemptStart';
 import AttemptLayout, { VIEW_FULL_TABLE_HOLD_ID } from './AttemptLayout';
@@ -5122,6 +5124,11 @@ function PracticeDrawContent() {
             rules={attemptRulesOpen ?? undefined}
             bot={table.opponent === 'bot'}
             choosing={botStart.choosing}
+            warningsFor={
+              checkRulesOn && table.opponent !== 'bot' ? (personnel) =>
+                    attemptWarningsOf(table, { ...attemptDefaultsOpen, personnel }).map((w) => ({ rule: w.rule, text: ruleWarningText(w) }))
+                : undefined
+            }
             onCancel={() => {
               botStart.cancel();
               setAttemptPopup(null);

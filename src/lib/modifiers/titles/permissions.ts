@@ -1,6 +1,8 @@
 // The permission rows (#1916, part 2 of #1890): "To play this …, you must command …", read on a play of the card
 // itself (the source place `played` of #1888), and Rule of Acquisition #6's "You cannot spend counters to draw cards",
-// read on a charged draw while it is in the core. A permission only warns, under the setting "Check uniqueness and
+// read on a charged draw while it is in the core; "may (and must) play to {Ba'ku Planet}" (#1917), read on a play of
+// the card and by `playPlacesOfRow`; and the attempts (#1917), read at the start of an attempt (`attemptWarningsOf` in
+// `attemptRules.ts`). A permission only warns, under the setting "Check uniqueness and
 // limits" (`ruleWarningsOf` in `playRules.ts`); it never refuses. The rows read the player's table only.
 
 import { AFFILIATION_ABBREVIATIONS } from '../../missionRequirements';
@@ -59,6 +61,14 @@ export const PERMISSION_ROWS: ModifierRow[] = [
   toPlay('To Rule in Hell', commandsNone(NO_HEADQUARTERS, { text: 'you cannot command a headquarters mission' })),
   toPlay("They're Still Coming Through!", commandsCardTitled('To Rule in Hell', { text: 'you must command {To Rule in Hell}' })),
   toPlay('Deal With the Count Man', commands({ of: 'personnel', unstopped: true, keyword: 'thief' }, 'a Thief', { text: 'you must command a Thief' })),
+  // "This personnel may (and must) play to {Ba'ku Planet}" (#1917): the play adds the Ba'ku Planet slot to the places,
+  // and a play that lands anywhere else warns.
+  ...['Anij Guiding Light', 'Artim Inspirational Child', 'Sojef Pacifistic Luddite'].map((t) =>
+    row(t, 'played', 'play', { playPlace: 'forbid' }, { playTo: "Ba'ku Planet", words: "this personnel may (and must) play to {Ba'ku Planet}" })
+  ),
+  // The attempts (#1917): the crew of a ship on a ship row cannot attempt, and a core event sets the fewest personnel.
+  row('Delta Flyer Innovative Vessel', 'shipRow', 'crew', { attempt: 'forbid' }, { words: 'personnel aboard this ship cannot attempt missions' }),
+  row("They're Still Coming Through!", 'core', 'attempting', { attempt: 'forbid' }, { minAttempting: 6, words: 'you cannot begin a mission attempt with fewer than six personnel' }),
   // "You cannot spend counters to draw cards." A charged draw from the draw deck in play and draw warns while it is in
   // the core; an uncharged draw, Draw 7 or a card's own draw, does not.
   row('Rule of Acquisition #6', 'core', 'turnLimit', { spendToDraw: 'forbid' }),
