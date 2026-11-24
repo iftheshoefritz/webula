@@ -5,7 +5,9 @@
 // uniqueness and limits" is on, so the reducer reads no storage.
 import { cardDisplayName } from '../../../lib/cardCount';
 import { cardTitleOf } from '../../../lib/cardTitle';
-import { forbiddenBy } from '../../../lib/modifiers';
+import { forbiddenBy, modifierRowsOf } from '../../../lib/modifiers';
+import { rowTitleKey } from '../../../lib/modifiers/words';
+import { titleMatches } from '../../../lib/playPlaces';
 import { inPlay } from '../../../lib/tableView';
 import { findInstanceAnywhere, type CardInstance, type MoveTarget, type TableState, type TableZone } from './tableReducer';
 import { tableViewOf } from './tableView';
@@ -16,7 +18,10 @@ export type RuleWarning =
   | { rule: 'limitPerShip'; title: string; place: string }
   // The words of the failed condition of a play requirement, or of the forbidden spend (#1916).
   | { rule: 'playRequirement'; title: string; condition: string }
-  | { rule: 'spendToDraw'; title: string; condition: string };
+  | { rule: 'spendToDraw'; title: string; condition: string }
+  // The words of a play place's rule, or of an attempt's (#1917).
+  | { rule: 'playPlace'; title: string; condition: string }
+  | { rule: 'attempt'; title: string; condition: string };
 
 /** The words of "You cannot spend counters to draw cards" (Rule of Acquisition #6), as its warning reads them. */
 export const SPEND_TO_DRAW_WORDS = 'you cannot spend counters to draw cards';
@@ -43,6 +48,17 @@ export const limitsOnePerShip = (card: any): boolean => gametextOf(card).include
 // owner the table does not know (a known gap).
 export const inPlayCards = (table: TableState): CardInstance[] =>
   inPlay(tableViewOf(table)).flatMap((c) => findInstanceAnywhere(table, c.id)?.instance ?? []);
+
+// The mission slot a card lands at: an away team, a ship row, a crew, or placed on a mission card or a ship there. The
+// core, the hand and every other zone are at no slot.
+function slotOfZone(table: TableState, zone: TableZone | MoveTarget): number | null {
+  if (typeof zone === 'string') return null;
+  if (zone.zone === 'missionPile' || zone.zone === 'shipRow') return zone.missionIndex;
+  const shipId = zone.zone === 'crew' ? zone.shipId : zone.zone === 'on' ? zone.targetId : null;
+  if (shipId === null) return null;
+  const i = table.missions.findIndex((s) => s.mission?.id === shipId || s.ships.some((ship) => ship.id === shipId));
+  return i >= 0 ? i : null;
+}
 
 // The card a placement lands on, for the limits: a mission card or a ship, by its name.
 function placedOnTarget(table: TableState, zone: TableZone | MoveTarget): { kind: 'mission' | 'ship'; card: CardInstance } | null {
@@ -72,6 +88,16 @@ export function ruleWarningsOf(table: TableState, instance: CardInstance, landed
   if (play) {
     for (const r of forbiddenBy(view, instance.card, 'played', 'play')) {
       warnings.push({ rule: 'playRequirement', title, condition: r.condition?.text(view) ?? '' });
+    }
+  }
+  // A play place (#1917): a play of a card that "may (and must) play to" a mission, landed at a slot whose mission is
+  // not that one.
+  if (play) {
+    const slot = slotOfZone(table, landed);
+    for (const r of modifierRowsOf(rowTitleKey(instance.card))) {
+      if (r.source !== 'played' || r.changes.playPlace !== 'forbid' || !r.playTo) continue;
+      if (slot !== null && titleMatches(table.missions[slot]?.mission?.card ?? null, r.playTo)) continue;
+      warnings.push({ rule: 'playPlace', title, condition: r.words ?? '' });
     }
   }
   const target = placedOnTarget(table, landed);
@@ -110,6 +136,8 @@ export function ruleWarningText(warning: RuleWarning): string {
       return `Limit one per ship: ${warning.title} is already on ${warning.place}`;
     case 'playRequirement':
     case 'spendToDraw':
+    case 'playPlace':
+    case 'attempt':
       return `${warning.title}: ${warning.condition}`;
   }
 }
@@ -122,7 +150,7 @@ export function isRuleWarning(value: unknown): value is RuleWarning {
   const w = value as RuleWarning | null | undefined;
   if (!w || typeof w.title !== 'string') return false;
   if (w.rule === 'unique') return true;
-  if (w.rule === 'playRequirement' || w.rule === 'spendToDraw') return typeof w.condition === 'string' && w.condition !== '';
+  if (w.rule === 'playRequirement' || w.rule === 'spendToDraw' || w.rule === 'playPlace' || w.rule === 'attempt') return typeof w.condition === 'string' && w.condition !== '';
   return (w.rule === 'limitPerMission' || w.rule === 'limitPerShip') && typeof w.place === 'string';
 }
 

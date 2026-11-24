@@ -66,6 +66,7 @@ export function AttemptDialog({
   rules,
   bot = false,
   choosing = false,
+  warningsFor,
   onStart,
   onCancel,
 }: {
@@ -75,6 +76,10 @@ export function AttemptDialog({
   rules?: AttemptMissionRules;
   bot?: boolean;
   choosing?: boolean;
+  // The rules an attempt of that many personnel would break (#1917), while "Check uniqueness and limits" is on;
+  // absent in a bot game, whose warnings go on the log entry only.
+  // Each with its rule and its text (`ruleWarningText`).
+  warningsFor?: (personnel: number) => { rule: string; text: string }[];
   onStart: (personnel: number, subtract: number, bot?: { botDraw: number; botSpend: number }, mission?: AttemptStartExtras) => void;
   onCancel: () => void;
 }) {
@@ -147,6 +152,11 @@ export function AttemptDialog({
               {offer.source}: {offer.label}
             </span>
           </label>
+        ))}
+        {(warningsFor?.(p) ?? []).map((w) => (
+          <p key={w.text} data-testid="attempt-rule-warning" data-rule={w.rule} className="text-center text-sm text-amber-300">
+            {w.text}
+          </p>
         ))}
         {bot && (
           <>

@@ -41,6 +41,7 @@ import {
 } from './tableReducer';
 import { drawSpend, drawSpendText } from './drawSpend';
 import { shipRangeOnTable } from './shipRange';
+import { attemptWarningsOf } from './attemptRules';
 import { drawWarningsOf, ruleNamedFirst, ruleWarningsIn, ruleWarningsOf, ruleWarningText, type RuleWarning } from './playRules';
 import { revealPicksOf } from './attempt';
 import { completionEffectOf, involvedSpecies } from './completionEffects';
@@ -257,6 +258,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       changes?: string[];
       drewCards?: number;
       downloaded?: string;
+      // The rules the attempt broke as it began (#1917).
+      warnings?: RuleWarning[];
     }
   // The dilemmas still in the stack that Attempt done moved under the mission (#1170), when any.
   | { kind: 'attemptEnded'; mission: string; moved?: string[] }
@@ -284,6 +287,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       random?: true;
       returned?: number | string[];
       redrew?: number;
+      // The rules the attempt broke as it began (#1917).
+      warnings?: RuleWarning[];
     }
   // The effects of a bot game's revealed dilemma (#1587): the cards of each op the table applied, in
   // the action's order, and the notes the page gave.
@@ -813,6 +818,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         subtract: action.subtract,
         ...attemptStartFields(before, after, action.downloadId),
         ...(action.changes?.length ? { changes: [...action.changes] } : {}),
+        ...(action.ruleWarnings?.length ? { warnings: [...action.ruleWarnings] } : {}),
       };
     case 'endAttempt':
       if (after === before || !before.attempt) return null;
@@ -850,6 +856,7 @@ function singleEntry(before: TableState, action: TableAction, after: TableState)
         ...(action.random ? { random: true as const } : {}),
         ...(returned ? { returned } : {}),
         ...(action.redrawn ? { redrew: action.redrawn.length } : {}),
+        ...(action.ruleWarnings?.length ? { warnings: [...action.ruleWarnings] } : {}),
       };
     }
     case 'resolveDilemma': {
@@ -1240,6 +1247,10 @@ function withRuleWarnings(table: TableState, actions: TableAction[]): TableActio
       // A charged draw (#1916): a spend of counters to draw, which a card in the core may forbid.
       const warnings = drawWarningsOf(state);
       if (warnings.length) out = { ...a, ruleWarnings: warnings };
+    } else if ((a.type === 'startAttempt' || a.type === 'botAttempt') && a.ruleWarnings === undefined && !state.attempt) {
+      // The attempt rules (#1917), read from the table before the attempt.
+      const warnings = attemptWarningsOf(state, a);
+      if (warnings.length) out = { ...a, ruleWarnings: warnings };
     } else if (a.type === 'resolveDilemma' && a.move && a.ruleWarnings === undefined) {
       const found = findInstanceAnywhere(state, a.dilemmaId);
       const warnings = found ? ruleWarningsOf(state, found.instance, a.move.to, false) : [];
@@ -1326,7 +1337,8 @@ export function withShuffleOrders(
   if ((action.type === 'startAttempt' || action.type === 'botAttempt') && action.downloadId && !action.downloadOrder) {
     // Caldos IV's download (#1828) shuffles the draw deck in an order the page chooses.
     const { downloadId } = action;
-    return { ...action, downloadOrder: shuffledIds(table.drawDeck.filter((c) => c.id !== downloadId)) };
+    const ordered = { ...action, downloadOrder: shuffledIds(table.drawDeck.filter((c) => c.id !== downloadId)) };
+    return checkRules ? withRuleWarnings(table, [ordered])[0] : ordered;
   }
   const chosen = withOrderAndCharge(table, action, action.type === 'move' ? turnFactsOf(log, table.turn) : noTurnFacts(), cardText, checkRules);
   return chosen.length === 1 ? chosen[0] : { type: 'batch', actions: chosen };
@@ -1725,7 +1737,7 @@ export function logEntryText(entry: LogEntry): string {
     case 'score':
       return `Score ${entry.delta > 0 ? '+' : ''}${entry.delta} (now ${entry.score})`;
     case 'attemptStarted':
-      return `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${attemptNumbersText(entry)}`;
+      return `Attempted ${entry.mission}${entry.ship ? ` with ${entry.ship}` : ''}: ${attemptNumbersText(entry)}${warningsText(entry.warnings)}`;
     case 'attemptEnded':
       return entry.moved?.length
         ? `Ended the attempt at ${entry.mission}, and moved ${cardsText(entry.moved)} under ${entry.mission}`
@@ -1736,7 +1748,7 @@ export function logEntryText(entry: LogEntry): string {
         entry.redrew ? `, used Unexpected Difficulties to return them and draw ${entry.drew} more,` : ''
       } and put ${entry.stacked} in the stack${entry.random ? ' at random' : ''}`;
       const returned = Array.isArray(entry.returned) ? entry.returned.length : (entry.returned ?? 0);
-      return returned ? `${text}, and moved ${dilemmas(returned)} to the bottom of the dilemma pile` : text;
+      return `${returned ? `${text}, and moved ${dilemmas(returned)} to the bottom of the dilemma pile` : text}${warningsText(entry.warnings)}`;
     }
     case 'dilemmaResolved': {
       const ops = entry.ops.map(({ op, cards }) => `${RESOLVE_OP_TEXT[op]} ${cardsText(cards)}`).join(', ');

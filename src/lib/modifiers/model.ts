@@ -231,6 +231,15 @@ export interface ModifierRow {
   label?: string;
   /** The card id of a `card` target. */
   targetId?: string;
+  /**
+   * A permission's words when no condition gives them (#1917): "personnel aboard this ship cannot attempt missions",
+   * as its warning reads them.
+   */
+  words?: string;
+  /** The mission a `playPlace` row names (#1917), as a brace reference: "Ba'ku Planet", matched as `titleMatches` matches it. */
+  playTo?: string;
+  /** An `attempt` row of the core (#1917): the fewest personnel an attempt may begin with. */
+  minAttempting?: number;
 }
 
 /** Each copy of the title `title` in `source` changes `changes` of `target`, while `whileInPlay`. */

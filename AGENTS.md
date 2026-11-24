@@ -637,11 +637,20 @@ Finding Our Way's and To Rule in Hell's "must not command a headquarters mission
 "Particle 010: you must command three [Bor] personnel" (`playRequirement`); a charged draw from the draw deck while
 Rule of Acquisition #6 is in the core warns "Rule of Acquisition #6: you cannot spend counters to draw cards"
 (`spendToDraw`, `drawWarningsOf`, kept on the `draw` entry's `warnings`), and Draw 7 or an uncharged draw does not.
+A play of Anij Guiding Light, Artim Inspirational Child or Sojef Pacifistic Luddite, who "may (and must) play to
+{Ba'ku Planet}" (#1917, a `playPlace` row with `playTo`), anywhere but the slot of that mission warns "Anij Guiding
+Light: this personnel may (and must) play to {Ba'ku Planet}" (`playPlace`), and `playPlacesOfRow` adds that slot to
+their places. An attempt (#1917, `attemptWarningsOf` in `attemptRules.ts`) by Delta Flyer Innovative Vessel's crew,
+or of fewer than six personnel (the popup's count) while They're Still Coming Through! is in the core, warns
+(`attempt`): `withShuffleOrders` stamps it on `startAttempt` and `botAttempt`, the `attemptStarted` or `botAttempt`
+entry keeps it as `warnings` and its text ends with it, and the attempt popup shows it as a line of its own,
+`attempt-rule-warning` with `data-rule`, while the player sets the numbers; in a bot game it goes on the entry only.
+Start still starts the attempt.
 The move still lands. The entry keeps them
 (`LogMove.warnings`, `dilemmaResolved.warnings`, `entryRuleWarnings`), its text ends with them ("…; unique:
 Yarka Harbinger of the Prophets is already in play"), one undo takes back both, and with the setting off
 nothing is checked or recorded. The charge chip shows each as a line, `charge-warning` with `data-rule`
-(`unique`, `limitPerMission`, `limitPerShip`, `playRequirement`, `spendToDraw`), with Counters on or off; with Counters off it shows the
+(`unique`, `limitPerMission`, `limitPerShip`, `playRequirement`, `spendToDraw`, `playPlace`), with Counters on or off; with Counters off it shows the
 warnings alone. **Effect steps** (#1863, `src/lib/effectSteps.ts`): a play model and a resolve model are a title and a list of steps, with no `kind`: `draw` (a fixed number, `withoutCompleted` too, up to N, the printed cost of a personnel the player picks, or N after a pick with an icon), `discardFromHand(n)`, `bottomFromHand(n)`, `examine`, `download` (of a test or `copyOfCommanded`, to the hand, aboard a ship, played aboard this ship or on top of the draw deck), `shuffle`, `score` and `exchange`, each with whether it is a "may". A shuffle and a fixed draw, or a draw after a pick, join the step before them: one *stage* (`stagesOf`) is one panel, one action and one record, so Days of Atonement `[discardFromHand(1), draw(2)]` is one step. One action, `effectStep` (its input: `count`, `personnelId`, `ids`, `take`/`bottom`, `shipId`, `handId`/`tableId`, and the `order` and `ruleWarnings` that `withShuffleOrders` fills), applies the next stage of the resolving event (`resolveStageOf`) or, with nothing resolving, of the pending play (`pendingPlayEffectOf(...).stage`); `effectSkip` is Skip and Done. A resolving event's stage is one `effectStep` entry (`ended` on its last), in the words of the entries before it; a play's stage amends its entry as before. The old entries (`resolveDrew`, `resolveBottom`, `resolveDiscardDraw`, `resolveDownloaded`, `resolveExchanged`, and the play records of before) still read, with the same text, and a save mid-resolution resumes at its stage. `PracticeTable`'s `stageView` turns any stage into its panel, so a card whose text is a new order of these steps is a data row and a test. **When you play** (#1800): a personnel or a ship whose title has a model in `PLAY_MODELS`
 (`src/lib/playModels/`, by whole title, `playModelOf`) leaves its effect pending once played, derived from the
 effective log (`pendingPlayEffectOf` in `gameLog.ts`): the latest play of the turn's play and draw, while its
@@ -943,6 +952,8 @@ The practice table has thirty-five fixtures. Each one deals the same table on ev
   whose play needs three [Bor] personnel, at the end of the hand, and Rule of Acquisition #6 at the end of the core
   (`PRACTICE_PERMISSIONS_TSV`). With "Check uniqueness and limits" on, a play of Particle 010 into the core shows a
   `charge-warning` with `data-rule="playRequirement"`, and a draw from the draw deck one with `data-rule="spendToDraw"`.
+  Anij Guiding Light follows Particle 010 at the end of the hand (#1917): with no Ba'ku Planet in play, a drag of her
+  makes no slot glow, and her play warns with `data-rule="playPlace"`.
   It keeps its game under `practiceGame:fixture=permissions`.
 - `?fixture=triggers` (#1904) deals the `?fixture=piles` table, the same cards and the same ids, with VIP Welcome
   at the end of the core, Enrique Muniz Dependable Troubleshooter at the end of the crew of the ship at Bilana
