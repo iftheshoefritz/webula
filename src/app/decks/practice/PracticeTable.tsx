@@ -112,6 +112,28 @@ import { CHULA_BOT_PILE_ID, CHULA_BOT_PILE_NAME, botPileDeckOf } from '../../../
 import type { BotPileChoice, BotPileInfo } from '../../../lib/dilemmaBot/botPiles';
 import { useBotPiles } from './useBotPiles';
 import { collectorsKey } from '../../../lib/dilemmaBot/opponentPile';
+import { botOpponent, fixtureOpponent, sideIsEmpty, sidePersonnelCount } from './opponent';
+import { OpponentPanel, OpponentStrip, sideCards } from './OpponentView';
+import type { OpponentPanelContent } from './OpponentView';
+import type { OpponentSideSummary } from './MissionRow';
+import { missionSlotWidth, fullUnderMissionStackHeight } from './MissionRow';
+import {
+  CAMERA_FAR_ROW,
+  CAMERA_MOVE_MS,
+  CAMERA_WHOLE_TABLE,
+  CAMERA_YOUR_SIDE,
+  CameraToggle,
+  CameraZoom,
+  EdgeCamera,
+  FarSide,
+  OpponentCompactRow,
+  OpponentMissionRow,
+  RowSwitch,
+  SHIPS_FROM_TILT,
+  cameraOf,
+  parseOpponentLayout,
+} from './OpponentFarRow';
+import type { Player } from './opponent';
 import { cardDisplayName } from '../../../lib/cardCount';
 import { LAYER_LOAD_WARNING, LAYER_MENU_BUTTON, LAYER_MENU_BUTTON_OPEN, LAYER_MENU_SPLASH } from '../../../lib/layers';
 import { PracticeDeckPicker } from './PracticeDeckPicker';
@@ -262,7 +284,7 @@ import CountBadge from './CountBadge';
 import CardListPanel, { PanelLocation, RevealIcon, ShuffleIcon } from './CardListPanel';
 import PileCarousel, { CarouselPile } from './PileCarousel';
 import FlatCardRow, { targetIdFromOnDropId } from './FlatCardRow';
-import { PILE_CARD_BORDER_STYLE, RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, cardBorderStyle, SMALL_CARD_WIDTH, TableCardImage } from './TableCard';
+import { PILE_CARD_BORDER_STYLE, RemovedFromGameLabel, STOPPED_IMAGE_CLASSNAME, cardBorderStyle, SMALL_CARD_WIDTH, TABLE_CARD_WIDTH, TableCardImage } from './TableCard';
 import {
   DESKTOP_RESERVED_SHIP_ROWS,
   TOUCH_RESERVED_SHIP_ROWS,
@@ -296,7 +318,7 @@ import { landedZoneKey } from './landedZoneKey';
 import { dragPlayPlaces, highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
 import { playPlacesOf } from './playPlaces';
 import { PILE_CARD_EDGE, pileCastShadow, pileDepth, pileLayers } from './pileDepth';
-import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point } from './table3d';
+import { TABLE_3D_CLASS, layoutPosition, planeTiltStyle, type Point, type TableCamera } from './table3d';
 import { isReleaseInCancelRadius, PressGeometry, pressGeometryFrom } from './releaseCancel';
 import { cardIdOfDraggable } from './panelDragId';
 import { ResolveStep, ResolvingMini, ResolvingPanel } from './ResolvingPanel';
@@ -1284,6 +1306,8 @@ function TablePlane({
   matTop = 0,
   className,
   testId,
+  camera,
+  matTheirs = false,
   children,
 }: {
   hingeBox: HTMLElement | null;
@@ -1291,6 +1315,10 @@ function TablePlane({
   mat?: boolean;
   matTop?: number;
   className?: string;
+  // The camera of the table (#1823); every part of one table takes the same one.
+  camera?: TableCamera;
+  // The mat in the opponent's tint (#1823), as option A draws it under the opponent's row.
+  matTheirs?: boolean;
   testId: string;
   children: React.ReactNode;
 }) {
@@ -1321,14 +1349,18 @@ function TablePlane({
     };
   }, [on, el, hingeBox]);
   if (!on) return <div className={className}>{children}</div>;
-  const style = geometry ? planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y) : undefined;
+  // A camera move (#1823) animates the transform; both parts take the same transition, so they stay
+  // in one plane during it.
+  const style = geometry
+    ? { ...planeTiltStyle(geometry.hinge, geometry.pos.x, geometry.pos.y, camera), ...(camera ? { transition: `transform ${CAMERA_MOVE_MS}ms ease-out` } : {}) }
+    : undefined;
   return (
     <div ref={setEl} data-testid={testId} className={`relative ${className ?? ''}`} style={style}>
       {mat && geometry && (
         <div
           aria-hidden="true"
           data-testid="board-mat"
-          className="board-mat pointer-events-none absolute -z-10 rounded-2xl"
+          className={`board-mat ${matTheirs ? 'board-mat-theirs' : ''} pointer-events-none absolute -z-10 rounded-2xl`}
           style={{
             top: -(matTop + 8),
             bottom: -(geometry.hinge.y - (geometry.pos.y + geometry.height) + 8),
@@ -1976,6 +2008,17 @@ const touchMissionColumnHeight = (scale: number): number =>
 // mid-drag, and dnd-kit measures each droppable as it registers, before the mission scale and the
 // bottom row size themselves, so it measures again on each change of the sizes, a frame after it
 // commits.
+// After a camera move (#1823) the droppables' projected boxes have changed, and dnd-kit measures
+// only on demand: measure again once the move's transition has ended.
+function RemeasureAfterCamera({ tiltDeg }: { tiltDeg: number }) {
+  const { measureDroppableContainers } = useDndContext();
+  useEffect(() => {
+    const timer = window.setTimeout(() => measureDroppableContainers([]), CAMERA_MOVE_MS + 50);
+    return () => window.clearTimeout(timer);
+  }, [tiltDeg, measureDroppableContainers]);
+  return null;
+}
+
 function RemeasureDroppables({ sizes }: { sizes: unknown[] }) {
   const { measureDroppableContainers } = useDndContext();
   const key = JSON.stringify(sizes);
@@ -2508,11 +2551,24 @@ function PracticeDrawContent() {
   const data: any[] = useWithPlaytestCards(publicData);
   const playtestSettled = usePlaytestCards().settled;
   const completeData = useCompleteData(data, !loading && playtestSettled);
+  // Spike for #1182: `?opponent=1` deals a fixture opponent beside the player's table, read only.
+  // It is page state derived from the card data, not part of the reducer or the save. In a bot game
+  // the bot takes the opponent's half instead (#1823, `botOpponent`), derived from the table below.
+  const opponentOn = searchParams.get('opponent') === '1';
+  const fixtureOpponentHalf = useMemo(() => (opponentOn ? fixtureOpponent(data) : null), [opponentOn, data]);
+  const [opponentPanel, setOpponentPanel] = useState<OpponentPanelContent | null>(null);
+  // Which layout of the opponent's half (#1823): `?layout=a|b|c|d`, D by default.
+  const opponentLayout = parseOpponentLayout(searchParams.get('layout'));
+  // A: which of the two mission rows shows. C and D: the camera's tilt. Page state, like the panels.
+  const [rowShown, setRowShown] = useState<Player>('you');
+  const [cameraTilt, setCameraTilt] = useState<number>(CAMERA_YOUR_SIDE);
   const serviceWorkerUpdate = useServiceWorker();
   // The table and its game log (#1065). `gameReducer` runs `tableReducer` and records one log
   // entry per player action, so a handler whose action moves several cards dispatches one `batch`.
   const [game, dispatchGame] = useReducer(gameReducer, initialTableState, initialGameState);
   const table = game.table;
+  // The opponent's half (#1182 spike): the bot's in a bot game (#1823), else the fixture opponent.
+  const opponent = opponentOn ? (botOpponent(table) ?? fixtureOpponentHalf) : null;
   // Every shuffle result is chosen here, before the dispatch, and the action carries it (#1401), so
   // `tableReducer` calls no random function and a saved undo or redo step holds the same order.
   // The counter of the turn's counters (#1607) is a setting of the device, not of the saved game.
@@ -2801,6 +2857,26 @@ function PracticeDrawContent() {
   // View full table. Page state, not part of the save: the attempt the player chose the full table
   // for, by its identity (#1189), so a change of phase or a draw keeps the full table, and a new
   // attempt, a restored game, or a reload opens in the attempt layout.
+  // The opponent's side of each of the player's 5 locations, for the two-part badges (#1182 spike).
+  const opponentSidesAtYours: (OpponentSideSummary | undefined)[] | undefined = opponent?.sidesAtYours.map(
+    (side, idx) => {
+      if (sideIsEmpty(side)) return undefined;
+      const slot = missions[idx];
+      const yours = slot ? { awayTeam: slot.awayTeam, ships: slot.ships } : { awayTeam: [], ships: [] };
+      return {
+        personnel: sidePersonnelCount(side),
+        ships: side.ships.length,
+        contested: !sideIsEmpty(yours),
+        onOpen: () =>
+          setOpponentPanel({
+            title: slot?.mission ? cardDisplayName(slot.mission.card) : `Mission ${idx + 1}`,
+            theirs: sideCards(side),
+            yours: sideCards(yours),
+            show: 'theirs',
+          }),
+      };
+    },
+  );
   const attemptKey = attemptViewKey(table.attempt);
   const [fullTableFor, setFullTableFor] = useState<string | null>(null);
   // The choice is cleared when the attempt ends, so a new attempt at the same mission and ship opens
@@ -2834,6 +2910,25 @@ function PracticeDrawContent() {
   }
   const botLabelText = botLabel && !dismissedBotLabels.has(botLabel.id) ? botLabel.text : null;
   const attemptLayoutShows = attemptKey !== null && fullTableFor !== attemptKey;
+  // The camera of the table with the opponent's half (#1823): A keeps today's 18°, B a fixed 22° that
+  // shows its compact far row, C and D the tilt their controls set. With no opponent, or in the flat
+  // attempt layout, the table keeps its default camera.
+  const tableCamera =
+    opponent && !attemptLayoutShows
+      ? cameraOf(opponentLayout === 'a' ? CAMERA_YOUR_SIDE : opponentLayout === 'b' ? CAMERA_FAR_ROW : cameraTilt)
+      : undefined;
+  // The opponent's own location `index`, in the read-only panel: their side and the player's.
+  const openOpponentLocation = (index: number) => {
+    if (!opponent) return;
+    const mission = opponent.missions[index];
+    setOpponentPanel({
+      title: mission ? cardDisplayName(mission.card) : `Opponent's mission ${index + 1}`,
+      theirs: sideCards(opponent.sidesAtTheirs[index]),
+      yours: sideCards(opponent.yourSidesAtTheirs[index]),
+      show: 'theirs',
+    });
+  };
+  const yourLocationSides = missions.map((slot) => ({ awayTeam: slot.awayTeam, ships: slot.ships }));
   // Issue #1728: the resolving event shows in the modal panel, or after View table or Escape as a small
   // card. Page state, not part of the save: an event that starts resolving, a restore, a reload and an
   // undo that brings the event back all open the panel. Adjusted during render on the change of the id.
@@ -5253,6 +5348,29 @@ function PracticeDrawContent() {
                 full-bleed under both. The scale hooks read the bottom padding from the computed
                 style, and get the side insets as numbers. */}
             <div className="flex flex-col flex-1 p-4" style={contentPadding(safeArea)}>
+              {opponent && !attemptLayoutShows && (
+                <OpponentStrip
+                  half={opponent}
+                  onOpenCore={() => setOpponentPanel({ title: "Opponent's core", theirs: opponent.core, show: 'theirs' })}
+                  onOpenBrig={() => setOpponentPanel({ title: opponent.kind === 'bot' ? "The bot's brig" : "Opponent's brig", theirs: opponent.brig, show: 'theirs' })}
+                >
+                  {opponentLayout === 'a' && (
+                    <RowSwitch showing={rowShown} onShow={setRowShown} yourSides={yourLocationSides} half={opponent} />
+                  )}
+                  {opponentLayout === 'c' && (
+                    <CameraZoom tiltDeg={cameraTilt} onTilt={setCameraTilt} yourSides={yourLocationSides} half={opponent} />
+                  )}
+                  {opponentLayout === 'd' && <CameraToggle tiltDeg={cameraTilt} onTilt={setCameraTilt} />}
+                </OpponentStrip>
+              )}
+              {opponentPanel && (
+                <OpponentPanel
+                  content={opponentPanel}
+                  onSwitch={(show) => setOpponentPanel({ ...opponentPanel, show })}
+                  onClose={() => setOpponentPanel(null)}
+                  cardWidth={viewerCardWidth}
+                />
+              )}
               {/* The attempt layout (#1164) in place of the mission row while an attempt is in
                   progress. Only one of the two is mounted, so each droppable is mounted once: the
                   parked attempt layout of #1342 mounts only the row, with its droppable disabled. */}
@@ -5354,7 +5472,44 @@ function PracticeDrawContent() {
                   paddingRight: MENU_BUTTON_GUTTER,
                 }}
               >
-                <TablePlane testId="tilted-board" hingeBox={bottomRow} mat matTop={underMissionHeadroom(missionScale, finePointer)}>
+                <TablePlane
+                  testId="tilted-board"
+                  hingeBox={bottomRow}
+                  mat
+                  matTop={underMissionHeadroom(missionScale, finePointer)}
+                  camera={tableCamera}
+                  matTheirs={opponent !== null && opponentLayout === 'a' && rowShown === 'opponent'}
+                >
+                {opponent && opponentLayout === 'b' && (
+                  <FarSide gap={fullUnderMissionStackHeight(missionScale, finePointer)}>
+                    <OpponentCompactRow
+                      half={opponent}
+                      slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE))}
+                      cardWidth={Math.round(TABLE_CARD_WIDTH * missionScale)}
+                      onOpenLocation={openOpponentLocation}
+                    />
+                  </FarSide>
+                )}
+                {opponent && (opponentLayout === 'c' || opponentLayout === 'd') && cameraTilt > CAMERA_YOUR_SIDE && (
+                  <FarSide gap={fullUnderMissionStackHeight(missionScale, finePointer)}>
+                    <OpponentMissionRow
+                      half={opponent}
+                      scale={missionScale}
+                      slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE))}
+                      showShips={cameraTilt >= SHIPS_FROM_TILT}
+                      onOpenLocation={openOpponentLocation}
+                    />
+                  </FarSide>
+                )}
+                {opponent && opponentLayout === 'a' && rowShown === 'opponent' ? (
+                  <OpponentMissionRow
+                    half={opponent}
+                    scale={missionScale}
+                    slotWidth={missionSlotWidth(missionScale, finePointer, desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE))}
+                    showShips
+                    onOpenLocation={openOpponentLocation}
+                  />
+                ) : (
                 <MissionRow
                   missions={missions}
                   onOpenPile={(missionIndex, pile) => openOnlyMissionPile(missionIndex, pile)}
@@ -5369,8 +5524,12 @@ function PracticeDrawContent() {
                   shipRows={shipRows}
                   desktop={finePointer}
                   slotBudget={desktopMissionSlotBudget(gameLayerWidth, safeAreaSides, DESKTOP_FULL_TABLE_RESERVE)}
+                  opponentSides={opponentSidesAtYours}
                 />
+                )}
                 </TablePlane>
+                {tableCamera && <RemeasureAfterCamera tiltDeg={tableCamera.tiltDeg} />}
+                {opponent && opponentLayout === 'c' && <EdgeCamera tiltDeg={cameraTilt} onTilt={setCameraTilt} />}
               </div>
               <TurnScoreColumn
                 turn={turn}
@@ -5415,7 +5574,7 @@ function PracticeDrawContent() {
               >
                 {/* The bottom row lies on the tilted table with the board (`TablePlane`), but not in
                     the attempt layout, whose board stays flat. */}
-                <TablePlane testId="tilted-bottom-row" hingeBox={bottomRow} enabled={!attemptLayoutShows} className="flex-1 min-w-0 flex flex-row items-end gap-2">
+                <TablePlane testId="tilted-bottom-row" hingeBox={bottomRow} enabled={!attemptLayoutShows} camera={tableCamera} className="flex-1 min-w-0 flex flex-row items-end gap-2">
                 <div className="flex flex-row items-end gap-2">
                   <div className="flex flex-col items-center gap-1">
                     <DiscardPile

@@ -239,6 +239,20 @@
     0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
+/* The opponent's far side of the table (#1823): the same mat in the opponent's tint, so the two
+   halves read as two players' sides of one table without a ring on every card. */
+.table-3d .board-mat-theirs {
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 40%, rgba(225, 29, 72, 0.1), transparent 75%),
+    rgba(225, 29, 72, 0.05);
+  border-color: rgba(251, 113, 133, 0.18);
+}
+
+/* The opponent's cards lie flat on the table, read only: no shadow lifts them (#1823). */
+.table-3d .opponent-flat .table-card-art {
+  box-shadow: none;
+}
+
 /* Every card on the table sits a little above it: a soft shadow below, from a light above and in
    front of the player. */
 .table-3d .table-card-art {

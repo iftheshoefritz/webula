@@ -284,6 +284,24 @@ saved game, and a deal, a reset or a restore empties it, and the undo history wi
 The rulebook win score is 100 points. `SCORE_MAX` is 140, so the counter can show a
 score above the win score. See [section 7](#7-names-kept-and-why).
 
+### The opponent's half (spike, #1182)
+
+`?opponent=1` adds a read-only opponent's half beside the player's table (`opponent.ts`,
+`OpponentView.tsx`): the fixture opponent (deck B), or in a game against the bot the bot's half
+(#1823). It is page state, not part of `TableState` or the save.
+
+| Idea | Code | Note |
+|---|---|---|
+| opponent | `Player` `'opponent'`, `OpponentHalf` | The other player. |
+| who sits across the table | `OpponentKind`: `'fixture'` (`fixtureOpponent`), `'bot'` (`botOpponent`) | Not a rulebook term. The bot's half is derived from a bot game's table (`TableState.opponent: 'bot'`): its dilemma pile, its brig (`botBrig`), and 5 empty locations, since the bot plays no missions. |
+| your / an opponent's | `Player` `'you'` / `'opponent'` | Which player a card or a zone belongs to. |
+| own | not modelled yet | The player whose deck a card came from. |
+| command | which `LocationSide` holds the card | The player who controls a card in play. A card sits on the side of the player who has command of it, not the one who owns it. |
+| location | `LocationKey` (`row`, `index`) | A mission as a place both players' cards can be. Each player has 5, so a game has 10. |
+| side (of a mission) | `LocationSide` (`awayTeam`, `ships`) | One player's cards at a location. |
+| half (of the game) | `OpponentHalf` for the opponent | One player's missions, core, brig, hand, draw deck and dilemma pile, and that player's side of each of the 10 locations. |
+| contested | `ContestedMark`, `data-testid="contested-<index>"` | Not a rulebook term: a location where both players have cards. |
+
 ## 5. Headquarters and playability
 
 The rulebook says that you **play** personnel, ships and equipment **at** a
@@ -319,7 +337,7 @@ So the code has no name for these rulebook terms:
 
 - the orders: beam personnel, move a ship, attempt a mission, order actions
 - overcoming a dilemma (the dilemma bot checks the mission requirements, see [section 9](#9-the-dilemma-bot); the practice table models a mission attempt only as `TableState.attempt`, and facing dilemmas only as a phase of it, `Attempt.phase`, see [section 4](#4-the-practice-table); a phase is the attempt's, a segment the turn's)
-- owner, and "an opponent's" (for "command" and "your", see [section 4](#4-the-practice-table), the table view)
+- owner (for "command" and "your", see [section 4](#4-the-practice-table), the table view; "an opponent's" only in the spike of the opponent's half, [section 4](#the-opponents-half-spike-1182))
 - combat, engagement, damage, captive
 - equipped with, response action, prevent, replace, exchange (the dilemma bot reads "present with", see [section 9](#9-the-dilemma-bot))
 - download as a card effect that puts a card into play (the practice table models only the part that takes a chosen card from a pile into the hand, see [section 4](#4-the-practice-table))

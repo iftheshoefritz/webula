@@ -30,8 +30,23 @@ export interface Point {
   y: number;
 }
 
-export const planeTiltStyle = (hinge: Point, layoutLeft: number, layoutTop: number): CSSProperties => ({
-  transform: `perspective(${BOARD_PERSPECTIVE}px) rotateX(${BOARD_TILT_DEG}deg)`,
+// The camera over the table (#1823): the tilt and the distance of the eye. Every tilted part of one
+// table takes the same camera, so they stay in one plane. A camera move changes only the transform,
+// never a measured box, so the sizes of the table do not change with it.
+export interface TableCamera {
+  tiltDeg: number;
+  perspective: number;
+}
+
+export const DEFAULT_CAMERA: TableCamera = { tiltDeg: BOARD_TILT_DEG, perspective: BOARD_PERSPECTIVE };
+
+export const planeTiltStyle = (
+  hinge: Point,
+  layoutLeft: number,
+  layoutTop: number,
+  camera: TableCamera = DEFAULT_CAMERA,
+): CSSProperties => ({
+  transform: `perspective(${camera.perspective}px) rotateX(${camera.tiltDeg}deg)`,
   transformOrigin: `${round(hinge.x - layoutLeft)}px ${round(hinge.y - layoutTop)}px`,
 });
 
