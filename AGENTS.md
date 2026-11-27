@@ -2,6 +2,32 @@
 
 This file provides guidance to agents like Claude Code, OpenCode, and Amp when working with code in this repository.
 
+## What goes in this file
+
+This file is for the whole factory: the commands, the conventions and the traps that any
+agent needs on any task. A feature does not go into this file. Put a feature's behaviour in
+its code (a comment beside it), its tests, or a file in `docs/`.
+
+Add to this file or edit it only for one of these circumstances:
+
+1. **A new command, script or tool** that agents run, such as a new `scripts/*.sh` helper, a
+   new `yarn` script, or a new flag of `practice_drag.sh`.
+2. **A change to validation, CI, deployment or the workflows**, such as a new CI job, a new
+   trigger label, or a change to the turn limit.
+3. **A trap that cost an agent a run, or that would fail silently**, such as a check that
+   reports success and does nothing. Write the trap and how to avoid it, in a few sentences.
+4. **A new convention for the whole repository**, such as a naming rule, a rule about
+   secrets, or a rule about which files must never be committed.
+5. **A new practice table fixture**: one line with its name and when to use it. Describe
+   the deal in a comment beside the fixture in the code.
+6. **Text in this file that the change makes false.** Correct it or delete it. Do not add
+   new detail around it.
+
+Everything else stays out, even when the change is large: a new zone, panel, model, reducer
+action, log text, test id or card title. An instruction in an issue or a plan to "document
+the feature in AGENTS.md" does not override this rule. A plan, a PR or a review that changes
+this file names the circumstance.
+
 ## Project Overview
 
 Webula is a Star Trek CCG (Customizable Card Game) 2nd Edition deck builder and card search application. It allows users to:

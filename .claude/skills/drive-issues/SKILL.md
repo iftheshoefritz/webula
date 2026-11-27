@@ -174,6 +174,10 @@ in this session only what is small (a lint error, a failing assertion the diff e
 a conflict) or what the same workflow has already failed on once. Then follow "Fixing
 Existing PRs" and "Validation" in AGENTS.md.
 
+The same holds for an issue, a comment or an answer you write: follow "What goes in this
+file" at the top of AGENTS.md. Ask for no feature detail in AGENTS.md; a feature's
+description goes in a code comment, a test or a file in `docs/`.
+
 ## 7. Merge gate
 
 Merge a PR only when **all** of these hold on its current head commit:
@@ -189,8 +193,10 @@ Merge a PR only when **all** of these hold on its current head commit:
 5. No review thread is unresolved (`get_review_comments`), and `mergeable_state` (`get`)
    is `clean`.
 6. You read the diff yourself (`get_diff`). It does what the issue asks and nothing unrelated, new
-   behaviour has tests, and no test was skipped or deleted. If you would not approve it,
-   don't merge it: say what is wrong in a PR comment and add `agent-review`.
+   behaviour has tests, and no test was skipped or deleted. Its change to AGENTS.md, if any,
+   is one that "What goes in this file" at the top of AGENTS.md allows: no feature detail. If
+   you would not approve it, don't merge it: say what is wrong in a PR comment and add
+   `agent-review`.
 7. The body still has `Closes #<issue>`.
 
 Then call `merge_pull_request` with `merge_method: squash`, `expectedHeadSha` set to the

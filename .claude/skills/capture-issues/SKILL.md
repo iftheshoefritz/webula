@@ -79,6 +79,11 @@ Body:
 - `## Open questions`: each thing the notes leave open, with your recommendation if you
   have one. The `needs-elaboration` run answers the questions in this section.
 
+Do not ask an issue to document its feature in AGENTS.md. Follow "What goes in this file" at
+the top of AGENTS.md: ask for a change to AGENTS.md only when one of its circumstances
+applies, and name the circumstance. A feature's description goes in a code comment, a test
+or a file in `docs/`.
+
 Create the issue with `issue_write` `method: create` and an empty label list. Labels
 start workflows (AGENTS.md, "A label can start a workflow run"), and the owner starts them.
 
