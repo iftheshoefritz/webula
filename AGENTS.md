@@ -28,6 +28,9 @@ action, log text, test id or card title. An instruction in an issue or a plan to
 the feature in AGENTS.md" does not override this rule. A plan, a PR or a review that changes
 this file names the circumstance.
 
+`src/tests/agentsMdSize.test.ts` fails when this file grows past its byte budget. Move feature
+detail to a code comment, a test or `docs/`; do not raise the budget.
+
 ## Project Overview
 
 Webula is a Star Trek CCG (Customizable Card Game) 2nd Edition deck builder and card search application. It allows users to:
@@ -68,17 +71,8 @@ yarn test:watch # Run tests in watch mode
 - `/` (`src/app/page.tsx`) - Simple card search interface
 - `/decks` (`src/app/decks/page.tsx`) - Full deck builder with search, deck management, and analytics
 
-Both pages show search results as the text list by default, on every screen. The deck builder's
-image/list toggle saves the choice under `search-view-mode-v2` (`useSearchViewMode`), and `/` reads
-the same key with no toggle of its own (#1453). The old `search-view-mode` key is not read.
-`/` shows the hover image only with a fine pointer (`useFinePointer`, #1466): on a touch device a
-tap fires a `mouseenter` with no `mouseleave`, so a preview would stay open.
-
-With a fine pointer, the deck builder's hover image over a grid card of the image view is sized from
-that card (`gridHoverImageWidth` in `SearchResults.tsx`, #1459): as large as the native image and the
-window's height allow, and none at all when that is not 1.25 times the card (`previewEnlarges` of
-#1458), as in the 1-column layout below `lg`. The grid card's own click and right-click still add
-and remove. List view, and a touch device, keep the 230 px image.
+`docs/search-results.md` holds the rules of the view mode and the hover image. Read it before you
+change either.
 
 ### Search Query Syntax
 The search supports advanced query syntax defined in `src/lib/constants.ts`:
@@ -126,117 +120,29 @@ Card pile assignment determined by `cardPileFor()` in `src/app/decks/deckBuilder
 - Files stored in `appDataFolder` (hidden app-specific folder)
 - Token management via NextAuth.js with automatic refresh
 
-The NextAuth session is a JWT of 90 days, rolled forward once a day by an active user
-(`session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE, updateAge }` in `authOptions.ts`, #1660). A
-Google refresh that fails (no refresh token, or one the OAuth app's "Testing" status expired after 7
-days) does not sign the caller out: the `jwt` callback keeps the token and its email with
-`error: 'RefreshAccessTokenError'`, and tries again an hour later (`refreshRetryAt`). The routes that
-need only the email, the playtest and Championship routes, keep answering; a Drive call with the stale
-access token still fails.
+`docs/auth.md` holds the rules of the NextAuth session and of a failed token refresh. Read it before
+you change `authOptions.ts` or a route that reads the caller's email.
 
 ### Share links
 
-`/api/share` (`src/app/api/share/route.ts`) stores each share in Upstash Redis
-(`src/lib/shareStore.ts`, #1445), under `share:<id>` with a 30-day TTL. `POST { content, title }`
-answers `{ id }`, a random 10-character id, and `GET ?id=` answers `{ content, title }`. The
-content is capped at 256 KB (413 `bad_request`). A store failure answers 502 `upstream_unreachable`,
-an unknown or expired id 404 `not_found` (`src/lib/shareErrors.ts`). The Vercel Marketplace
-integration named the env vars with the prefix `SHARES`, so the route reads
-`SHARES_KV_REST_API_URL` and `SHARES_KV_REST_API_TOKEN`, and falls back to
-`UPSTASH_REDIS_REST_*` and `KV_REST_API_*` (`shareStoreCredentials`). For a local `yarn dev` that shares, run
+The share links live in Upstash Redis. The Vercel Marketplace integration named the env vars with
+the prefix `SHARES`, so the route reads `SHARES_KV_REST_API_URL` and `SHARES_KV_REST_API_TOKEN`, and
+falls back to `UPSTASH_REDIS_REST_*` and `KV_REST_API_*`. For a local `yarn dev` that shares, run
 `vercel env pull .env.development.local`. The tests mock the store, so they need no access.
+`docs/share-links.md` holds the API and its answers; read it before you change `/api/share`.
 
 ### Playtest cards
 
-`src/lib/playtestStore.ts` (#1612, #1644) keeps the playtest sets in testing in the same Upstash
-Redis database as the share links, through `shareStoreCredentials`, with no TTL, so a local check
-needs `vercel env pull .env.development.local` too. Its client reads strings as they are
-(`automaticDeserialization: false`). A playtest set is named by the `Set` column of its TSV: letters,
-digits, `_`, `-` and `.` (`isPlaytestSetName`). Its key, `<key>` below, is the name lowercased
-(`playtestSetKey`), and so is the `set` of its rows.
-
-| Key | Value |
-|---|---|
-| `playtest:sets` | The sets in testing, a Redis set of their names as written |
-| `playtest:set:<key>:version` | A number, bumped by every upload of the set |
-| `playtest:set:<key>:uploadedAt` | An ISO time, written with the version |
-| `playtest:set:<key>:cards` | The normalised TSV of `normalisePlaytestTsv` |
-| `playtest:set:<key>:img:<ImageFile>` | One JPEG, base64 |
-| `playtest:emails` | The playtesters of every set, a Redis set of lowercased emails |
-
-A publish (`publishSet`) writes the set's cards and time and bumps its version before it lists the set
-in `playtest:sets`, so a reader never sees a version whose cards or images are missing. A replace of
-another set removes that set only after the new one is listed; a re-upload under the set's own name
-bumps its version and deletes only the images the new TSV no longer names. On first use the store
-moves the keys of before #1644 (`playtest:version`, `playtest:uploadedAt`, `playtest:cards`,
-`playtest:img:<ImageFile>`) to the set named by the single `Set` value of their TSV, version kept,
-and deletes them; with no `Set` value or several it moves nothing, and the admin status's
-`legacyError` says so.
-
-A playtester (`isPlaytester` in `src/lib/playtestAccess.ts`) is an email in `playtest:emails` or an
-owner listed in `PLAYTEST_ADMIN_EMAILS`, comma-separated, a server-only env var (never
-`NEXT_PUBLIC_`). The email comes from the NextAuth JWT (`callerEmail`, `src/lib/callerEmail.ts`).
-`GET /api/playtest/cards` answers `{ sets: [{ name, version, tsv }] }`, by name, `{ sets: [] }` before
-the first upload, with `Cache-Control: private, no-cache`. `GET /api/playtest/images/<key>/<ImageFile>.jpg`
-answers the JPEG of a set in testing with `private, max-age=31536000, immutable`; the client adds
-`?v=<the set's version>`, which the route ignores. Both answer 404 to anyone who is not a playtester, a
-signed-out caller too, and to an unknown or malformed set or image, so they never reveal that playtest
-cards exist; a store failure answers 502 `upstream_unreachable`. Every answer is `private` and carries
-`X-Robots-Tag: noindex`.
-
-On the client each playtest row keeps its own `set`, and `isPlaytestCard` tests the `pt-` prefix of
-its `collectorsinfo`. `cardImageUrl` reads the version of the row's set from the map
-`PlaytestCardsProvider` sets (`setPlaytestImageVersions`); a row of a set not in testing, or the
-`set: 'playtest'` of a row saved before #1644, gets `CardMissing.jpg`. An answer of the old
-`{ version, tsv }` shape is no cards. `usePlaytestCards().sets` lists the sets, and a playtester's Set
-picker in `SearchPills` lists one option per set, by name, above the real sets. `filterCards` matches
-the `set` of a playtest row on its whole value, so `set:a` finds no `testseta` card.
-
-The owners upload at `/playtest/admin` (#1613), a server page that reads the JWT
-(`pageCallerEmail`): a signed-out visitor gets a "Sign in with Google" button
-(`data-testid="playtest-admin-sign-in"`), a signed-in non-owner the 404 page, and an owner
-`PlaytestAdminClient`. The browser reads `images.zip` with `readZip` (`src/lib/zipReader.ts`, stored
-and deflated entries, no zip64, no encryption, no package) and builds the preview with
-`playtestPreview` (`src/lib/playtestUpload.ts`): the set (`playtest-preview-set`), the cards by type,
-the errors, the warnings, the `ImageFile`s with no `<ImageFile>.jpg` in the zip and the unused images.
-An error disables Publish, which sends the images of the set in batches under 3 MB of JSON
-(`imageBatches`; a Vercel function takes at most 4.5 MB), then the TSV. The preview offers "New set" or
-"Replace <set>" over the sets in testing (`playtest-replace-choice`, #1645), with the set of the TSV's
-own name pre-selected when it is in testing, so a corrected re-upload is one click. The status
-(`playtest-status`) lists every set in testing, one `playtest-status-set` row each (`data-set`): name,
-version, upload time, cards and images, and a Remove (`playtest-status-remove`) behind an inline confirm
-(`playtest-status-remove-confirm`) that calls `DELETE sets`. The owner-only routes under `/api/playtest/admin/` answer 404 to anyone else, with
-`private, no-store`, and write nothing on an error: `GET status` (`{ sets: [{ name, version,
-uploadedAt, cards, images, cardNames, collectorsInfo }], legacyError, emails }`, counted from the
-stored TSVs), `POST images` (`{ set, images: [{ imageFile, base64 }] }`), `POST cards` (the TSV as
-text, with `?replace=<set>` to replace a set in testing and no `replace` for a new set), `DELETE
-sets` (`{ name }`, removes a set, its cards and its images), and `GET`/`POST`/`DELETE emails`
-(`{ email }`). `POST cards` runs `checkPlaytestUpload` again with the real names: the rows name exactly
-one valid `Set`, not a real set's value nor `playtest`; a new set is not in testing yet; a replace
-names a set in testing, and the new name is no other set in testing; and no card name or
-`CollectorsInfo` is one of another set in testing (the replaced set excepted), so the deck keys stay
-`pt-<n>`. It then checks the store holds every image under the set, and calls `publishSet`.
-In development, `/playtest/admin?fixture=1` renders the page with an in-memory store of two sets,
-`TestSetA` and `TestSetB` (`src/lib/playtestAdminFixture.ts`); production ignores it.
-
-A deck loaded from Lackey text drops a line whose card the card data lacks, a playtest card for a
-user who is not a playtester among them, as before, and a dismissible warning,
-`data-testid="deck-missing-cards-warning"`, says how many cards were not found ("3 cards in this deck
-were not found", `missingCardsMessage`, #1616): in the deck builder after any load of `useDeckState`,
-and on the practice table after a Load deck from Drive or a bot pile. `deckFromTsvWithMissing` and
-`missingCardsOf` (`deckBuilderUtils.ts`) count the copies, by pile header, so a load of some piles
-counts only theirs. A `?share=` or `?driveFile=` deck waits for `usePlaytestCards().settled` (#1615), so a
-playtester's own deck loads with its playtest cards.
-
-A device that loaded a non-empty `sets` for a signed-in user keeps `localStorage['playtest-device']
-= '1'` (`src/lib/playtestDevice.ts`, #1660), never cleared, a sign-out included. On that device,
-signed out and online, `PlaytestSignInHint` (`data-testid="playtest-sign-in"`) shows "You may need to
-sign in to see playtest cards" and a "Sign in with Google" button, a plain sign-in with no Drive scope
-back to the same URL: on the practice table's game menu splash and in every
-`deck-missing-cards-warning`. A device without the flag never sees it, and reads no session for it.
-
 No playtest card is ever committed: no name, text, TSV row or image in the repository, a test, a
 fixture, an issue or a PR. Tests use invented cards.
+
+The owners are listed in `PLAYTEST_ADMIN_EMAILS`, comma-separated, a server-only env var (never
+`NEXT_PUBLIC_`). The playtest store uses the Upstash database of the share links, so a local check
+needs `vercel env pull .env.development.local` too. In development, `/playtest/admin?fixture=1`
+renders the admin page with an in-memory store of two invented sets; production ignores it.
+
+`docs/playtest.md` holds the store, the routes, the admin upload and the client side. Read it before
+you change any of them.
 
 ## Card Data Scripts
 
@@ -288,31 +194,14 @@ Converts trekcc.org DeckPADD deck files to the LackeyCCG deck format that the de
 builder reads. The comment at the top of the script describes both formats and the
 command.
 
-`championship-decks/`, at the top of the repository, holds the converted Championship decks,
-the decks of the 2026 championship events. It is not under `public/`, and neither its
-`index.json` nor a deck file has a public URL (#1327). `index.json` in that folder lists them,
-with the event, the player and the trekcc deck ID. When you add a deck file, add its row to
-`index.json`. A test fails when `public/` holds a Championship deck file.
-
-The `authorizedUse` field of a row is `true` only when the deck's owner gave Webula
-permission to show the deck to every user. Give a new row `false` until the owner
-agrees. A deck with `false` is for the users with early access only.
-
-Two API routes serve the folder, and both apply `visibleChampionshipDecks`
-(`src/lib/championshipDecks.ts`) to the caller's email from the NextAuth JWT:
-`/api/championship-decks` returns the rows the caller may see, and
-`/api/championship-decks/<file>` returns the text of a deck the caller may see, and a 404 for
-anything else. An early-access user gets every row; any other user, a signed-out user too, only
-the `authorizedUse` rows. So an `authorizedUse: false` deck is served only to early-access
-users. `outputFileTracingIncludes` in `next.config.mjs` puts the folder into the routes'
-function bundle, so check a change to it with `yarn build && yarn start`. The dilemma lab
-reads the folder at build time and lists only the `authorizedUse` decks.
-
-`public/beginner-decks/` holds the converted Beginner Decks of trekcc.org, by Lucas
-Thompson (https://www.trekcc.org/articles/?viewArticle=2715). `index.json` in that folder
-lists them in the order of the article, with the trekcc deck ID, the complexity level (1 to
-5), the deck style and the strategy article of each deck. The author gave Webula permission
-to show these decks to every user, so every row has an `authorizedUse` of `true`.
+`championship-decks/`, at the top of the repository, holds the converted Championship decks. It is
+not under `public/`, and no deck of it has a public URL: a test fails when `public/` holds a
+Championship deck file. When you add a deck file, add its row to `index.json` in that folder, with
+`authorizedUse: false` until the deck's owner gives Webula permission to show the deck to every
+user. The API routes read the folder from the function bundle, so check a change to it with
+`yarn build && yarn start`. `public/beginner-decks/` holds the Beginner Decks of trekcc.org.
+`docs/championship-decks.md` holds the routes, the early-access rule and the Beginner Decks; read it
+before you change them.
 
 The DeckPADD download (`/decklists/?mode=download&deckID=<id>`) needs a trekcc.org
 login, and Cloudflare blocks `curl`. Get the files from a browser where the owner
@@ -320,70 +209,24 @@ is logged in, with `fetch` inside the page.
 
 ## Stats
 
-`scripts/collect_stats.mjs` (#1431) reads GitHub and writes JSON Lines files under `stats/`, at the
-top of the repository, outside `public/`, one file per month. It needs `GH_TOKEN` (or `GITHUB_TOKEN`,
-or a logged-in `gh`) and `unzip`. `--since` and `--until` are UTC dates, both inclusive; `--until`
-defaults to today. Each run costs about two REST requests, its jobs and its log. The `GITHUB_TOKEN`
-allows 1,000 an hour, so slice a backfill in Actions with them. A user token allows 5,000 an hour,
-and a local run waits for the reset when it reaches the limit, so one local run can backfill
-everything. It tries a request again after a 5xx or a dropped connection, and after the last try it
-files the run of a log it could not get with no `claude` field. The script writes each day of runs and each month of closed items as soon as it has them,
-so a run that stops keeps its finished days and a second run resumes. It asks for no log of a run
-older than 90 days, the log retention of GitHub: such a run has no `claude` field. The first run of
-the repository is from 2026-03-07. The script prints what it fetched and what it skipped.
+`scripts/collect_stats.mjs` reads GitHub and writes JSON Lines files under `stats/`. It needs
+`GH_TOKEN` (or `GITHUB_TOKEN`, or a logged-in `gh`) and `unzip`.
 
 ```bash
 GH_TOKEN=… node scripts/collect_stats.mjs --since 2026-10-28 [--until 2026-10-31] [--repo iftheshoefritz/webula]
 ```
 
-Every record carries `repository`. Each line is compact JSON, and the lines are sorted, so a second
-run over the same window changes no byte.
+The `GITHUB_TOKEN` allows 1,000 REST requests an hour and each workflow run costs about two, so
+slice a backfill in Actions. A user token allows 5,000 an hour, and a local run waits for the reset,
+so one local run can backfill everything.
 
-- `stats/runs/<YYYY-MM>.jsonl`, by the month the run was created: one line per completed workflow
-  run that was not `skipped`, keyed by (repository, `run_id`, `run_attempt`), the latest attempt
-  when listed. It holds the workflow, event, branch, SHA, `number` (the issue or PR, from
-  `pull_requests[]`, or for an `issues` or `issue_comment` run from the log as
-  `classify_agent_failure.sh` finds `target`; `null` otherwise), conclusion, times and `jobs`. A
-  `claude` field, `{subtype, is_error, num_turns, duration_ms, duration_api_ms,
-  total_cost_usd_estimate, models: {<model>: {input_tokens, output_tokens}}}`, is there only when
-  the log holds a result record, and that is what "Claude ran" means. The cost is the API-price
-  estimate: the workflows run on a subscription token. A run whose log expired has no `claude`.
-- `stats/issues/<YYYY-MM>.jsonl`: one snapshot per UTC date, `{repository, date, counts, open_prs:
-  {draft, ready}}`. An open issue counts once, under the status label added last
-  (`STATUS_LABELS` and `agent-error:*` in `scripts/stats/issueStatus.mjs`), or as `open-with-pr` or
-  `open-no-status`. A closed issue counts under its `state_reason`.
-- `stats/items/<YYYY-MM>.jsonl`, by the month the item closed: one line per closed issue and per
-  merged or closed PR, keyed by (repository, number, kind), with `opened_at`, `closed_at`,
-  `state_reason`, `first_label_at`, and `first_linked_pr_at` for an issue, or `merged_at`, `pushes`
-  and `ci_runs` for a PR (the CI runs of its branch until it closed; every push starts one with the
-  event `push`).
+`.github/workflows/stats-recorder.yml` runs the script every day and pushes the result to the branch
+`stats/update`. It opens no pull request: the owner, or `/drive-issues`, merges `stats/update` when
+`/stats` needs new stats. `.github/workflows/README.md` describes it.
 
-A run or an item already in its month file is not fetched again. The parser, the counting and the
-merge are in `scripts/stats/*.mjs`, which use no network, and `src/tests/scripts/collectStats.test.ts`
-tests them.
-
-`.github/workflows/stats-recorder.yml` (#1432) runs the script every day at 02:43 UTC over the last
-3 days and pushes the result to the branch `stats/update`, which each run rebuilds from `main`. It
-opens no pull request (#1791): the owner, or `/drive-issues`, merges `stats/update` when `/stats`
-needs new stats. Before it collects, it merges the stats of the previous `stats/update` into the new
-branch with `scripts/merge_stats.mjs`, so a day stays on the branch until it merges.
-A dispatch with `since` and `until` runs a backfill slice. `.github/workflows/README.md`
-describes it.
-
-The page `/stats` (#1417) shows the stats to early-access users: per workflow the runs, the median
-and 90th percentile of the duration, the share of runs that did not succeed, and the turns and cost
-estimate where Claude ran; per CI job the median and 90th percentile; the median duration by ISO
-week; the issue counts per status of the latest snapshot and over time; and the 20 completed issues
-slowest from the first label to the close. It reads `/api/stats`, which applies `isEarlyAccessUser`
-to the caller's email from the NextAuth JWT and answers 404 to anyone else, a signed-out caller too.
-A signed-out visitor sees a "Sign in with Google" button (`data-testid="stats-sign-in"`), a plain
-Google sign-in with no Drive scope that comes back to `/stats`; a signed-in user who is not early-access
-sees "Use another Google account" (`stats-switch-account`), a sign-out back to `/stats` (#1442).
-`src/lib/statsServer.ts` reads the folder, `src/lib/stats.ts` aggregates it (no `fs`), and
-`outputFileTracingIncludes` in `next.config.mjs` puts `stats/` into the route's bundle. The page
-never reads the files at build time. In development only, `/stats?fixture=1` renders the fixture
-aggregates of `src/lib/statsFixture.ts` without the route; production ignores it. The deck actions
-menu of the deck builder shows a Stats link to early-access users only.
+In development only, `/stats?fixture=1` renders the page with fixture aggregates; production ignores
+it. `docs/stats.md` holds the record format, the resume rules and the page `/stats`. Read it before
+you change the collector, the records or the page.
 
 ## Validation
 
