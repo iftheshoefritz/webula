@@ -103,6 +103,7 @@ import { TableCardUseBadge } from './TableCardUseContext';
 import { NamedCardBadge } from './NamedCardContext';
 import PanelCloseButton from './PanelCloseButton';
 import { useFinePointer } from './useFinePointer';
+import { pileSizeLabel } from './PileCarousel';
 
 // A plain inline icon (not react-icons, the same reasoning `MissionRow.tsx`'s small badge icons
 // document): every test that renders this page mocks `react-icons/fa` with an explicit list of
@@ -240,6 +241,11 @@ const PANEL_LABEL: Record<PanelLocation, string> = {
 // trailing "pile", unchanged from before #640.
 export const isRevealLocation = (location: PanelLocation): location is 'drawDeckReveal' | 'dilemmaPileReveal' =>
   location === 'drawDeckReveal' || location === 'dilemmaPileReveal';
+
+// The piles whose panel's title states their size, since the table shows none (#1937). The reveal
+// panels show no size: a player does not know how many cards are under the revealed ones.
+const showsPileSize = (location: PanelLocation): location is 'drawDeck' | 'dilemmaPile' | 'discard' =>
+  location === 'drawDeck' || location === 'dilemmaPile' || location === 'discard';
 
 // The reveal panel's title follows the end of the pile it shows (#1078).
 const panelLabel = (location: PanelLocation, revealEnd: 'top' | 'bottom'): string =>
@@ -955,7 +961,14 @@ export default function CardListPanel({
             (`shrink-0`), so the X never scrolls away, and a panel with no controls holds the X alone. */}
         <div data-testid="panel-top-line" className="shrink-0 self-stretch flex flex-row items-start gap-2">
         <div aria-hidden="true" className={`shrink-0 ${finePointer ? 'w-8' : 'w-11'}`} />
-        <div className="grow min-w-0 flex flex-row justify-center">
+        <div className={`grow min-w-0 flex ${showsPileSize(location) ? 'flex-col items-center gap-2' : 'flex-row justify-center'}`}>
+        {/* #1937: the draw deck, the dilemma pile and the discard pile show no count on the table, so
+            their panel's title line states the pile's size. */}
+        {showsPileSize(location) && (
+          <h2 data-testid="panel-title" className="text-sm font-semibold text-text-primary whitespace-nowrap leading-8">
+            {PANEL_LABEL[location]} · <span data-testid="pile-size">{pileSizeLabel(cards.length)}</span>
+          </h2>
+        )}
         {(onAttempt || onReveal || showSendButtons || showDownloadButton || showStopButton || showStopAllButton || showSelectAllButton || showFlipButton || showDiscardButton || showRemoveFromGameButton || onShuffle) && (
           <div data-testid="panel-controls" className="min-w-0 flex flex-row flex-wrap justify-center items-start gap-2">
             {/* The reveal panel's own controls (#1070, #1078). Both reveal buttons show even with no

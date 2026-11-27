@@ -145,7 +145,8 @@ ev() { npx agent-browser eval "$1" 2>&1 | tail -1 | tr -d '"'; }
 # is the fallback, the mission's name.
 #
 # The draw deck and the dilemma pile hold their size in `data-pile-count` on
-# the pile's wrapper (#1025), present even when the pile is empty. One wrapper
+# the pile's wrapper (#1025), present even when the pile is empty. The piles
+# show no count badge (#1937), so this attribute is the only count to read. One wrapper
 # per pile, so each pile counts once. Its key is `<testid>-bottom`, because a
 # card that leaves the DOM and lands in the pile went to the bottom: a card on
 # top would still be in the DOM as the pile's top card.

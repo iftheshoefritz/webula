@@ -33,6 +33,7 @@ jest.mock('next/link', () => {
 import React from 'react';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import PracticeDrawPage, { PILE_CAROUSEL_KEY } from '../../../app/decks/practice/PracticeTable';
+import { pileSizeLabel } from '../../../app/decks/practice/PileCarousel';
 import { drawOpeningHand } from '../../fixtures/drawOpeningHand';
 import useDataFetching from '../../../hooks/useDataFetching';
 import { extractDrawDeck, shuffleArray } from '../../../app/decks/deckBuilderUtils';
@@ -101,6 +102,14 @@ const slideTo = async (index: number) => {
   });
 };
 
+describe('pileSizeLabel (#1937)', () => {
+  it('counts the cards of a pile, singular and plural', () => {
+    expect(pileSizeLabel(0)).toBe('0 cards');
+    expect(pileSizeLabel(1)).toBe('1 card');
+    expect(pileSizeLabel(40)).toBe('40 cards');
+  });
+});
+
 describe('Practice table: search the draw deck in a carousel (#1899)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -144,6 +153,8 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
     await openSearch();
     expect(screen.queryByTestId('pile-carousel')).not.toBeInTheDocument();
     expect(screen.getByTestId('card-list-panel-drawDeck')).toBeInTheDocument();
+    // #1937: the pile shows no count on the table, so the panel's title states the pile's size.
+    expect(screen.getByRole('heading', { name: 'Draw deck · 8 cards' })).toBeInTheDocument();
   });
 
   it('turns the setting on from the game menu', async () => {
@@ -162,7 +173,7 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
     await renderWithDeck(true);
     await openSearch();
     expect(screen.getByTestId('pile-carousel')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Search draw deck' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Search draw deck · 8 cards' })).toBeInTheDocument();
     expect(screen.getByTestId('card-list-panel-drawDeck')).toBeInTheDocument();
     expect(position()).toBe('1 of 8');
     expect(middleName()).toBe('Personnel 8');
@@ -323,7 +334,7 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
     await renderWithDeck(true);
     await tap(screen.getByRole('button', { name: /^download from the dilemma pile$/i }));
     expect(screen.getByTestId('pile-carousel')).toHaveAttribute('data-pile', 'dilemmaPile');
-    expect(screen.getByRole('heading', { name: 'Search dilemma pile' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Search dilemma pile · 4 cards' })).toBeInTheDocument();
     expect(screen.getByTestId('card-list-panel-dilemmaPile')).toBeInTheDocument();
     expect(position()).toBe('1 of 4');
     expect(middleName()).toBe('Dilemma 1');
@@ -350,7 +361,7 @@ describe('Practice table: search the draw deck in a carousel (#1899)', () => {
     expect(screen.queryByTestId('pile-carousel')).not.toBeInTheDocument();
     await tap(screen.getByAltText('Discard pile').parentElement!);
     expect(screen.getByTestId('pile-carousel')).toHaveAttribute('data-pile', 'discard');
-    expect(screen.getByRole('heading', { name: 'Search discard pile' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Search discard pile · 3 cards' })).toBeInTheDocument();
     expect(screen.getByTestId('card-list-panel-discard')).toBeInTheDocument();
     expect(position()).toBe('1 of 3');
     expect(middleName()).toBe('Personnel 10');

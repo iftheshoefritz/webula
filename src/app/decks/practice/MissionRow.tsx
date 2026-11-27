@@ -26,8 +26,8 @@
 // wrapper around the already draggable `TableCard`, the same nesting pattern used for the mission
 // card's own drop target, keeps the two roles apart as two different DOM nodes. The ship's crew
 // badge (#811) is the only way to board a card by a drag: the same `CardBackIcon`-and-count pill
-// a mission's away team shows (`PileBadge` below), not the plain `CountBadge` circle the draw
-// and discard piles use, and shown even with no crew, so the first crew card has somewhere to
+// a mission's away team shows (`PileBadge` below), not the plain `CountBadge` circle the hands
+// and the dilemmas under a mission use, and shown even with no crew, so the first crew card has somewhere to
 // land. A tap anywhere on the ship (`onShipClick`) opens a panel with the ship in its own section
 // and every crew card below it (#832; `CardListPanel`, zone `'crew'`, wired up in `page.tsx`), so the badge itself is not a tap
 // target of its own: it is a plain, non-interactive `<span>` with `pointer-events-none`, so a tap
@@ -1237,7 +1237,9 @@ function UnderMissionStack({
         }, tap to open`}
         className="sr-only"
       />
-      {/* The same count badge as the draw deck, the hands, and the discard pile (#996). The
+      {/* The same count badge as the hands (#996). The draw deck, the dilemma pile and the
+          discard pile show none (#1937), but the stack draws a sliver of each card, so a player
+          can count it. The
           hidden button above already names the count, and a tap falls through to the stack.
           The stack sits at the very top of the table, so the wrapper moves the badge down by its
           `-top-2` overhang: without it the top of the badge is cut off by the viewport. */}

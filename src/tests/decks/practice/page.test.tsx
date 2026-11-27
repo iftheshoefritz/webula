@@ -332,7 +332,7 @@ describe('PracticeDrawPage', () => {
     await drawOpeningHand();
 
     // The test draws a hand of 7 of the 10 cards into the (closed) hand; the rest stay in the pile.
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(Number(screen.getByTestId('draw-pile').getAttribute('data-pile-count'))).toBe(3);
     expect(screen.getByRole('button', { name: /^hand, 7 cards, tap to open$/i })).toBeInTheDocument();
 
     // Click the draw deck button (#743: the draw deck is now two drop-half buttons; either
@@ -342,8 +342,8 @@ describe('PracticeDrawPage', () => {
       fireEvent.click(drawPileButton);
     });
 
-    // pile badge now shows 2, hand grows to 8
-    expect(screen.getByText('2')).toBeInTheDocument();
+    // the pile now holds 2, hand grows to 8
+    expect(Number(screen.getByTestId('draw-pile').getAttribute('data-pile-count'))).toBe(2);
     expect(screen.getByRole('button', { name: /^hand, 8 cards, tap to open$/i })).toBeInTheDocument();
   });
 
@@ -391,11 +391,11 @@ describe('PracticeDrawPage', () => {
 
     // The hand stayed open, and it now shows the drawn card.
     expect(screen.getByRole('button', { name: /^close hand$/i })).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(Number(screen.getByTestId('draw-pile').getAttribute('data-pile-count'))).toBe(2);
   });
 
-  // Draw Mechanics: pile count badge shows remaining count
-  it('pile count badge shows correct count as cards are drawn', async () => {
+  // Draw Mechanics: the pile holds its count in `data-pile-count`, and draws no number (#1937)
+  it('pile count shows correct count as cards are drawn, and the pile shows no number', async () => {
     mockSearchParamsValue = new URLSearchParams();
     localStorage.setItem('currentDeck', JSON.stringify(mockManyDeck));
     (useDataFetching as jest.Mock).mockReturnValue({ data: mockCardData, loading: false });
@@ -406,10 +406,11 @@ describe('PracticeDrawPage', () => {
     });
     await drawOpeningHand();
 
-    // 10-card deck: 7 dealt into the hand, 3 left in the pile. The turn number (#1337) is also
-    // a "1", so the count is read inside the draw pile.
+    // 10-card deck: 7 dealt into the hand, 3 left in the pile. A real player cannot see the count,
+    // so the pile draws no number (#1937).
     const drawPile = screen.getByTestId('draw-pile');
-    expect(within(drawPile).getByText('3')).toBeInTheDocument();
+    expect(drawPile).toHaveAttribute('data-pile-count', '3');
+    expect(drawPile.textContent).not.toMatch(/\d/);
 
     const drawPileButton = screen.getByRole('button', { name: 'Draw deck bottom, tap to draw' });
 
@@ -417,7 +418,8 @@ describe('PracticeDrawPage', () => {
       await act(async () => {
         fireEvent.click(drawPileButton);
       });
-      expect(within(drawPile).getByText(String(remaining))).toBeInTheDocument();
+      expect(drawPile).toHaveAttribute('data-pile-count', String(remaining));
+      expect(drawPile.textContent).not.toMatch(/\d/);
     }
 
     // The pile shows its "Empty" placeholder rather than a "0" badge once exhausted, and its
@@ -738,10 +740,10 @@ describe('PracticeDrawPage', () => {
     it('starts with every dilemma in the dilemma pile, and shows no dilemma hand on the full table (#1223)', async () => {
       await renderWithDilemmas();
 
-      // The two drop halves (#607) split the old single button; the count now sits in their
-      // shared, non-interactive wrapper instead of either button's own text.
+      // The pile's wrapper holds the count; the pile draws no number (#1937).
       const dilemmaPile = document.body.querySelector('[data-testid="dilemma-pile"]');
-      expect(dilemmaPile!.textContent).toContain('3');
+      expect(dilemmaPile).toHaveAttribute('data-pile-count', '3');
+      expect(dilemmaPile!.textContent).not.toMatch(/\d/);
       // The dilemma hand shows only in the dilemma choice of an attempt (#1223).
       expect(screen.queryByRole('button', { name: /^dilemma hand/i })).toBeNull();
       expect(document.body.querySelector('[data-zone="dilemmaHand"]')).toBeNull();
@@ -759,7 +761,7 @@ describe('PracticeDrawPage', () => {
 
       expect(saved().dilemmaPile).toHaveLength(3);
       expect(saved().dilemmaHand).toHaveLength(0);
-      expect(document.body.querySelector('[data-testid="dilemma-pile"]')!.textContent).toContain('3');
+      expect(document.body.querySelector('[data-testid="dilemma-pile"]')).toHaveAttribute('data-pile-count', '3');
       expect(screen.queryByTestId('dilemmaHand-arc')).toBeNull();
     });
 

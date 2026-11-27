@@ -45,6 +45,11 @@ const PILE_NAME: Record<CarouselPile, string> = {
   discard: 'discard pile',
 };
 
+// The size of a pile, which its panel's title shows: the table draws no count on the pile (#1937).
+export function pileSizeLabel(count: number): string {
+  return `${count} ${count === 1 ? 'card' : 'cards'}`;
+}
+
 // The labels of the two ends of the slider. The discard pile's carousel shows the newest card first
 // (`PracticeTable` passes it reversed), so its first end is the newest.
 const PILE_ENDS: Record<CarouselPile, [string, string]> = {
@@ -295,7 +300,9 @@ export default function PileCarousel({
         }}
       >
         <div data-testid="pile-carousel-top" className="relative shrink-0 flex flex-row items-center gap-2 pointer-events-auto">
-          <h2 className="text-sm font-semibold text-text-primary whitespace-nowrap">{PILE_TITLE[pile]}</h2>
+          <h2 className="text-sm font-semibold text-text-primary whitespace-nowrap">
+            {PILE_TITLE[pile]} · <span data-testid="pile-size">{pileSizeLabel(cards.length)}</span>
+          </h2>
           <div className="relative" onMouseLeave={() => finePointer && setHelpOpen(false)}>
             <button
               type="button"

@@ -1399,16 +1399,14 @@ function usePileLift(count: number, rowScale: number): React.CSSProperties | und
 // `@dnd-kit/core` in the test suite relies on) tied to the card's own presence, the same as
 // `CardListPanelCard` and `CardHand`'s cards.
 // A tap on it opens the discard pile's own panel (#782), which lists every card in the pile.
+// The pile shows no count badge (#1937): a real player cannot see how many cards a pile holds.
+// The panel's title shows the count, and a drop shows `DiscardPile`'s `LandedRing`.
 function DiscardPileCard({
   topCard,
-  count,
-  landedNonce,
   onOpen,
   rowScale,
 }: {
   topCard: CardInstance;
-  count: number;
-  landedNonce: number | null;
   onOpen: () => void;
   rowScale: number;
 }) {
@@ -1439,7 +1437,6 @@ function DiscardPileCard({
       />
       {/* A top card removed from the game (#1564) shows the look of the panel's card. */}
       {topCard.removedFromGame && <RemovedFromGameLabel />}
-      <CountBadge count={count} landedNonce={landedNonce} />
     </div>
   );
 }
@@ -1481,7 +1478,7 @@ function DiscardPile({
           <div className="pointer-events-none absolute inset-0">
             <PileDepth count={count} rowScale={rowScale} faces={under.map((c) => cardImageUrl(c.card))} />
           </div>
-          <DiscardPileCard topCard={topCard} count={count} landedNonce={landedNonce} onOpen={onOpen} rowScale={rowScale} />
+          <DiscardPileCard topCard={topCard} onOpen={onOpen} rowScale={rowScale} />
         </div>
       ) : (
         <div
@@ -1703,9 +1700,11 @@ function PileTopCardDrag({ topCard, children }: { topCard: CardInstance; childre
 // ever appended to the bottom). Only a dragged dilemma shows the "Top"/"Bottom" label; a drop of
 // any other card type is still accepted on either half (the same advisory-zone convention every
 // other flat zone follows), with only the generic `isOver` ring.
-// The wrapper's `data-pile-count` holds the pile's size even when it is 0 and the `CountBadge` is
-// gone, so `scripts/practice_drag.sh` can tell a card dropped to the bottom of the pile, which
-// leaves the DOM, from one that went nowhere (#1025). `DrawPileButton` does the same.
+// The pile shows no count badge (#1937): a real player cannot see how many cards a pile holds. The
+// panel's title shows the count when the player opens the pile, and a drop shows the `LandedRing`.
+// The wrapper's `data-pile-count` still holds the pile's size, so `scripts/practice_drag.sh` can
+// tell a card dropped to the bottom of the pile, which leaves the DOM, from one that went nowhere
+// (#1025). `DrawPileButton` does the same.
 function DilemmaPileButton({
   count,
   topCard,
@@ -1758,7 +1757,6 @@ function DilemmaPileButton({
         <>
           <PileDepth count={count} rowScale={rowScale} />
           <PileArt alt="Face-down dilemma pile" shuffleCount={shuffleCount} cardWidth={size.width} />
-          <CountBadge count={count} landedNonce={landedNonce} />
         </>
       ) : (
         <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-[10px] text-center leading-tight px-1">
@@ -1776,7 +1774,8 @@ function DilemmaPileButton({
 // to the `pile` zone rather than `dilemmaPile`. Unlike the dilemma pile, the draw pile accepts
 // every card type — so `showPositionLabel` gates only on whether any drag is in progress at all,
 // not on the dragged card's type, and the halves' zone kind (`zoneAccepts.ts`) accepts every
-// type too. A tap on either half still draws, same as the single button this replaces.
+// type too. A tap on either half still draws, same as the single button this replaces. Like the
+// dilemma pile, it shows no count badge (#1937) and keeps `data-pile-count`.
 function DrawPileButton({
   count,
   topCard,
@@ -1834,7 +1833,6 @@ function DrawPileButton({
         <>
           <PileDepth count={count} rowScale={rowScale} />
           <PileArt alt="Face-down draw deck" shuffleCount={shuffleCount} cardWidth={size.width} />
-          <CountBadge count={count} landedNonce={landedNonce} />
         </>
       ) : (
         <div className="pointer-events-none w-full h-full rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center text-text-muted text-xs">

@@ -242,6 +242,23 @@ describe('Practice table: the zone a dropped card lands in plays a cue (#778)', 
     }
   });
 
+  // #1937: the draw deck, the dilemma pile and the discard pile show no count, so the ring on the
+  // pile is the whole cue: no number, and no bump.
+  it.each([
+    ['discard', '[data-zone="discard"]'],
+    ['draw-pile-top', '[data-testid="draw-pile"]'],
+    ['dilemma-pile-bottom', '[data-testid="dilemma-pile"]'],
+  ])('shows only the landed ring, and no count, on the pile for a drop on %s', async (overId, pileSelector) => {
+    await setup();
+    await drop(handCardId('Tricorder'), overId);
+
+    const pile = document.body.querySelector(pileSelector) as HTMLElement;
+    expect(pile).toHaveAttribute('data-landed');
+    expect(pile.querySelector('[data-testid="landed-ring"]')).not.toBeNull();
+    expect(pile.querySelector('.animate-landed-bump')).toBeNull();
+    expect(pile.textContent).not.toMatch(/\d/);
+  });
+
   it('marks the closed hand for a card dropped on it from the core', async () => {
     await setup();
     const id = handCardId('Tricorder');
