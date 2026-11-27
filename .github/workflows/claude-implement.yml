@@ -107,6 +107,8 @@ jobs:
             initiated by non-human actor". If you make an issue that is ready to implement,
             say so in the issue body and leave the label to the owner.
 
+            Change AGENTS.md only as its section "What goes in this file" allows, and name the circumstance in the PR body. Do not add your feature, or its browser check, to "Browser checks" or to any other section. An instruction in the issue or the plan to "document the feature in AGENTS.md" does not override this rule: put the behaviour in a code comment, a test or a file in `docs/` instead.
+
             Be thorough but focused. Only change what is necessary to implement the issue. Reference the AGENTS.md file for project conventions and commands.
           claude_args: "--model claude-opus-5-5 --max-turns 80 --dangerously-skip-permissions"
           show_full_output: "true"

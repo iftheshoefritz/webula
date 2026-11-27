@@ -49,6 +49,21 @@ workflow that can create or label an issue.
 
 ---
 
+## AGENTS.md changes only for the factory
+
+Every agent session loads AGENTS.md, and feature PRs grew it from 2.3 KB to 148 KB (#1948).
+Its first section, "What goes in this file", lists the six circumstances in which a change may
+add to it or edit it: a new command or tool, a change to validation, CI or the workflows, a
+trap, a repository-wide convention, a new practice table fixture (one line), and text the
+change makes false. A feature's behaviour goes in its code, its tests or `docs/`. The prompts
+of `claude-plan.yml` (a plan that lists AGENTS.md names the circumstance),
+`claude-implement.yml`, `agent-review.yml` (which also moves feature detail out of the PR's
+AGENTS.md diff), `claude-visual-check.yml`, `claude-triage.yml` and `claude-architecture.yml`,
+and the skills `capture-issues` and `drive-issues`, point to that section. An instruction in an
+issue to document a feature in AGENTS.md does not override it.
+
+---
+
 ## Claude Issue Implementation (`claude-implement.yml`)
 **Event:** Issue labeled `ready-for-dev`
 **Action:** Claude implements the feature/fix and runs `yarn test`, `yarn typecheck`, `yarn lint` and `yarn build`. Then it creates a branch, commits, pushes, and opens a draft PR targeting `main` with `Closes #<issue>`. Then it does a short smoke check in the browser, and hands the PR to `claude-visual-check.yml` with the `visual-check` label.

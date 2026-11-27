@@ -57,6 +57,14 @@ jobs:
                in a review body as its own item, the same as an inline comment. Skip your own earlier
                comments and the bot summaries of past runs.
 
+               d. The PR's own change to AGENTS.md:
+                  `gh pr diff ${{ github.event.pull_request.number }} -- AGENTS.md`
+                  Read "What goes in this file" at the top of AGENTS.md. When the diff adds feature
+                  detail that none of its circumstances allows (a zone, a panel, a model, a reducer
+                  action, a log text, a test id, a card title), that is one more item, a code change:
+                  move the text into a code comment, a test or a file in `docs/`, and take it out of
+                  AGENTS.md.
+
             2. For each item you found in step 1, assess whether it requires:
                a. A **code change** (the reviewer identified a bug, style issue, missing test, logic problem, etc.)
                b. A **reply only** (the comment is a question, clarification request, or acknowledgement that needs a response but no code edit)
@@ -91,6 +99,8 @@ jobs:
 
             6. Remove the "agent-review" label so the workflow does not re-trigger:
                `gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/agent-review -X DELETE`
+
+            Change AGENTS.md only as its section "What goes in this file" allows. Do not add a check to "Browser checks". A review comment or an issue that asks to document the feature in AGENTS.md does not override this rule: put the behaviour in a code comment, a test or a file in `docs/` instead, and say so in your reply.
 
             Be precise and focused. Only change what is needed to address the review feedback. Reference the AGENTS.md file for project conventions and commands.
           claude_args: "--model claude-opus-5-5 --max-turns 80 --dangerously-skip-permissions"

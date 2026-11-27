@@ -50,6 +50,11 @@ jobs:
             initiated by non-human actor". If you make an issue that is ready to implement,
             say so in the issue body and leave the label to the owner.
 
+            When you write acceptance checks or suggest changes, follow "What goes in this file" at the
+            top of AGENTS.md. Ask for a change to AGENTS.md only when one of its circumstances applies,
+            and name the circumstance. A feature's description goes in a code comment, a test or a file
+            in `docs/`, never in AGENTS.md.
+
             Be concise and concrete. Reference specific file paths and function names where applicable.
           claude_args: "--model claude-opus-5-5 --max-turns 30 --dangerously-skip-permissions"
           show_full_output: "true"

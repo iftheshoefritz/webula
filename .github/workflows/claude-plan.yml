@@ -116,6 +116,12 @@ jobs:
             - Anything the issue leaves genuinely undecided, called out as an open question rather than
               guessed at.
 
+            Follow "What goes in this file" at the top of AGENTS.md. A plan lists AGENTS.md as a file to
+            change only when one of the circumstances of that section applies, and the plan names the
+            circumstance by its number and words. Otherwise the plan puts the feature's description in a
+            code comment, a test or a file in `docs/`, never in AGENTS.md. Do this even when the issue
+            or an earlier plan asks to document the feature in AGENTS.md.
+
             If the issue turns out to need no code change — the behaviour already exists, or the premise is
             wrong — say so plainly in the plan with the evidence, instead of inventing work.
 
