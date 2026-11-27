@@ -222,8 +222,9 @@ function entryEvents(entry: LogEntry, table: TableState): GameEvent[] {
  * whose instances it still finds), and `previous`, the entry before it, for the segment the turn left. A `move`
  * gives a `played` for each card it charged; a Draw 7 starts the first turn. A change of segment, by the next-turn
  * button or by an attempt started in play and draw, ends the segment before it and starts the new one; the next
- * turn ends the last segment, starts the turn and its play and draw. An entry from before a field existed gives
- * the events it can: a move with no `plays` its plays with no traits, an entry with no `segment` play and draw.
+ * turn ends the last segment, starts the turn and its play and draw; the start of the discard segment ends the
+ * turn (`turnEnding`). An entry from before a field existed gives the events it can: a move with no `plays` its
+ * plays with no traits, an entry with no `segment` play and draw.
  */
 export function gameEventsOf(entry: LogEntry, table: TableState, previous?: LogEntry): GameEvent[] {
   const before: GameEventSegment = previous ? entrySegment(previous) : 'playAndDraw';
@@ -241,5 +242,7 @@ export function gameEventsOf(entry: LogEntry, table: TableState, previous?: LogE
   events.push(...entryEvents(entry, table));
   const after = entrySegment(entry);
   if (after !== before) events.push({ kind: 'segmentEnded', segment: before }, { kind: 'segmentStarted', segment: after });
+  // The discard segment is the end of the turn (#1946): its "at the end of this turn" actions come before `nextTurn`.
+  if (after === 'discard' && before !== 'discard') events.push({ kind: 'turnEnding', turn: entry.turn });
   return events;
 }

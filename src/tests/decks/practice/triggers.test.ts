@@ -181,6 +181,14 @@ describe('the game events of a log entry (#1903)', () => {
       { kind: 'turnStarted', turn: 2 },
       { kind: 'segmentStarted', segment: 'playAndDraw' },
     ]);
+    // The discard segment ends the turn (#1946), once.
+    const discard = entry({ kind: 'segment', to: 'discard' }, { segment: 'discard' });
+    expect(gameEventsOf(discard, t, orders)).toEqual([
+      { kind: 'segmentEnded', segment: 'orders' },
+      { kind: 'segmentStarted', segment: 'discard' },
+      { kind: 'turnEnding', turn: 1 },
+    ]);
+    expect(gameEventsOf(entry({ kind: 'score', delta: 5, score: 5 }, { segment: 'discard' }), t, discard)).toEqual([]);
     // An attempt started in play and draw moves the turn to orders.
     expect(kinds(gameEventsOf(entry({ kind: 'attemptStarted', mission: 'Far Rock', personnel: 1, subtract: 0 }, { segment: 'orders' }), t, entry({ kind: 'draw', from: 'drawDeck', to: 'hand' })))).toEqual([
       'attemptStarted',

@@ -221,10 +221,11 @@ export const HAND_LIMIT = 7;
 export const OPENING_HAND = 7;
 
 // Where a tap of the next-turn button goes from `state` (#1605): orders after play and draw, then
-// discard only when the hand holds more than `HAND_LIMIT`, then the next turn.
-export function nextSegmentOf(state: Pick<TableState, 'segment' | 'hand'>): TurnSegment | 'nextTurn' {
+// discard only when the hand holds more than `HAND_LIMIT` or `endOfTurn`, an "at the end of this
+// turn" trigger set up this turn (#1946, `endOfTurnTriggerSetUp`), waits for it, then the next turn.
+export function nextSegmentOf(state: Pick<TableState, 'segment' | 'hand'>, endOfTurn = false): TurnSegment | 'nextTurn' {
   if (state.segment === 'playAndDraw') return 'orders';
-  if (state.segment === 'orders' && state.hand.length > HAND_LIMIT) return 'discard';
+  if (state.segment === 'orders' && (state.hand.length > HAND_LIMIT || endOfTurn)) return 'discard';
   return 'nextTurn';
 }
 
@@ -438,8 +439,9 @@ export type TableAction =
   // no `cost`, so it spends no counter. Does nothing on an empty draw deck.
   | { type: 'drawOpeningHand' }
   // The next-turn button (#1605): moves the turn to the segment `nextSegmentOf` names, or, at the end
-  // of the turn, does what `nextTurn` does.
-  | { type: 'advanceSegment' }
+  // of the turn, does what `nextTurn` does. `endOfTurn`, which the game reducer fills in from the log
+  // (#1946), sends orders to discard for an end-of-turn trigger.
+  | { type: 'advanceSegment'; endOfTurn?: boolean }
   // Changes the score counter by `delta` (#719), clamped to SCORE_MIN..SCORE_MAX: a delta that
   // would take the score past either limit stops there instead.
   | { type: 'adjustScore'; delta: number }
@@ -1347,7 +1349,7 @@ export function tableReducer(state: TableState, action: TableAction): TableState
 
     case 'advanceSegment': {
       if (state.resolving) return state;
-      const next = nextSegmentOf(state);
+      const next = nextSegmentOf(state, action.endOfTurn === true);
       return next === 'nextTurn' ? tableReducer(state, { type: 'nextTurn' }) : { ...state, segment: next };
     }
 

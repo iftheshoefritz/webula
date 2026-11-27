@@ -36,7 +36,9 @@ export type PlayedPlace = 'awayTeam' | 'crew' | 'shipRow' | 'core' | 'missionCar
  * - `dilemmaResolved`: the bot's Resolve of a revealed dilemma;
  * - `stopped`, `killed`, `brigged`: the personnel, and whether a dilemma did it. Only a dilemma Resolve's `kill` is a
  *   kill: a drag to the discard pile is not;
- * - `turnStarted` (the first turn too, at Draw 7), `segmentStarted`, `segmentEnded`.
+ * - `turnStarted` (the first turn too, at Draw 7), `segmentStarted`, `segmentEnded`;
+ * - `turnEnding`: the turn `turn` came to its discard segment, where "at the end of this turn" actions are done
+ *   before the turn ends and stopped cards unstop (#1946; rulebook v4, "3. Discard Excess Cards", p. 13).
  */
 export type GameEvent =
   | { kind: 'played'; card: GameEventCard; type: string; traits?: CostTurnPlay; place: PlayedPlace; missionIndex?: number; shipId?: string }
@@ -48,6 +50,7 @@ export type GameEvent =
   | { kind: 'dilemmaResolved'; dilemma: GameEventCard }
   | { kind: 'stopped' | 'killed' | 'brigged'; cards: GameEventCard[]; byDilemma: boolean }
   | { kind: 'turnStarted'; turn: number; first?: true }
+  | { kind: 'turnEnding'; turn: number }
   | { kind: 'segmentStarted' | 'segmentEnded'; segment: GameEventSegment };
 
 export type GameEventKind = GameEvent['kind'];
@@ -165,8 +168,9 @@ export interface TriggerRow {
   limit?: UseLimit;
   /**
    * A delayed trigger (#1835): the row is offered only when the source card used its attempt ability of this index
-   * in the turn before the `turnStarted` event, with a kill at the end of the turn, as its `attemptAbilityUsed`
-   * entry records.
+   * earlier in the turn of the `turnEnding` event, with a kill at the end of the turn, as its `attemptAbilityUsed`
+   * entry records (#1946). A save from before #1946 may hold a turn that ended with no discard segment after the
+   * use: the row is then offered at the `turnStarted` event of the next turn instead.
    */
   afterAbility?: number;
   steps: TriggerStep[];
