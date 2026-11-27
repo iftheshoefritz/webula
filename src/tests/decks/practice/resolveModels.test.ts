@@ -63,11 +63,8 @@ describe('the resolve models (#1739)', () => {
     expect(resolveModelOf('At What Cost?')).toBeUndefined();
   });
 
-  it('lists stopped personnel with includeStopped, and never the brig', () => {
-    const ids = (t: TableState, includeStopped: boolean) =>
-      personnelCandidateGroups(t, { includeStopped }).flatMap((g) => g.cards.map((c) => c.id));
-    expect(ids(table(), true)).toEqual(['data', 'worf']);
-    expect(ids(table(), false)).toEqual(['data']);
+  it('lists only the unstopped personnel, never the brig (#1942)', () => {
+    expect(personnelCandidateGroups(table()).flatMap((g) => g.cards.map((c) => c.id))).toEqual(['data']);
   });
 });
 
@@ -90,9 +87,11 @@ describe('the draw step of These Are The Voyages (#1739)', () => {
     expect(resolveStageOf(undone)?.lead.kind).toBe('draw');
   });
 
-  it('lets a stopped personnel set the draw', () => {
-    const drew = gameReducer(resolvingGame(table()), { type: 'effectStep', personnelId: 'worf' });
-    expect(drew.table.hand).toHaveLength(4);
+  // #1942, Glossary › "stopped", p. 20: "You cannot use the game text, attributes, icons, or any other
+  // characteristic of any of your personnel or ships that are stopped."
+  it('refuses a stopped personnel to set the draw', () => {
+    const start = resolvingGame(table());
+    expect(gameReducer(start, { type: 'effectStep', personnelId: 'worf' })).toBe(start);
   });
 
   it('refuses a personnel of the brig, an unknown one and a second draw', () => {

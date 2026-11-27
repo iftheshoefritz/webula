@@ -97,10 +97,12 @@ describe('Computation Drone (#1667)', () => {
     expect(of(two, a)).toEqual({ ...PRINTED, cunning: 7 });
   });
 
-  it('still gives Cunning +1 while stopped', () => {
+  // #1942, Glossary › "stopped", p. 20: "You cannot use the game text … of any of your personnel or ships that
+  // are stopped."
+  it('gives nothing while stopped', () => {
     const borg = personnel('Borg', { species: 'borg' });
     const table = tableOf(slotsOf([{ mission: mission('Here'), awayTeam: [{ ...drone(), stopped: true }, borg] }]));
-    expect(of(table, borg)).toEqual({ ...PRINTED, cunning: 7 });
+    expect(of(table, borg)).toEqual(PRINTED);
   });
 });
 

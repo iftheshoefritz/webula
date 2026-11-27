@@ -25,19 +25,21 @@ export interface PersonnelCandidateGroup {
   cards: PersonnelCandidate[];
 }
 
-const candidatesOf = (cards: CardInstance[], includeStopped: boolean): PersonnelCandidate[] =>
+const candidatesOf = (cards: CardInstance[]): PersonnelCandidate[] =>
   cards.flatMap((c) =>
-    c.card?.type === 'personnel' && (includeStopped || !c.stopped)
+    c.card?.type === 'personnel' && !c.stopped
       ? [{ id: c.id, name: cardDisplayName(c.card), affiliation: String(c.card.affiliation ?? '').trim(), card: c }]
       : []
   );
 
-// `includeStopped` lists the stopped personnel too (#1739): These Are The Voyages reads "one of your
-// personnel", and a stop changes no cost.
-export function personnelCandidateGroups(table: TableState, { includeStopped = false }: { includeStopped?: boolean } = {}): PersonnelCandidateGroup[] {
+// The unstopped personnel of the away teams and the crews, never the brig. These Are The Voyages ("the cost of one
+// of your personnel") and Second Edition ("a copy of a personnel you command") list only these too (#1942):
+// Rulebook v4, Glossary › "stopped", p. 20, "You cannot use the game text, attributes, icons, or any other
+// characteristic of any of your personnel or ships that are stopped." A cost and a title are characteristics.
+export function personnelCandidateGroups(table: TableState): PersonnelCandidateGroup[] {
   const groups: PersonnelCandidateGroup[] = [];
   table.missions.forEach((slot, missionIndex) => {
-    const cards = candidatesOf(slot.awayTeam, includeStopped);
+    const cards = candidatesOf(slot.awayTeam);
     if (cards.length) {
       const mission = slot.mission ? cardDisplayName(slot.mission.card) : `mission ${missionIndex + 1}`;
       groups.push({ key: `awayTeam-${missionIndex}`, label: `Away team at ${mission}`, place: cardTitleOf(mission), cards });
@@ -46,7 +48,7 @@ export function personnelCandidateGroups(table: TableState, { includeStopped = f
   table.missions.forEach((slot, missionIndex) => {
     const mission = slot.mission ? cardDisplayName(slot.mission.card) : `mission ${missionIndex + 1}`;
     for (const ship of slot.ships) {
-      const cards = candidatesOf(ship.crew ?? [], includeStopped);
+      const cards = candidatesOf(ship.crew ?? []);
       if (cards.length) {
         const shipName = cardDisplayName(ship.card);
         groups.push({ key: `crew-${ship.id}`, label: `Crew of ${shipName} at ${mission}`, place: `${cardTitleOf(shipName)} at ${cardTitleOf(mission)}`, cards });
@@ -57,10 +59,12 @@ export function personnelCandidateGroups(table: TableState, { includeStopped = f
 }
 
 // The copy in the draw deck of the personnel `personnelId` (#1746, Second Edition): the top-most card of the
-// same title (`cardTitleOf`), when the personnel is one the player commands, stopped or not, never the brig.
+// same title (`cardTitleOf`), when the personnel is an unstopped one the player commands, never the brig. A
+// stopped one's title is a characteristic it cannot use (#1942, Glossary › "stopped", p. 20, "You cannot use the
+// game text, attributes, icons, or any other characteristic of any of your personnel or ships that are stopped").
 // Null otherwise. The reducer and the panel both ask it, so they never disagree.
 export function downloadCopyOf(table: TableState, personnelId: string): CardInstance | null {
-  const personnel = personnelCandidateGroups(table, { includeStopped: true })
+  const personnel = personnelCandidateGroups(table)
     .flatMap((g) => g.cards)
     .find((c) => c.id === personnelId);
   if (!personnel) return null;

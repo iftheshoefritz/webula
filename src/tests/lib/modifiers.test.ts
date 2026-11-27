@@ -1,9 +1,10 @@
 // Issue #1887: the static modifiers. The rows give, on the fixture tables and on 200 seeded random tables of the
 // modelled cards, every value the hook readers gave on `main` before them (`modifierEquivalence.json`, recorded again
-// for #1941, whose shared Region takes 2 off a span total and changes only the random tables' digests); the
-// registry refuses a row no evaluator reads; and Biological Distinctiveness, a new row, is data only. The tables
-// are built from the card data, so an update of `cards_with_processed_columns.txt` changes them: check the change,
-// then record the values of the rows again with `MODIFIER_EQUIVALENCE=record yarn test modifiers.test`.
+// for #1941, whose shared Region takes 2 off a span total, and for #1942, whose stopped personnel and ships are the
+// source of no row; each changes only the random tables' digests); the registry refuses a row no evaluator reads;
+// and Biological Distinctiveness, a new row, is data only. The tables are built from the card data, so an update of
+// `cards_with_processed_columns.txt` changes them: check the change, then record the values of the rows again with
+// `MODIFIER_EQUIVALENCE=record yarn test modifiers.test`.
 import { createHash } from 'crypto';
 import { writeFileSync } from 'fs';
 import { join } from 'path';

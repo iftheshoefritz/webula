@@ -157,9 +157,17 @@ export function modifierTitles(quantities: readonly Quantity[]): Map<string, { t
   return map;
 }
 
-// The rows of `card` at `source` toward `target` that change `quantity`, and whose condition holds.
+// Whether `card` is a stopped personnel or ship, whose rows apply nowhere (#1942). Rulebook v4, Glossary ›
+// "stopped", p. 20: "You cannot use the game text, attributes, icons, or any other characteristic of any of your
+// personnel or ships that are stopped." The owner reads it to cover continuous text too. The same entry says
+// equipment does not become stopped, so an equipment's rows apply whatever flag its instance carries.
+const isStoppedSource = (card: ViewCard): boolean =>
+  !isEquipment(card) && 'stopped' in card && (card as ViewTableCard).stopped === true;
+
+// The rows of `card` at `source` toward `target` that change `quantity`, and whose condition holds; none for a
+// stopped source (#1942), the one gate of every amount evaluator.
 function rowsAt(view: TableView, card: ViewCard | null | undefined, source: SourcePlace, target: TargetRelation, quantity: Quantity): ModifierRow[] {
-  if (!card) return [];
+  if (!card || isStoppedSource(card)) return [];
   return modifierRowsOf(rowTitleKey(card.row)).filter(
     (r) => r.source === source && r.target === target && quantity in r.changes && (!r.condition || r.condition.holds(view))
   );
@@ -222,7 +230,9 @@ export function groupOf(view: TableView, id: string): { slot: ViewMission; group
  * The Range of the ship `target` on the table (#1635, #1648, #1671, #1827): its printed Range, plus the rows of
  * itself, of the personnel of its crew, of the events placed on it and of the events placed on every mission card,
  * and for a ship on a ship row the rows of every personnel the player commands and of the core. Never below 0.
- * `target` is the view's ship when it is on a ship row, or the ship off the table with its crew.
+ * `target` is the view's ship when it is on a ship row, or the ship off the table with its crew. A stopped ship or
+ * personnel adds no row (#1942, Glossary › "stopped", p. 20: "You cannot use the game text … of any of your
+ * personnel or ships that are stopped"): `rowsAt` drops it.
  */
 export function rangeOf(view: TableView, target: ModifierCard): number {
   const onRow = shipOnRow(view, target.id);
@@ -248,7 +258,10 @@ export function rangeOf(view: TableView, target: ModifierCard): number {
  * mission card, each mission card, each ship of each ship row and each event of the core; for a card of an away
  * team or a crew, its own rows, the rows of the personnel and the equipment of its group (itself among them), and
  * its ship's rows of its crew; for a ship on a ship row, its own rows, the rows of its crew, of the events placed on
- * it, and of every personnel the player commands. Never below 0.
+ * it, and of every personnel the player commands. Never below 0. Only an unstopped personnel or ship is a source
+ * (#1942, Glossary › "stopped", p. 20: "You cannot use the game text, attributes, icons, or any other
+ * characteristic of any of your personnel or ships that are stopped"), so a stopped personnel shows its printed
+ * value plus the rows of other sources; equipment never stops.
  */
 export function attributeOf(view: TableView, target: ModifierCard, quantity: Exclude<AmountQuantity, 'range'>): number {
   const sum = summer(quantity);
@@ -288,7 +301,8 @@ export const timedOf = (view: TableView, id: string, quantity: AmountQuantity): 
 
 /**
  * The skills `target`, a personnel of an away team or a crew, gains on the table (#1836): the `skills` rows of each
- * personnel and equipment of its group, of its ship for a crew, and of each core event, whose condition holds and
+ * unstopped personnel and equipment of its group, of its ship for a crew when it is unstopped (#1942), and of each
+ * core event, whose condition holds and
  * whose `who` and `where` it passes, in that order. Each skill once per level a row gives; a card off the table
  * gains none.
  */

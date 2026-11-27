@@ -72,8 +72,8 @@ describe('Akorem Laan Revered Poet (#1681)', () => {
 });
 
 describe('Artim Inspirational Child (#1681)', () => {
-  it('gives each unique personnel present attributes +1, himself too, a stopped Artim too', () => {
-    const artim = { ...personnel('Artim Inspirational Child', { unique: 'y' }), stopped: true };
+  it('gives each unique personnel present attributes +1, himself too, and nothing while stopped (#1942)', () => {
+    const artim = personnel('Artim Inspirational Child', { unique: 'y' });
     const unique = personnel('Unique', { unique: 'y' });
     const plain = personnel('Plain');
     const aboard = personnel('Aboard', { unique: 'y' });
@@ -83,6 +83,9 @@ describe('Artim Inspirational Child (#1681)', () => {
     expect(of(table, plain)).toEqual(PRINTED);
     expect(of(table, aboard)).toEqual(PRINTED);
     expect(off(table, unique)).toEqual(PRINTED);
+    const stopped = awayTeam([{ ...artim, stopped: true }, unique], [aboard]);
+    expect(of(stopped, unique)).toEqual(PRINTED);
+    expect(of(stopped, { ...artim, stopped: true })).toEqual(PRINTED);
   });
 });
 

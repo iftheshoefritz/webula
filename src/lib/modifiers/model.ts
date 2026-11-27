@@ -47,12 +47,15 @@ export const ATTRIBUTE_QUANTITIES: readonly AmountQuantity[] = ['integrity', 'cu
  * - `missionCard`: placed on a mission card;
  * - `mission`: the mission card of a slot;
  * - `core`: the core;
- * - `commanded`: a personnel in an away team or a crew, stopped too;
+ * - `commanded`: an unstopped personnel in an away team or a crew;
  * - `moveMission`: the card of either mission of a move;
  * - `moveShip`: the moving ship;
  * - `played`: the card being played, for its own cost (#1888);
  * - `unstopped`: an unstopped personnel of an away team or a crew, never the brig (#1888);
  * - `attempt`: no card: an earlier dilemma of the attempt (#1889). No evaluator reads it.
+ *
+ * A personnel or a ship at any of these places must be unstopped (#1942, Glossary › "stopped", p. 20); an
+ * equipment never stops.
  *
  * A cost row of `core` reads its title in the core, and one of `mission` the mission card of one of the player's
  * slots, asked with its slot.

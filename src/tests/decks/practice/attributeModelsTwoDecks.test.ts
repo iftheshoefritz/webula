@@ -62,8 +62,8 @@ describe.each([
 ] as const)('%s (#1670)', (title, attribute) => {
   const source = () => personnel(title, { affiliation: 'bajoran' });
 
-  it(`gives each other [Baj] personnel present ${attribute} +1, not himself, a stopped source too`, () => {
-    const s = { ...source(), stopped: true };
+  it(`gives each other [Baj] personnel present ${attribute} +1, not himself, and nothing while stopped (#1942)`, () => {
+    const s = source();
     const baj = personnel('Baj', { affiliation: 'bajoran' });
     const fed = personnel('Fed', { affiliation: 'federation' });
     const aboard = personnel('Aboard', { affiliation: 'bajoran' });
@@ -73,6 +73,8 @@ describe.each([
     expect(of(table, fed)).toEqual(PRINTED);
     expect(of(table, aboard)).toEqual(PRINTED);
     expect(off(table, baj)).toEqual(PRINTED);
+    const stopped = tableOf(slotsOf([{ mission: mission('Here'), awayTeam: [{ ...s, stopped: true }, baj] }]));
+    expect(of(stopped, baj)).toEqual(PRINTED);
   });
 });
 
