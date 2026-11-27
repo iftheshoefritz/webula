@@ -113,6 +113,46 @@ CARD_DRAFTS=<path>.md yarn test modelBacklog  # drafts of rows for the unmodelle
 
 A draft never goes into a registry by itself: check it against the card and move it in with a test.
 
+## The places of the table
+
+**The hand.** The closed hand is a small face-up fan at the bottom edge of the screen, drawn over
+the bottom row in its own layer and taking no width in it (`CardHand.tsx`, `closedFanSpan`). Its
+cards carry no `data-card-id` and do not drag; a hold previews one. A tap opens the hand as an arc
+along the bottom edge (`handArc.ts`), between the draw deck and the dilemma pile, flatter and lower
+in touch mode and kept clear of the iOS edge gesture. A card of the arc drags from it, and a press
+becomes a drag only after 20 px, so a drifting thumb still gets the hold preview. At most one hand
+is open as the arc. The dilemma hand shows only in the attempt layout in the dilemma choice.
+
+**The piles.** The draw deck and the dilemma pile each carry Shuffle, Download and an eye. The eye
+opens the reveal panel, empty at first: each "Reveal top" or "Reveal bottom" shows one more card of
+that end without moving it, one end at a time, and a reorder there changes the pile. With "Search
+piles in a carousel" on, the search of the draw deck, the dilemma pile and the discard pile opens
+`PileCarousel` (`pileCarouselLayout.ts`) in place of the grid: one card large in the middle, which
+alone drags out, a tap on a side card brings it to the middle, and a tap on the middle card selects
+it. The pile's actions act on the selection in pile order.
+
+**The mission card.** Its art has two drop halves, under (top, over the slivers of the dilemmas
+under it) and on (bottom). They differ only for a dilemma: under the mission or placed on its card.
+A ship goes to the ship row, a personnel or an equipment to the away team, any other card onto the
+mission card. A tap on the top half opens the dilemmas under it, on the bottom half the away team;
+a double-tap within 250 ms toggles completion, so a single tap acts only after that window. A
+completed mission turns 90° in its slot and nothing else moves. The cards placed on the mission
+count in an events badge and a dilemmas badge, or on the card itself where it is drawn whole, and
+the last 3 of each show in a strip along its edge. The missions whose completion acts on the
+player's cards (`completionEffects.ts`) open a panel with the effect, its candidates, Confirm and
+Skip; the completion and its effect are one action and one undo.
+
+**The ship.** A ship's art is its one drop target: a personnel or an equipment boards the crew, a
+ship goes to its ship row, and any other card is placed on it and counted. A tap opens the crew
+panel, where the cards on the ship show below it and drag off it. The bare ship row takes only a
+ship.
+
+**The Play target.** With "Resolve events in a panel" on, a drag from the hand of one event that
+resolves when played (`resolvesOnPlay`) shows a Play target over the table above the bottom row
+(`PlayTarget.tsx`, `playTargetRules.ts`), outside an attempt and while nothing resolves. A drop
+there is a charged play into the resolving zone; below the line every target takes the card as
+before, uncharged.
+
 ## Undo
 
 Every action is one log entry and one undo. The page chooses the result of every shuffle and every
@@ -153,3 +193,13 @@ choice, and the bot's own pick never shows. A dilemma that changes how the perso
 the rest of the attempt keeps the change on the attempt, and each reveal snapshot keeps the changes
 as they stood when its card turned face up, so a later card reads them and the card that set them
 does not count them twice.
+
+A player starts a bot game in Load deck's step 2: Play against the bot lists the bot's piles
+(`bot-pile-<id>`), Chula first, then each beginner and visible Championship deck whose dilemmas the
+registry covers (`botPileChoices` in `src/lib/dilemmaBot/botPiles.ts`). A chosen deck's dilemmas, less
+the ignored titles, become the bot's pile, and `TableState.botPile` keeps its id, its name and the
+affiliations of its personnel, which reach the attempt. A bot game with no `botPile` plays the Chula
+pile. A `botDeck` trigger row (`src/lib/triggers/titles/bot.ts`) is a card of the bot's deck that the
+bot uses and the player is never offered: Unexpected Difficulties lets the bot, once a game at Start,
+with 4 or more drawn and a search answer of `'cannot-fail'`, put the drawn dilemmas on the bottom of
+its pile and draw as many again (`botRedraws` in `useBotAttemptStart.ts`).

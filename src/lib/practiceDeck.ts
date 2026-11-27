@@ -164,7 +164,9 @@ export const PRACTICE_DECK_TSV_2 = `2\tCommon Cause (SS)
 // the player commands a Borg. Surprise Party and the Tricorder are in the hand of the piles deal already.
 // Rollins, and Tacking Into the Wind of the piles hand (`card-9`, `card-10`), show a counted choice (#1695).
 // Common Purpose shows a choice of personnel (#1712). Delivery Boy goes into the core, where it offers
-// its use for the play of Machinations, a Temporal event of the hand (#1713).
+// its use for the play of Machinations, a Temporal event of the hand (#1713): its play offers "Destroy
+// Delivery Boy: −3". For the exchange of Vidiian Organ Bank, play Bridon onto the ship first, so each side
+// has a [Vid] personnel. The draw deck holds the rest, for a Download.
 export const PRACTICE_COSTS_TSV = `1\tBorg Nanoprobes
 1\tGoran
 1\tTricia Jenkins Relaxed Pilot

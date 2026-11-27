@@ -2404,66 +2404,114 @@ const CONTENT_PADDING = 16; // px
 function PracticeDrawContent() {
   const searchParams = useSearchParams();
   const fixture = searchParams.get('fixture');
+  // Each fixture deals the same table on every load and keeps its game under
+  // `practiceGame:fixture=<value>` (`practiceGameKey`); `?reset=1` deals it again.
+  // `?fixture=1` deals a plain new game: the missions, no hand (#1115), and the rest of the deck in
+  // the draw deck and the dilemma pile; the brig, the core, the dilemma stack and the ship rows are
+  // empty, and the turn column shows "Draw 7" (`draw-opening-hand`).
   // `?fixture=piles` (#802) deals the same fixture deck as `?fixture=1`, then places a big
-  // away team and a crewed ship, for the card list panel checks.
+  // away team and a crewed ship, for the card list panel checks (`resetWithPiles`). In deck order, with
+  // no shuffle: mission 0, Moab IV, a planet mission, holds the away team of 20; mission 1, Angel I, a
+  // planet mission, has an empty ship row (`practice_drag.sh card-39 ship-row-1` puts a ship there);
+  // mission 2, Bilana System, a space mission, holds the ship with a crew of 12, one event placed on it
+  // and 3 dilemmas under it, shown as slivers. The brig holds 2 personnel, the core 4 events, and the
+  // dilemma stack is empty. The hand of 7 (`FIXTURE_HAND`): the Tricorder (`card-1`), two events
+  // (`card-7`, `card-8`), two interrupts (`card-9`, `card-10`) and two ships (`card-39`, `card-40`).
   const isPilesFixture = fixture === 'piles';
   // `?fixture=costs` (#1654) deals the piles table with the cards of the cost models added: Borg
-  // Nanoprobes, Goran and the cards of the later models in the hand, and a Borg in the ship's crew.
-  // `?fixture=resolving` (#1728) deals the costs table with These Are The Voyages already resolving.
+  // Nanoprobes, Goran and the cards of the later models in the hand, and a Borg in the ship's crew
+  // (`PRACTICE_COSTS_TSV`, `PRACTICE_COSTS_LATE_HAND`). The cards of the piles deal keep their ids.
+  // `?fixture=resolving` (#1728) deals the costs table with These Are The Voyages already resolving:
+  // moved from the hand into the resolving zone, charged 1 and logged "Played These Are The Voyages
+  // (cost 1)", so the page opens on its resolve prompt.
   const isResolvingFixture = fixture === 'resolving';
   // `?fixture=recall` (#1764) deals the costs table with Miracle Working and Vidiian Organ Bank in the
-  // discard pile.
+  // discard pile, with the last ids (`PRACTICE_RECALL_TSV`, `extraDiscard`). Open the discard pile's panel
+  // and drag one up to the Play target: Miracle Working plays at cost 2; Vidiian Organ Bank is refused
+  // until two missions are complete (`mission-toggle-<i>`), then plays at cost 1.
   const isRecallFixture = fixture === 'recall';
   const isCostsFixture = fixture === 'costs' || isResolvingFixture || isRecallFixture;
   // `?fixture=attributes` (#1666) deals the piles table with a [TN] personnel in the ship's crew and
-  // Dark Dissension in the core, for the arrows of the attribute bands.
+  // Dark Dissension in the core, for the arrows of the attribute bands (`PRACTICE_ATTRIBUTES_TSV`, and
+  // Storil after Kira, `PRACTICE_ATTRIBUTES_STORIL_TSV`). With "Apply card text to attributes" on, Kira's
+  // band in the crew panel shows Integrity with a red down arrow and Cunning with a green up arrow, and the
+  // ship's band its Range +1 (Soliton Wave) with a green up arrow.
   const isAttributesFixture = fixture === 'attributes';
   // `?fixture=completion` (#1757) deals the piles table with the five missions whose completion acts on the
-  // player's cards, and Population 9 Billion - All Borg in the draw deck.
+  // player's cards, and Population 9 Billion - All Borg in the draw deck (`PRACTICE_COMPLETION_TSV`). It has
+  // no headquarters.
   const isCompletionFixture = fixture === 'completion';
   // `?fixture=set67` (#1828) deals the piles table with Cheron, Caldos IV and Crescent Nebula, the missions of set 67.
   const isSet67Fixture = fixture === 'set67';
   // `?fixture=missions` (#1754) deals the piles table with Earth, Lush and Beautiful Home and Nimbus III,
-  // Staff Backwater Embassy, a [TOS] personnel at the end of the hand, and Korrd and Caithlin Dar.
+  // Staff Backwater Embassy, a [TOS] personnel at the end of the hand, and Korrd and Caithlin Dar
+  // (`PRACTICE_MISSIONS_TSV`): Bilana System stays in slot 2, with Metron Arena and Curnab Sector after it,
+  // and a play of Robert Tomlinson at Earth offers Earth's spend.
   const isMissionsFixture = fixture === 'missions';
   // `?fixture=playable` (#1856) deals the piles table with Earth Cradle of the Federation on the crewed ship's
-  // slot, a [Rom] ship on another, and four cards at the end of the hand, for the play-place highlight.
+  // slot, a [Rom] ship on another, and four cards at the end of the hand, for the play-place highlight
+  // (`PRACTICE_PLAYABLE_TSV`). A drag of Deanna Troi glows on `mission-on-2` and the Relativity's crew, Tomek
+  // on Haakona's crew, the Reliant on `ship-row-2`; Shuttlepod One, with no Enterprise, shows the plain highlight.
   const isPlayableFixture = fixture === 'playable';
   // `?fixture=kmtar` (#1762) deals the piles table with five missions whose non-headquarters ones require
-  // Diplomacy, and K'mtar at the end of the hand.
+  // Diplomacy, and K'mtar at the end of the hand, so a play of him offers the download (`PRACTICE_KMTAR_TSV`).
+  // The three events it adds to the draw deck shift the ids after them.
   const isKmtarFixture = fixture === 'kmtar';
   // `?fixture=tain` (#1800) deals the piles table with five missions whose non-headquarters ones require
-  // Intelligence, and Enabran Tain "Retired" Spymaster at the end of the hand, for his "when you play" effect.
+  // Intelligence, and Enabran Tain "Retired" Spymaster at the end of the hand, for his "when you play" effect,
+  // with its condition met, and after him the cards of `PRACTICE_TAIN_HAND`. The piles cards keep their ids.
   const isTainFixture = fixture === 'tain';
   // `?fixture=dissident` (#1763) deals the piles table with The New Resistance in the core, a Dissident at the
-  // end of the hand and another on top of the draw deck.
+  // end of the hand and another on top of the draw deck (`PRACTICE_DISSIDENT_TSV`, `extraDrawTop`): a play of
+  // Leeta, of cost 0, offers the reveal, and Damar then plays at cost 1. Her play also opens her "when you
+  // play" discard step (#1808).
   const isDissidentFixture = fixture === 'dissident';
   // `?fixture=orders` (#1866) deals the piles table with three events with an order in the core, Damar and a [Fer]
-  // personnel in the crew at Bilana System, and a [Car] ship at the end of the hand.
+  // personnel in the crew at Bilana System, and a [Car] ship at the end of the hand, and Renewal Scroll in the
+  // core with Kira Nerys The Intendant in the discard pile (`PRACTICE_ORDERS_TSV`). After "Go to orders" the core
+  // cards and Damar in the crew panel show the "Order" badge.
   const isOrdersFixture = fixture === 'orders';
   // `?fixture=triggers` (#1904) deals the piles table with VIP Welcome in the core, Enrique Muniz in the crew at
-  // Bilana System, U.S.S. Enterprise-E Federation Envoy on the ship row of Moab IV, and a [DS9] Cardassian in hand.
+  // Bilana System, U.S.S. Enterprise-E Federation Envoy on the ship row of Moab IV, and a [DS9] Cardassian in hand
+  // (`PRACTICE_TRIGGERS_TSV`). A double-tap on Moab IV offers the Envoy's score (`trigger-offer`); a play of Garak
+  // offers VIP Welcome's draw and Enrique's.
   const isTriggersFixture = fixture === 'triggers';
   // `?fixture=unique` (#1821) deals the piles table with a second copy of a unique personnel in play, of one in
-  // the discard pile, and two copies each of a "(limit one per mission)" and a "(limit one per ship)" event.
+  // the discard pile, and two copies each of a "(limit one per mission)" and a "(limit one per ship)" event
+  // (`PRACTICE_UNIQUE_TSV`). With "Check uniqueness and limits" on, a play of the second Yarka warns, the second
+  // Vina does not, and the second Roadblock or Leader warns on the mission card or ship that holds the first.
   const isUniqueFixture = fixture === 'unique';
   // `?fixture=downloads` (#1810) deals the piles table with Opaka Kai of Bajor and Jean-Luc Picard Vintner at the
-  // end of the hand, whose plays download into hand, and two [Baj] personnel on top of the draw deck.
+  // end of the hand, whose plays download into hand, and two [Baj] personnel on top of the draw deck, then the
+  // rest of `PRACTICE_DOWNLOADS_TSV`; the draw deck holds [TNG] personnel for Picard. Play Jem'Hadar Attack Ship
+  // before Gelnon. The piles cards keep their ids.
   const isDownloadsFixture = fixture === 'downloads';
   // `?fixture=60s` (#1826) deals the piles table with Blue Skies in the core, and Tavana, Qartum, The Crossing and a
-  // Federation personnel at the end of the hand.
+  // Federation personnel at the end of the hand, and their downloads on top of the draw deck (`PRACTICE_60S_TSV`).
+  // The counters read "capped at 7 (Blue Skies)".
   const is60sFixture = fixture === '60s';
   // `?fixture=permissions` (#1916) deals the piles table with Particle 010 at the end of the hand and Rule of
-  // Acquisition #6 in the core, for the warnings of a play requirement and of a spend of counters to draw.
+  // Acquisition #6 in the core, for the warnings of a play requirement and of a spend of counters to draw
+  // (`PRACTICE_PERMISSIONS_TSV`). With "Check uniqueness and limits" on, a play of Particle 010 into the core
+  // shows a `charge-warning` with `data-rule="playRequirement"`, and a draw from the draw deck one with
+  // `data-rule="spendToDraw"`. With no Ba'ku Planet in play, a drag of Anij makes no slot glow, and her play
+  // warns with `data-rule="playPlace"`.
   const isPermissionsFixture = fixture === 'permissions';
-  // `?fixture=attempt` (#1169) deals the piles table, then starts an attempt at Bilana System.
-  // It ends in the facing phase, with the dilemma stack. `?fixture=attempt-choose` (#1189) stops in
-  // the dilemma choice, with no stack.
+  // `?fixture=attempt` (#1169) deals the piles table, the same cards and ids, then starts an attempt at
+  // Bilana System with the crewed ship and the popup's defaults: the 12 unstopped crew less the 3
+  // dilemmas under the mission, so the strip reads "draw/spend 9". Before that it places 4 cards on
+  // Bilana System, face up (`fixtureAttemptPlacedOn`): 2 dilemmas of the pile, then 2 events of the
+  // core. It then switches to the facing phase, one phase entry in the log, and moves the top 4
+  // dilemmas of the pile into the stack, face down (`fixtureAttemptStack`).
+  // `?fixture=attempt-choose` (#1189) places the same cards and starts the same attempt, and stops in
+  // the dilemma choice: phase `'choose'`, `drawn` 0, an empty stack and an empty dilemma hand.
   const attemptFixturePhase: AttemptPhase | null =
     fixture === 'attempt' ? 'face' : fixture === 'attempt-choose' ? 'choose' : null;
   const isAttemptFixture = attemptFixturePhase !== null;
-  // `?fixture=bot` (#1289) deals the piles table as a bot game, with the Chula pile in place of the
-  // deck's dilemmas.
+  // `?fixture=bot` (#1289) deals the piles table as a bot game (`opponent: 'bot'`), with the Chula pile
+  // (`chulaPileDeck`) in place of the deck's dilemmas, in pile order, so the 3 dilemmas under Bilana
+  // System are Chula dilemmas. It has no `botPile`, so it plays the Chula pile. The game menu shows
+  // "<deck> vs the bot (<pile>)" (`game-menu-bot-game`), and Reset deals a bot game again.
   // `?fixture=bot-label` (#1519) deals the same bot table with a Well-Prepared Defenses in the dilemma
   // pile, and starts a bot attempt whose facing stack has it on top, revealed, for the bot's label.
   // `?fixture=bot-resolve-noeffect` (#1589) does the same with a Conflict of Interests, for "No effect",
@@ -2471,7 +2519,9 @@ function PracticeDrawContent() {
   // `?fixture=bot-resolve-pattern` (#1594) with A Pattern of Lies, whose roll the reveal keeps, and
   // `?fixture=bot-resolve-becalmed` (#1628) with Becalmed, whose roll and check the preview names.
   const botRevealFixture = fixture && Object.hasOwn(BOT_REVEAL_FIXTURES, fixture) ? BOT_REVEAL_FIXTURES[fixture] : null;
-  // `?fixture=bot-costs` (#1738) deals the `?fixture=bot` table with Ptol at the end of the hand.
+  // `?fixture=bot-costs` (#1738) deals the `?fixture=bot` table with Ptol at the end of the hand. His play
+  // reveals the top four of the bot's dilemma pile, costs 5 less the dual dilemmas among them, and puts the
+  // four on the bottom in one `batch`; the page opens the dilemma pile's reveal panel at the bottom on them.
   // `?fixture=bot-roadblock` (#1789) deals it with Self-Replicating Roadblock at the end of the hand instead.
   const botExtraTsv = fixture === 'bot-costs' ? PRACTICE_BOT_COSTS_TSV : fixture === 'bot-roadblock' ? PRACTICE_BOT_ROADBLOCK_TSV : fixture === 'bot-select-again' ? PRACTICE_BOT_SELECT_AGAIN_TSV : null;
   const isBotCostsFixture = botExtraTsv !== null;
