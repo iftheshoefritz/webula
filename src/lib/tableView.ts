@@ -41,6 +41,8 @@ export interface ViewCard {
   placedOn: ViewCard[];
   /** The title a placed Self-Replicating Roadblock named (#1789), `CardInstance.named`. Absent: none. */
   named?: string;
+  /** A card placed on a core card from outside play (#1943), `CardInstance.notInPlay`. Absent: in play. */
+  notInPlay?: true;
 }
 
 /** A personnel or an equipment of an away team or a crew, or a ship of a ship row: its traits and its place. */
@@ -452,10 +454,13 @@ export function core(reader: TableReader, q: CoreQuery = {}): SourceCoreCard[] {
  * Every card the player has in play (#1821, #1877): the cards placed on the mission cards, the away teams and
  * the crews with the cards placed on them, the ships with theirs, and the core with its. Never the hand, a pile,
  * the cards under a mission, the resolving zone, nor the brig: the brig holds the opponent's personnel, in play
- * for the rules, but the table does not know whose card is whose (a known gap).
+ * for the rules, but the table does not know whose card is whose (a known gap). A card placed on a core card
+ * from outside play (`notInPlay`, #1943) is left out: Rulebook v4, "In Play/Not In Play", p. 8, "Cards placed
+ * directly from one of these locations on an event, dilemma or in a brig are not in play unless specifically
+ * specified."
  */
 export function inPlay(view: TableView): ViewCard[] {
-  const withPlaced = (cards: ViewCard[]): ViewCard[] => cards.flatMap((c) => [c, ...c.placedOn]);
+  const withPlaced = (cards: ViewCard[]): ViewCard[] => cards.flatMap((c) => [c, ...c.placedOn.filter((p) => !p.notInPlay)]);
   return [
     ...view.missions.flatMap((m) => [
       ...m.placedOn,

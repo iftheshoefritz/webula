@@ -1500,7 +1500,8 @@ describe('cards placed on a card (#809)', () => {
     );
 
     expect(state.hand).toEqual([]);
-    expect(state.core).toEqual([{ ...target, placedOn: [{ ...moved, face: 'up' }] }]);
+    // A card placed from the hand is not in play (#1943).
+    expect(state.core).toEqual([{ ...target, placedOn: [{ ...moved, face: 'up', notInPlay: true }] }]);
   });
 
   it('moves a card onto a mission card, and onto a ship', () => {

@@ -76,6 +76,14 @@ export interface CardInstance {
   // the same as `crew`. The stack is one level deep, so a placed card never carries `placedOn`
   // itself.
   placedOn?: CardInstance[];
+  // Whether a card placed on a core card is not in play (#1943). Rulebook v4, "In Play/Not In Play", p. 8:
+  // "Cards placed directly from one of these locations on an event, dilemma or in a brig are not in play unless
+  // specifically specified", and the Glossary's "play and place", p. 18: a card placed on an event from anywhere
+  // under a player's command "remains under that player's command; otherwise, it is under no player's command."
+  // A `move` onto a core card from outside play (`OUTSIDE_PLAY`) sets it, a move from on one card to on a core
+  // card keeps it, and every other move clears it. Absent when false, the same as `stopped`, so a save from
+  // before #1943 counts its placed cards as in play.
+  notInPlay?: boolean;
 }
 
 // A mission slot holds the mission card dealt into that position (#597), the ships placed on
@@ -878,6 +886,23 @@ const OFF_TABLE_ZONES: ReadonlySet<MoveTarget> = new Set<Zone>([
 
 const isOffTable = (location: MoveTarget): boolean => typeof location === 'string' && OFF_TABLE_ZONES.has(location);
 
+// The places whose cards are not in play (#1943), as `inPlay` of `src/lib/tableView.ts` counts them: the
+// off-table zones, the brig, the dilemma stack, the resolving zone and the cards under a mission. A card placed
+// on a core card from one of them is `notInPlay`.
+const isOutsidePlay = (location: MoveTarget): boolean =>
+  isOffTable(location) ||
+  location === 'brig' ||
+  location === 'dilemmaStack' ||
+  location === 'resolving' ||
+  (isMissionPileLocation(location) && location.pile === 'underMission');
+
+// The `notInPlay` of a card after a move (#1943): only a card on a core card carries it. One placed there from
+// outside play gains it, and one that moves there from on a card keeps what it had.
+const notInPlayAfter = (state: TableState, from: MoveTarget, to: MoveTarget, card: CardInstance): boolean => {
+  if (!isPlacedOnLocation(to) || !state.core.some((c) => c.id === to.targetId)) return false;
+  return isPlacedOnLocation(from) ? !!card.notInPlay : isOutsidePlay(from);
+};
+
 // Clears `stopped` on a card that leaves the table, and leaves any other card untouched.
 const unstopFor = (location: MoveTarget, c: CardInstance): CardInstance =>
   c.stopped && isOffTable(location) ? { ...c, stopped: undefined } : c;
@@ -1139,12 +1164,17 @@ export function tableReducer(state: TableState, action: TableAction): TableState
         ...(card.removedFromGame && !toSameLocation ? { removedFromGame: undefined } : {}),
         // A card that moves names its card again (#1789).
         ...(card.named && !toSameLocation ? { named: undefined } : {}),
+        ...(notInPlayAfter(state, from, action.to, card) ? { notInPlay: true } : card.notInPlay ? { notInPlay: undefined } : {}),
       };
       const releasedCrew = releasesCrew
         ? card.crew!.map((c) => ({ ...unstopFor(action.to, c), face: entryFace(state, action.to) }))
         : [];
       const discardedOn = discardsOn
-        ? card.placedOn!.map((c) => ({ ...unstopFor('discard', c), face: ZONE_FACE.discard }))
+        ? card.placedOn!.map((c) => ({
+            ...unstopFor('discard', c),
+            face: ZONE_FACE.discard,
+            ...(c.notInPlay ? { notInPlay: undefined } : {}),
+          }))
         : [];
 
       const destination = toSameLocation ? withoutCard : cardsAt(afterRemoval, action.to);
