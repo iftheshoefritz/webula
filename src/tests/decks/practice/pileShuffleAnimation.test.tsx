@@ -188,10 +188,11 @@ describe('Practice draw: a pile animates when its Shuffle button runs (#786)', (
     });
     expect(drawArt().className).toMatch(/pointer-events-none/);
 
-    const countBefore = drawArt().parentElement!.textContent;
+    const pile = screen.getByTestId('draw-pile');
+    const countBefore = pile.getAttribute('data-pile-count');
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Draw deck top, tap to draw' }));
     });
-    expect(drawArt().parentElement!.textContent).not.toBe(countBefore);
+    expect(pile.getAttribute('data-pile-count')).not.toBe(countBefore);
   });
 });

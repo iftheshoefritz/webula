@@ -177,7 +177,7 @@ describe('Practice table: the card list panel Discard button (#787)', () => {
     await click(/Away team, 2 cards, tap to open/i);
   };
 
-  const discardCount = () => screen.getByAltText('Discard pile').parentElement!.textContent;
+  const discardCount = () => String(JSON.parse(localStorage.getItem('practiceGame')!).table.discard.length);
 
   // #902: the button shows without a selection too, disabled, like the Download button, and a
   // press on it moves nothing.

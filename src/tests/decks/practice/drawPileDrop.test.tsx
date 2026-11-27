@@ -158,7 +158,7 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     // #740 keeps the hand open after a drag out of it, and a hidden element has no
     // accessible name, so read the closed row's `aria-label` from the DOM.
     expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(Number(screen.getByTestId('draw-pile').getAttribute('data-pile-count'))).toBe(2);
 
     // Tap the draw deck: the hand gets the same card ("Card 1") back.
     await act(async () => {
@@ -181,7 +181,7 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     // #740 keeps the hand open after a drag out of it, and a hidden element has no
     // accessible name, so read the closed row's `aria-label` from the DOM.
     expect(document.body.querySelector('[aria-label="hand, 6 cards, tap to open"]')).not.toBeNull();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(Number(screen.getByTestId('draw-pile').getAttribute('data-pile-count'))).toBe(2);
 
     // Tap the draw deck: the hand gets "Card 8" (the pile's original sole card) back, not the
     // card just dropped onto the bottom.
@@ -216,7 +216,7 @@ describe('Practice draw: dropping a card on the draw deck (#743)', () => {
     });
 
     expect(coreZone!.querySelector(`[data-card-id="${draggedId}"]`)).toBeNull();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(Number(screen.getByTestId('draw-pile').getAttribute('data-pile-count'))).toBe(2);
   });
 
   it('still draws a card on a tap', async () => {

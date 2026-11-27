@@ -243,7 +243,7 @@ describe('Practice draw: selecting more than one card in a card list panel and d
     const coreZone = document.body.querySelector('[data-zone="core"]') as HTMLElement;
     expect(coreZone.querySelectorAll('[data-card-id]')).toHaveLength(1);
     expect(within(coreZone).getByRole('button', { name: 'Personnel 4' })).toBeInTheDocument();
-    expect(screen.getByAltText('Discard pile').parentElement).toHaveTextContent('3');
+    expect(JSON.parse(localStorage.getItem('practiceGame')!).table.discard).toHaveLength(3);
   });
 
   it('drags only the touched card when it is not part of the selection', async () => {
