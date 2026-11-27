@@ -584,30 +584,47 @@ export interface BotRevealFixture {
   awayTeamSlot?: number;
 }
 
+// Each is a `?fixture=<key>` of the page, on the `?fixture=bot` table, in `'face'` with no search: the stack
+// holds the revealed dilemma on top, face up, and the next 3 of the pile face down.
 export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
+  // Well-Prepared Defenses, so the page opens on the bot's label (#1519).
   'bot-label': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017' },
+  // Conflict of Interests, whose `unless` check the Bilana System crew meets: the preview reads "No effect"
+  // and Resolve changes no zone (#1589).
   'bot-resolve-noeffect': { title: 'Conflict of Interests', collectorsInfo: '26V002' },
+  // Covert Extraction: the preview reads "Choose 1 personnel to be stopped", and Resolve is disabled until one
+  // personnel with Intelligence or Transporters is selected in the row (#1593).
   'bot-resolve-choice': { title: 'Covert Extraction', collectorsInfo: '38V002' },
+  // A Pattern of Lies: the reveal rolls three personnel and keeps them, so the preview reads "Choose 1 of the
+  // selected to be stopped" (or "Stops 3" when the three share a species), the same after a reload (#1594).
   'bot-resolve-pattern': { title: 'A Pattern of Lies', collectorsInfo: '10C001' },
+  // Becalmed: the kept roll of three, so the preview reads "1 of 3 has Integrity, Cunning or Strength > 6:
+  // stops 1" (or "None of 3 has …: no effect"), and Resolve stops exactly the personnel its check marks (#1628).
   'bot-resolve-becalmed': { title: 'Becalmed', collectorsInfo: '36V002' },
   // Accelerated Aging, which takes away the first-listed skills, over a Dead Weight whose check the crew
-  // passes only with them (#1598).
+  // passes only with them (#1598). The preview reads "First skill off for the rest of the attempt"; after
+  // Resolve, a flip of Dead Weight previews "No effect".
   'bot-resolve-modifier': {
     title: 'Accelerated Aging',
     collectorsInfo: '11P001',
     next: { title: 'Dead Weight', collectorsInfo: '36V005' },
   },
   // Conflict of Interests, a dual dilemma of cost 4, at Stakoron Strait, which raises it to 5, past a
-  // spend of 4 (#1760).
+  // spend of 4 (#1760): the preview reads "Overcome with the 3 after it: Stakoron Strait raised the cost past
+  // the spend".
   'bot-resolve-overcome': { title: 'Conflict of Interests', collectorsInfo: '26V002', mission: '33V030', spend: 4 },
-  // Well-Prepared Defenses, cost 2 and no skill, at Sigma Iotia II, which prevents and overcomes it (#1761).
+  // Well-Prepared Defenses, cost 2 and no skill, at Sigma Iotia II in slot 0 with its away team of 20, which
+  // prevents and overcomes it (#1761): the preview reads "Prevented and overcome (Sigma Iotia II)", no label.
   'bot-resolve-prevent': { title: FIXTURE_BOT_LABEL_DILEMMA, collectorsInfo: '17V017', mission: '23V027', awayTeamSlot: 0 },
-  // Urgent Search, a dual dilemma of 60S, whose label names an attribute and whose kept roll stops (#1845).
+  // Urgent Search, a dual dilemma of 60S, whose label names the attribute the most of the crew share ("Named
+  // Integrity"), and whose preview names the others it stops besides its kept roll of one (#1845).
   'bot-resolve-60s': { title: 'Urgent Search', collectorsInfo: '67V020' },
-  // Jailbreak, a dual dilemma of 60S, whose kept roll of 2 goes on top of the draw deck (#1846).
+  // Jailbreak, a dual dilemma of 60S, whose kept roll of 2, when neither has Physics or Cunning>13, previews
+  // "… places 2 on top of the draw deck" and goes there, logged "put on top of the draw deck …" (#1846).
   'bot-resolve-jailbreak': { title: 'Jailbreak', collectorsInfo: '67V009' },
   // Hard of Heart, a planet dilemma that selects 2 at random, at Moab IV's away team, with Let's Try That
-  // Again in the core and Dessert Disaster in the hand (#1847).
+  // Again in the core and Dessert Disaster in the hand (#1847, `PRACTICE_BOT_SELECT_AGAIN_TSV`), so the preview
+  // shows the controls of the kept roll.
   'bot-select-again': { title: 'Hard of Heart', collectorsInfo: '38V004', awayTeamSlot: 0 },
 };
 
