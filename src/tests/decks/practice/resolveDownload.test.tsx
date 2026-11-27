@@ -31,9 +31,9 @@ const person = (id: string, name: string, icons = '', extra: Partial<CardInstanc
 const deckCard = (id: string) => card(id, { type: 'event', name: `card ${id}`, originalName: `Card ${id}`, cost: '1' }, { face: 'down' });
 const SECOND_EDITION = card('ev', { type: 'event', name: 'second edition', originalName: 'Second Edition', cost: '1' });
 
-// The away team holds Ann, a personnel, and Bo, an [AU] personnel, stopped; the brig holds Cy. The draw deck
-// holds a copy of each, Ann's a later version of the same title, and four other cards.
-function table(deck?: CardInstance[]): TableState {
+// The away team holds Ann, a personnel, and Bo, an [AU] personnel, stopped when `boStopped`; the brig holds Cy.
+// The draw deck holds a copy of each, Ann's a later version of the same title, and four other cards.
+function table(deck?: CardInstance[], { boStopped = false }: { boStopped?: boolean } = {}): TableState {
   return {
     ...initialTableState,
     hand: [card('h1', { type: 'equipment', name: 'tricorder', originalName: 'Tricorder', cost: '1' })],
@@ -49,7 +49,7 @@ function table(deck?: CardInstance[]): TableState {
     missions: Array.from({ length: MISSION_SLOTS }, (_, i) => ({
       mission: i === 0 ? card('m0', { type: 'mission', name: 'moab iv', originalName: 'Moab IV', missiontype: 'p' }) : null,
       ships: [],
-      awayTeam: i === 0 ? [person('ann', 'Ann Invented'), person('bo', 'Bo Invented', '[AU][TNG]', { stopped: true }), person('dee', 'Dee Invented')] : [],
+      awayTeam: i === 0 ? [person('ann', 'Ann Invented'), person('bo', 'Bo Invented', '[AU][TNG]', { stopped: boStopped }), person('dee', 'Dee Invented')] : [],
       underMission: [],
     })),
     brig: [person('cy', 'Cy Invented')],
@@ -79,10 +79,12 @@ describe('the Second Edition model (#1746)', () => {
     expect(resolveStageOf(resolvingGame(table()))?.lead.kind).toBe('download');
   });
 
-  it('finds the copy by title, for a commanded personnel, stopped or not, never the brig', () => {
+  it('finds the copy by title, for an unstopped commanded personnel, never the brig', () => {
     const t = table();
     expect(downloadCopyOf(t, 'ann')?.id).toBe('ann2');
     expect(downloadCopyOf(t, 'bo')?.id).toBe('bo2');
+    // #1942: a stopped personnel's title is a characteristic it cannot use (Glossary › "stopped", p. 20).
+    expect(downloadCopyOf(table(undefined, { boStopped: true }), 'bo')).toBeNull();
     expect(downloadCopyOf(t, 'dee')).toBeNull();
     expect(downloadCopyOf(t, 'cy')).toBeNull();
     expect(downloadCopyOf(t, 'nobody')).toBeNull();
@@ -119,7 +121,12 @@ describe('the download (#1746)', () => {
     expect(gameReducer(undone, { type: 'redo' }).table).toEqual(after.table);
   });
 
-  it('draws the top card of the shuffled deck for an [AU] personnel, stopped too', () => {
+  it('refuses a stopped personnel (#1942)', () => {
+    const game = resolvingGame(table(undefined, { boStopped: true }));
+    expect(download(game, 'bo')).toBe(game);
+  });
+
+  it('draws the top card of the shuffled deck for an [AU] personnel', () => {
     const after = download(resolvingGame(table()), 'bo', ['d4', 'ann2', 'cy2', 'd1', 'd2', 'd3']);
     expect(after.table.hand.map((c) => c.id)).toEqual(['h1', 'bo2', 'd4']);
     expect(after.table.drawDeck).toHaveLength(5);

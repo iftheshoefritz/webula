@@ -2766,7 +2766,7 @@ function runStage(
         if (typeof input.count !== 'number' || !Number.isFinite(input.count)) return null;
         wanted = drawUpToCount(count.count, input.count, table.drawDeck.length);
       } else if (count.kind === 'personnelCost') {
-        const chosen = personnelCandidateGroups(table, { includeStopped: true })
+        const chosen = personnelCandidateGroups(table)
           .flatMap((g) => g.cards)
           .find((c) => c.id === input.personnelId);
         if (!chosen) return null;

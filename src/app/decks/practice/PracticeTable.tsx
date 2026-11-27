@@ -2948,7 +2948,7 @@ function PracticeDrawContent() {
         if (step.count.kind === 'personnelCost')
           return {
             step: 'draw',
-            groups: personnelCandidateGroups(table, { includeStopped: true }),
+            groups: personnelCandidateGroups(table),
             onDraw: (personnelId) => send(personnelId ? { personnelId } : {}),
           };
         return { step: 'draw', groups: [], fixed: drawWanted(step.count, { anyCompleted: anyMissionCompleted }) ?? 0, onDraw: () => send({}) };
@@ -2986,7 +2986,7 @@ function PracticeDrawContent() {
         if (step.of.kind === 'copyOfCommanded')
           return {
             step: 'download',
-            groups: personnelCandidateGroups(table, { includeStopped: true }),
+            groups: personnelCandidateGroups(table),
             // Second Edition (#1746): the personnel with a copy in the draw deck.
             available: (id) => downloadCopyOf(table, id) !== null,
             onDownload: (personnelId) => send({ personnelId }),
