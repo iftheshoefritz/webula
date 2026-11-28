@@ -70,7 +70,7 @@ import {
   stepOf,
 } from '../../../lib/effectSteps';
 import { triggerRowsOf, type TriggerRow } from '../../../lib/triggers';
-import { pendingTriggersOf, sameTriggerTarget } from './triggers';
+import { endOfTurnTriggerSetUp, pendingTriggersOf, sameTriggerTarget } from './triggers';
 import { attemptAbilitiesOf, modifyStepOf } from './attemptAbilities';
 import { changesText, killsAtEndOfTurn } from '../../../lib/attemptAbilities';
 import type { AmountQuantity } from '../../../lib/modifiers/model';
@@ -1112,6 +1112,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   // an order is (#1866).
   if ((action.type === 'advanceSegment' || action.type === 'nextTurn') && (pendingPlayEffectOf(state) || pendingOrderOf(state) || pendingTriggerOf(state)))
     return state;
+  // An "at the end of this turn" trigger set up this turn (#1946) takes the turn through its discard segment, where
+  // it is offered; the page reads the same `endOfTurnTriggerSetUp` for the button's label.
+  if (action.type === 'advanceSegment' && action.endOfTurn === undefined && state.table.segment === 'orders' && endOfTurnTriggerSetUp(state))
+    return gameReducer(state, { ...action, endOfTurn: true });
   if (action.type === 'restore') {
     return {
       table: tableReducer(state.table, action),

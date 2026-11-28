@@ -60,9 +60,15 @@ is the one way out. On a touch screen the corner buttons take the look of that X
 
 ## The turn
 
-A turn has segments: play and draw, then orders, then discard when the hand holds more than 7. The
-next-turn button advances through them. No segment refuses a move: the table checks nothing that
-stops a player, it only warns.
+A turn has segments: play and draw, then orders, then discard when the hand holds more than 7 or an
+end-of-turn trigger stands. The next-turn button advances through them. No segment refuses a move:
+the table checks nothing that stops a player, it only warns.
+
+The discard segment is the end of the turn (rulebook v4, "3. Discard Excess Cards", p. 13): an "at
+the end of this turn" trigger, such as the kill of an attempt ability, is offered there, before the
+next turn unstops anything, and its offer stands through the segment's discards until it is taken
+or skipped. While it stands, the next-turn button reads "Resolve <card> first" but stays enabled,
+and the turn can end with it unused.
 
 The counters, the charges, the pending discounts and the use limits are all derived from the log.
 A correction, of a charge or of the counter limit, is a log entry and never a change to the table,
