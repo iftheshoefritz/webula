@@ -1,4 +1,4 @@
-import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, deckFromTsvWithMissing, decrementedRow, extractDrawDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, missingCardsMessage, missingInPiles, numericCount, parsedDeck, shuffleArray, withCurrentPiles } from '../../app/decks/deckBuilderUtils';
+import { aboveMinimumCount, belowMaximumCount, buildBulkImportPayloads, cardPileFor, deckFromTsv, deckFromTsvWithMissing, decrementedRow, extractDrawDeck, extractMissions, findExisting, findExistingOrUseRow, incrementedRow, isDeckEmpty, mergeDeckPiles, missingCardsMessage, missingInPiles, numericCount, titleCountFor, titleLimitMessage, titlesOverLimit, titlesOverLimitMessage, parsedDeck, shuffleArray, withCurrentPiles } from '../../app/decks/deckBuilderUtils';
 import { CardDef } from '../../types';
 
 describe('constructing a deck object based on TSV text and a list of all card data', () => {
@@ -520,3 +520,66 @@ describe('withCurrentPiles', () => {
     expect(withCurrentPiles(current)).toBe(current);
   });
 });
+
+describe('three copies of each card title, in all piles (#1972)', () => {
+  // Invented cards only. Two versions of one title, a reprint with a version suffix, a dilemma of the
+  // same title, and a title that starts with the other.
+  const card = (collectorsinfo: string, originalName: string, title: string, type = 'personnel') => ({
+    collectorsinfo,
+    originalName,
+    name: originalName.toLowerCase(),
+    title: title.toLowerCase(),
+    originalTitle: title,
+    type,
+  })
+  const data = [
+    card('90P1', 'Vexa Morn, Explorer', 'Vexa Morn'),
+    card('90P2', 'Vexa Morn, Pilot', 'Vexa Morn'),
+    card('90P3', 'Vexa Morn, Explorer *VP', 'Vexa Morn'),
+    card('90D4', 'Vexa Morn', 'Vexa Morn', 'dilemma'),
+    card('90P5', 'Vexa Morn Elder', 'Vexa Morn Elder'),
+  ]
+  const deckOf = (tsv: string) => deckFromTsv(tsv, data)
+
+  it('counts two versions of a title together', () => {
+    const deck = deckOf('2\tVexa Morn, Explorer\n1\tVexa Morn, Pilot')
+    expect(titleCountFor(deck, data[0], data)).toEqual(3)
+    expect(titleCountFor(deck, data[1], data)).toEqual(3)
+    expect(titlesOverLimit(deck, data)).toEqual([])
+  })
+
+  it('counts a reprint with a version suffix with its original', () => {
+    const deck = deckOf('2\tVexa Morn, Explorer\n2\tVexa Morn, Explorer *VP')
+    expect(titleCountFor(deck, data[2], data)).toEqual(4)
+    expect(titlesOverLimit(deck, data)).toEqual([{ title: 'Vexa Morn', count: 4 }])
+  })
+
+  it('counts a dilemma and a draw deck card of one title together', () => {
+    const deck = deckOf('Dilemmas:\n2\tVexa Morn\nDeck:\n2\tVexa Morn, Pilot')
+    expect(titleCountFor(deck, data[3], data)).toEqual(4)
+  })
+
+  it('keeps apart a title that starts with another', () => {
+    const deck = deckOf('3\tVexa Morn, Explorer\n3\tVexa Morn Elder')
+    expect(titleCountFor(deck, data[4], data)).toEqual(3)
+    expect(titlesOverLimit(deck, data)).toEqual([])
+  })
+
+  it('counts a stored row with no title by the title of its card in the data', () => {
+    const deck = deckOf('2\tVexa Morn, Explorer\n2\tVexa Morn, Pilot')
+    const { title, originalTitle, ...stale } = deck['90P2'].row
+    deck['90P2'] = { count: 2, row: stale }
+    expect(titleCountFor(deck, data[0], data)).toEqual(4)
+    expect(titlesOverLimit(deck, data)).toEqual([{ title: 'Vexa Morn', count: 4 }])
+  })
+
+  it('loads a deck over the limit unchanged', () => {
+    const deck = deckOf('4\tVexa Morn, Pilot')
+    expect(deck['90P2'].count).toEqual(4)
+    expect(titlesOverLimitMessage(titlesOverLimit(deck, data))).toEqual('More than three copies of a card title: Vexa Morn (4)')
+  })
+
+  it('names the title in the message', () => {
+    expect(titleLimitMessage('Vexa Morn')).toEqual('Vexa Morn: no more than three copies of a card title')
+  })
+})
