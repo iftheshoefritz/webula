@@ -302,11 +302,13 @@ export const PRACTICE_RECALL_TSV = `1\tMiracle Working
 // Prophets, a unique personnel, one in the crew of the ship at Bilana System and one at the end of the hand;
 // Vina Orion Slave Girl, a unique personnel, one in the discard pile and one at the end of the hand; and
 // Self-Replicating Roadblock "(limit one per mission)" and Inspiring Leader "(limit one per ship)", both copies
-// at the end of the hand.
+// at the end of the hand; and Julian Bashir Medical Staffer at the end of the hand, a unique personnel of the
+// card title of Julian Bashir Nostalgic Doctor, whom the piles table deals in play (#1944).
 export const PRACTICE_UNIQUE_TSV = `2\tYarka Harbinger of the Prophets
 2\tVina Orion Slave Girl
 2\tSelf-Replicating Roadblock
-2\tInspiring Leader`;
+2\tInspiring Leader
+1\tJulian Bashir Medical Staffer`;
 export const PRACTICE_UNIQUE_IN_PLAY = 'Yarka Harbinger of the Prophets';
 export const PRACTICE_UNIQUE_DISCARDED = 'Vina Orion Slave Girl';
 export const PRACTICE_UNIQUE_HAND = [
@@ -314,6 +316,7 @@ export const PRACTICE_UNIQUE_HAND = [
   'Vina Orion Slave Girl',
   'Self-Replicating Roadblock',
   'Inspiring Leader',
+  'Julian Bashir Medical Staffer',
 ];
 // The cards `?fixture=orders` (#1866) adds to the `?fixture=piles` table: three events with an order at the end of
 // the core, Damar Ambitious Glinn and Quark Resistance Informant, a [Fer] personnel, at the end of the crew of the
