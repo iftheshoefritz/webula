@@ -110,7 +110,8 @@ export function botAffiliationsOf(deckText: string, rows: ReadonlyArray<DeckCard
   return Array.from(out).sort();
 }
 
-type PersonnelRow = Parameters<typeof botPersonnelOf>[0] & TraitsRow;
+// `listedSkills`: the printed skills alone, when `skills` holds the skills the table gives it too (#1958).
+type PersonnelRow = Parameters<typeof botPersonnelOf>[0] & TraitsRow & { listedSkills?: string };
 
 /** The printed skills of a row, indexed as `BOT_SKILLS`, and the number of skill dots: one per skill line. */
 function printedSkillsOf(text: string | number | undefined): { skills: number[]; dots: number; first?: number } {
@@ -137,11 +138,14 @@ export function pileHandPersonnelOf(row: { skills?: string | number; strength?: 
 
 /**
  * A personnel row as the pile's dilemmas read it: the bot's personnel, with its species, affiliation,
- * skill dots and printed profile. `lossSuspended` is `botPersonnelOf`'s: Sphere 117 holds (#1363).
+ * skill dots and printed profile. Its first skill is the first of `listedSkills` when the row has them, the
+ * printed skills that `skills` starts with, and `firstSkillLevel` its listed level. `lossSuspended` is `botPersonnelOf`'s: Sphere 117 holds (#1363).
  */
 export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, facts?: BotTableFacts, lossSuspended = false): PilePersonnel {
   const base = botPersonnelOf(row, mission, facts, lossSuspended);
-  const { skills, dots, first } = printedSkillsOf(row.skills);
+  const { skills, dots, first: firstOfText } = printedSkillsOf(row.skills);
+  const listed = row.listedSkills !== undefined ? printedSkillsOf(row.listedSkills) : undefined;
+  const first = listed ? listed.first : firstOfText;
   const species = String(row.species ?? '').toLowerCase().split('/').map((x) => x.trim()).filter(Boolean);
   return {
     ...base,
@@ -154,5 +158,6 @@ export function pilePersonnelOf(row: PersonnelRow, mission?: AttemptedMission, f
       attrs: [Number(row.integrity) || 0, Number(row.cunning) || 0, Number(row.strength) || 0],
     },
     ...(first !== undefined ? { firstSkill: first } : {}),
+    ...(listed && first !== undefined ? { firstSkillLevel: listed.skills[first] } : {}),
   };
 }

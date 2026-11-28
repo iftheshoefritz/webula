@@ -31,7 +31,7 @@ import { AttemptMissionRules, attemptMissionRules } from './attemptMissions';
 import { addedRequirements, replacedRequirementsOf, requirementTextWith } from '../../../lib/requirementRules';
 import { ROADBLOCK_TITLE, roadblockReturnOf } from './selfReplicatingRoadblock';
 import { modifierCardOf, tableReadOf, tableViewOf } from './tableView';
-import { skillsGainedOf } from '../../../lib/modifiers';
+import { skillsGainedOf, timedSkillsOf } from '../../../lib/modifiers';
 import type { TableView, ViewMission, ViewTableCard } from '../../../lib/tableView';
 
 // The panel the Attempt button would sit in: a mission's away team, or a ship's crew.
@@ -306,12 +306,15 @@ export function revealPicksOf(table: TableState, rand: Rand): string[][] | undef
 // A personnel's row with its Integrity, Cunning and Strength on the table (#1665), the attribute
 // models of #1664 added to the printed values, when `cardText` is on; the row as it is otherwise, and
 // for any card that is not a personnel. The attribute models read the `TableState` and its instance.
-// The skills the cards on the table give it (#1836), `skillsGainedOf`, follow its printed skills, so the bot counts a
-// skill it gains as one more level.
+// The skills the cards on the table give it (#1836), `skillsGainedOf`, and the skills an ability made it gain for a
+// time (#1958), `timedSkillsOf`, follow its printed skills, so the bot counts a skill it gains as one more level. They
+// are not listed skills: `listedSkills` keeps the printed ones, for the pile's first skill.
 function personnelRowOnTable(table: TableState, card: CardInstance | undefined, row: CardInstance['card'], cardText: boolean): CardInstance['card'] {
   if (!cardText || !card || row?.type !== 'personnel') return row;
-  const gained = skillsGainedOf(tableReadOf(table).view, modifierCardOf(card));
-  const skills = gained.length ? { skills: [String(row.skills ?? '').trim(), ...gained].filter(Boolean).join(' ') } : {};
+  const { view } = tableReadOf(table);
+  const gained = [...skillsGainedOf(view, modifierCardOf(card)), ...timedSkillsOf(view, card.id)];
+  const printed = String(row.skills ?? '').trim();
+  const skills = gained.length ? { skills: [printed, ...gained].filter(Boolean).join(' '), listedSkills: printed } : {};
   return { ...row, ...personnelAttributesOnTable(table, card, true), ...skills };
 }
 

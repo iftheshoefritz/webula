@@ -17,6 +17,12 @@ export interface PilePersonnel extends BotPersonnel {
   printed: Profile;
   /** The first-listed skill, as an index of `BOT_SKILLS` (Accelerated Aging). Absent: none is known. */
   firstSkill?: number;
+  /**
+   * The listed level of `firstSkill` (#1958), when the personnel gained levels of it on the table: what turning the
+   * first skill off removes, so a gained level stays ("New skills that are gained are not "listed skills"", Rulebook
+   * v4, "Important Game Terms" › Skills, p. 9). Absent: every level of it is listed.
+   */
+  firstSkillLevel?: number;
 }
 
 /** The ship of an attempt at a space mission. */

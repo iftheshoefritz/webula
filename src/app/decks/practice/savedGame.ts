@@ -7,6 +7,7 @@
 // database column such as `collectorsinfo` or `imagefile` is not.
 
 import { DeckList } from '../../../types';
+import { SKILLS } from '../../../lib/missionRequirements';
 import {
   CardInstance,
   FlatZone,
@@ -258,7 +259,8 @@ const isValidRevealSnapshot = (snapshot: unknown): boolean =>
   // The roll at the reveal (#1594).
   (snapshot.picks === undefined || (Array.isArray(snapshot.picks) && snapshot.picks.every(isIdList)));
 
-// The changes an ability made for the rest of the attempt (#1835): ids, a title and numbers.
+// The changes an ability made for the rest of the attempt (#1835): ids, a title and numbers, and the skills it gained
+// (#1958), each spelled as `SKILLS` spells it.
 const TIMED_QUANTITIES = ['integrity', 'cunning', 'strength', 'range', 'weapons', 'shields'];
 const isValidTimed = (value: unknown): boolean =>
   Array.isArray(value) &&
@@ -269,6 +271,7 @@ const isValidTimed = (value: unknown): boolean =>
       typeof t.sourceId === 'string' &&
       typeof t.targetId === 'string' &&
       (t.untilDilemma === undefined || typeof t.untilDilemma === 'string') &&
+      (t.skills === undefined || (Array.isArray(t.skills) && t.skills.every((k: unknown) => typeof k === 'string' && SKILLS.includes(k)))) &&
       isObject(t.changes) &&
       Object.entries(t.changes).every(([q, n]) => TIMED_QUANTITIES.includes(q) && typeof n === 'number' && Number.isFinite(n))
   );

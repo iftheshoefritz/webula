@@ -305,6 +305,13 @@ export interface TimedChange {
   targetId: string;
   changes: Partial<Record<AmountQuantity, number>>;
   /**
+   * The skills it gains (#1958), each spelled as `SKILLS` spells it, once per level; absent: none, as in a save from
+   * before #1958. A gained skill is not a listed skill, and a skill it already has is one more level (Rulebook v4,
+   * "Important Game Terms" › Skills, p. 9: "New skills that are gained are not "listed skills". If a personnel gains a
+   * skill he or she already has, it increases his or her level of that skill.").
+   */
+  skills?: string[];
+  /**
    * The card id of the dilemma it lasts for (#1956), "until the end of that dilemma": the table drops the change as
    * soon as that dilemma is no longer the one being faced (`pruneDilemmaTimed`), before `endAttempt`, and it does not
    * come back when the card returns to the top. Absent: until the end of the attempt, as in a save from before #1956.
