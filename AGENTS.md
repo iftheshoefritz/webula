@@ -154,6 +154,10 @@ Rebuilds `public/cards_with_processed_columns.txt` from `sets/Physical.txt` and
 fetched over HTTPS. No local LackeyCCG install is needed. Set `STARTREK2E_REF` to
 build from another branch, tag or commit. Run `extract_card_options.sh` after it.
 
+It reads the `Title` and `Subtitle` columns from `data/card_titles.tsv` and rewrites that file
+to cover the card data, adding a row by rule for a new card. Check the review list it prints,
+and correct each added row in the file, before you commit the file with the card data.
+
 ```bash
 bash scripts/copy_card_data.sh
 ```

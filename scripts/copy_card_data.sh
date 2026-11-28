@@ -5,6 +5,8 @@
 # LackeyCCG downloads into ~/LackeyCCG/plugins/startrek2e/sets/ (see the
 # plugin's updatelist.txt), so no local LackeyCCG install is needed.
 #
+# The Title and Subtitle columns come from data/card_titles.tsv (#1971).
+#
 # Set STARTREK2E_REF to build from another branch, tag or commit.
 
 set -euo pipefail
@@ -20,6 +22,6 @@ curl -fsSL "$base/Physical.txt" -o "$tmp/Physical.txt"
 curl -fsSL "$base/Virtual.txt" -o "$tmp/Virtual.txt"
 cat "$tmp/Physical.txt" <(tail -n +2 "$tmp/Virtual.txt") > "$tmp/lackey_cards.txt"
 
-# split_columns.js appends to its output file, so start from an empty one
-rm -f "$output"
+# split_columns.js also rewrites data/card_titles.tsv to cover the card data and prints a review
+# list of the rows it added and dropped: check it, and correct an added row before you commit.
 node scripts/split_columns.js "$tmp/lackey_cards.txt" "$output"

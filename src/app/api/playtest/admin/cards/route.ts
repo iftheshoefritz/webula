@@ -11,7 +11,8 @@ const MAX_TSV_BYTES = 2 * 1024 * 1024;
 // when it replaces a set in testing and no `replace` for a new set (#1644). The page sends it after
 // every image batch. The route runs `normalisePlaytestTsv` again with the names of the real cards
 // and the cards of the other sets in testing, so it never stores TSV the check did not pass, checks
-// the set of the rows, and checks that the store holds every image the TSV names under that set.
+// the set of the rows, splits each name into its title and subtitle with the titles of the real
+// cards (#1971), and checks that the store holds every image the TSV names under that set.
 // Any error writes nothing. Then `publishSet` writes the cards and the upload time, bumps the
 // set's version, lists the set, and removes the set it replaces.
 export async function POST(req: Request) {
@@ -24,12 +25,14 @@ export async function POST(req: Request) {
   try {
     const store = getPlaytestAdminStore();
     const { sets } = await store.readStatus();
-    const realNames = new Set(loadCards().data.map((card) => card.originalName));
+    const realCards = loadCards().data;
+    const realNames = new Set(realCards.map((card) => card.originalName));
     const { result, set } = checkPlaytestUpload(
       text,
       realNames,
       sets.map(({ name, tsv }) => playtestSetCardsOf(name, tsv)),
       replace ?? null,
+      realCards.map((card) => card.originalTitle),
     );
     // The set's errors first: a card of the set it fails to replace would read as a conflict.
     if (set.errors.length > 0) return playtestBadRequest(set.errors.join('; '), { errors: set.errors });

@@ -99,7 +99,7 @@ The rulebook keeps these apart. Rule "naming cards": you name a card by its titl
 only, and two cards with the same title are the same card, even when the subtitles
 differ.
 
-The data file does not keep them apart. The `Name` column holds the title and the
+The LackeyCCG export does not keep them apart. The `Name` column holds the title and the
 subtitle as one string, for example `Seven of Nine Part of the Greater Whole`. The
 code carries this string in two fields:
 
@@ -111,8 +111,29 @@ To show a card's name, call `cardDisplayName` in `src/lib/cardCount.ts`. It retu
 `originalName` with any version suffix removed, or `name` when a row has no
 `originalName`.
 
-There is no field that holds the title alone. A rule that needs the title alone
-cannot be written from this data.
+The card data's `Title` and `Subtitle` columns hold them apart (#1971), and the code
+carries them in four fields:
+
+- `title`, `subtitle` — the lowercase forms, for a match or a search.
+- `originalTitle`, `originalSubtitle` — the printed case, beside `originalName`.
+
+`data/card_titles.tsv` is the one source of the split: one row per card, keyed by
+`CollectorsInfo` and `Name` as the card data writes them, with its `Title` and
+`Subtitle`. Joined by one space they give back `Name` less its version suffix. A
+mission's title is its location and its subtitle the activity or goal, so two
+missions can be the same location (`Olmerak System`, `Captive Pursuit`). A dilemma,
+an event, an interrupt and an equipment have no subtitle, and some personnel and ships
+have none either. A title that starts with another is a different card: `Odo` and
+`Odo Founder`. The rows are hand-checked: to fix a split, edit its row.
+
+`scripts/split_columns.js` joins the file into the card data and adds a row by rule
+for a card the file lacks (`cardTitleByRule` in `src/lib/cardTitleRule.js`): a
+personnel, a ship or a mission takes the longest known title that its name starts
+with, ending at a space or at the name's end, and the rest of the name less its
+version suffix as the subtitle; every other card, and one that matches no title, its
+name less its version suffix and no subtitle. A playtest card is split by the same
+rule. The Hall of Fame column matches `public/hof_retired.txt` by these columns: a
+line "Title, Subtitle" names one card, a line with no comma every card of that title.
 
 ### Version
 

@@ -15,11 +15,13 @@ export const metadata: Metadata = { title: 'Webula', robots: { index: false, fol
 // cookies, so it renders at request time and never at build time.
 export default async function PlaytestAdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const realNames = () => loadCards().data.map((card) => card.originalName);
+  // The known titles of the split of a playtest card's name (#1971).
+  const realTitles = () => [...new Set(loadCards().data.map((card) => card.originalTitle))];
   if (playtestAdminFixtureAllowed() && (await searchParams).fixture === '1') {
-    return <PlaytestAdminFixture realNames={realNames()} />;
+    return <PlaytestAdminFixture realNames={realNames()} realTitles={realTitles()} />;
   }
   const email = await pageCallerEmail();
   if (!email) return <PlaytestAdminSignIn />;
   if (!isPlaytestOwner(email)) notFound();
-  return <PlaytestAdminClient realNames={realNames()} />;
+  return <PlaytestAdminClient realNames={realNames()} realTitles={realTitles()} />;
 }

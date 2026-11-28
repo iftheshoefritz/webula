@@ -131,13 +131,14 @@ export function checkPlaytestUpload(
   realNames: Set<string>,
   setsInTesting: PlaytestSetCards[],
   replace?: string | null,
+  realTitles: Iterable<string> = [],
 ): { result: PlaytestResult; set: PlaytestSetCheck } {
-  const first = normalisePlaytestTsv(text, realNames);
+  const first = normalisePlaytestTsv(text, realNames, undefined, realTitles);
   if (first.errors.length > 0 || first.cards === 0) return { result: first, set: { name: null, replace: null, errors: [] } };
   const set = checkPlaytestSet(first.tsv, setsInTesting, replace);
   if (set.name === null) return { result: first, set };
   const others = otherPlaytestSets(setsInTesting, [playtestSetKey(set.name), set.replace]);
-  return { result: normalisePlaytestTsv(text, realNames, others), set };
+  return { result: normalisePlaytestTsv(text, realNames, others, realTitles), set };
 }
 
 /** The number of characters of the base64 of `bytes` bytes. */
@@ -196,8 +197,9 @@ export function playtestPreview(
   realNames: Set<string>,
   setsInTesting: PlaytestSetCards[] = [],
   replace?: string | null,
+  realTitles: Iterable<string> = [],
 ): PlaytestPreview {
-  const { result, set } = checkPlaytestUpload(tsv, realNames, setsInTesting, replace);
+  const { result, set } = checkPlaytestUpload(tsv, realNames, setsInTesting, replace, realTitles);
   const errors = [...result.errors.map(problemText), ...set.errors, ...zip.errors];
   const warnings = result.warnings.map(problemText);
 

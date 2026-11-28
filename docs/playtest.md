@@ -93,6 +93,13 @@ The owner-only routes under `/api/playtest/admin/` answer 404 to anyone else, wi
 - `DELETE sets`: `{ name }`, removes a set, its cards and its images.
 - `GET`, `POST` and `DELETE emails`: `{ email }`.
 
+The upload adds the `Title` and `Subtitle` columns of the card data to every row (#1971), by
+`cardTitleByRule` of `src/lib/cardTitleRule.js`, the rule of the real cards' `data/card_titles.tsv`
+(`docs/ubiquitous-language.md` › "Card title and subtitle"). Its known titles are the titles of the
+real cards, which the page and the route pass beside the real names, and of the set's cards before
+it. A set stored before #1971 has neither column: `parseCardData` splits its rows by the same rule,
+with the titles of the set's earlier rows as the known titles.
+
 `POST cards` runs `checkPlaytestUpload` again with the real names: the rows name exactly one valid
 `Set`, not a real set's value nor `playtest`; a new set is not in testing yet; a replace names a set
 in testing, and the new name is no other set in testing; and no card name or `CollectorsInfo` is one
