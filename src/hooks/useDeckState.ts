@@ -4,6 +4,7 @@ import useLocalStorage, { useHydrated } from './useLocalStorage';
 import {
   aboveMinimumCount,
   belowMaximumCount,
+  MAX_COPIES_PER_TITLE,
   deckFromTsv,
   deckFromTsvWithMissing,
   decrementedRow,
@@ -11,6 +12,9 @@ import {
   incrementedRow,
   mergeDeckPiles,
   missingInPiles,
+  printedTitleOf,
+  titleCountFor,
+  titlesOverLimit,
   withCurrentPiles,
 } from '../app/decks/deckBuilderUtils';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
@@ -108,21 +112,31 @@ export function useDeckState({
     posthog.capture('deckBuilder.handleFileLoad.finish', { lines: renderLoad.lines });
   }, [renderLoad]);
 
+  // The title whose fourth copy the last add refused (#1972), for the notice.
+  const [titleLimitNotice, setTitleLimitNotice] = useState<string | null>(null);
+
+  // The titles over the limit, derived from the deck so that every load is flagged the same way and
+  // the flag clears when the user removes copies (#1972). A deck over the limit still loads.
+  const overLimitTitles = useMemo(() => titlesOverLimit(currentDeck, data), [currentDeck, data]);
+
   const incrementIncluded = useCallback(
     (row: CardDef) => {
-      if (belowMaximumCount(currentDeck[row.collectorsinfo])) {
-        const currentRow = findExistingOrUseRow(currentDeck, row);
-        const newRow = incrementedRow(currentRow);
-        setCurrentDeck((prevState) => ({
-          ...prevState,
-          [row.collectorsinfo]: {
-            count: newRow.count,
-            row: newRow,
-          },
-        }));
+      if (!belowMaximumCount({ count: titleCountFor(currentDeck, row, data) }, MAX_COPIES_PER_TITLE)) {
+        setTitleLimitNotice(printedTitleOf(row, data));
+        return;
       }
+      setTitleLimitNotice(null);
+      const currentRow = findExistingOrUseRow(currentDeck, row);
+      const newRow = incrementedRow(currentRow);
+      setCurrentDeck((prevState) => ({
+        ...prevState,
+        [row.collectorsinfo]: {
+          count: newRow.count,
+          row: newRow,
+        },
+      }));
     },
-    [currentDeck, setCurrentDeck]
+    [currentDeck, setCurrentDeck, data]
   );
 
   const decrementIncluded = useCallback(
@@ -173,6 +187,9 @@ export function useDeckState({
     loadDeckInRender,
     missingCards,
     dismissMissingCards: () => setMissingCards(0),
+    titleLimitNotice,
+    dismissTitleLimitNotice: () => setTitleLimitNotice(null),
+    overLimitTitles,
   };
 }
 

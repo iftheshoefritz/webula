@@ -40,7 +40,7 @@ import { isEarlyAccessUser } from '../lib/featureFlags';
 import { Tooltip } from 'react-tooltip';
 import type { CardData } from '../lib/loadCards';
 import type { DeckPile } from '../app/decks/deckBuilderUtils';
-import { lackeyText, missingCardsMessage } from '../app/decks/deckBuilderUtils';
+import { lackeyText, missingCardsMessage, titleLimitMessage, titlesOverLimitMessage } from '../app/decks/deckBuilderUtils';
 import PlaytestSignInHint from './PlaytestSignInHint';
 import {
   type ShareFailure,
@@ -107,6 +107,9 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
     loadDeckInRender,
     missingCards,
     dismissMissingCards,
+    titleLimitNotice,
+    dismissTitleLimitNotice,
+    overLimitTitles,
   } = useDeckState({
     data,
     isFixture,
@@ -114,6 +117,12 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
     // on a load, after useDriveSync below has given clearDeckSource its value.
     onFullLoad: () => clearDeckSource(),
   });
+
+  // The flag of a deck over the title limit (#1972). A dismiss hides this message only: when the
+  // titles over the limit change, the flag shows again.
+  const overLimitMessage = overLimitTitles.length > 0 ? titlesOverLimitMessage(overLimitTitles) : '';
+  const [dismissedOverLimit, setDismissedOverLimit] = useState('');
+  const showOverLimit = overLimitMessage !== '' && overLimitMessage !== dismissedOverLimit;
 
   const currentDeckRows = useMemo(() => {
     return Object.keys(currentDeck)
@@ -1475,23 +1484,57 @@ export default function DeckBuilderClient({ data: publicData, columns }: DeckBui
         </div>
       )}
 
-      {missingCards > 0 && (
-        <div className="fixed top-14 inset-x-0 z-50 flex justify-center px-4">
-          <div
-            role="status"
-            data-testid="deck-missing-cards-warning"
-            className="bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
-          >
-            <span>{missingCardsMessage(missingCards)}</span>
-            <PlaytestSignInHint />
-            <button
-              onClick={dismissMissingCards}
-              className="text-amber-200 hover:text-white"
-              aria-label="Dismiss"
+      {(missingCards > 0 || titleLimitNotice || showOverLimit) && (
+        <div className="fixed top-14 inset-x-0 z-50 flex flex-col items-center gap-2 px-4">
+          {missingCards > 0 && (
+            <div
+              role="status"
+              data-testid="deck-missing-cards-warning"
+              className="bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
             >
-              <FaTimes />
-            </button>
-          </div>
+              <span>{missingCardsMessage(missingCards)}</span>
+              <PlaytestSignInHint />
+              <button
+                onClick={dismissMissingCards}
+                className="text-amber-200 hover:text-white"
+                aria-label="Dismiss"
+              >
+                <FaTimes />
+              </button>
+            </div>
+          )}
+          {titleLimitNotice && (
+            <div
+              role="status"
+              data-testid="deck-title-limit-notice"
+              className="bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
+            >
+              <span>{titleLimitMessage(titleLimitNotice)}</span>
+              <button
+                onClick={dismissTitleLimitNotice}
+                className="text-amber-200 hover:text-white"
+                aria-label="Dismiss"
+              >
+                <FaTimes />
+              </button>
+            </div>
+          )}
+          {showOverLimit && (
+            <div
+              role="status"
+              data-testid="deck-over-title-limit-warning"
+              className="bg-amber-900/90 border border-amber-700 text-amber-100 text-sm rounded-lg px-4 py-2 shadow-xl flex items-center gap-3"
+            >
+              <span>{overLimitMessage}</span>
+              <button
+                onClick={() => setDismissedOverLimit(overLimitMessage)}
+                className="text-amber-200 hover:text-white"
+                aria-label="Dismiss"
+              >
+                <FaTimes />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

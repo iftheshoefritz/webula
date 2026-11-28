@@ -8,6 +8,10 @@ type CardDef = {
   type: string,
   count: number,
   originalName: string,
+  // The card title without subtitle or version suffix, lowercase, and in its printed case (#1971).
+  // Optional: a deck row saved before #1971 has neither.
+  title?: string,
+  originalTitle?: string,
   missiontype: 'S'|'s'|'P'|'p'|'H'|'h'|'',
   unique: 'y'|'n',
 }

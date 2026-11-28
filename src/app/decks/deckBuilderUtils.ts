@@ -1,9 +1,68 @@
 import posthog from 'posthog-js'
 import { CardDef, DeckList } from "../../types"
+import { cardTitleOf } from "../../lib/cardTitle"
 
 export const numericCount = (withPotentialCount?: {count?: number}): number => ( withPotentialCount?.count ?? 0 )
 
 export const belowMaximumCount = (withPotentialCount?: {count?: number}, maxCount = 3): boolean => ( numericCount(withPotentialCount) < maxCount )
+
+// "You may use no more than three copies of each card title (ignoring subtitles). For example: you may
+// have three copies of Jean-Luc Picard, Explorer in your deck, or you may have two copies of that card
+// and one copy of Jean-Luc Picard, Argo Pilot." (Building a Deck, p. 13, #1972). The limit counts every
+// line of the deck, in all three piles, whose card has the same title: its versions and its reprints
+// (`*VP`, `*A`) too.
+export const MAX_COPIES_PER_TITLE = 3
+
+// The card data row of a deck row, by `collectorsinfo`, for a row saved before #1971 gave rows a title.
+const cardOf = (row: any, data: Array<any>) => data.find((card) => card.collectorsinfo === row?.collectorsinfo)
+
+// The title key of a deck row: its `title`, else the title of its card in the card data, else the
+// name less its version suffix. The name holds the subtitle, so the last is a fallback only.
+export const titleKeyOf = (row: any, data: Array<any> = []): string => (
+  row?.title || cardOf(row, data)?.title || cardTitleOf(row?.name ?? '')
+)
+
+// The title of a deck row in its printed case, for a message.
+export const printedTitleOf = (row: any, data: Array<any> = []): string => (
+  row?.originalTitle || cardOf(row, data)?.originalTitle || cardTitleOf(row?.originalName ?? row?.name ?? '')
+)
+
+// The copies of each title in the deck, summed over its lines, keyed by `titleKeyOf`.
+export const titleCounts = (deck: DeckList, data: Array<any> = []): Map<string, number> => {
+  const counts = new Map<string, number>()
+  Object.values(deck).forEach((entry) => {
+    if (!entry?.row) return
+    const key = titleKeyOf(entry.row, data)
+    counts.set(key, (counts.get(key) ?? 0) + numericCount(entry))
+  })
+  return counts
+}
+
+// The copies in the deck of the title of `row`, in all piles.
+export const titleCountFor = (deck: DeckList, row: any, data: Array<any> = []): number => (
+  titleCounts(deck, data).get(titleKeyOf(row, data)) ?? 0
+)
+
+// The titles of the deck over the limit, in their printed case, in deck order.
+export const titlesOverLimit = (deck: DeckList, data: Array<any> = []): Array<{ title: string; count: number }> => {
+  const counts = titleCounts(deck, data)
+  const over = new Map<string, { title: string; count: number }>()
+  Object.values(deck).forEach((entry) => {
+    if (!entry?.row || numericCount(entry) === 0) return
+    const key = titleKeyOf(entry.row, data)
+    const count = counts.get(key) ?? 0
+    if (count > MAX_COPIES_PER_TITLE && !over.has(key)) {
+      over.set(key, { title: printedTitleOf(entry.row, data), count })
+    }
+  })
+  return [...over.values()]
+}
+
+export const titleLimitMessage = (title: string) => `${title}: no more than three copies of a card title`
+
+export const titlesOverLimitMessage = (over: Array<{ title: string; count: number }>) => (
+  `More than three copies of a card title: ${over.map(({ title, count }) => `${title} (${count})`).join(', ')}`
+)
 
 export const aboveMinimumCount = (withPotentialCount?: {count?: number}, minCount = 0): boolean => ( numericCount(withPotentialCount) > minCount )
 
