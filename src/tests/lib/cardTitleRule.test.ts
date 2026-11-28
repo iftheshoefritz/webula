@@ -128,4 +128,22 @@ describe('data/card_titles.tsv and the card data', () => {
       expect([r.Title, r.Subtitle].filter(Boolean).join(' ')).toBe(nameLessVersion(c.Name));
     }
   });
+
+  // Uniqueness keys by the Title (#1944), so a wrong Title makes two cards conflict, or not, by accident.
+  it('gives every unique personnel and ship a Title', () => {
+    const untitled = cards.filter((c) => c.Unique === 'Y' && (c.Type === 'Personnel' || c.Type === 'Ship') && !c.Title);
+    expect(untitled.map((c) => c.Name)).toEqual([]);
+  });
+
+  it('keeps the cards of one Title with different Subtitles to one Type, but for the reviewed titles', () => {
+    // Keevan the equipment and the Keevan personnel: one card title, so they conflict, as the rulebook reads.
+    const reviewedCrossType = ['Keevan'];
+    const byTitle = new Map<string, Record<string, string>[]>();
+    for (const c of cards) if (c.Title) byTitle.set(c.Title, [...(byTitle.get(c.Title) ?? []), c]);
+    const crossType = [...byTitle]
+      .filter(([, cs]) => new Set(cs.map((c) => c.Subtitle)).size > 1 && new Set(cs.map((c) => c.Type)).size > 1)
+      .map(([title]) => title)
+      .sort();
+    expect(crossType).toEqual(reviewedCrossType);
+  });
 });

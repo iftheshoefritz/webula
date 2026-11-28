@@ -2533,7 +2533,8 @@ function PracticeDrawContent() {
   // `?fixture=unique` (#1821) deals the piles table with a second copy of a unique personnel in play, of one in
   // the discard pile, and two copies each of a "(limit one per mission)" and a "(limit one per ship)" event
   // (`PRACTICE_UNIQUE_TSV`). With "Check uniqueness and limits" on, a play of the second Yarka warns, the second
-  // Vina does not, and the second Roadblock or Leader warns on the mission card or ship that holds the first.
+  // Vina does not, the second Roadblock or Leader warns on the mission card or ship that holds the first, and
+  // Julian Bashir Medical Staffer warns, since Julian Bashir Nostalgic Doctor of the same card title is in play (#1944).
   const isUniqueFixture = fixture === 'unique';
   // `?fixture=downloads` (#1810) deals the piles table with Opaka Kai of Bajor and Jean-Luc Picard Vintner at the
   // end of the hand, whose plays download into hand, and two [Baj] personnel on top of the draw deck, then the

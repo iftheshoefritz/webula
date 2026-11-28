@@ -26,11 +26,17 @@ export type RuleWarning =
 /** The words of "You cannot spend counters to draw cards" (Rule of Acquisition #6), as its warning reads them. */
 export const SPEND_TO_DRAW_WORDS = 'you cannot spend counters to draw cards';
 
-// The title two cards share when they are one card for the rules: the persona of the rulebook, so "Data"
-// and "Data *VP" conflict. The card data's `Name` holds the subtitle too, so two personas of one
-// personnel with different subtitles ("Kira Nerys Reformed Collaborator", "Kira Nerys Hero of Bajor")
-// read as two titles: a known gap.
-const titleKey = (card: any): string => cardTitleOf(cardDisplayName(card ?? {}) ?? '').toLowerCase();
+// The title two cards share when they are one card for uniqueness and the limits (#1944): rulebook,
+// "Uniqueness", p. 13, "Two cards represent the same thing if they have the same card title, even if their
+// subtitles are different." So "Julian Bashir Medical Staffer" and "Julian Bashir Rebel Captain" conflict, and
+// so do "Data" and "Data *VP". The key is the card data's `title` (the `Title` column from
+// `data/card_titles.tsv`, #1971); a row without it, such as one of a game saved before #1971, falls back to
+// its name less the version suffix.
+const titleKey = (card: any): string =>
+  card?.title ? String(card.title).toLowerCase() : cardTitleOf(cardDisplayName(card ?? {}) ?? '').toLowerCase();
+
+// The printed card title alone, with the same fallback, which the uniqueness and limit warnings name.
+const cardTitleAlone = (card: any): string => card?.originalTitle || titleOf(card);
 
 const titleOf = (card: any): string => cardTitleOf(cardDisplayName(card ?? {}) ?? '');
 
@@ -81,8 +87,8 @@ export function ruleWarningsOf(table: TableState, instance: CardInstance, landed
   const key = titleKey(instance.card);
   const title = titleOf(instance.card);
   const view = tableViewOf(table);
-  if (play && isUniqueCard(instance.card) && inPlay(view).some((c) => c.id !== instance.id && c.title.toLowerCase() === key)) {
-    warnings.push({ rule: 'unique', title });
+  if (play && isUniqueCard(instance.card) && inPlay(view).some((c) => c.id !== instance.id && titleKey(c.row) === key)) {
+    warnings.push({ rule: 'unique', title: cardTitleAlone(instance.card) });
   }
   // A play requirement (#1916): each `play` row of the card whose condition fails on the table before the move.
   if (play) {
@@ -107,7 +113,7 @@ export function ruleWarningsOf(table: TableState, instance: CardInstance, landed
     if (limited && held) {
       warnings.push({
         rule: target.kind === 'mission' ? 'limitPerMission' : 'limitPerShip',
-        title,
+        title: cardTitleAlone(instance.card),
         place: cardDisplayName(target.card.card ?? {}),
       });
     }

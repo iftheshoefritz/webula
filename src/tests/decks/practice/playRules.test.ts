@@ -131,6 +131,60 @@ describe('ruleWarningsOf (#1821)', () => {
     expect(ruleWarningsOf(t, second, { zone: 'on', targetId: 'm0' }, true)).toEqual([]);
   });
 
+  describe('one card title with different subtitles (#1944)', () => {
+    // The card data's `Title` and `Subtitle` (#1971), as `parseCardData` reads them.
+    const titled = (id: string, name: string, title: string, subtitle: string) => ({
+      title: title.toLowerCase(),
+      subtitle: subtitle.toLowerCase(),
+      originalTitle: title,
+      originalSubtitle: subtitle,
+      name: name.toLowerCase(),
+      originalName: name,
+    });
+    const persona = (id: string, title: string, subtitle: string) =>
+      card(id, { type: 'personnel', unique: 'y', ...titled(id, `${title} ${subtitle}`, title, subtitle) });
+    const toTeam = { zone: 'missionPile', missionIndex: 0, pile: 'awayTeam' } as const;
+
+    it('warns of a unique card whose title is in play under another subtitle, naming the title alone', () => {
+      const second = persona('h2', 'Zev Toran', 'Field Medic');
+      const t = table({ awayTeam: [persona('a2', 'Zev Toran', 'Ship Surgeon')], hand: [second] });
+      const warnings = ruleWarningsOf(t, second, toTeam, true);
+      expect(warnings).toEqual([{ rule: 'unique', title: 'Zev Toran' }]);
+      expect(ruleWarningText(warnings[0])).toBe('Unique: Zev Toran is already in play');
+    });
+
+    it('does not warn of another title', () => {
+      const second = persona('h3', 'Zev Toran', 'Field Medic');
+      const t = table({ awayTeam: [persona('a3', 'Zev Torane', 'Field Medic')], hand: [second] });
+      expect(ruleWarningsOf(t, second, toTeam, true)).toEqual([]);
+    });
+
+    it('falls back to the name less its version suffix for a row with no title, as a game saved before #1971 holds', () => {
+      const second = unique('h4', 'Quill Varn *VP');
+      const t = table({ awayTeam: [unique('a4', 'Quill Varn')], hand: [second] });
+      expect(ruleWarningsOf(t, second, toTeam, true)).toEqual([{ rule: 'unique', title: 'Quill Varn' }]);
+    });
+
+    it('keys both limits by the card title', () => {
+      const limitedTitled = (id: string, subtitle: string, per: 'mission' | 'ship') =>
+        card(id, {
+          type: 'event',
+          gametext: `plays on your ${per} (limit one per ${per}).`,
+          ...titled(id, `Brass Beacon ${subtitle}`, 'Brass Beacon', subtitle),
+        });
+      const onMission = limitedTitled('b2', 'Second Light', 'mission');
+      const tm = table({ missionCards: [mission('m0', 'Mission 0', [limitedTitled('b1', 'First Light', 'mission')])], hand: [onMission] });
+      expect(ruleWarningsOf(tm, onMission, { zone: 'on', targetId: 'm0' }, true)).toEqual([
+        { rule: 'limitPerMission', title: 'Brass Beacon', place: 'Mission 0' },
+      ]);
+      const onShip = limitedTitled('b4', 'Second Light', 'ship');
+      const ts = table({ ships: [[ship('s1', 'First', { placedOn: [limitedTitled('b3', 'First Light', 'ship')] })]], hand: [onShip] });
+      expect(ruleWarningsOf(ts, onShip, { zone: 'on', targetId: 's1' }, true)).toEqual([
+        { rule: 'limitPerShip', title: 'Brass Beacon', place: 'First' },
+      ]);
+    });
+  });
+
   it('words each warning', () => {
     expect(ruleWarningText({ rule: 'unique', title: 'Data' })).toBe('Unique: Data is already in play');
     expect(ruleWarningText({ rule: 'limitPerMission', title: 'Roadblock', place: 'Moab IV' })).toBe(
