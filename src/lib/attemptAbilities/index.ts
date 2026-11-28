@@ -25,10 +25,14 @@
 // Glossary › "dilemmas", p. 17). A "While" row has no limit: each use is its own, with its own cost. A later "When …
 // facing a dilemma" row may need a per-dilemma limit; the use's log entry records the faced dilemma's id for it.
 //
+// A row may have a `cost` (#1957), of the order costs' type (`OrderCost`), which the use pays with the same code as an
+// order's: "place a [Fed] card from hand on this event to …". Absent: no cost.
+//
 // The attempted mission passes the condition in either window. It imports no React and no reducer.
 
 import { cardTitleOf } from '../cardTitle';
 import type { AmountQuantity } from '../modifiers/model';
+import type { OrderCost } from '../orderModels';
 import type { MissionQuery } from '../tableView';
 import { ONCE_EACH_TURN, type UseLimit } from '../useLimit';
 
@@ -68,6 +72,8 @@ export interface AttemptAbility {
   /** Where its card must be (#1956); absent: `self`, the card is an attempting personnel. */
   source?: AttemptAbilitySource;
   limit?: UseLimit;
+  /** What the use costs (#1957), as an order's cost; absent: nothing. */
+  cost?: OrderCost;
   steps: AttemptAbilityStep[];
 }
 

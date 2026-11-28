@@ -5,7 +5,7 @@
 import { cardDisplayName } from '../../../lib/cardCount';
 import { downloadTakes, type ChooseSkillStep } from '../../../lib/effectSteps';
 import { SKILLS } from '../../../lib/missionRequirements';
-import { OrderModel, orderModelsOf } from '../../../lib/orderModels';
+import { OrderCost, OrderModel, orderModelsOf } from '../../../lib/orderModels';
 import { personnelCandidateGroups } from './personnelChoice';
 import { findInstanceAnywhere, type CardInstance, type TableState } from './tableReducer';
 
@@ -50,23 +50,30 @@ export const orderCardOf = (table: TableState, id: string, index: number): Order
  * unstopped personnel that pass it for a stop (never the brig; with `present`, only those of the order card's group), and the cards of the type in the order card's own
  * group for a card present. None for a cost with no pick.
  */
-export function orderCostCandidates(table: TableState, order: OrderCard): CardInstance[] {
-  const cost = order.model.cost;
+export const orderCostCandidates = (table: TableState, order: OrderCard): CardInstance[] =>
+  costCandidates(table, order.model.cost, order.instance.id, order.group);
+
+/**
+ * The cards the cost `cost` of the ability of the card `sourceId` may take, for an order or an attempt ability
+ * (#1957). `group` is the source's away team or crew, for a card present.
+ */
+export function costCandidates(table: TableState, cost: OrderCost, sourceId: string, group?: CardInstance[]): CardInstance[] {
   if (cost.kind === 'discardFromHand') {
     const test = cost.test;
     return test ? table.hand.filter((c) => downloadTakes({ test }, c.card)) : table.hand;
   }
   if (cost.kind === 'stopPersonnel') {
     // "Stop one of your personnel present" (#1960): only the personnel of the order card's own group.
-    const present = cost.present ? new Set((order.group ?? []).map((c) => c.id)) : null;
+    const present = cost.present ? new Set((group ?? []).map((c) => c.id)) : null;
     return personnelCandidateGroups(table)
       .flatMap((g) => g.cards.map((c) => c.card))
       .filter((c) => (!present || present.has(c.id)) && downloadTakes({ test: cost.test }, c.card));
   }
-  if (cost.kind === 'placePresentOnBottom')
-    return (order.group ?? []).filter((c) => c.id !== order.instance.id && cost.types.includes(typeOf(c)));
+  if (cost.kind === 'placePresentOnBottom') return (group ?? []).filter((c) => c.id !== sourceId && cost.types.includes(typeOf(c)));
   // Renewal Scroll (#1837): the cards of the discard pile that pass the test, never one removed from the game.
   if (cost.kind === 'placeFromDiscardOnThis') return table.discard.filter((c) => !c.removedFromGame && downloadTakes({ test: cost.test }, c.card));
+  // Security Drills (#1957): the cards of the hand that pass the test, never the source itself.
+  if (cost.kind === 'placeFromHandOnThis') return table.hand.filter((c) => c.id !== sourceId && downloadTakes({ test: cost.test }, c.card));
   return [];
 }
 

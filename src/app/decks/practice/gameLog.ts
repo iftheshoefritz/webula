@@ -49,9 +49,9 @@ import { completionEffectOf, involvedSpecies } from './completionEffects';
 import { CostDestination, CostPlace, costPlayOf, drawCharge, moveCharge, printedCost } from '../../../lib/playCost';
 import { resolveModelOf, resolveStagesOf } from '../../../lib/resolveModels';
 import { PlayConditionState, PlayConditionStatus, PlayModel, playConditionOf, playModelOf, playStagesOf } from '../../../lib/playModels';
-import { costNeedsPick, costPickCount, OrderModel, orderModelOf, orderStagesOf } from '../../../lib/orderModels';
+import { costNeedsPick, costPickCount, OrderCost, OrderModel, orderModelOf, orderStagesOf } from '../../../lib/orderModels';
 import { withinUseLimit, type UseLimit } from '../../../lib/useLimit';
-import { chooseSkillOptions, orderCardOf, orderCardsOf, OrderCard, orderCostCandidates } from './orders';
+import { chooseSkillOptions, costCandidates, orderCardOf, orderCardsOf, OrderCard, orderCostCandidates } from './orders';
 import {
   downloadPlaceShips,
   downloadPlayCost,
@@ -72,7 +72,7 @@ import {
 } from '../../../lib/effectSteps';
 import { triggerRowsOf, type TriggerRow } from '../../../lib/triggers';
 import { endOfTurnTriggerSetUp, pendingTriggersOf, sameTriggerTarget } from './triggers';
-import { attemptAbilitiesOf, gainSkillOptionsOf, modifyStepOf, targetsChosenPersonnel } from './attemptAbilities';
+import { attemptAbilitiesOf, attemptingGroupOf, gainSkillOptionsOf, modifyStepOf, targetsChosenPersonnel } from './attemptAbilities';
 import { changesText, gainsSkill, killsAtEndOfTurn, windowOf } from '../../../lib/attemptAbilities';
 import type { AmountQuantity } from '../../../lib/modifiers/model';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
@@ -440,6 +440,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       killAtEndOfTurn?: true;
       dilemmaId?: string;
       dilemma?: string;
+      // What the row's cost did (#1957), as an order's.
+      cost?: OrderCostRecord;
     }
 );
 
@@ -469,7 +471,7 @@ export interface OrderCostRecord {
   discarded?: string[];
   stopped?: string[];
   placed?: string[];
-  // The cards of the discard pile placed on the order's own card (#1837, Renewal Scroll).
+  // The cards of the discard pile (#1837, Renewal Scroll) or the hand (#1957) placed on the ability's own card.
   placedOnThis?: string[];
 }
 
@@ -555,7 +557,8 @@ export type GameAction =
   // A use of the attempt ability `index` of the card `id` (#1835): its change for the rest of the attempt on
   // `Attempt.timed`, in one `attemptAbilityUsed` entry, which also sets up its delayed kill. `targetId` names the
   // offer's target (#1956): a row that changes a chosen personnel is offered once per personnel and needs it.
-  | { type: 'useAttemptAbility'; id: string; index: number; targetId?: string; skill?: string }
+  // `ids` is the pick of the row's cost (#1957), as `useOrder`'s.
+  | { type: 'useAttemptAbility'; id: string; index: number; targetId?: string; skill?: string; ids?: string[] }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -3535,6 +3538,48 @@ export function availableOrdersOf(state: { table: TableState; log: LogEntry[] })
   return orderCardsOf(table).filter((o) => abilityUsable(log, table.turn, { kind: 'order', id: o.instance.id, index: o.model.index }, o.model.limit));
 }
 
+// The payment of the cost `cost` of the ability of the card `sourceId`, named `sourceName`, for an order or an
+// attempt ability (#1957): the pick `ids` must be `costPickCount` distinct cards of `candidates`, or it is refused
+// (null), and a payment that changes nothing is refused too. The new table and what the cost did, for the log.
+function costPaid(
+  start: TableState,
+  cost: OrderCost,
+  sourceId: string,
+  sourceName: string,
+  candidates: CardInstance[],
+  pick: string[] | undefined,
+): { table: TableState; record?: OrderCostRecord } | null {
+  let table = start;
+  if (costNeedsPick(cost)) {
+    const ids = Array.isArray(pick) ? [...new Set(pick)] : [];
+    const allowed = new Set(candidates.map((c) => c.id));
+    if (ids.length !== costPickCount(cost) || ids.length !== (pick?.length ?? 0) || !ids.every((id) => allowed.has(id))) return null;
+    const names = ids.map((id) => cardName(start, id));
+    let record: OrderCostRecord;
+    if (cost.kind === 'discardFromHand') {
+      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), table);
+      record = { discarded: names };
+    } else if (cost.kind === 'stopPersonnel') {
+      table = tableReducer(table, { type: 'setStopped', ids, stopped: true });
+      record = { stopped: names };
+    } else if (cost.kind === 'placeFromDiscardOnThis' || cost.kind === 'placeFromHandOnThis') {
+      // A card placed on an event from the discard pile or the hand is not in play: the `move` sets its
+      // `notInPlay` (#1943).
+      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: { zone: 'on', targetId: sourceId } }), table);
+      record = { placedOnThis: names };
+    } else {
+      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), table);
+      record = { placed: names };
+    }
+    return table === start ? null : { table, record };
+  }
+  if (cost.kind === 'placeThisOnBottom') {
+    table = tableReducer(table, { type: 'move', id: sourceId, to: 'drawDeck', position: 'bottom' });
+    return table === start ? null : { table, record: { placed: [sourceName] } };
+  }
+  return { table };
+}
+
 // The use of an order (#1866): the order must be one the table offers, and the pick must fit its cost, or nothing
 // changes. The cost is paid at once, and the order's one `orderUsed` entry is written, with no step yet. It is no
 // charge: it spends no counter.
@@ -3543,32 +3588,9 @@ function orderUseState(state: GameState, action: { id: string; order: number; id
   if (!order || orderCardOf(state.table, action.id, action.order) === null) return state;
   const { cost } = order.model;
   const start = state.table;
-  let table = start;
-  let record: OrderCostRecord | undefined;
-  if (costNeedsPick(cost)) {
-    const ids = Array.isArray(action.ids) ? [...new Set(action.ids)] : [];
-    const allowed = new Set(orderCostCandidates(start, order).map((c) => c.id));
-    if (ids.length !== costPickCount(cost) || ids.length !== (action.ids?.length ?? 0) || !ids.every((id) => allowed.has(id))) return state;
-    const names = ids.map((id) => cardName(start, id));
-    if (cost.kind === 'discardFromHand') {
-      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'discard' }), table);
-      record = { discarded: names };
-    } else if (cost.kind === 'stopPersonnel') {
-      table = tableReducer(table, { type: 'setStopped', ids, stopped: true });
-      record = { stopped: names };
-    } else if (cost.kind === 'placeFromDiscardOnThis') {
-      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: { zone: 'on', targetId: action.id } }), table);
-      record = { placedOnThis: names };
-    } else {
-      table = ids.reduce<TableState>((t, id) => tableReducer(t, { type: 'move', id, to: 'drawDeck', position: 'bottom' }), table);
-      record = { placed: names };
-    }
-    if (table === start) return state;
-  } else if (cost.kind === 'placeThisOnBottom') {
-    table = tableReducer(table, { type: 'move', id: action.id, to: 'drawDeck', position: 'bottom' });
-    if (table === start) return state;
-    record = { placed: [order.name] };
-  }
+  const paid = costPaid(start, cost, action.id, order.name, orderCostCandidates(start, order), action.ids);
+  if (!paid) return state;
+  const { table, record } = paid;
   const condition = playConditionOf(order.model, costFactsOf(start, []), { id: action.id });
   const entry: LogEntry = {
     kind: 'orderUsed',
@@ -3613,16 +3635,22 @@ function orderStepsText(record: PlayEffectRecord): string {
   return record.steps.map((s) => effectStageClauses(s).join(', ')).join(', then ');
 }
 
-// "Used Damar Ambitious Glinn's order: discarded Hideki Class, drew 3 cards" (#1866).
-function orderUsedText(entry: Extract<LogEntry, { kind: 'orderUsed' }>): string {
-  const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
-  const cost = entry.cost ?? {};
-  const costParts = [
+// The words of what a cost did, for an order or an attempt ability (#1957): "discarded Hideki Class", "placed Tasha
+// Yar on it".
+function costRecordParts(record: OrderCostRecord | undefined): string[] {
+  const cost = record && typeof record === 'object' ? record : {};
+  return [
     ...(isNames(cost.discarded) && cost.discarded.length ? [`discarded ${cardsText(cost.discarded)}`] : []),
     ...(isNames(cost.stopped) && cost.stopped.length ? [`stopped ${cardsText(cost.stopped)}`] : []),
     ...(isNames(cost.placed) && cost.placed.length ? [`placed ${cardsText(cost.placed)} on the bottom of the draw deck`] : []),
     ...(isNames(cost.placedOnThis) && cost.placedOnThis.length ? [`placed ${cardsText(cost.placedOnThis)} on it`] : []),
   ];
+}
+
+// "Used Damar Ambitious Glinn's order: discarded Hideki Class, drew 3 cards" (#1866).
+function orderUsedText(entry: Extract<LogEntry, { kind: 'orderUsed' }>): string {
+  const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
+  const costParts = costRecordParts(entry.cost);
   const steps = isPlayEffectRecord(entry.effect) ? orderStepsText(entry.effect) : '';
   const parts = [...costParts, ...(steps ? [steps] : [])];
   const condition = isPlayEffectRecord(entry.effect)
@@ -3758,7 +3786,7 @@ function triggerSkipState(state: GameState, action: { target: TriggerTarget }): 
 // `attemptAbilityUsed` entry, which one undo takes back. Refused unless the table offers it. A use in the
 // `facingDilemma` window (#1956) keys its change to the faced dilemma, so the change ends with that dilemma. A
 // `gainSkill` use (#1958) needs a skill among `gainSkillOptionsOf` of its target, and its change holds that skill.
-function attemptAbilityUseState(state: GameState, action: { id: string; index: number; targetId?: string; skill?: string }): GameState {
+function attemptAbilityUseState(state: GameState, action: { id: string; index: number; targetId?: string; skill?: string; ids?: string[] }): GameState {
   const offer = attemptAbilitiesOf(state).find(
     (o) =>
       o.id === action.id &&
@@ -3770,13 +3798,18 @@ function attemptAbilityUseState(state: GameState, action: { id: string; index: n
   const gains = gainsSkill(offer.ability);
   if (gains !== (action.skill !== undefined)) return state;
   if (gains && !gainSkillOptionsOf(state.table, offer.targetId).includes(action.skill!)) return state;
+  // The cost (#1957) is paid first, on the table the entry's one undo snapshot covers.
+  const cost = offer.ability.cost ?? { kind: 'none' as const };
+  const group = attemptingGroupOf(state.table)?.cards;
+  const paid = costPaid(state.table, cost, offer.id, offer.name, costCandidates(state.table, cost, offer.id, group), action.ids);
+  if (!paid || !paid.table.attempt) return state;
   const faced = windowOf(offer.ability) === 'facingDilemma' ? facedDilemmaOf(state.table) : undefined;
   const changes = modifyStepOf(offer.ability)?.changes ?? {};
   const skills = gains ? [action.skill!] : [];
   const timed =
     Object.keys(changes).length || skills.length
       ? [
-          ...(attempt.timed ?? []),
+          ...(paid.table.attempt.timed ?? []),
           {
             title: offer.ability.title,
             sourceId: offer.id,
@@ -3786,8 +3819,8 @@ function attemptAbilityUseState(state: GameState, action: { id: string; index: n
             ...(faced ? { untilDilemma: faced.id } : {}),
           },
         ]
-      : attempt.timed;
-  const table: TableState = { ...state.table, attempt: { ...attempt, ...(timed ? { timed } : {}) } };
+      : paid.table.attempt.timed;
+  const table: TableState = { ...paid.table, attempt: { ...paid.table.attempt, ...(timed ? { timed } : {}) } };
   const entry: LogEntry = {
     kind: 'attemptAbilityUsed',
     id: offer.id,
@@ -3798,6 +3831,7 @@ function attemptAbilityUseState(state: GameState, action: { id: string; index: n
     ...(gains ? { skill: action.skill! } : {}),
     ...(killsAtEndOfTurn(offer.ability) ? { killAtEndOfTurn: true as const } : {}),
     ...(faced ? { dilemmaId: faced.id, dilemma: faced.card ? cardDisplayName(faced.card) : faced.id } : {}),
+    ...(paid.record ? { cost: paid.record } : {}),
     turn: table.turn,
     segment: table.segment,
   };
@@ -3806,7 +3840,7 @@ function attemptAbilityUseState(state: GameState, action: { id: string; index: n
 
 // "Storil Courageous Captain: made U.S.S. Saratoga Weapons +5 until the end of this mission attempt; it is killed at
 // the end of this turn" (#1835); "Security Drills: made Tasha Yar gain Security until the end of Ancient Computer"
-// (#1958).
+// (#1958); a cost first (#1957), "Security Drills: placed Data on it, made …".
 function attemptAbilityUsedText(entry: Extract<LogEntry, { kind: 'attemptAbilityUsed' }>): string {
   const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
   const target = typeof entry.target === 'string' && entry.target ? entry.target : 'a card';
@@ -3815,7 +3849,8 @@ function attemptAbilityUsedText(entry: Extract<LogEntry, { kind: 'attemptAbility
   const what = [changes, gain].filter(Boolean).join(' and ');
   const until = typeof entry.dilemma === 'string' && entry.dilemma ? entry.dilemma : 'this mission attempt';
   const made = what ? `made ${target === card ? 'itself' : target} ${what} until the end of ${until}` : 'used';
-  return `${card}: ${made}${entry.killAtEndOfTurn === true ? '; it is killed at the end of this turn' : ''}`;
+  const paid = costRecordParts(entry.cost).join(', ');
+  return `${card}: ${paid ? `${paid}, ` : ''}${made}${entry.killAtEndOfTurn === true ? '; it is killed at the end of this turn' : ''}`;
 }
 
 // Adds `steps` to the record of the trigger in progress (#1904), with the table they left. While its entry is the last
