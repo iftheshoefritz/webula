@@ -222,7 +222,7 @@ describe('a card present to place (#1866): Charles Tucker III Horse Trader', () 
 describe('a discard by title (#1960): Revised Doctor Mass Murderer', () => {
   it('takes only a card titled The Doctor or Revised Doctor, downloads only an interrupt, and shuffles', () => {
     const revised = person('revised', 'Revised Doctor Mass Murderer', 'federation');
-    const doctor = person('doctor', 'The Doctor Emergency Medical Hologram', 'federation');
+    const doctor = person('doctor', 'The Doctor Emergency Medical Hologram', 'federation', { title: 'the doctor' });
     const other = person('other', 'Doctorate Holder', 'federation');
     const deck = [deckCard('i1', { type: 'interrupt' }), deckCard('e1'), deckCard('i2', { type: 'interrupt' })];
     const start = initialGameState(table({ hand: [other, doctor], drawDeck: deck }, [revised]));

@@ -1,4 +1,5 @@
 import { stripVersionSuffix } from '../cardCount';
+import { cardTitleOf } from '../cardTitle';
 import { AFFILIATION_ABBREVIATIONS } from '../deckPlayability';
 import { BOT_SKILLS, SKILL_INDEX } from './requirements';
 
@@ -53,7 +54,10 @@ export interface PartnerTest {
   notTraits?: string[];
   /** Skills the partner's base skills must each hold, indexed as `BOT_SKILLS`: "honor". */
   skills?: number[];
-  /** A prefix of the partner's lowercased name, from "{odo}". */
+  /**
+   * The partner's card title, lowercased, from "{odo}": equal to its `cardTitle`, the subtitle never read. "When
+   * you name a card, you do so by card title only, not subtitle." (Glossary › naming cards, p. 18).
+   */
   title?: string;
   /** The card is a personnel: "personnel" in a test of the discard pile, which holds every type. */
   personnel?: boolean;
@@ -69,6 +73,8 @@ export interface PartnerRequirement {
 export interface PartnerTraits {
   /** The lowercased name, title and subtitle together. */
   name: string;
+  /** The card title alone, lowercased (`rowCardTitleOf`, #1986): "odo". Absent, it is `cardTitleOf` of `name`. */
+  cardTitle?: string;
   affiliation: string;
   species: string[];
   keywords: string[];
@@ -325,7 +331,7 @@ export function passesPartnerTest(test: PartnerTest, traits: PartnerTraits): boo
     (!test.traits || test.traits.every((word) => traits.keywords.includes(word) || traits.species.includes(word))) &&
     (!test.notTraits || !test.notTraits.some((word) => traits.keywords.includes(word) || traits.species.includes(word))) &&
     (!test.skills || test.skills.every((i) => traits.skills[i] > 0)) &&
-    (!test.title || traits.name === test.title || traits.name.startsWith(`${test.title} `)) &&
+    (!test.title || (traits.cardTitle ?? cardTitleOf(traits.name)) === test.title) &&
     (!test.personnel || traits.type === 'personnel')
   );
 }

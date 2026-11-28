@@ -70,6 +70,8 @@ export interface CostMission {
 export interface CostShip {
   id: string;
   title: string;
+  /** The card title alone, lowercased (`rowCardTitleOf`, #1986): a Commander keyword names it. Absent, it is `cardTitleOf` of `title`. */
+  cardTitle?: string;
   affiliation: string;
   icons: string[];
 }

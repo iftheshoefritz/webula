@@ -149,7 +149,7 @@ describe('the cost models of the place of a play (#1702)', () => {
 
   it('charges a Commander −1 aboard his ship while Captain on the Bridge is in the core', () => {
     const commander = card('An Invented Commander', 4, 'personnel', { keywords: 'Admiral. Commander: uss Invented.' });
-    const ships = [ship('s1', { title: 'U.S.S. Invented Prototype' }), ship('s2', { title: 'Another Ship' })];
+    const ships = [ship('s1', { title: 'U.S.S. Invented Prototype', cardTitle: 'u.s.s. invented' }), ship('s2', { title: 'Another Ship' })];
     const withCaptain = facts([mission({ ships })], ['Captain on the Bridge']);
     expect(charge(commander, withCaptain, { missionIndex: 0, shipId: 's1' })).toEqual({
       kind: 'play',
@@ -205,7 +205,7 @@ describe('costFactsOf by mission slot (#1702)', () => {
     };
     const f = costFactsOf({ ...initialTableState, missions, brig: [instance('b1', 'Captive', 'personnel')] });
     expect(f.missions?.[1].personnel?.map((p) => p.name)).toEqual(['away', 'aboard']);
-    expect(f.missions?.[1].ships).toEqual([{ id: 's1', title: 'Invented Bird', affiliation: 'klingon', icons: ['[tng]'] }]);
+    expect(f.missions?.[1].ships).toEqual([{ id: 's1', title: 'Invented Bird', cardTitle: 'invented bird', affiliation: 'klingon', icons: ['[tng]'] }]);
     expect(f.missions?.[0].personnel).toEqual([]);
     expect(f.commanded.map((p) => p.name)).toEqual(['away', 'aboard']);
   });

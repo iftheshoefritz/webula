@@ -17,8 +17,8 @@ const card = (originalName: string, type: string, extra: Record<string, string> 
 
 const mission = (name: string, quadrant: string, span = '2') => card(name, 'mission', { span, quadrant });
 const ds9 = (suffix = '') => mission(`Mouth of the Wormhole Deep Space 9${suffix}`, 'a', '1');
-const ship = (name: string, affiliation: string, range: string, crew?: CardInstance[]) => ({
-  ...card(name, 'ship', { affiliation, range }),
+const ship = (name: string, affiliation: string, range: string, crew?: CardInstance[], extra: Record<string, string> = {}) => ({
+  ...card(name, 'ship', { affiliation, range, ...extra }),
   ...(crew ? { crew } : {}),
 });
 const personnel = (name: string, affiliation: string, extra: Record<string, string> = {}) =>
@@ -388,7 +388,7 @@ describe('Inspiring Leader (#1648)', () => {
   const leader = () => card('Inspiring Leader *VP', 'event');
   const commander = () => personnel('Captain', 'federation', { keywords: 'commander: uss defiant.' });
   const defiant = (crew: CardInstance[]) => ({
-    ...ship('U.S.S. Defiant Prototype Warship', 'federation', '7', crew),
+    ...ship('U.S.S. Defiant Prototype Warship', 'federation', '7', crew, { title: 'u.s.s. defiant' }),
     placedOn: [leader()],
   });
 
@@ -402,13 +402,13 @@ describe('Inspiring Leader (#1648)', () => {
     expect(shipRangeOnTable(tableOf([]), defiant([personnel('Ensign', 'federation')]))).toBe(7);
     const other = { ...ship('U.S.S. Relativity', 'federation', '8', [commander()]), placedOn: [leader()] };
     expect(shipRangeOnTable(tableOf([]), other)).toBe(8);
-    const bare = ship('U.S.S. Defiant Prototype Warship', 'federation', '7', [commander()]);
+    const bare = ship('U.S.S. Defiant Prototype Warship', 'federation', '7', [commander()], { title: 'u.s.s. defiant' });
     expect(shipRangeOnTable(tableOf([]), bare)).toBe(7);
   });
 
   it('reads a Commander of an I.S.S. ship (#1724)', () => {
     const archer = personnel('Archer', 'terran-empire', { keywords: 'Commander: I.S.S. Enterprise.' });
-    const enterprise = { ...ship('I.S.S. Enterprise Invented Flagship', 'terran-empire', '7', [archer]), placedOn: [leader()] };
+    const enterprise = { ...ship('I.S.S. Enterprise Invented Flagship', 'terran-empire', '7', [archer], { title: 'i.s.s. enterprise' }), placedOn: [leader()] };
     expect(shipRangeOnTable(tableOf([]), enterprise)).toBe(9);
   });
 });
