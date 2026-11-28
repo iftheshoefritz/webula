@@ -1,0 +1,464 @@
+CollectorsInfo	Name	Requirements
+1R002	Aggressive Behavior	2 Anthropology | 2 Leadership and Weapons>8
+1C003	Alien Abduction	2 Engineer and Physics | Medical and Transporters
+1C004	Antedean Assassins	a personnel who has 2 Anthropology | a personnel who has 2 Telepathy
+1R005	Armus Roulette	Cunning>22 | one of them has Cunning>7
+1C006	Assassin's Blade	2 Security | Cunning>26
+1R007	Assassination Attempt	Treachery
+1C008	Authenticate Artifacts	a personnel who has 2 Anthropology | a personnel who has 2 Archaeology
+1C009	Automated Weapons	2 Security | a Hand Weapon
+1R010	Berserk Changeling	2 Exobiology and 2 Science | 3 Security | two Hand Weapons
+1U011	Blended	Diplomacy | Telepathy
+1C014	Center of Attention	3 Security | a Hand Weapon and Cunning>28 | {Quark}
+1S017	Command Decisions	Leadership | Officer
+1C018	Console Overload	2 Engineer | 2 Programming
+1C019	Contamination	Engineer and Physics | 2 Exobiology
+1U020	Damaged Reputation	Integrity>50 | 2 Diplomacy | Intelligence and 2 Treachery | Strength>30
+1C021	Dangerous Liaisons	2 Science and 2 Security | 3 Treachery
+1C022	Debris Field	Astrometrics | Navigation
+1R023	Drumhead	Law
+1R024	Enemy Boarding Party	Strength<6
+1R026	Explosive Decompression	nine personnel | ten personnel
+1R027	Gravimetric Distortion	2 Astrometrics | 3 Engineer | a personnel who has 2 Navigation
+1R028	Graviton Ellipse	Astrometrics, Engineer, and Physics | Shields + unused Range this turn>13
+1R030	Impressive Trophies	Cunning>32
+1C031	Invidium Leak	Engineer and 2 Programming | 2 Medical
+1S033	Kolaran Raiders	Leadership | Security
+1R035	Maglock	3 Officer | 3 Programming
+1C036	Magnetic Field Disruptions	Astrometrics | Navigation
+1C037	Microbrain	a personnel who has 2 Exobiology | a personnel who has 2 Geology
+1C038	Misguided Activist	Diplomacy and 2 Honor | 2 Security | {Miles O'Brien}
+1R039	Nanite Attack	2 Diplomacy and 2 Engineer | 2 Security and a Hand Weapon
+1C040	None Shall Pass	2 Anthropology | 3 Diplomacy | Strength>35
+1C041	Ornaran Threat	Diplomacy and Medical | 2 Security
+1R042	Personal Duty	Leadership | Officer
+1S043	Pinned Down	nine personnel | ten personnel
+1C044	Planetary Survey	Geology | Programming
+1U045	Primitive Culture	Anthropology and Leadership | 3 Diplomacy | 2 Intelligence | four personnel who each have Strength>6
+1R046	Pursuit Just Behind	nine personnel | ten personnel
+1U047	Quarren Labor Shortage	at least half your personnel are not [NA]
+1C048	Recurring Injury	a personnel who has 2 Biology | a personnel who has 2 Medical
+1U049	Skullduggery	Acquisition | Treachery
+1C050	Stellar Core Fragment	a personnel who has 2 Physics | a personnel who has 2 Science
+1C052	Systems Diagnostic	Engineer | Programming
+1U053	Temptation	Honor | Treachery
+1C054	Tense Negotiations	a personnel who has 2 Diplomacy | a personnel who has 2 Leadership
+1C056	Trabe Grenade	Cunning<7
+1C057	Triage	Biology | Medical
+1R058	Unscientific Method	Cunning>24
+1U059	Vastly Outnumbered	Strength>55 | Anthropology and 2 Honor | two Hand Weapons | Integrity>28
+1C060	Wavefront	a personnel who has 2 Astrometrics | a personnel who has 2 Navigation
+2U001	A Klingon Matter	2 Intelligence and Treachery | 2 Leadership and Cunning>32 | Strength<7
+2R002	Casualties of War	total cost of those personnel is 4 or less
+2U003	Crippling Attack	2 Leadership and Officer | 2 Navigation and Shields>6
+2C005	Disgraceful Assault	2 Security and Transporters | Biology and 2 Medical
+2C007	DNA Security Scan	Engineer and 2 Programming | 2 Security and Cunning>36
+2U008	Exposed Power Relay	nine personnel | ten personnel
+2U010	Flim-Flam Artist	Diplomacy and 2 Programming | Law and Cunning>32
+2U012	Hired Muscle	2 Acquisition | choose to discard three cards from hand
+2C013	Houdini Mines	2 Engineer and 2 Science | 2 Programming and 3 Security
+2C016	Nausicaan Pirates	Leadership and 2 Security | 2 Treachery and Strength>35
+2U017	Picking Up the Pieces	Geology | Programming
+2U018	Plasma Shock	Strength>6
+2U019	Quaint Technology	2 Anthropology and Programming | 2 Diplomacy and Cunning>34
+2C020	Racial Tension	the same species
+2U022	Stolen Computer Core	Intelligence and Transporters | 2 Security and Cunning>34
+2C023	Subspace Accident	Astrometrics and 2 Navigation | 2 Physics and Science
+2C024	Telepathic Deception	Biology, Exobiology, and Security | Telepathy and Cunning>28
+2R026	Training Accident	total cost of those personnel is 4 or less
+2C027	Traitor Exposed	Cunning>6
+2C028	Unexpected	Astrometrics and 2 Diplomacy | Exobiology and 2 Medical
+3S002	An Old Debt	Biology, Physics, and Cunning>32 | Intelligence and 2 Medical
+3C003	Close Call	2 Diplomacy and Security | 2 Programming and Transporters
+3R005	Dangerous Climb	2 Geology | Strength>40
+3C006	Depression	2 Anthropology | 2 Medical | Telepathy and Integrity>32
+3S007	DNA Analysis	a personnel who has 2 Medical | a personnel who has 2 Science
+3S010	Failure To Communicate	a personnel who has 2 Anthropology | a personnel who has 2 Security
+3R011	Forsaken	2 Honor | 2 Treachery
+3R012	Gomtuu Shock Wave	2 Diplomacy and Integrity>32 | Telepathy and Integrity>35
+3C013	Graviton Wave	Astrometrics, Physics, and Cunning>32 | Biology and 2 Medical
+3S015	Inside Collaborators	a personnel who has 2 Diplomacy | a personnel who has 2 Treachery
+3S016	Justice or Vengeance	Anthropology and 2 Security | Exobiology, Honor, and Integrity>32
+3C017	Miner Disagreement	Anthropology, Diplomacy, and Cunning>32 | 2 Exobiology and Leadership
+3S021	Psycho-Kinetic Attack	Exobiology and 2 Medical | Honor and Telepathy
+3R022	Quantum Filament	2 Astrometrics and 2 Navigation | 2 Engineer, Science, and Shields>8
+3U023	Restricted Area	nine personnel | ten personnel
+3C024	"Rock People"	2 Anthropology and Integrity>30 | Exobiology, Medical, and Cunning>35
+3U025	Rogue Borg Ambush	Intelligence and Cunning>35 | a Hand Weapon and Strength>35
+3C027	Sheer Lunacy	2 Anthropology and Cunning>32 | 2 Programming and Science
+3S030	Sokath, His Eyes Uncovered!	2 Diplomacy | Cunning>35
+4C001	A Devil Scorned	2 Diplomacy, 2 Treachery, and Cunning>42 | 2 Engineer, Navigation, and 2 Physics
+4C003	A Royal Hunt	nine personnel
+4C004	Alluring Spy	Diplomacy, 2 Exobiology, and Strength>42 | Intelligence, 2 Leadership, and Cunning>38
+4C006	Back Room Dealings	Treachery | Integrity<4
+4R007	Biochemical Hyperacceleration	Biology, Geology, and Medical | 2 Security and Strength>38
+4U008	Bleeding to Death	Biology and 2 Medical | 2 Honor and Integrity>30
+4R009	Broken Captive	the skills on that captive
+4U010	Cave-In	2 Engineer and Transporters | Geology, Officer, and Strength>35
+4R011	Counterinsurgency Program	those skills
+4U012	Dealing With Pressure	one of those personnel has an attribute>6
+4U014	Formal Hearing	Diplomacy, Intelligence, 2 Programming and Cunning>38 | 2 Honor, Law, and 2 Officer
+4C019	Lack of Preparation	the skills needed to complete this mission
+4C020	Language Barrier	Anthropology and Leadership | 2 Diplomacy and Integrity>30
+4C021	On Foreign Ground	an event in your core
+4U023	Short Circuit	Engineer and 2 Physics | 2 Programming and Science
+4C026	Test of Wisdom	Anthropology, 2 Archaeology, and Integrity>38 | 2 Honor and 2 Officer
+4R028	Tsiolkovsky Infection	2 Anthropology, 2 Programming, and Cunning>38 | 2 Biology, Exobiology, and 2 Medical
+4R030	Whisper in the Dark	2 Geology, 2 Physics, and Cunning>38 | 2 Honor, 2 Officer, and Transporters
+4C031	Your Moment is Fading	that personnel has an attribute>6
+6P001	Aftermath	total cost of those personnel is 4 or less
+6P002	Dignitaries and Witnesses	Admiral | General | 3 Leadership
+6P007	Helpless	at least one skill listed in this mission requirements
+6P009	Shipboard Fire	no damage markers on this ship
+6P010	The Three Vipers	Engineer and 2 Navigation | Astrometrics, Officer, and Science
+6P011	Unknown Microorganism	Biology, Medical, and Science | 2 Security and a non-Hand Weapon equipment
+6P013	Worn-Out Welcome	Anthropology and 2 Diplomacy | Transporters and 3 Treachery
+1C012	Bynars' Password	a personnel who has 2 Engineer | a personnel who has 2 Programming
+1C013	Captain's Holiday	2 Archaeology | 2 Geology
+1R055	The Moon's a Window to Heaven	a Leadership personnel who has Cunning>6 | Telepathy
+4C005	B'omar Stipulations	Diplomacy and Cunning>30 | Leadership and Strength>30
+4C015	Guess Who's Coming to Dinner?	Diplomacy | Integrity>6
+7R015	Where No One Has Gone Before	Astrometrics, Navigation, Physics, and Cunning>34 | Exobiology, Leadership, Medical, and Integrity>32
+7R002	Code of Honor	Anthropology, Diplomacy, and Honor | Law, Security, and Strength>35
+7C007	Meaningless Modifications	3 Engineer and Leadership | a personnel who has Cunning>6
+7R008	Molecular Reversion Field	two personnel who each have Integrity>5, Cunning>5, and Strength>5 | two personnel who have total attributes>38
+7C009	Outmatched	Cunning>15
+7C012	Quarrel	Integrity>11 | Cunning>11
+7U005	Financial Pitfall	3 Acquisition | Cunning>35
+7R010	Proximity-Actuated Field	Biology and 2 Security | 2 Physics and Cunning>35
+7U014	Stay Where Thou Art	Cunning>40 | a personnel who has both Diplomacy and Integrity>7
+8U002	Assist Rescue Operation	Anthropology, Diplomacy, and Leadership | Officer, Treachery, and Strength>26
+8U003	Between Duty and Respect	Archaeology, Geology, and Science | Honor, Leadership, and Officer
+8R005	Cardassian Processing	Diplomacy, Honor, and Transporters | Law, Security, and Strength>30
+8U007	Covert Insertion	Diplomacy, Officer, and Security | Biology, Intelligence, and Treachery
+8C008	Cultural Differences	Acquisition | Anthropology
+8U009	Dangerous Standoff	Diplomacy, Leadership, and Physics | Exobiology, Medical, and Cunning>28
+8U010	Deuterium Plunderers	Exobiology and 2 Medical | Officer, Security, and Treachery
+8R011	Molecular Mishap	Anthropology, Biology, and Cunning>28 | Law, Officer, and Strength>32
+8U012	Opportunity for Profit	Acquisition, Engineer, and Programming | Honor, Officer, and Security
+8R013	Outclassed	unused Range>8 | Weapons>8
+8U015	Profitable Venture	Acquisition, Diplomacy, and Transporters | Law, Officer, and Security
+8U017	Telepathic Invasion	Diplomacy, Officer, and Telepathy | Intelligence, Treachery, and Cunning>22
+8C019	Warp Bubble Mishap	Physics | Science
+9R003	Maquis Vendetta	Officer | Security
+9R002	Shields Up!	Astrometrics | Navigation
+10R002	An Issue of Trust	Honor | Treachery
+11P004	Not Quite Domesticated Pets	Diplomacy, 2 Leadership and Integrity>28 | Biology, 2 Exobiology and Cunning>34
+9R001	Bio-neural Computer Core	nine personnel
+10U009	Imagined Emergency	Engineer, Exobiology, and Medical | Leadership, Security, and Strength>30
+10C001	A Pattern of Lies	different species than the others
+10R019	Thermokinetic Explosion	Astrometrics, Navigation, and Cunning>30 | total ship's attributes>21
+10U005	Compassionate Interference	reveal a Biology personnel from your hand | reveal a Geology personnel from your hand
+10C008	Hull Breach	reveal an Astrometrics personnel from your hand | reveal a Navigation personnel from your hand
+10U011	Last Gasp	reveal a Leadership personnel from your hand | reveal an Officer personnel from your hand
+10R003	Armed Search Party	Strength>17 | non-Hand Weapon equipment
+10C007	Difficult Rescue	Shields + remaining Range>the number of personnel attempting this mission
+10R014	Psionic Attack	Medical and Science | 3 Security
+10C015	Sabotaged Reactor	Astrometrics, Engineer, and Navigation | Leadership, Officer, and Cunning>28
+10C016	Stand-Off	Anthropology, Diplomacy, and Honor | Law, Security, and Strength>28
+10C017	Symbalene Blood Burn	Biology, Exobiology, and Medical | Officer, Security, and Strength>28
+10C018	Temporal Conduit	2 Diplomacy and Leadership | Programming, Science, and Transporters
+10U020	Under Pressure	Astrometrics, Engineer, and Navigation | Biology, Medical, and Science
+11P002	Destined Journey	Honor | Leadership
+11P003	Final Triumph	discard an event from your hand
+11P005	Subterranean Barrier	Biology, Exobiology, Geology and Integrity>25 | Diplomacy, Leadership, Officer and Cunning>32
+12C010	Mark of Gideon	nine personnel | ten personnel
+12C012	Mugato	2 Biology and 2 Medical | Leadership, 2 Security and Strength>34
+12C005	Excalbian Drama	Integrity>30
+12C016	Silent Attack	total cost of those personnel is 4 or less
+12C001	Arena	total attributes>18
+12C007	Gangster's Welcome	Law and 2 Leadership | 2 Officer and 2 Security
+12C008	Gorgan	discard a card from hand that has an equal or greater cost than that card
+12C018	Trelane's Trial	does not have an attributes>6
+13C011	Interphasic Effects	an [AU] personnel
+13R004	Chula: The Dice	a personnel with Integrity>6, a second personnel with Cunning>6, and a third personnel with Strength>6
+13C001	Aftereffects	total cost of those personnel is 5 or less
+13C016	Preventative Repercussions	total cost of those personnel is 5 or less
+13U003	Captured by the Breen	total cost of those personnel is 4 or less
+13R020	The Dal'Rok	your personnel have a total cost>17
+13U012	Key to the Alpha Quadrant	Astrometrics, Diplomacy, and Officer | Leadership, Security, and Treachery
+13U013	New Advancements	Diplomacy, Leadership, and Navigation | a ship at a completed space mission
+13U019	Shattered	Anthropology, Leadership, and Science | Engineer, Transporters, and Cunning>28
+13U021	The Secret War	Honor, Officer, and Integrity>34 | Security, Treachery, and Strength>34
+14U008	Neurogenic Field	Anthropology | Medical
+14U009	Night Terrors	Medical | Science
+14C002	Caretaker's Wave	Astrometrics and Engineer | 3 Navigation
+14R016	Sylvia	2 Leadership, Officer, Security, and Cunning>38 | 2 Engineer, Programming, and 2 Science
+14R017	The Clown: Guillotine	that personnel has an attribute>6
+0D020	Guess Who's Coming to Dinner? (Promo)	Diplomacy | Integrity>6
+0P083	Chula: The Dice (Promo)	a personnel with Integrity>6, a second personnel with Cunning>6, and a third personnel with Strength>6
+1R007	Assassination Attempt (AC)	Treachery
+1R039	Nanite Attack (AC)	2 Diplomacy and 2 Engineer | 2 Security and a Hand Weapon
+1R035	Maglock (R2)	3 Officer | 3 Programming
+1R042	Personal Duty (R2)	Leadership | Officer
+3R012	Gomtuu Shock Wave (R2)	2 Diplomacy and Integrity>32 | Telepathy and Integrity>35
+4R007	Biochemical Hyperacceleration (R2)	Biology, Geology, and Medical | 2 Security and Strength>38
+4R009	Broken Captive (R2)	the skills on that captive
+4R011	Counterinsurgency Program (R2)	those skills
+4R028	Tsiolkovsky Infection (R2)	2 Anthropology, 2 Programming, and Cunning>38 | 2 Biology, Exobiology, and 2 Medical
+4R030	Whisper in the Dark (R2)	2 Geology, 2 Physics, and Cunning>38 | 2 Honor, 2 Officer, and Transporters
+7A001	Code of Honor *A	Anthropology, Diplomacy, and Honor | Law, Security, and Strength>35
+7A002	Proximity-Actuated Field *A	Biology and 2 Security | 2 Physics and Cunning>35
+7A003	Where No One Has Gone Before *A	Astrometrics, Navigation, Physics, and Cunning>34 | Exobiology, Leadership, Medical, and Integrity>32
+8A001	Cardassian Processing *A	Diplomacy, Honor, and Transporters | Law, Security, and Strength>30
+8A002	Outclassed *A	unused Range>8 | Weapons>8
+10A001	An Issue of Trust *A	Honor | Treachery
+10A002	Armed Search Party *A	Strength>17 | non-Hand Weapon equipment
+10A003	Thermokinetic Explosion *A	Astrometrics, Navigation, and Cunning>30 | total ship's attributes>21
+13A001	Chula: The Dice *A	a personnel with Integrity>6, a second personnel with Cunning>6, and a third personnel with Strength>6
+13A003	The Dal'Rok *A	your personnel have a total cost>17
+14A001	The Clown: Guillotine *A	that personnel has an attribute>6
+1C008	Authenticate Artifacts (SR)	a personnel who has 2 Anthropology | a personnel who has 2 Archaeology
+1S017	Command Decisions (SR)	Leadership | Officer
+1S033	Kolaran Raiders (SR)	Leadership | Security
+1C041	Ornaran Threat (SR)	Diplomacy and Medical | 2 Security
+1S043	Pinned Down (SR)	nine personnel | ten personnel
+1C052	Systems Diagnostic (SR)	Engineer | Programming
+1C057	Triage (SR)	Biology | Medical
+1C060	Wavefront (SR)	a personnel who has 2 Astrometrics | a personnel who has 2 Navigation
+15V004	Instigate Dissension	you command one or less headquarters missions
+15V001	Breaking the Ice	3 Geology | two non-Hand Weapon equipment
+15V009	We'll Never Know	3 Physics | two non-Hand Weapon equipment
+15V005	Once More Unto the Breach	Shields>that ship's Weapons
+15V003	Ferengi Locator Bomb	Navigation, Physics, and Programming | Acquisition, Treachery, and Cunning>32
+15V010	What Lies Beneath	Archaeology, Geology, and Honor | Anthropology, Treachery, and Cunning>32
+15V006	Predictable Response	Anthropology and Diplomacy | 2 Security
+15V007	Show Trial	Leadership | Medical
+16V008	Let Them Worry	3 Honor | Medical, Physics, and Strength>28
+16V009	One to One	both are [Cmd] | both are [Stf]
+16V018	Treachery Running Deep	3 Anthropology | Physics, Treachery, and Cunning>28
+16V001	All-Consuming Evil	that skill
+16V002	Artificial Wormhole	2 Leadership and 2 Officer | Engineer, Programming, and Cunning>33 | this ship's Commander aboard
+16V003	Best Interests at Heart	total cost of those personnel is 4 or less
+16V012	Skeptical Superiors	3 Leadership | Astrometrics, Programming, and Cunning>28
+16V007	Klingon Law	Integrity>40 | Leadership, Programming, and Cunning>28
+16V016	The Seen and the Unseen	at least half your personnel are not [NA]
+16V019	Unionize	3 Security | Anthropology, Diplomacy, and Integrity>24
+16V011	Savagery to Match Their Numbers	Strength>40 | Officer, Security, and Cunning>28
+16V010	Patriotic Spirit	3 Officer | Honor, Leadership, and Strength>28
+16V013	Strategic Superiority	3 Diplomacy | Weapons>8
+16V014	The Beast at El-Adrel	2 Diplomacy and 2 Leadership | Engineer, Transporters, and Cunning>33 | a Hand Weapon
+16V020	Unwanted Guests	that personnel's skills
+16V006	In-Fighting	three or less of that skill
+16V017	Time for Action	at least one skill listed in this mission's requirements
+0VP003	All-Consuming Evil *VP	that skill
+17V002	Causal Recursion	choose to remove five cards in your discard pile from the game | three missions worth 40 or more points each
+17V003	Covert Ambush	a personnel with 2 Engineer | a personnel with 2 Programming
+17V005	Full Complement	five or more personnel
+17V010	Punishment Box	destroy one of your equipment | Engineer and a personnel with Honor and Leadership
+17V016	Unorthodox Tactics	more ships than your opponent | an event that has a cost of 4 or more
+17V004	Echo Papa Attack	Medical, Officer, and Security | Leadership, Navigation, and Programming
+17V007	It's Only a Paper Moon	Integrity>25 | 2 Programming and Cunning>25 | Strength>25
+17V009	Occupational Hazards	2 Acquisition | 2 Treachery
+17V011	Slightly Overbooked	three personnel who each have a cost of 4 or more
+17V014	Technique of a Desperate Man	Anthropology and 2 Officer | two Temporal events in your core
+17V017	Well-Prepared Defenses	the missions you command are worth more total points than the total points of missions your opponent commands
+17V018	You Vant to Go Back?	the cost of that card is odd
+18V010	Warm Welcome	3 [Cmd] personnel | 2 Officer
+18V011	Watch Your Step	Leadership, Security, and Cunning>34 | Telepathy and 2 Treachery | 3 Honor
+19V001	Chula: The Precipice	one half has a personnel with Leadership, a second personnel with Cunning>5, and a third personnel with Honor
+19V002	Left Behind	2 Biology and 2 Medical | 2 Navigation, Transporters, and Shields>8
+19V004	Rogue Borg Ship	three or more ships | ships at this mission with total Weapons>14 | more [Cmd] personnel than [Stf] personnel
+0VP033	Personal Duty *VP	Leadership | Officer
+0VP032	Rogue Borg Ship *VP	three or more ships | ships at this mission with total Weapons>14 | more [Cmd] personnel that [Stf] personnel
+21V002	Dark Page	Anthropology | Exobiology
+21V005	Mark of Gideon (ID)	nine personnel | ten personnel
+21V006	Pillage and Plunder	Archaeology | Treachery
+21V009	The First Duty	Honor | Law
+21V001	A Private Little War	Honor, Medical, Science and Integrity>32 | Engineer, Security, Treachery and Strength>32
+22V004	Healing Hand	Medical | 2 Medical
+22V006	Infinite Diversity	Anthropology and that skill | Science and that skill
+22V002	Forced Into Labor	Geology, Leadership, and {Trellium-D} | 2 Security and Strength>32
+22V003	Gravitational Anomaly	Navigation, Science, and {Trellium-D} | Geology, Physics, and Cunning>32
+22V005	Honorable Pursuit	Honor | 2 Honor
+22V008	Pitching In	Leadership | Security | Engineer | Programming
+0VP075	Formal Hearing *VP	Diplomacy, Intelligence, 2 Programming and Cunning>38 | 2 Honor, Law, and 2 Officer
+23V003	Coolant Leak	Engineer | a personnel who has a cost of 4 or more
+23V007	Information Extraction	Intelligence, Officer, and Programming | Exobiology, Medical, and Treachery
+23V001	Alien Encounter	Anthropology, Diplomacy, Exobiology, Leadership, and Integrity>34 | command one or less headquarters missions
+23V002	Broken Link	Anthropology, Biology, and Law | Diplomacy, Leadership, and Security
+23V004	Desperation	3 Security | Leadership, Treachery, and Strength>28
+23V005	Family	reveal an Honor personnel from your hand | reveal a Treachery personnel from your hand
+23V008	Just Following Orders	Astrometrics, Intelligence, and Treachery | Geology, Honor, and Navigation
+23V009	One Step Ahead	2 Programming and 2 Transporters | two Hand Weapons
+23V010	The Launching	2 Astrometrics and 2 Physics | two non-Hand Weapon equipment
+23V011	Trilithium Heist	Acquisition, Engineer, and Transporters | Medical, Physics, and Science
+0VP089	Gomtuu Shock Wave *VP	2 Diplomacy and Integrity>32 | Telepathy and Integrity>35
+0VP090	Where No One Has Gone Before *VP	Astrometrics, Navigation, Physics, and Cunning>34 | Exobiology, Leadership, Medical, and Integrity>32
+24V001	Arrogance	a cost of 4 or more
+24V002	Breached	Navigation, Security, Transporters, and Strength>30 | 2 Physics, Treachery, and Cunning>30
+24V004	Galileo Grounded	Medical, Security, and Transporters | a staffed ship at this mission
+24V005	Greater Needs	Anthropology, Diplomacy, Exobiology, and Integrity>30 | Leadership, Transporters, Treachery, and Strength>30
+24V007	Programmed Compulsion	2 Navigation and Programming | Engineer and Cunning>40
+24V008	Rude Awakening	the corresponding Commander of this ship | a personnel who has [Cmd] and Officer
+24V009	Rush Job	this ship has four or more staffing requirement icons | this ship has a [Cmd] icon in its staffing requirements
+24V010	Sudden Stealth	Engineer, Officer, and Programming | a Cloaking Device ship at this mission
+25V001	Infatuation	Security | Medical | Officer
+25V003	Optical Delusion	Programming, 2 Security, and Transporters | a Hologram and Cunning>30
+25V004	The Big Goodbye	Diplomacy, Engineer, and Medical | Anthropology, Leadership, and Strength>30
+25V005	The Next Phase	the skills on that personnel | one of your personnel has total attributes>that personnel's total attributes
+0VP111	An Issue of Trust *VP	Honor | Treachery
+26V001	Brothers	Engineer and Integrity>30 | Transporters and Cunning>30
+26V002	Conflict of Interests	3 Archaeology | Integrity>36 | four or more personnel of the same species are stopped by this dilemma
+26V003	Eugenic Transformation	3 Exobiology | Cunning>36 | four or more personnel of the same species are stopped by this dilemma
+26V005	Malfunctioning Door	3 Transporters | Strength>36 | four or more personnel of the same species are stopped by this dilemma
+26V006	Manufactured Triumph	that number of personnel of different species
+26V007	Oh No!	Cunning>55 | 2 Astrometrics | Integrity>30 | Strength>30
+26V008	Ominous Presence	Diplomacy | Security
+26V009	Shadowplay	Programming and Cunning>30 | Treachery and Strength>30
+0VP123	Manufactured Triumph *VP	that number of personnel of different species
+0VP113	Dignitaries and Witnesses *VP	Admiral | General | 3 Leadership
+27V001	Ardent Predator	Exobiology and Cunning>11 | Strength>13
+27V002	Satarran Gambit	Intelligence and Cunning > 32 | 2 Biology and Programming
+0VP126	Back Room Dealings *VP	Treachery | Integrity<4
+28V001	Adversarial Trial	Anthropology | Programming
+28V002	Ingenious Jury-rig	Transporters
+28V005	Standing Trial	Honor | Transporters
+28V006	Workforce	Physics
+0VP128	The Clown: Guillotine *VP	that personnel has an attribute>6
+0VP129	Tsiolkovsky Infection *VP	2 Anthropology, 2 Programming, and Cunning>38 | 2 Biology, Exobiology, and 2 Medical
+0VP130	Whisper in the Dark *VP	2 Geology, 2 Physics, and Cunning>38 | 2 Honor, 2 Officer, and Transporters
+29V001	Adopted Authority	that personnel has an attribute<5
+29V003	Cadet Review	Engineer, Medical, Science, and Security | Diplomacy, Officer, Programming, and Transporters
+29V009	Staffing Shortage	that personnel has 2 levels of a skill
+29V012	The Needs of the Few	Engineer | Security
+29V013	The Needs of the Many	Science
+29V016	War Games	the skills needed to complete that mission
+0VP141	Sylvia *VP	2 Leadership, Officer, Security, and Cunning>38 | 2 Engineer, Programming, and 2 Science
+0VP150	The Dal'Rok *VP	your personnel have a total cost>17
+30V001	Chained Environment	2 Diplomacy and 2 Geology | Cunning>36
+30V003	Chula: Trickery	2 Officer | twelve different skills
+30V005	Legal Inflexibility	2 Transporters and Strength>32 | Law and Cunning>32
+30V006	Nonlinear Existence	discard a card from hand of the same card type
+30V007	Pawn Against Pawn	the skills on that personnel
+30V008	"Rapid Progress"	those skills
+30V010	The Nth Degree	2 Engineer and 2 Leadership | Cunning>36
+0VP155	Counterinsurgency Program *VP	those skills
+0VP164	The Weak Will Perish *VP	Telepathy | Strength>6
+31V002	Charismatic Mimic	a personnel with 2 Acquisition | a personnel with 2 Diplomacy
+31V003	Commanding Presence	3 Security | 2 Navigation and Cunning>30 | a personnel with 2 Honor
+31V004	Dubious Decoy	a personnel with 2 Transporters | a personnel with 2 Treachery
+31V005	Flare of Rage	Anthropology, Medical, 2 Security, and Strength>35 | 2 Archaeology, Transporters, and 2 Treachery
+31V006	Frozen by Fear	2 Honor, Law, Medical, and Cunning>35 | Officer, 2 Science, and 2 Treachery
+31V007	Generous Offer	Archaeology and Cunning>30 | Diplomacy and Strength>30
+31V008	On Guard	a personnel with 2 Honor | a personnel with 2 Security
+31V009	Peremptory Plea	Biology
+31V010	Pest Control	2 Engineer and 2 Exobiology | Transporters, 2 Treachery, and Cunning>34
+31V012	Unconventional Consideration	Acquisition | Intelligence | Law | Telepathy
+31V011	The Weak Will Perish	Telepathy | Strength>6
+32V002	Historical Curiosity	Anthropology, Law, and Transporters | Shields>8
+0VP168	Temptation *VP	Honor | Treachery
+33V001	Abrasive Allies	you command personnel with more different affiliations than the owner of this dilemma
+33V002	Dramatis Personae	2 Medical and 2 Science | 2 Archaeology and Transporters
+33V003	Indecent Proposal	costs 5 or more
+33V004	Mutinous Guests	3 Security | 2 Vulcans
+33V005	Precarious Position	2 Engineer and Officer | Science and Cunning>40
+34V001	A Taste of Armageddon	a skill required by this mission
+34V002	Compromised Tactics	the skills on that personnel
+34V003	Dead Ringer	at least one of the same skills
+34V004	Divide and Conquer	2 Diplomacy and Cunning>20 | 2 Security and Strength>20
+34V005	Intelligent Design	Cunning>7
+34V006	Put to the Screws	that skill
+34V007	Qualification	2 Transporters and Integrity>20 | 2 Treachery and Strength>20
+34V008	Simulated Prey	a skill required by this mission
+0VP189	Historical Curiosity *VP	Anthropology, Law, and Transporters | Shields>8
+35V002	Dumb Waiter	the skills on that personnel
+35V003	Strength of Arms	Diplomacy and a unique ship at this mission | Treachery and a ship with Weapons>7 at this mission
+0VP181	Occupational Hazards *VP	2 Acquisition | 2 Treachery
+36V001	Alternatives to Fighting	Navigation and Weapons>7 | this mission is a {Nebula} mission
+36V003	Brave Words	the missions you command have greater total span than the mission your opponent commands
+36V004	Cornered	2 Astrometrics and 2 Navigation | command a completed mission with span 4 or more
+36V005	Dead Weight	a skill required by this mission
+37V001	A Private Little War (IDR)	Honor, Medical, Science, and Integrity>32 | Engineer, Security, Treachery, and Strength>32
+37V002	Dark Page (IDR)	Anthropology | Exobiology
+37V005	Pillage and Plunder (IDR)	Archaeology | Treachery
+37V008	The First Duty (IDR)	Honor | Law
+0VP197	Guess Who's Coming to Dinner? *VP	Diplomacy | Integrity>6
+0VP198	Picking Up the Pieces *VP	Geology | Programming
+0VP206	Pitching In *VP	Leadership | Security | Engineer | Programming
+38V001	Any Methods Necessary	a Medical personnel who has Integrity<5 | Intelligence
+38V002	Covert Extraction	Intelligence | Transporters
+38V004	Hard of Heart	Geology and Cunning>11 | Strength>13
+38V005	Historical Pursuit	Archaeology, Honor, and Transporters | an Artifact equipment
+38V006	Journey to the Past	Anthropology, Geology, Science, and Cunning>34 | Diplomacy, Programming, Security, and Strength>32
+38V009	Silent Witness	Leadership
+38V010	Surface Defense	Archaeology, Exobiology, and Programming | 2 Engineer and 2 Physics
+38V012	Unorthodox Recruitment	Intelligence
+38V013	Vanishing Act	2 Astrometrics | 2 Transporters
+39V002	Paradise Found	Anthropology, 2 Honor, and 2 Leadership | 2 Astrometrics, 2 Engineer, and Cunning>38
+39V003	V'Ger	Diplomacy, Exobiology, and Cunning>35 | Archaeology, Programming, and Strength>35
+40V001	Bread and Circuses	Archaeology, Diplomacy, and Honor | Exobiology, Transporters, and Treachery
+40V002	Brink of War	3 Diplomacy | Cunning>40
+40V004	Flashpoint	neither of those personnel have that icon | both of those personnel have that icon
+40V007	Shaken Confidence	2 Intelligence
+40V009	Weight of Command	Officer
+0VP209	Greater Needs *VP	Anthropology, Diplomacy, Exobiology, and Integrity>30 | Leadership, Transporters, Treachery, and Strength>30
+0VP210	Indecent Proposal *VP	costs 5 or more
+41V003	Space Seed	3 Security and Strength>40 | 2 Telepathy and Cunning>40
+42V001	Frame of Mind	3 Security | 2 Telepathy | {William T. Riker}
+42V002	Hazardous Materials	Engineer, Medical, and Security | Anthropology, Navigation, and Officer
+42V003	Macrovirus	2 Exobiology and 2 Science | Medical, Security, and a Hand Weapon
+42V004	Subspace Fracture	2 Geology and 2 Transporters | Honor, Officer, and a non-Hand Weapon equipment
+0VP222	Excalbian Drama *VP	Integrity>30
+43V001	Archaic Snare	Archaeology, 2 Security, and Cunning>32 | 3 Engineer, Navigation, and Physics
+43V002	Divergent Goals	Anthropology, Geology, and Integrity>17 | Biology, Officer, and 2 Transporters
+43V003	Environmental Contaminants	Biology, 2 Diplomacy, and 2 Science | 2 Engineer, 2 Exobiology, and Cunning>38
+43V004	Interstellar Exigence	Law
+43V005	Isolated Detachment	Diplomacy, Programming, and Cunning>17 | Engineer, Physics, and 2 Security
+46V001	Arresting Display	Anthropology, Security, and Telepathy | 2 Exobiology, Medical, and Cunning>38
+46V003	Elemental Instability	2 Engineer and 2 Science | 2 Acquisition and 2 Biology
+46V004	Overindulgence	five or more of that skill
+46V005	Threading the Needle	2 Navigation, 2 Officer, and Transporters | 2 Engineer, 2 Programming, and Strength>38
+0VP242	Unorthodox Recruitment *VP	Intelligence
+47V002	Hostile Takeover	a lower score than each of your opponents | choose to lose 5 points
+47V003	Nothing to Lose	an Acquisition personnel who has Integrity<4 | choose a Hologram to be placed in your discard pile
+48V001	Star-crossed	Engineer | non-Human personnel
+48V002	Unsavory Customers	Biology
+0VP257	Maglock *VP	3 Officer | 3 Programming
+49V001	Cutting Remark	command four or more events that cost 2 or less
+49V002	Rascals	your personnel have a total cost<17
+49V003	Royale Casino: Craps	reveal a personnel from hand with Cunning 7 or Cunning 11
+49V004	The Doomsday Machine	command two staffed ships at this mission
+49V005	The Phase	personnel who has [Cmd] and Officer | Android | Hologram
+49V006	Truculent Statecraft	Law
+0VP293	Edo Probe	a personnel with Diplomacy and Law
+0VP294	Hippocratic Oath	place a personnel with Exobiology or Medical on that planet
+0VP295	Rules of Obedience	Geology and 2 Honor | 2 Security and 2 Treachery | {Miles O'Brien}
+0VP294	Hippocratic Oath *	place a personnel with Exobiology or Medical on that planet
+0VP268	Rogue Borg Ambush *VP	Intelligence and Cunning>35 | a Hand Weapon and Strength>35
+50V001	Garak Has Some Issues	that skill
+0VP280	Adopted Authority *VP	that personnel has an attribute<5
+53V001	Hot Mess	a personnel with Biology and Science | a Chef
+53V002	More of Gravy Than of Grave	skills on the selected personnel
+55V001	One More Brush Fire	more Diplomacy than your opponent on this planet
+55V002	Piratical Boarders	more Security than your opponent aboard this ship
+56V001	Bio-ship Attack	Navigation, Physics, and Shields>8 | 2 Exobiology, 2 Programming and Cunning>32
+56V002	Equinox Conspiracy	Diplomacy, Exobiology, Navigation, and Treachery | Intelligence, Programming, Security, and Cunning>32
+56V003	Photonic Turncoat	Diplomacy, Science, and Integrity>34 | Engineer, Security, Transporters, and Strength>32
+56V005	Race Relations	Anthropology and Cunning>32 | a personnel with 2 Exobiology
+56V007	Tak Tak Negotiations	the skills on that personnel
+56V012	The Killing Game	2 Engineer, 2 Medical, and Cunning>38 | 2 Diplomacy, Leadership, and 2 Physics
+57V002	Occasional Emergency	Medical
+59V001	Adopted Authority (SS)	that personnel has an attribute<5
+61V001	Nesting Symbiote	Geology, Law, Medical, Navigation, and Integrity>32 | four personnel with different costs
+0VP354	Outmatched *VP	Cunning>15
+63V001	Clashing Values	Anthropology | Science
+63V002	Derelict Robot	Diplomacy | Engineer
+63V003	Hall of Mirrors	Astrometrics, 2 Geology, and 2 Navigation | 2 Science, 2 Security, and Strength>38
+63V004	Malfunctioning Generator	2 Exobiology, 2 Physics, and Treachery | 2 Honor, 2 Medical, and Integrity>38
+63V006	Security Lockout	Programming | Security
+64V002	Alluring Spy (FOW)	Diplomacy, 2 Exobiology, and Strength>42 | Intelligence, 2 Leadership, and Cunning>38
+64V004	Enemy Boarding Party (FOW)	Strength<6
+64V005	Justice or Vengeance (FOW)	Anthropology and 2 Security | Exobiology, Honor, and Integrity>32
+64V006	Night Terrors (FOW)	Medical | Science
+64V007	Racial Tension (FOW)	the same species
+64V008	The Weak Will Perish (FOW)	Telepathy | Strength>6
+64V009	Triage (FOW)	Biology | Medical
+0VP406	Isolated Detachment *VP	Diplomacy, Programming, and Cunning>17 | Engineer, Physics, and 2 Security
+65V005	Suspected Minority	fewer than four different species
+66V001	Ghosts of Reality	Telepathy | any attribute>20
+66V002	Local Trouble	Engineer, Leadership, 2 Security, and Cunning>38 | Weapons>7 and you command a [HQ] mission in a different quadrant
+66V003	Telepathology	2 Diplomacy, 2 Medical, and Telepathy | the skills on the personnel revealed this way
+66V004	Two-Dimensional Creatures	2 Science | Telepathy
+0VP425	Counterinsurgency Program *VP	those skills
+0VP428	Gorgan *VP	discard a card from hand that has an equal or greater cost than that card
