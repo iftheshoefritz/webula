@@ -272,6 +272,23 @@ describe('SearchPills', () => {
         expect(screen.queryByText('Text Filters')).not.toBeInTheDocument();
       });
 
+      it.each(['title', 'subtitle'])('opens the free-text input for the %s filter (#1976)', (field) => {
+        const setSearchQuery = jest.fn();
+        render(<SearchPills searchQuery="" setSearchQuery={setSearchQuery} />);
+        fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+        fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${field}:$`, 'i') }));
+        const input = screen.getByPlaceholderText(new RegExp(`enter ${field}`, 'i'));
+        fireEvent.change(input, { target: { value: 'data' } });
+        fireEvent.click(screen.getByRole('button', { name: new RegExp(`apply ${field} filter`, 'i') }));
+        expect(setSearchQuery).toHaveBeenCalledWith(`${field}:data`);
+      });
+
+      it('expands the ti: and sub: abbreviations in a pill', () => {
+        render(<SearchPills searchQuery="ti:Data sub:Android" setSearchQuery={jest.fn()} />);
+        expect(screen.getByText('title:data')).toBeInTheDocument();
+        expect(screen.getByText('subtitle:android')).toBeInTheDocument();
+      });
+
       it('shows icons typeahead when icons filter is clicked', () => {
         render(<SearchPills searchQuery="" setSearchQuery={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: /add filter/i }));

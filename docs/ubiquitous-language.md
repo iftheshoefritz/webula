@@ -139,10 +139,20 @@ line "Title, Subtitle" names one card, a line with no comma every card of that t
 
 `*VP`, `*A`, `*AP` and `*VAP` at the end of a name mark a reprint with other art.
 These are not rulebook terms. `stripVersionSuffix` in `src/lib/cardCount.ts` removes
-the suffix. `getCardCounts` then reports two numbers, and this codebase names them:
+the suffix. A **version** is one of the printed rows of a name that differ only by it.
 
-- **card** — one game identity, after the suffix is removed.
-- **version** — one printed row of the data file.
+`getCardCounts` reports two numbers, and the search label reads them as
+"N titles, M cards" (#1976):
+
+- **title** — one game identity: distinct `title`, with the versions and the
+  subtitles collapsed. Building a Deck, p. 13: "You may use no more than three copies
+  of each card title (ignoring subtitles)." Two personas of one title, and two
+  missions at one location, are one title. A row without `title` counts by its name
+  less the suffix.
+- **card** — one printed row of the data file.
+
+The search fields `title:` (`ti:`) and `subtitle:` (`sub:`) match the two fields;
+`name:` (`n:`) and a free-text search match the whole name.
 
 A card identity in a deck is the `CollectorsInfo` value, not the name.
 

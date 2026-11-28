@@ -23,7 +23,11 @@ const StyledHelp = (): JSX.Element => {
           <div className="syntax-panel-list">
             <div className="syntax-panel-row">
               <code className="syntax-panel-code">name:Odo</code>
-              <span className="syntax-panel-desc">Card name contains</span>
+              <span className="syntax-panel-desc">Card name (title and subtitle) contains</span>
+            </div>
+            <div className="syntax-panel-row">
+              <code className="syntax-panel-code">title:Data</code>
+              <span className="syntax-panel-desc">Card title only, not the subtitle</span>
             </div>
             <div className="syntax-panel-row">
               <code className="syntax-panel-code">strength:8-10</code>
@@ -74,6 +78,7 @@ const LegacyHelp = (): JSX.Element => (
         <p className="font-bold">Example searches:</p>
         <ul className="list-disc">
           <li>name:Odo</li>
+          <li>title:Data (the title only, not the subtitle)</li>
           <li>strength:8-10</li>
           <li>strength:8-8 (exactly 8)</li>
           <li>gametext:&quot;while facing&quot;</li>

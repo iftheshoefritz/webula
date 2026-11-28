@@ -290,3 +290,34 @@ describe('filterCards skills exact match against mission skill requirements', ()
     expect(result).toHaveLength(0);
   });
 });
+
+describe('filterCards title: and subtitle: (#1976)', () => {
+  // Invented cards: "foo bar" is title "foo", subtitle "bar"; "bar baz" is the title "bar baz".
+  const TITLED = [
+    makeCard('foo bar', 'personnel', { title: 'foo', subtitle: 'bar' }),
+    makeCard('bar baz', 'event', { title: 'bar baz', subtitle: '' }),
+  ];
+  const names = (query: string) => filterCards(TITLED, COLUMNS, query).map((c) => c.name);
+
+  it('matches the title only with title: and ti:', () => {
+    expect(names('title:bar')).toEqual(['bar baz']);
+    expect(names('ti:bar')).toEqual(['bar baz']);
+  });
+
+  it('matches the subtitle only with subtitle: and sub:', () => {
+    expect(names('subtitle:bar')).toEqual(['foo bar']);
+    expect(names('sub:bar')).toEqual(['foo bar']);
+  });
+
+  it('keeps name: and free text on the whole name', () => {
+    expect(names('name:bar')).toEqual(['foo bar', 'bar baz']);
+    expect(names('bar')).toEqual(['foo bar', 'bar baz']);
+  });
+
+  it('excludes with -title: and -subtitle:', () => {
+    expect(names('-title:bar')).toEqual(['foo bar']);
+    expect(names('-ti:bar')).toEqual(['foo bar']);
+    expect(names('-subtitle:bar')).toEqual(['bar baz']);
+    expect(names('-sub:bar')).toEqual(['bar baz']);
+  });
+});
