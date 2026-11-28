@@ -10,7 +10,15 @@ jest.mock('next-auth/react', () => ({
   signOut: (...args: unknown[]) => mockSignOut(...args),
 }));
 
-jest.mock('react-chartjs-2', () => ({ Line: () => <div data-testid="line-chart" /> }));
+// The mock records the datasets of each chart, so a test can read their `hidden`.
+type MockDataset = { label: string; hidden?: boolean };
+const mockCharts: MockDataset[][] = [];
+jest.mock('react-chartjs-2', () => ({
+  Line: ({ data }: { data: { datasets: MockDataset[] } }) => {
+    mockCharts.push(data.datasets);
+    return <div data-testid="line-chart" />;
+  },
+}));
 
 jest.mock('next/link', () =>
   function MockLink({ children, href }: { children: React.ReactNode; href: string }) {
@@ -19,7 +27,7 @@ jest.mock('next/link', () =>
 );
 
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import StatsClient from '../../components/StatsClient';
 import { STATS_FIXTURE } from '../../lib/statsFixture';
 
@@ -78,7 +86,7 @@ describe('StatsClient (#1417)', () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => STATS_FIXTURE });
     await act(async () => { render(<StatsClient />); });
     expect(screen.getByTestId('stats-view')).toBeInTheDocument();
-    expect(screen.getByText('Claude Issue Implementation')).toBeInTheDocument();
+    expect(within(screen.getByTestId('stats-workflows')).getByText('Claude Issue Implementation')).toBeInTheDocument();
     expect(screen.getByText('typecheck')).toBeInTheDocument();
     const link = screen.getByText(`#${STATS_FIXTURE.slowestIssues[0].number}`);
     expect(link).toHaveAttribute('href', STATS_FIXTURE.slowestIssues[0].url);
@@ -90,6 +98,30 @@ describe('StatsClient (#1417)', () => {
     await act(async () => { render(<StatsClient />); });
     expect(screen.getByTestId('stats-view')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('gives every series of the weekly chart a legend toggle that hides and shows it (#1989)', async () => {
+    env.NODE_ENV = 'development';
+    mockSearchParams = new URLSearchParams('fixture=1');
+    await act(async () => { render(<StatsClient />); });
+    const legend = screen.getByTestId('stats-weekly-legend');
+    const buttons = within(legend).getAllByRole('button');
+    expect(buttons.map((b) => b.textContent)).toEqual(STATS_FIXTURE.weekly.series.map((s) => s.workflow));
+    // The fixture's rare workflow is in the table and not in the chart.
+    expect(within(screen.getByTestId('stats-workflows')).getByText('Copilot code review')).toBeInTheDocument();
+    expect(within(legend).queryByText('Copilot code review')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('stats-statuses-legend')).getAllByRole('button'))
+      .toHaveLength(STATS_FIXTURE.statuses.series.length);
+
+    const weeklyChart = () => mockCharts.filter((c) => c.length === buttons.length && c[0].label === buttons[0].textContent).pop()!;
+    const label = buttons[1].textContent!;
+    expect(buttons[1]).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(buttons[1]);
+    expect(buttons[1]).toHaveAttribute('aria-pressed', 'false');
+    expect(weeklyChart().filter((d) => d.hidden).map((d) => d.label)).toEqual([label]);
+    fireEvent.click(buttons[1]);
+    expect(buttons[1]).toHaveAttribute('aria-pressed', 'true');
+    expect(weeklyChart().some((d) => d.hidden)).toBe(false);
   });
 
   it('never renders the fixture in production', async () => {

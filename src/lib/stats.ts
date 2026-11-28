@@ -111,6 +111,12 @@ export interface StatsSummary {
 export const CI_JOBS = ['test', 'typecheck', 'lint', 'build'];
 export const CI_WORKFLOW = 'CI';
 export const SLOWEST_ISSUES = 20;
+/**
+ * The fewest runs a workflow needs for a series in the weekly chart (#1989). The one-off workflows,
+ * such as a Copilot session on one PR, would each take a legend entry for one point. The workflow
+ * table keeps them. Every run counts here, a ghost run too.
+ */
+export const WEEKLY_MIN_RUNS = 10;
 
 /** The records of a JSON Lines text; a blank or broken line is skipped. */
 export function parseJsonLines<T>(text: string): T[] {
@@ -132,8 +138,22 @@ function secondsBetween(from: string | null | undefined, to: string | null | und
   return Number.isFinite(ms) && ms >= 0 ? ms / 1000 : null;
 }
 
-/** The duration of a run, from `started_at` (or `created_at`) to `completed_at`, in seconds. */
+/**
+ * Whether any job of the run started (#1989). A run none of whose jobs started is a ghost: GitHub
+ * ends it after 30 days, or after its queue time, and that time is not work. A ghost counts as a run
+ * and as not-success, but gives no duration. The collector always writes `jobs`, so an absent list
+ * counts as an empty one.
+ */
+export function runStartedAJob(run: RunRecord): boolean {
+  return (run.jobs ?? []).some((j) => !!j.started_at);
+}
+
+/**
+ * The duration of a run, from `started_at` (or `created_at`) to `completed_at`, in seconds; null for
+ * a run that started no job.
+ */
 export function runSeconds(run: RunRecord): number | null {
+  if (!runStartedAJob(run)) return null;
   return secondsBetween(run.started_at || run.created_at, run.completed_at);
 }
 
@@ -202,7 +222,7 @@ export function ciJobStats(runs: RunRecord[]): JobStats[] {
 
 export function weeklySeries(runs: RunRecord[]): WeeklySeries {
   const weeks = Array.from(new Set(runs.map((r) => isoWeek(r.created_at)))).sort();
-  const workflows = workflowStats(runs).map((w) => w.workflow);
+  const workflows = workflowStats(runs).filter((w) => w.runs >= WEEKLY_MIN_RUNS).map((w) => w.workflow);
   return {
     weeks,
     series: workflows.map((workflow) => ({
