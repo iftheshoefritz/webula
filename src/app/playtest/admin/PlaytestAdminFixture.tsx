@@ -6,7 +6,7 @@ import { playtestAdminFixtureApi } from '../../../lib/playtestAdminFixture';
 
 // The page with the in-memory store of the fixture, made in the browser: a function cannot pass
 // from the server page to a client component.
-export default function PlaytestAdminFixture({ realNames }: { realNames: string[] }) {
+export default function PlaytestAdminFixture({ realNames, realTitles }: { realNames: string[]; realTitles: string[] }) {
   const [api] = useState(playtestAdminFixtureApi);
-  return <PlaytestAdminClient realNames={realNames} api={api} />;
+  return <PlaytestAdminClient realNames={realNames} realTitles={realTitles} api={api} />;
 }

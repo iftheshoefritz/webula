@@ -41,6 +41,9 @@ const useDataFetching = () => {
         ),
       )
       newRow.originalName = row.Name
+      // The card title and the subtitle in their printed case (#1971), as `parseCardData` gives them.
+      newRow.originalTitle = row.Title ?? ''
+      newRow.originalSubtitle = row.Subtitle ?? ''
       return newRow;
     });
     const dataWithStrippedCollectorsInfo = formattedData.map((row) => {

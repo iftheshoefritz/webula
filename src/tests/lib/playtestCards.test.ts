@@ -281,3 +281,43 @@ describe('normalisePlaytestTsv through parseCardData', () => {
     expect(mission.collectorsinfo).toBe('pt-9003a');
   });
 });
+
+describe('normalisePlaytestTsv: the title and the subtitle (#1971)', () => {
+  const NEW_VERSION = 'Test Officer Another Persona\tPlaytest\t9005A\tT\t1\t9005A\tPersonnel\t2\t\t\t\t\tFederation\t\t\t\t\tHuman\tScience\t5\t5\t5\t';
+  const withTitles = (realTitles: string[], ...rows: string[]) =>
+    rowsOf(normalisePlaytestTsv(fileOf(...rows), new Set(), undefined, realTitles).tsv);
+
+  it('splits a personnel by a title of the real cards', () => {
+    const [personnel] = withTitles(['Test Officer'], PERSONNEL);
+    expect([personnel.Title, personnel.Subtitle]).toEqual(['Test Officer', 'Example Persona']);
+  });
+
+  it('splits a personnel by a title the same set resolved before it', () => {
+    const [first, second] = withTitles(['Test'], PERSONNEL, NEW_VERSION);
+    expect([first.Title, first.Subtitle]).toEqual(['Test', 'Officer Example Persona']);
+    expect([second.Title, second.Subtitle]).toEqual(['Test', 'Officer Another Persona']);
+  });
+
+  it('gives a personnel with no known title its whole name, and an equipment no subtitle', () => {
+    const [personnel, equipment] = withTitles([], PERSONNEL, EQUIPMENT);
+    expect([personnel.Title, personnel.Subtitle]).toEqual(['Test Officer Example Persona', '']);
+    expect([equipment.Title, equipment.Subtitle]).toEqual(['Test Gadget', '']);
+  });
+
+  it('reads the four fields through parseCardData', () => {
+    const tsv = normalisePlaytestTsv(fileOf(PERSONNEL), new Set(), undefined, ['Test Officer']).tsv;
+    const [card] = parseCardData(tsv).data;
+    expect([card.title, card.subtitle, card.originalTitle, card.originalSubtitle])
+      .toEqual(['test officer', 'example persona', 'Test Officer', 'Example Persona']);
+  });
+
+  it('gives a stored set with no Title column the four fields by the rule', () => {
+    const header = CARD_DATA_COLUMNS.filter((column) => column !== 'Title' && column !== 'Subtitle');
+    const [, ...lines] = normalise(fileOf(PERSONNEL, MISSION)).tsv.trim().split('\n');
+    const old = [header.join('\t'), ...lines.map((line) => line.split('\t').slice(0, header.length).join('\t'))].join('\n');
+    const [personnel, mission] = parseCardData(old).data;
+    expect([personnel.title, personnel.originalTitle, personnel.originalSubtitle])
+      .toEqual(['test officer example persona', 'Test Officer Example Persona', '']);
+    expect([mission.originalTitle, mission.subtitle]).toEqual(['Example Mission Place', '']);
+  });
+});

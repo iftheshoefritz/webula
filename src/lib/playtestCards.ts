@@ -1,6 +1,7 @@
 // Turns the playtest TSV the owner uploads into TSV text in the columns of
 // `public/cards_with_processed_columns.txt`, so `parseCardData` and
 // `useDataFetching` read it unchanged (#1611). Pure: no network, no `fs`, no d3.
+import { cardTitleByRule } from './cardTitleRule.js';
 
 export const PLAYTEST_COLUMNS = [
   'Name', 'Set', 'ImageFile', 'Rarity', 'Unique', 'CollectorsInfo', 'Type', 'Cost',
@@ -14,7 +15,7 @@ export const CARD_DATA_COLUMNS = [
   'Name', 'Set', 'ImageFile', 'Rarity', 'Unique', 'CollectorsInfo', 'Type', 'Cost',
   'Mission', 'DilemmaType', 'Span', 'Points', 'Quadrant', 'Affiliation', 'Icons', 'Staff',
   'Keywords', 'Class', 'Species', 'Skills', 'Integrity', 'Range', 'Cunning', 'Weapons',
-  'Strength', 'Shields', 'gametext', 'HoF',
+  'Strength', 'Shields', 'gametext', 'HoF', 'Title', 'Subtitle',
 ] as const;
 
 const KNOWN_TYPES = new Set([
@@ -68,6 +69,7 @@ export function normalisePlaytestTsv(
   text: string,
   realNames: Set<string>,
   others: OtherPlaytestSets = NO_OTHER_SETS,
+  realTitles: Iterable<string> = [],
 ): PlaytestResult {
   const errors: Problem[] = [];
   const warnings: Problem[] = [];
@@ -122,6 +124,10 @@ export function normalisePlaytestTsv(
     namesByNumber.set(number, [...(namesByNumber.get(number) ?? []), fields.Name]);
   }
 
+  // The split of a card's name by the rule of `data/card_titles.tsv` (#1971): the known titles are
+  // the titles of the real cards and of the cards of this set before it.
+  const knownTitles = new Set(realTitles);
+
   const seenKeys = new Set<string>();
   const seenNames = new Set<string>();
   const output: string[] = [CARD_DATA_COLUMNS.join('\t')];
@@ -170,6 +176,9 @@ export function normalisePlaytestTsv(
       return names[0];
     });
 
+    const { Title, Subtitle } = cardTitleByRule(fields.Name, fields.Type, knownTitles);
+    knownTitles.add(Title);
+
     const mapped: Record<CardDataColumn, string> = {
       Name: fields.Name,
       Set: fields.Set,
@@ -199,6 +208,8 @@ export function normalisePlaytestTsv(
       Shields: isShip ? fields['Strength/Shields'] : '',
       gametext,
       HoF: 'N',
+      Title,
+      Subtitle,
     };
     output.push(CARD_DATA_COLUMNS.map((column) => quote(mapped[column])).join('\t'));
   }

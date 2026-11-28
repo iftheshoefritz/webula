@@ -140,6 +140,10 @@ const testData = [
   {
     collectorsinfo: '1',
     originalName: 'Test Card',
+    title: 'test card',
+    subtitle: '',
+    originalTitle: 'Test Card',
+    originalSubtitle: '',
     name: 'test card',
     type: 'personnel',
     imagefile: 'testcard',

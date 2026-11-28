@@ -49,6 +49,8 @@ export interface PlaytestAdminApi {
 }
 
 const NO_SETS: PlaytestSetCards[] = [];
+// The titles of the real cards, the known titles of the split of a playtest card's name (#1971).
+const NO_TITLES: string[] = [];
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: 'no-store', ...init });
@@ -180,11 +182,13 @@ export function PlaytestPreviewView({
 
 export function PlaytestUpload({
   realNames,
+  realTitles = NO_TITLES,
   sets = NO_SETS,
   api,
   onPublished,
 }: {
   realNames: Set<string>;
+  realTitles?: string[];
   // The sets in testing. The upload replaces the set of its own name, when one is in testing, and
   // adds a new set otherwise, until the owner chooses another (#1645).
   sets?: PlaytestSetCards[];
@@ -200,8 +204,8 @@ export function PlaytestUpload({
   const [replaceChoice, setReplaceChoice] = useState<string | null | undefined>(undefined);
 
   const preview = useMemo(
-    () => (tsv !== null && zip !== null ? playtestPreview(tsv, zip, realNames, sets, replaceChoice) : null),
-    [tsv, zip, realNames, sets, replaceChoice],
+    () => (tsv !== null && zip !== null ? playtestPreview(tsv, zip, realNames, sets, replaceChoice, realTitles) : null),
+    [tsv, zip, realNames, sets, replaceChoice, realTitles],
   );
 
   const pickTsv = async (file: File | undefined) => {
@@ -428,7 +432,11 @@ function Playtesters({ emails, api, onChange }: { emails: string[]; api: Playtes
 
 type LoadState = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; status: PlaytestAdminStatus };
 
-export default function PlaytestAdminClient({ realNames, api = fetchPlaytestAdminApi }: { realNames: string[]; api?: PlaytestAdminApi }) {
+export default function PlaytestAdminClient({
+  realNames,
+  realTitles = NO_TITLES,
+  api = fetchPlaytestAdminApi,
+}: { realNames: string[]; realTitles?: string[]; api?: PlaytestAdminApi }) {
   const names = useMemo(() => new Set(realNames), [realNames]);
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [reload, setReload] = useState(0);
@@ -447,7 +455,7 @@ export default function PlaytestAdminClient({ realNames, api = fetchPlaytestAdmi
 
   return (
     <PlaytestAdminFrame>
-      <PlaytestUpload realNames={names} sets={state.kind === 'ready' ? state.status.sets : NO_SETS} api={api} onPublished={refresh} />
+      <PlaytestUpload realNames={names} realTitles={realTitles} sets={state.kind === 'ready' ? state.status.sets : NO_SETS} api={api} onPublished={refresh} />
       {state.kind === 'loading' && <p className="text-gray-400">Loading…</p>}
       {state.kind === 'error' && (
         <p className="text-red-400" data-testid="playtest-status-error">The store could not be read: {state.message}</p>
