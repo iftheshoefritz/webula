@@ -78,6 +78,7 @@ const costShipOf = (c: CardInstance): CostShip[] =>
         {
           id: c.id,
           title: cardTitleOf(cardDisplayName(c.card)),
+          cardTitle: rowCardTitleOf(c.card),
           affiliation: text(c.card.affiliation),
           icons: text(c.card.icons).match(/\[[a-z0-9]+\]/g) ?? [],
         },

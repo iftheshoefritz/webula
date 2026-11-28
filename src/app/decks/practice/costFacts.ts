@@ -64,7 +64,7 @@ function costMissionOf(view: TableView, m: ViewMission): CostMission {
     regions: m.regions,
     // Each with its id, its title and its stopped state (#1713).
     personnel: personnel(view, { unstopped: false, at: m.index }).map((p) => ({ ...traitsOf(p), id: p.id, title: p.title, stopped: p.stopped })),
-    ships: m.ships.map((s) => ({ id: s.id, title: s.title, affiliation: text(s.row.affiliation), icons: text(s.row.icons).match(/\[[a-z0-9]+\]/g) ?? [] })),
+    ships: m.ships.map((s) => ({ id: s.id, title: s.title, cardTitle: viewCardTitleOf(s), affiliation: text(s.row.affiliation), icons: text(s.row.icons).match(/\[[a-z0-9]+\]/g) ?? [] })),
     ...(m.flipped ? { flipped: true } : {}),
   };
 }

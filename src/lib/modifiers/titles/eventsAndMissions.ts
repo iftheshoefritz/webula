@@ -2,9 +2,9 @@
 // mission card of a slot, in the core, or placed on a ship.
 
 import { isCommanderOf } from '../../commander';
-import { personnel, ships, type ViewMission } from '../../tableView';
+import { personnel, ships, type ViewMission, viewCardTitleOf } from '../../tableView';
 import { type AmountContext, counted, each, type ModifierRow, row } from '../model';
-import { commanded, crewPersonnel, hasAffiliation, hasIcon, hasKeyword, hasWord, hereAt, isPersonnel, isShip, rowIsNamed, rowTitleKey } from '../words';
+import { commanded, crewPersonnel, hasAffiliation, hasIcon, hasKeyword, hasWord, hereAt, isPersonnel, isShip, rowIsNamed } from '../words';
 import { attributes } from './attributes';
 
 const points = (mission: ViewMission | undefined) => Number(mission?.card?.row?.points) || 0;
@@ -86,6 +86,6 @@ export const EVENT_AND_MISSION_ROWS: ModifierRow[] = [
   row('Soliton Wave', 'core', 'shipsOnRows', { range: 1 }),
   // "Plays on your ship (limit one per ship). While you have this ship's Commander aboard, it is Range +2."
   row('Inspiring Leader', 'placedOnShip', 'itsShip', {
-    range: ({ target }) => (crewPersonnel(target).some((p) => isCommanderOf(String(p.row?.keywords ?? ''), rowTitleKey(target.row))) ? 2 : 0),
+    range: ({ target }) => (crewPersonnel(target).some((p) => isCommanderOf(String(p.row?.keywords ?? ''), viewCardTitleOf(target))) ? 2 : 0),
   }),
 ];

@@ -26,7 +26,7 @@
 //
 // It imports no React and no reducer.
 
-import { cardTitleOf } from './cardTitle';
+import { rowCardTitleOf } from './cardTitle';
 import type { CostCoreCard } from './costModels/model';
 
 /** A card of the draw deck as the test of an examine reads it: its type, its keywords and its printed cost, as the card data has them. */
@@ -50,6 +50,8 @@ export type ExamineTakeCount = { kind: 'fixed'; count: number } | { kind: 'diffe
 /** A card of the draw deck as the test of a download reads it, as the card data has it, lowercased. */
 export interface DownloadedCard {
   name?: unknown;
+  /** The card title (#1971), which `titles` reads; a row with none reads its name less the version suffix. */
+  title?: unknown;
   type?: unknown;
   affiliation?: unknown;
   icons?: unknown;
@@ -62,8 +64,9 @@ export interface DownloadedCard {
 
 /**
  * One test of the card a download takes (#1810): every field it has must hold, each by one of its values, all
- * lowercased. `titles` holds a card of that title, or, for a personnel or a ship, a version of that persona
- * ("{Kahless}" holds Kahless The Unforgettable); `affiliations` an affiliation by inclusion ("[Baj]" is
+ * lowercased. `titles` holds a card whose card title (`rowCardTitleOf`) is that title, the subtitle never read
+ * ("{Kahless}" holds Kahless, The Unforgettable): "When you name a card, you do so by card title only, not
+ * subtitle." (Glossary › naming cards, p. 18). `affiliations` an affiliation by inclusion ("[Baj]" is
  * "bajoran"); `icons` an icon of the icons field ("[tng]").
  */
 export interface DownloadTest {
@@ -350,7 +353,7 @@ export const examineTakeMin = (step: Pick<ExamineStep, 'mustTake' | 'test'>, exa
 export function downloadTakes(of: { test: DownloadTest[] }, card: DownloadedCard | null | undefined): boolean {
   if (!card) return false;
   const type = String(card.type ?? '').toLowerCase();
-  const title = cardTitleOf(String(card.name ?? '')).toLowerCase();
+  const title = rowCardTitleOf(card);
   const affiliation = String(card.affiliation ?? '').toLowerCase();
   const icons: string[] = String(card.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [];
   // A keyword with a value ("Decay: 3.") counts as its name too, "decay", for "a Decay event" (#1960).
@@ -362,9 +365,8 @@ export function downloadTakes(of: { test: DownloadTest[] }, card: DownloadedCard
     .filter(Boolean);
   // The skills as words, the counts dropped, as `skillWordsOf` reads them.
   const skills = String(card.skills ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean);
-  const persona = type === 'personnel' || type === 'ship';
   const passes = (t: DownloadTest): boolean =>
-    (!t.titles || t.titles.some((n) => title === n || (persona && title.startsWith(`${n} `)))) &&
+    (!t.titles || t.titles.includes(title)) &&
     (!t.types || t.types.includes(type)) &&
     (!t.affiliations || t.affiliations.some((a) => affiliation.includes(a))) &&
     (!t.icons || t.icons.some((i) => icons.includes(i))) &&

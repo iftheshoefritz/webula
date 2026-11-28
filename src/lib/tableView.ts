@@ -814,7 +814,7 @@ export function shipWithCommanderAt(options: ConditionOptions = {}): Condition {
   const found = (reader: TableReader, at: ConditionAt | undefined): boolean => {
     if (isSource(reader) || at?.missionIndex === undefined) return false;
     return (reader.missions[at.missionIndex]?.ships ?? []).some((ship) =>
-      ship.crew.some((c) => c.type === 'personnel' && isCommanderOf(String(c.row?.keywords ?? ''), ship.title))
+      ship.crew.some((c) => c.type === 'personnel' && isCommanderOf(String(c.row?.keywords ?? ''), viewCardTitleOf(ship)))
     );
   };
   return condition(found, () => 'you command a staffed ship at that mission with its Commander aboard', options);
