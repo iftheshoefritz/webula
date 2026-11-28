@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import { FaMinus, FaPlus } from 'react-icons/fa';
 import CardPreviewModal from './CardPreviewModal';
 import PlaytestBadge from './PlaytestBadge';
+import CardName from './CardName';
 import { showCardMissing } from '../lib/cardImageUrl';
 
 type DeckListItemProps = {
@@ -14,6 +15,9 @@ type DeckListItemProps = {
   collectorsinfo: string;
   count: number;
   name: string;
+  // The printed title and subtitle, shown apart (#1975). Without them the row shows `name`.
+  originalTitle?: string;
+  originalSubtitle?: string;
   // The image URL, from `cardImageUrl` (#1614).
   imageSrc: string;
   // A playtest card shows a "Playtest" badge after its name (#1614).
@@ -32,6 +36,8 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
   collectorsinfo,
   count,
   name,
+  originalTitle,
+  originalSubtitle,
   imageSrc,
   playtest = false,
   unique,
@@ -127,8 +133,7 @@ const DeckListItem: React.FC<DeckListItemProps> = ({
           onTouchStart={handleTouchStart}
           className="text-sm"
         >
-          {unique && <span>·</span>}
-          {name}
+          <CardName title={originalTitle} subtitle={originalSubtitle} name={name} unique={unique} />
           {playtest && <PlaytestBadge />}
         </div>
       </div>

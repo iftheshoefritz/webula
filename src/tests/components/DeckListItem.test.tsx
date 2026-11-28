@@ -64,3 +64,17 @@ describe('DeckListItem playtest badge (#1614)', () => {
     expect(screen.queryByTestId('playtest-badge')).not.toBeInTheDocument();
   });
 });
+
+describe('DeckListItem name (#1975)', () => {
+  it('shows the title and the subtitle apart', () => {
+    render(<DeckListItem {...defaultProps} name="Zarn Tavik Restless Pilot" originalTitle="Zarn Tavik" originalSubtitle="Restless Pilot" />);
+    expect(screen.getByTestId('card-name-title')).toHaveTextContent('Zarn Tavik');
+    expect(screen.getByTestId('card-name-subtitle')).toHaveTextContent('Restless Pilot');
+  });
+
+  it('shows the name alone without a title', () => {
+    render(<DeckListItem {...defaultProps} />);
+    expect(screen.getByText('Jean-Luc Picard')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-name-title')).toBeNull();
+  });
+});

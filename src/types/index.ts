@@ -12,6 +12,7 @@ type CardDef = {
   // Optional: a deck row saved before #1971 has neither.
   title?: string,
   originalTitle?: string,
+  originalSubtitle?: string,
   missiontype: 'S'|'s'|'P'|'p'|'H'|'h'|'',
   unique: 'y'|'n',
 }

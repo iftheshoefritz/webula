@@ -44,6 +44,8 @@ const DeckListPile: React.FC<DeckListPileProps> = ({
               incrementIncluded={() => incrementIncluded(row)}
               count={row.count}
               name={row.originalName}
+              originalTitle={row.originalTitle}
+              originalSubtitle={row.originalSubtitle}
               imageSrc={cardImageUrl(row)}
               playtest={isPlaytestCard(row)}
               unique={row.unique === 'y'}

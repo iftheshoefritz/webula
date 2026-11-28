@@ -15,3 +15,8 @@ that card (`gridHoverImageWidth` in `SearchResults.tsx`): as large as the native
 window's height allow, and none at all when that is not 1.25 times the card (`previewEnlarges`), as
 in the 1-column layout below `lg`. The grid card's own click and right-click still add and remove.
 List view, and a touch device, keep the 230 px image.
+
+A row of the list view shows the card's name with `CardName` (#1975): the unique dot, the printed
+title, then the subtitle and any version suffix (`*AP`) in smaller, muted type, on the same line, so
+the row height does not change and a long name is cut from its end. A row with no `originalTitle`
+shows its plain name. The deck list and the practice table's decklist panel use the same component.
