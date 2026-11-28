@@ -5320,11 +5320,11 @@ function PracticeDrawContent() {
                   modifiersText={attemptModifiersText(table)}
                   donePrompt={attemptDonePromptText(table)}
                   abilities={attemptAbilitiesOf(game).map((o) => ({
-                    key: `${o.id}:${o.ability.index}`,
+                    key: `${o.id}:${o.ability.index}:${o.targetId}`,
                     cardId: o.id,
                     label: `${o.name.split(' ')[0]}: ${o.ability.label}`,
                     title: `${o.name}: ${o.ability.text}`,
-                    onUse: () => dispatch({ type: 'useAttemptAbility', id: o.id, index: o.ability.index }),
+                    onUse: () => dispatch({ type: 'useAttemptAbility', id: o.id, index: o.ability.index, targetId: o.targetId }),
                   }))}
                   attempt={table.attempt}
                   slot={missions[table.attempt.missionIndex]}

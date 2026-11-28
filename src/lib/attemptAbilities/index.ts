@@ -4,25 +4,35 @@
 // plain data: its text, a condition on the attempted mission, a use limit, and its steps.
 //
 // The steps of today:
-// - `modify`: a change of numbers for the rest of the attempt, to the card itself (`self`) or to the ship it is
-//   aboard (`itsShip`). The use keeps it on `Attempt.timed`, so the attribute readers add it and `endAttempt` ends it.
+// - `modify`: a change of numbers for the rest of the attempt, to the card itself (`self`), to the ship it is aboard
+//   (`itsShip`), or to one personnel of the attempting group the player chooses (`chosenPersonnel`, one offer per
+//   unstopped personnel). The use keeps it on `Attempt.timed`, so the attribute readers add it and `endAttempt` ends
+//   it; a change of a `facingDilemma` row ends earlier, with its dilemma (`TimedChange.untilDilemma`).
 // - `killAtEndOfTurn`: a delayed trigger, "he is killed at the end of this turn". The use's log entry sets it up;
 //   the trigger rows of `src/lib/triggers/titles/delayed.ts` offer the kill when the next turn starts, from that
 //   entry (`afterAbility`), once.
 //
-// The window: the card is an unstopped personnel of the attempting group (the away team at a planet mission, the
-// crew of the attempting ship at a space mission), and the attempted mission passes the condition. It imports no
-// React and no reducer.
+// The source: by default (`self`) the card is an unstopped personnel of the attempting group (the away team at a
+// planet mission, the crew of the attempting ship at a space mission); a `core` row's card is in the core, and its
+// change goes to a chosen personnel of the group, "your personnel" facing the dilemma (#1956).
+//
+// The window (#1956), as the Glossary times both in step 3h of "attempting missions" (p. 17): `attempting`, the whole
+// attempt, the default; or `facingDilemma`, "While your personnel is facing a dilemma, you may …", from the reveal of
+// the top card of the stack in `'face'` until that dilemma leaves the top of the stack ("is no longer being faced",
+// Glossary › "dilemmas", p. 17). A "While" row has no limit: each use is its own, with its own cost. A later "When …
+// facing a dilemma" row may need a per-dilemma limit; the use's log entry records the faced dilemma's id for it.
+//
+// The attempted mission passes the condition in either window. It imports no React and no reducer.
 
 import { cardTitleOf } from '../cardTitle';
 import type { AmountQuantity } from '../modifiers/model';
 import type { MissionQuery } from '../tableView';
 import { ONCE_EACH_TURN, type UseLimit } from '../useLimit';
 
-/** A change of numbers for the rest of the attempt, to the card itself or to the ship it is aboard. */
+/** A change of numbers for the rest of the attempt, to the card itself, the ship it is aboard, or a chosen personnel. */
 export interface ModifyStep {
   kind: 'modify';
-  target: 'self' | 'itsShip';
+  target: 'self' | 'itsShip' | 'chosenPersonnel';
   changes: Partial<Record<AmountQuantity, number>>;
 }
 
@@ -44,8 +54,27 @@ export interface AttemptAbility {
   label: string;
   /** The attempted mission must pass this query ("a [GQ] mission"); absent: any mission. */
   mission?: MissionQuery;
+  /** When the ability may be used (#1956); absent: `attempting`. */
+  window?: AttemptAbilityWindow;
+  /** Where its card must be (#1956); absent: `self`, the card is an attempting personnel. */
+  source?: AttemptAbilitySource;
   limit?: UseLimit;
   steps: AttemptAbilityStep[];
+}
+
+export type AttemptAbilityWindow = 'attempting' | 'facingDilemma';
+export type AttemptAbilitySource = 'self' | 'core';
+
+export const windowOf = (a: AttemptAbility): AttemptAbilityWindow => a.window ?? 'attempting';
+export const sourceOf = (a: AttemptAbility): AttemptAbilitySource => a.source ?? 'self';
+
+/**
+ * Whether a row's source and its change agree (#1956): a `core` row's card attempts nothing, so its change goes to a
+ * chosen personnel; a `self` row's change goes to the card or its ship, never to a chosen one.
+ */
+export function attemptAbilityRowValid(a: AttemptAbility): boolean {
+  const targets = a.steps.flatMap((s) => (s.kind === 'modify' ? [s.target] : []));
+  return sourceOf(a) === 'core' ? targets.every((t) => t === 'chosenPersonnel') : !targets.includes('chosenPersonnel');
 }
 
 const PERSONNEL_PLUS = (n: number): Partial<Record<AmountQuantity, number>> => ({ integrity: n, cunning: n, strength: n });

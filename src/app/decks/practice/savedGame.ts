@@ -18,6 +18,7 @@ import {
   TURN_SEGMENTS,
   revealSnapshotOf,
   revealedTopCard,
+  pruneDilemmaTimed,
 } from './tableReducer';
 import { GameState, isLogEntry, LogEntry, RedoStep } from './gameLog';
 import { revealPicksOf } from './attempt';
@@ -267,6 +268,7 @@ const isValidTimed = (value: unknown): boolean =>
       typeof t.title === 'string' &&
       typeof t.sourceId === 'string' &&
       typeof t.targetId === 'string' &&
+      (t.untilDilemma === undefined || typeof t.untilDilemma === 'string') &&
       isObject(t.changes) &&
       Object.entries(t.changes).every(([q, n]) => TIMED_QUANTITIES.includes(q) && typeof n === 'number' && Number.isFinite(n))
   );
@@ -381,7 +383,8 @@ function repairTable(table: TableState): TableState {
     table.dilemmaPile = [...table.dilemmaPile, ...table.dilemmaStack.map((c) => ({ ...c, face: ZONE_FACE.dilemmaPile, stopped: undefined }))];
     table.dilemmaStack = [];
   }
-  return table;
+  // A timed change keyed to a dilemma (#1956) loads only while that dilemma is faced.
+  return pruneDilemmaTimed(table);
 }
 
 // Turns saved tables back into tables, with the card rows of `dealtDeck`. A saved zone or mission
