@@ -348,8 +348,18 @@ export const shareRegion = (from: ViewCard, to: ViewCard): boolean => {
 /**
  * The span total of a move of `ship` from the mission card `from` to `to` (#1635, #1648, #1827): the printed spans,
  * plus 2 when both slots hold a mission and their quadrants differ, unless a row of either mission, of the ship or
- * of the core waives it, less 2 when the two missions share a Region (#1941), both rules of the game; then, when both slots hold a mission, the reductions of the core, a floor of 0, and the
- * set values of the core, in core order. With `cardText` false no row applies.
+ * of the core waives it, less 2 when the two missions share a Region (#1941), both rules of the game; then, when both
+ * slots hold a mission, the set values of the core, the reductions of the core, each in core order, and a floor of 0.
+ * With `cardText` false no row applies.
+ *
+ * The order of the card effects is the rulebook's (#1945). Rulebook v4, Glossary › "modifications", p. 18: "2) Replace:
+ * Any effects that use some form of the verbs "to replace" or "to become" occur. 3) Modify: Any effects that add,
+ * increase, or reduce an aspect of a card by a specific amount occur. … 5) Zero: Any number that is less than zero
+ * becomes zero." So a set value (Shadows of the Night's "the Range required becomes 5") reads the total before the
+ * reductions (Hurried Departure's "subtract 3"), and they come off what it set. The quadrant waivers and the two
+ * rules of the game build the total the Replace step reads; they are not Modify effects. `rangeOf` and
+ * `attributeOf` sum and then floor (Modify, then Zero), and the practice attempt replaces a mission's requirements
+ * (`replacedRequirementsOf`, #1909) before it adds to them (Replace, then Modify), so all follow the same order.
  */
 export function spanOf(
   from: ViewCard | null,
@@ -373,15 +383,14 @@ export function spanOf(
   for (const source of core) {
     for (const r of rows(source, 'core', 'span')) {
       const change = r.changes.span;
-      if (change && 'reduce' in change) total -= change.reduce({ source, from, to, ship });
-    }
-  }
-  total = Math.max(0, total);
-  for (const source of core) {
-    for (const r of rows(source, 'core', 'span')) {
-      const change = r.changes.span;
       if (change && 'set' in change) total = change.set({ source, from, to, ship }, total);
     }
   }
-  return total;
+  for (const source of core) {
+    for (const r of rows(source, 'core', 'span')) {
+      const change = r.changes.span;
+      if (change && 'reduce' in change) total -= change.reduce({ source, from, to, ship });
+    }
+  }
+  return Math.max(0, total);
 }
