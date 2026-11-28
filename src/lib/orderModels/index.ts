@@ -7,7 +7,8 @@
 // The costs of today:
 // - `none`: "Order - Place a card from hand on the bottom of your deck."
 // - `discardFromHand`: N cards of the hand that pass a test, "Discard a [Car] ship from hand".
-// - `stopPersonnel`: one of the player's unstopped personnel that passes a test, "Stop one of your [Fer] personnel".
+// - `stopPersonnel`: one of the player's unstopped personnel that passes a test, "Stop one of your [Fer] personnel";
+//   with `present`, only one in the order card's own group, "Stop one of your personnel present" (#1960).
 // - `placeThisOnBottom`: the card itself to the bottom of the draw deck, "Place this personnel on the bottom of his
 //   owner's deck".
 // - `placePresentOnBottom`: one card of a type in the card's own group (its away team or crew), "Place your
@@ -30,7 +31,7 @@ import { ONCE_EACH_TURN, UseLimit } from '../useLimit';
 export type OrderCost =
   | { kind: 'none' }
   | { kind: 'discardFromHand'; count: number; test?: DownloadTest[]; text: string }
-  | { kind: 'stopPersonnel'; test: DownloadTest[]; text: string }
+  | { kind: 'stopPersonnel'; test: DownloadTest[]; text: string; present?: true }
   | { kind: 'placeThisOnBottom' }
   | { kind: 'placePresentOnBottom'; types: string[]; text: string }
   | { kind: 'placeFromDiscardOnThis'; test: DownloadTest[]; text: string };
@@ -144,6 +145,33 @@ export const ORDER_MODELS: OrderModel[] = [
     text: 'Place a card from hand on the bottom of your deck.',
     cost: NONE,
     steps: [bottomFromHand(1)],
+  },
+  // "Order - Discard a card titled {The Doctor} or Revised Doctor from hand to download an interrupt." (#1960) The
+  // title test matches a persona by prefix, so "The Doctor Emergency Medical Hologram" passes "the doctor".
+  {
+    title: 'Revised Doctor Mass Murderer',
+    index: 0,
+    text: 'Discard a card titled {The Doctor} or Revised Doctor from hand to download an interrupt.',
+    cost: { kind: 'discardFromHand', count: 1, test: [{ titles: ['the doctor', 'revised doctor'] }], text: 'a card titled {The Doctor} or Revised Doctor' },
+    steps: [download(1, 'an interrupt', [{ types: ['interrupt'] }]), shuffle()],
+  },
+  // "Order - Discard a Decay event from hand to download an non-Decay event or interrupt. You may do this only once
+  // each turn." (#1960) The card data writes the keyword "Decay: 3.", which `downloadTakes` reads as "decay".
+  {
+    title: 'Stewart Rivers Patriotic Engineer',
+    index: 0,
+    text: 'Discard a Decay event from hand to download an non-Decay event or interrupt. You may do this only once each turn.',
+    cost: { kind: 'discardFromHand', count: 1, test: [{ types: ['event'], keywords: ['decay'] }], text: 'a Decay event' },
+    limit: ONCE_EACH_TURN,
+    steps: [download(1, 'a non-Decay event or interrupt', [{ types: ['event', 'interrupt'], notKeywords: ['decay'] }]), shuffle()],
+  },
+  // "Order - Stop one of your personnel present to draw a card." (#1960) Present: in her away team or crew, she too.
+  {
+    title: 'Anij Guiding Light',
+    index: 0,
+    text: 'Stop one of your personnel present to draw a card.',
+    cost: { kind: 'stopPersonnel', test: [{ types: ['personnel'] }], text: 'one of your personnel present', present: true },
+    steps: [draw(1)],
   },
 ];
 

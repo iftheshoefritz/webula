@@ -47,7 +47,7 @@ export const orderCardOf = (table: TableState, id: string, index: number): Order
 
 /**
  * The cards the cost of an order may take: the cards of the hand that pass its test for a discard, the player's
- * unstopped personnel that pass it for a stop (never the brig), and the cards of the type in the order card's own
+ * unstopped personnel that pass it for a stop (never the brig; with `present`, only those of the order card's group), and the cards of the type in the order card's own
  * group for a card present. None for a cost with no pick.
  */
 export function orderCostCandidates(table: TableState, order: OrderCard): CardInstance[] {
@@ -56,10 +56,13 @@ export function orderCostCandidates(table: TableState, order: OrderCard): CardIn
     const test = cost.test;
     return test ? table.hand.filter((c) => downloadTakes({ test }, c.card)) : table.hand;
   }
-  if (cost.kind === 'stopPersonnel')
+  if (cost.kind === 'stopPersonnel') {
+    // "Stop one of your personnel present" (#1960): only the personnel of the order card's own group.
+    const present = cost.present ? new Set((order.group ?? []).map((c) => c.id)) : null;
     return personnelCandidateGroups(table)
       .flatMap((g) => g.cards.map((c) => c.card))
-      .filter((c) => downloadTakes({ test: cost.test }, c.card));
+      .filter((c) => (!present || present.has(c.id)) && downloadTakes({ test: cost.test }, c.card));
+  }
   if (cost.kind === 'placePresentOnBottom')
     return (order.group ?? []).filter((c) => c.id !== order.instance.id && cost.types.includes(typeOf(c)));
   // Renewal Scroll (#1837): the cards of the discard pile that pass the test, never one removed from the game.

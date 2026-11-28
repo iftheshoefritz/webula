@@ -14,6 +14,7 @@ import {
 import { ORDER_MODELS, orderModelsOf } from '../../../lib/orderModels';
 import { clausesOf } from '../../../lib/modelCoverage';
 import { cardTitleOf } from '../../../lib/cardTitle';
+import { downloadTakes } from '../../../lib/effectSteps';
 
 // Issue #1866: the orders of the cards on the table. With invented cards under the titles of the registry, its keys.
 
@@ -215,5 +216,71 @@ describe('a card present to place (#1866): Charles Tucker III Horse Trader', () 
     expect(drew.table.hand.map((c) => c.id)).toEqual(['hideki', 'reliant', 'd1', 'd2']);
     expect(lastText(drew)).toBe("Used Charles Tucker III Horse Trader's order: placed Kit on the bottom of the draw deck, drew 2 cards");
     expect(offered(drew)).not.toContain('Charles Tucker III Horse Trader#0');
+  });
+});
+
+describe('a discard by title (#1960): Revised Doctor Mass Murderer', () => {
+  it('takes only a card titled The Doctor or Revised Doctor, downloads only an interrupt, and shuffles', () => {
+    const revised = person('revised', 'Revised Doctor Mass Murderer', 'federation');
+    const doctor = person('doctor', 'The Doctor Emergency Medical Hologram', 'federation');
+    const other = person('other', 'Doctorate Holder', 'federation');
+    const deck = [deckCard('i1', { type: 'interrupt' }), deckCard('e1'), deckCard('i2', { type: 'interrupt' })];
+    const start = initialGameState(table({ hand: [other, doctor], drawDeck: deck }, [revised]));
+    expect(offered(start)).toContain('Revised Doctor Mass Murderer#0');
+    expect(dispatch(start, { type: 'useOrder', id: 'revised', order: 0, ids: ['other'] })).toBe(start);
+    const used = dispatch(start, { type: 'useOrder', id: 'revised', order: 0, ids: ['doctor'] });
+    expect(used.table.discard.map((c) => c.id)).toEqual(['doctor']);
+    expect(dispatch(used, { type: 'effectStep', ids: ['e1'] })).toBe(used);
+    const done = dispatch(used, { type: 'effectStep', ids: ['i2'] });
+    expect(done.table.hand.map((c) => c.id)).toEqual(['other', 'i2']);
+    expect(done.table.drawDeck.map((c) => c.id).sort()).toEqual(['e1', 'i1']);
+    expect(lastText(done)).toBe(
+      "Used Revised Doctor Mass Murderer's order: discarded The Doctor Emergency Medical Hologram, downloaded Card i2, shuffled the draw deck"
+    );
+    expect(done.log).toHaveLength(1);
+    expect(dispatch(done, { type: 'undo' }).table).toBe(start.table);
+  });
+});
+
+describe('a keyword with a value (#1960): Stewart Rivers Patriotic Engineer', () => {
+  it('discards a "Decay: 3." event, downloads a non-Decay event or interrupt, once each turn', () => {
+    const stewart = person('stewart', 'Stewart Rivers Patriotic Engineer', 'starfleet');
+    const decay = card('decay', { type: 'event', name: 'rotting', originalName: 'Rotting', cost: '1', keywords: 'Decay: 3.' });
+    const plain = card('plain', { type: 'event', name: 'plain', originalName: 'Plain', cost: '1' });
+    const deck = [deckCard('dd', { keywords: 'Decay: 3.' }), deckCard('e1'), deckCard('i1', { type: 'interrupt' }), deckCard('p1', { type: 'personnel' })];
+    const start = initialGameState(table({ hand: [plain, decay], drawDeck: deck }, [stewart]));
+    expect(dispatch(start, { type: 'useOrder', id: 'stewart', order: 0, ids: ['plain'] })).toBe(start);
+    const used = dispatch(start, { type: 'useOrder', id: 'stewart', order: 0, ids: ['decay'] });
+    expect(dispatch(used, { type: 'effectStep', ids: ['dd'] })).toBe(used);
+    expect(dispatch(used, { type: 'effectStep', ids: ['p1'] })).toBe(used);
+    const done = dispatch(used, { type: 'effectStep', ids: ['i1'] });
+    expect(done.table.hand.map((c) => c.id)).toEqual(['plain', 'i1']);
+    expect(offered(done)).not.toContain('Stewart Rivers Patriotic Engineer#0');
+  });
+
+  it('reads a real "Decay: N" keyword of the card data as Decay', () => {
+    const rows = readFileSync(resolve(process.cwd(), 'public/cards_with_processed_columns.txt'), 'utf8').split('\n').slice(1);
+    const row = rows.map((r) => r.split('\t').map((c) => c.replace(/^"|"$/g, ''))).find((c) => c[6] === 'Event' && /Decay: \d/.test(c[16] ?? ''));
+    expect(row).toBeDefined();
+    const real = { type: 'event', name: row![0], keywords: row![16] } as never;
+    expect(downloadTakes({ test: [{ types: ['event'], keywords: ['decay'] }] }, real)).toBe(true);
+    expect(downloadTakes({ test: [{ types: ['event'], notKeywords: ['decay'] }] }, real)).toBe(false);
+  });
+});
+
+describe('a stop of a personnel present (#1960): Anij Guiding Light', () => {
+  it('stops only a personnel of her own away team, herself too, and draws a card', () => {
+    const anij = person('anij', 'Anij Guiding Light', 'non-aligned');
+    const ally = person('ally', 'Ally', 'non-aligned');
+    const far = person('far', 'Far Away', 'non-aligned');
+    const base = table({}, [anij, ally]);
+    const missions = base.missions.map((m, i) => (i === 1 ? { ...m, awayTeam: [far] } : m));
+    const start = initialGameState({ ...base, missions });
+    expect(dispatch(start, { type: 'useOrder', id: 'anij', order: 0, ids: ['far'] })).toBe(start);
+    expect(dispatch(start, { type: 'useOrder', id: 'anij', order: 0, ids: ['anij'] })).not.toBe(start);
+    const used = dispatch(start, { type: 'useOrder', id: 'anij', order: 0, ids: ['ally'] });
+    expect(used.table.missions[0].awayTeam[1].stopped).toBe(true);
+    const drew = dispatch(used, { type: 'effectStep' });
+    expect(lastText(drew)).toBe("Used Anij Guiding Light's order: stopped Ally, drew 1 card");
   });
 });
