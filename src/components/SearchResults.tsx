@@ -17,6 +17,7 @@ import {
 } from "../app/decks/practice/previewSize";
 import { cardImageUrl, isPlaytestCard, showCardMissing } from "../lib/cardImageUrl";
 import PlaytestBadge from "./PlaytestBadge";
+import CardName from "./CardName";
 
 // The hover image of the list view, and of the image view on a touch device: the trigger is text,
 // or there is no hover to size it from.
@@ -433,7 +434,7 @@ export default function SearchResults({
               onMouseEnter={(e) => withHover && handleHover(row.collectorsinfo, e)}
               onMouseLeave={handleUnhover}
             >
-              {row.unique === 'y' && <span>·</span>}{row.name}
+              <CardName title={row.originalTitle} subtitle={row.originalSubtitle} name={row.name} unique={row.unique === 'y'} />
             </span>
             {isPlaytestCard(row) && <PlaytestBadge className="shrink-0" />}
             {deckCount !== null && deckCount > 0 && (

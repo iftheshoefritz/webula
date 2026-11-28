@@ -14,7 +14,15 @@ const PILES: { pile: DeckPile; title: string }[] = [
   { pile: 'drawDeck', title: 'Draw' },
 ];
 
-type DecklistEntry = { key: string; name: string; count: number; imageSrc: string; unique: boolean };
+type DecklistEntry = {
+  key: string;
+  name: string;
+  originalTitle?: string;
+  originalSubtitle?: string;
+  count: number;
+  imageSrc: string;
+  unique: boolean;
+};
 
 // The deck as loaded, grouped by pile (#779), sorted by name within each pile.
 export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]> {
@@ -24,6 +32,8 @@ export function decklistByPile(deck: DeckList): Record<DeckPile, DecklistEntry[]
     result[cardPileFor(entry.row)].push({
       key,
       name: entry.row.originalName ?? entry.row.name,
+      originalTitle: entry.row.originalTitle,
+      originalSubtitle: entry.row.originalSubtitle,
       count: entry.count,
       imageSrc: cardImageUrl(entry.row),
       unique: entry.row.unique === 'y',
@@ -76,6 +86,8 @@ export default function DecklistPanel({ deck, onClose }: { deck: DeckList; onClo
                       collectorsinfo={e.key}
                       count={e.count}
                       name={e.name}
+                      originalTitle={e.originalTitle}
+                      originalSubtitle={e.originalSubtitle}
                       imageSrc={e.imageSrc}
                       unique={e.unique}
                       previewLayer={LAYER_CARD_PREVIEW}

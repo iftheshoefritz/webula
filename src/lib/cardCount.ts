@@ -9,6 +9,11 @@ export function stripVersionSuffix(name: string): string {
   return name.replace(/\s+\*(VP|A|AP|VAP)$/i, '');
 }
 
+/** The version suffix of a name (`*VP`, `*A`, `*AP`, `*VAP`), as written, or '' for none. */
+export function versionSuffixOf(name: string): string {
+  return name.match(/\*(VP|A|AP|VAP)$/i)?.[0] ?? '';
+}
+
 /**
  * The name to show for a card: the printed name (`originalName`, with its
  * original letter case) less any version suffix, or `name` when the row has

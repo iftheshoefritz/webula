@@ -972,4 +972,14 @@ describe('SearchResults playtest badge (#1614)', () => {
     fireEvent.error(img);
     expect(img).toHaveAttribute('src', '/cardimages/CardMissing.jpg');
   });
+
+  it('shows the title and the subtitle apart in the list view (#1975)', () => {
+    const card = cardFixture({
+      name: 'zarn tavik restless pilot', originalName: 'Zarn Tavik Restless Pilot',
+      originalTitle: 'Zarn Tavik', originalSubtitle: 'Restless Pilot', unique: 'y',
+    });
+    render(<SearchResults filteredData={[card]} viewMode="list" />);
+    expect(screen.getByTestId('card-name-title')).toHaveTextContent('Zarn Tavik');
+    expect(screen.getByTestId('card-name-subtitle')).toHaveTextContent('Restless Pilot');
+  });
 });
