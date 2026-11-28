@@ -5,7 +5,7 @@ import { attributesOnTableOf } from '../../../app/decks/practice/attributesOnTab
 import { endOfTurnTriggerSetUp, pendingTriggersOf } from '../../../app/decks/practice/triggers';
 import { fromSavedGame, toSavedGame } from '../../../app/decks/practice/savedGame';
 import type { DeckList } from '../../../types';
-import { ATTEMPT_ABILITIES, ATTEMPT_ABILITY_TITLES, changesText } from '../../../lib/attemptAbilities';
+import { ATTEMPT_ABILITIES, ATTEMPT_ABILITY_TITLES, changesText, killsAtEndOfTurn } from '../../../lib/attemptAbilities';
 import { triggerRowsOf } from '../../../lib/triggers';
 
 // Issue #1835: the abilities used during an attempt (Storil Courageous Captain, Worf Honorable Explorer, Ikat'ika
@@ -48,9 +48,9 @@ const use = (id: string): GameAction => ({ type: 'useAttemptAbility', id, index:
 const weaponsOf = (s: GameState) => attributesOnTableOf(s.table, true).ship?.weapons;
 
 describe('the attempt ability registry (#1835)', () => {
-  it('holds Storil and the two shipped-deck rows, each with a delayed kill row', () => {
-    expect(ATTEMPT_ABILITY_TITLES).toEqual(['Storil Courageous Captain', 'Worf Honorable Explorer', "Ikat'ika Honorable Warrior"]);
-    for (const a of ATTEMPT_ABILITIES) {
+  it('holds Storil and the two shipped-deck rows, each with a delayed kill row, and Security Drills (#1959)', () => {
+    expect(ATTEMPT_ABILITY_TITLES).toEqual(['Storil Courageous Captain', 'Worf Honorable Explorer', "Ikat'ika Honorable Warrior", 'Security Drills']);
+    for (const a of ATTEMPT_ABILITIES.filter(killsAtEndOfTurn)) {
       expect(triggerRowsOf(a.title).map((r) => [r.event.kind, r.source, r.useCost, r.afterAbility])).toEqual([['turnEnding', 'table', { kind: 'killSelf' }, 0]]);
     }
     expect(changesText({ weapons: 5 })).toBe('Weapons +5');

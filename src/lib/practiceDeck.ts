@@ -234,6 +234,11 @@ export const PRACTICE_BOT_ROADBLOCK_TSV = `1\tSelf-Replicating Roadblock`;
 export const PRACTICE_BOT_SELECT_AGAIN_TSV = `1\tLet's Try That Again, Shall We?
 1\tDessert Disaster`;
 
+// The card `?fixture=bot-drills` (#1959) adds to the end of the core: Security Drills, whose cost the [Fed]
+// U.S.S. Relativity of the hand pays.
+export const SECURITY_DRILLS_TITLE = 'Security Drills';
+export const PRACTICE_BOT_DRILLS_TSV = `1\t${SECURITY_DRILLS_TITLE}`;
+
 // The cards `?fixture=attributes` (#1666) adds to the fixture deck: a [TN] personnel joins the crewed
 // ship's crew, and Dark Dissension, which makes each [TN] personnel Integrity -1 and Cunning +1, the
 // core, for the arrows of the attribute bands. Soliton Wave (#1827), which makes each ship in play

@@ -460,6 +460,7 @@ entry of `BOT_REVEAL_FIXTURES` (`attempt.ts`), and, for the piles deal, `resetWi
 - `?fixture=bot-resolve-60s`: a bot attempt with a dual dilemma of set 60S. Use it for a label that names an attribute.
 - `?fixture=bot-resolve-jailbreak`: a bot attempt whose dilemma puts personnel on the draw deck. Use it for that Resolve.
 - `?fixture=bot-select-again`: a bot attempt at Moab IV with cards that change a kept roll. Use it for a reroll.
+- `?fixture=bot-drills`: a bot attempt with Security Drills in the core and [Fed] cards in the hand. Use it for an ability used while facing a dilemma.
 
 The hand of `?fixture=piles` holds the Tricorder (`card-1`), two events (`card-7`, `card-8`), two
 interrupts (`card-9`, `card-10`) and two ships (`card-39`, `card-40`). The examples below use them.

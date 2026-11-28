@@ -1,6 +1,7 @@
 'use client';
 
 import React, {
+  Fragment,
   Suspense,
   useEffect,
   useEffectEvent,
@@ -100,6 +101,8 @@ import {
   PRACTICE_BOT_COSTS_TSV,
   PRACTICE_BOT_ROADBLOCK_TSV,
   PRACTICE_BOT_SELECT_AGAIN_TSV,
+  PRACTICE_BOT_DRILLS_TSV,
+  SECURITY_DRILLS_TITLE,
   PRACTICE_COSTS_CREW,
   PRACTICE_COSTS_TSV,
   PRACTICE_COSTS_CORE,
@@ -244,7 +247,8 @@ import { endOfTurnTriggerSetUp, pendingTriggersOf } from './triggers';
 import { TriggerOffers } from './TriggerOffers';
 import { playConditionLine } from '../../../lib/playModels';
 import { costNeedsPick, costPickCount, OrderCost } from '../../../lib/orderModels';
-import { chooseSkillCardOf, chooseSkillOptions, OrderCard, orderCostCandidates } from './orders';
+import { gainsSkill, windowOf } from '../../../lib/attemptAbilities';
+import { chooseSkillCardOf, chooseSkillOptions, costCandidates, OrderCard, orderCostCandidates } from './orders';
 import { discardableFromHand, downloadTakes, drawWanted, EffectStage, examineCount, examineTakeMax, examineTakeMin, examineTakes, handCount, stepOf } from '../../../lib/effectSteps';
 import {
   CardHoldProvider,
@@ -290,7 +294,7 @@ import { RangeUsedProvider } from './RangeUsedContext';
 import { TableCardUse, TableCardUseProvider } from './TableCardUseContext';
 import { shipRangesOnTable } from './shipRange';
 import { attributesOnTableOf } from './attributesOnTable';
-import { attemptAbilitiesOf } from './attemptAbilities';
+import { attemptAbilitiesOf, attemptingGroupOf, gainSkillOptionsOf, type AttemptAbilityOffer } from './attemptAbilities';
 import { LANDED_CUE_MS, LandedRing, LandedZoneProvider, LandedZones, useLandedNonce } from './LandedZoneContext';
 import { landedZoneKey } from './landedZoneKey';
 import { dragPlayPlaces, highlightClassName, highlightState, ZoneKind } from './zoneAccepts';
@@ -2025,6 +2029,7 @@ function DilemmaStackPile({
   onSelectAgain,
   replacePicks = [],
   onReplacePick,
+  abilities = [],
   choseNone = false,
 }: {
   stack: CardInstance[];
@@ -2053,10 +2058,15 @@ function DilemmaStackPile({
   // Dessert Disaster's swaps (#1847): each selected personnel and [Stf] personnel it may put in its place.
   replacePicks?: { from: string; to: string; text: string }[];
   onReplacePick?: (from: string, to: string) => void;
+  // The "while facing a dilemma" abilities of the core (#1959), Security Drills: each card's button, and its picks of
+  // a personnel and a skill. The page offers them only while the revealed dilemma is unresolved.
+  abilities?: { key: string; name: string; title: string; picks: { key: string; text: string; onPick: () => void }[] }[];
 }) {
   const { setNodeRef, highlight, landedNonce } = useDilemmaStackZone();
   // The list of Dessert Disaster's swaps, open or closed. A new snapshot has its own swaps.
   const [replaceOpen, setReplaceOpen] = useState(false);
+  // The key of the ability whose picks are open, or null.
+  const [abilityOpen, setAbilityOpen] = useState<string | null>(null);
   const count = stack.length;
   const topCard = stack[0];
   const revealed = topCard?.face === 'up';
@@ -2141,11 +2151,13 @@ function DilemmaStackPile({
       {/* #1589: the Resolve's preview and its button, over the text box of the top card, below the bot
           label. Siblings painted above the top card, with the label's guards, so a tap never starts a
           drag or opens the panel. Hidden while the top card drags. */}
-      {revealed && resolvePreview && !dragActive && (
+      {revealed && (resolvePreview || abilities.length > 0) && !dragActive && (
         <div
           className="absolute flex flex-col items-start gap-0.5"
           style={{ left: 3, bottom: 3, maxWidth: Math.max(40, cardWidth - 6), zIndex: count + 2 }}
         >
+          {resolvePreview && (
+          <>
           <span
             data-testid="dilemma-resolve-preview"
             onPointerDown={(e) => e.stopPropagation()}
@@ -2170,6 +2182,46 @@ function DilemmaStackPile({
           >
             {resolved ? 'Resolved' : 'Resolve'}
           </button>
+          </>
+          )}
+          {!resolved &&
+            abilities.map((ability) => (
+              <Fragment key={ability.key}>
+                <button
+                  type="button"
+                  data-testid="dilemma-ability"
+                  aria-expanded={abilityOpen === ability.key}
+                  title={ability.title}
+                  onClick={() => setAbilityOpen((open) => (open === ability.key ? null : ability.key))}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="rounded-md bg-black/90 ring-1 ring-white/70 shadow-md px-1.5 py-0.5 text-[9px] font-semibold leading-tight text-text-primary focus:outline-hidden"
+                  style={NO_CALLOUT_STYLE}
+                >
+                  {ability.name}
+                </button>
+                {abilityOpen === ability.key &&
+                  ability.picks.map((pick) => (
+                    <button
+                      key={pick.key}
+                      type="button"
+                      data-testid="dilemma-ability-pick"
+                      onClick={() => {
+                        setAbilityOpen(null);
+                        pick.onPick();
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="rounded-md bg-black/90 ring-1 ring-white/40 px-1 py-0.5 text-left text-[9px] leading-tight text-text-primary focus:outline-hidden"
+                      style={NO_CALLOUT_STYLE}
+                    >
+                      {pick.text}
+                    </button>
+                  ))}
+              </Fragment>
+            ))}
           {selectAgain && !resolved && (
             <button
               type="button"
@@ -2525,7 +2577,7 @@ function PracticeDrawContent() {
   // reveals the top four of the bot's dilemma pile, costs 5 less the dual dilemmas among them, and puts the
   // four on the bottom in one `batch`; the page opens the dilemma pile's reveal panel at the bottom on them.
   // `?fixture=bot-roadblock` (#1789) deals it with Self-Replicating Roadblock at the end of the hand instead.
-  const botExtraTsv = fixture === 'bot-costs' ? PRACTICE_BOT_COSTS_TSV : fixture === 'bot-roadblock' ? PRACTICE_BOT_ROADBLOCK_TSV : fixture === 'bot-select-again' ? PRACTICE_BOT_SELECT_AGAIN_TSV : null;
+  const botExtraTsv = fixture === 'bot-costs' ? PRACTICE_BOT_COSTS_TSV : fixture === 'bot-roadblock' ? PRACTICE_BOT_ROADBLOCK_TSV : fixture === 'bot-select-again' ? PRACTICE_BOT_SELECT_AGAIN_TSV : fixture === 'bot-drills' ? PRACTICE_BOT_DRILLS_TSV : null;
   const isBotCostsFixture = botExtraTsv !== null;
   const isBotFixture = fixture === 'bot' || isBotCostsFixture || botRevealFixture !== null;
   const isFixture =
@@ -3128,6 +3180,55 @@ function PracticeDrawContent() {
         },
       }
     : undefined;
+  // The attempt abilities of the table (#1835). A "while facing a dilemma" one (#1959, Security Drills) is offered on
+  // the revealed dilemma, not on the strip: one pick per personnel, and per skill it has for a `gainSkill` step. A
+  // pick whose cost takes a card shows that pick in the panel first, as an order's does; page state, not saved.
+  const abilityOffers = attemptAbilitiesOf(game);
+  type AbilityUse = { id: string; index: number; targetId: string; skill?: string };
+  const [abilityChoice, setAbilityChoice] = useState<AbilityUse | null>(null);
+  const offerOf = (use: AbilityUse): AttemptAbilityOffer | undefined =>
+    abilityOffers.find(
+      (o) =>
+        o.id === use.id &&
+        o.ability.index === use.index &&
+        o.targetId === use.targetId &&
+        (use.skill === undefined || gainSkillOptionsOf(table, o.targetId).includes(use.skill)),
+    );
+  const choosingAbility = abilityChoice ? (offerOf(abilityChoice) ?? null) : null;
+  const choosingAbilityInstance = choosingAbility ? findInstanceAnywhere(table, choosingAbility.id)?.instance : undefined;
+  const dispatchAbility = (use: AbilityUse) => dispatch({ type: 'useAttemptAbility', ...use });
+  const startAbility = (o: AttemptAbilityOffer, use: AbilityUse) => {
+    if (o.ability.cost && costNeedsPick(o.ability.cost)) setAbilityChoice(use);
+    else dispatchAbility(use);
+  };
+  const abilityCostStep: ResolveStep | undefined =
+    abilityChoice && choosingAbility?.ability.cost
+      ? {
+          step: 'orderCost',
+          ...orderCostWords(choosingAbility.ability.cost),
+          count: costPickCount(choosingAbility.ability.cost),
+          cards: costCandidates(table, choosingAbility.ability.cost, choosingAbility.id, attemptingGroupOf(table)?.cards),
+          onPay: (ids) => {
+            setAbilityChoice(null);
+            dispatch({ type: 'useAttemptAbility', ...abilityChoice, ids });
+          },
+        }
+      : undefined;
+  const facingAbilities = (() => {
+    const byCard = new Map<string, { key: string; name: string; title: string; picks: { key: string; text: string; onPick: () => void }[] }>();
+    for (const o of abilityOffers) {
+      if (windowOf(o.ability) !== 'facingDilemma') continue;
+      const key = `${o.id}:${o.ability.index}`;
+      const entry = byCard.get(key) ?? { key, name: o.name, title: `${o.name}: ${o.ability.text}`, picks: [] };
+      byCard.set(key, entry);
+      const base = { id: o.id, index: o.ability.index, targetId: o.targetId };
+      const uses: { use: AbilityUse; text: string }[] = gainsSkill(o.ability)
+        ? gainSkillOptionsOf(table, o.targetId).map((skill) => ({ use: { ...base, skill }, text: `${o.targetName} gains ${skill}` }))
+        : [{ use: base, text: `${o.targetName}: ${o.ability.label}` }];
+      for (const { use, text } of uses) entry.picks.push({ key: `${o.targetId}:${use.skill ?? ''}`, text, onPick: () => startAbility(o, use) });
+    }
+    return [...byCard.values()].filter((a) => a.picks.length > 0);
+  })();
   // Issue #1342: a drag from the row of the attempting personnel that holds over View full table
   // switches to the full table mid-drag. The attempt layout then stays mounted, parked, until that
   // drag ends: hidden, with only the row, so the node the press started on stays in the document
@@ -3633,10 +3734,10 @@ function PracticeDrawContent() {
   };
   // The card `?fixture=bot-costs` adds (#1738): Ptol, at the end of the hand.
   // `?fixture=bot-select-again` (#1847): Let's Try That Again at the end of the core, Dessert Disaster at
-  // the end of the hand.
+  // the end of the hand. `?fixture=bot-drills` (#1959): Security Drills at the end of the core.
   const botCostsFixtureExtras = () => {
     const rows = extractDrawDeck(deckFromTsv(botExtraTsv ?? '', data));
-    const inCore = (r: any) => r.originalName === SELECT_AGAIN_TITLE;
+    const inCore = (r: any) => r.originalName === SELECT_AGAIN_TITLE || r.originalName === SECURITY_DRILLS_TITLE;
     return { hand: [] as any[], crew: [] as any[], core: rows.filter(inCore), lateHand: rows.filter((r: any) => !inCore(r)) };
   };
   const fixtureDeck = (): DeckList => {
@@ -5319,7 +5420,7 @@ function PracticeDrawContent() {
                   viewFullTableHoldEnabled={viewFullTableHoldEnabled}
                   modifiersText={attemptModifiersText(table)}
                   donePrompt={attemptDonePromptText(table)}
-                  abilities={attemptAbilitiesOf(game).map((o) => ({
+                  abilities={abilityOffers.filter((o) => windowOf(o.ability) !== 'facingDilemma').map((o) => ({
                     key: `${o.id}:${o.ability.index}:${o.targetId}`,
                     cardId: o.id,
                     label: `${o.name.split(' ')[0]}: ${o.ability.label}`,
@@ -5386,6 +5487,7 @@ function PracticeDrawContent() {
                       onSelectAgain={() => selectAgainEvent && dispatch({ type: 'selectAgain', eventId: selectAgainEvent.id })}
                       replacePicks={replacePicks}
                       onReplacePick={(from, to) => replaceOptions && dispatch({ type: 'replacePick', cardId: replaceOptions.cardId, from, to })}
+                      abilities={facingAbilities}
                     />
                     )
                   }
@@ -6030,6 +6132,25 @@ function PracticeDrawContent() {
                   endable: false,
                   skippable: false,
                   onEnd: () => setOrderChoice(null),
+                }}
+              />
+            )}
+            {/* A "while facing a dilemma" ability (#1959): the pick of its cost, with Cancel; the use then needs no panel. */}
+            {choosingAbility && choosingAbilityInstance && abilityCostStep && (
+              <ResolvingPanel
+                instance={choosingAbilityInstance}
+                hidden={draggingInstance !== null}
+                escapeActive={!gameMenuOpen}
+                onCancel={() => setAbilityChoice(null)}
+                onViewTable={() => setAbilityChoice(null)}
+                step={abilityCostStep}
+                played={{
+                  text: choosingAbility.ability.text,
+                  condition: null,
+                  started: false,
+                  endable: false,
+                  skippable: false,
+                  onEnd: () => setAbilityChoice(null),
                 }}
               />
             )}
