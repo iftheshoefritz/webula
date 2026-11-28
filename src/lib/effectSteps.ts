@@ -353,7 +353,8 @@ export function downloadTakes(of: { test: DownloadTest[] }, card: DownloadedCard
   const title = cardTitleOf(String(card.name ?? '')).toLowerCase();
   const affiliation = String(card.affiliation ?? '').toLowerCase();
   const icons: string[] = String(card.icons ?? '').toLowerCase().match(/\[[a-z0-9]+\]/g) ?? [];
-  const keywords = words(card.keywords);
+  // A keyword with a value ("Decay: 3.") counts as its name too, "decay", for "a Decay event" (#1960).
+  const keywords = words(card.keywords).flatMap((k) => (k.includes(':') ? [k, k.slice(0, k.indexOf(':')).trim()] : [k]));
   const species = String(card.species ?? '')
     .toLowerCase()
     .split('/')
