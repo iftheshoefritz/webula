@@ -120,6 +120,19 @@ export const ATTEMPT_ABILITIES: readonly AttemptAbility[] = [
     limit: ONCE_EACH_TURN,
     steps: [{ kind: 'modify', target: 'self', changes: PERSONNEL_PLUS(2) }, { kind: 'killAtEndOfTurn' }],
   },
+  // An event of the core (#1959). The page offers it on the revealed dilemma, before Resolve: a use is allowed only
+  // before a dilemma's first action or after its last ("2. Execute Orders" › "Facing Dilemmas", p. 11), and the bot's
+  // Resolve applies them all in one press.
+  {
+    title: 'Security Drills',
+    index: 0,
+    text: 'While your personnel is facing a dilemma, you may place a [Fed] card from hand on this event to make that personnel gain a skill he or she already has until the end of that dilemma.',
+    label: 'Gain a skill',
+    window: 'facingDilemma',
+    source: 'core',
+    cost: { kind: 'placeFromHandOnThis', test: [{ affiliations: ['federation'] }], text: 'a [Fed] card from hand' },
+    steps: [{ kind: 'gainSkill', target: 'chosenPersonnel' }],
+  },
 ];
 
 const BY_TITLE = new Map<string, AttemptAbility[]>();

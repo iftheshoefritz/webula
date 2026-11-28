@@ -286,7 +286,8 @@ export interface Attempt {
   // A bot game's setting "Apply card text to attributes" (#1668) as the bot chose its stack (#1665):
   // the bot reads the attributes on the table when it is on. The `botAttempt` action carries it from
   // the page, and every later bot read of the attempt takes it from here, so a change of the setting
-  // takes effect at the next attempt. Absent: off, as in a save from before #1665.
+  // takes effect at the next attempt; a fixture's `startAttempt` may carry it too (#1959). Absent: off, as in
+  // a save from before #1665.
   cardText?: true;
   // The changes the player's abilities made for the rest of the attempt (#1835), "Weapons +5 until the end of
   // this mission attempt": only `useAttemptAbility` adds one, so one undo takes it back, and it ends with the
@@ -460,7 +461,8 @@ export type TableAction =
   // `draw` and `spend` default to `botDraw`/`botSpend`, else N. `drawCards` (Rigel X, #1759) draws that
   // many cards of the draw deck into the hand, free, fewer when it is short, in the same step, and
   // `changes` names the mission's changes for the log.
-  | ({ type: 'startAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'cardText' | 'draw' | 'spend'> & AttemptStartExtras)
+  // `cardText` sets the attempt's setting at once, for a fixture's bot attempt (#1959, `BotRevealFixture.cardText`).
+  | ({ type: 'startAttempt' } & Omit<Attempt, 'phase' | 'drawn' | 'draw' | 'spend'> & AttemptStartExtras)
   // Switches the attempt in progress to a phase (#1189). To `'face'` it turns every card of the
   // dilemma stack face down and sends every card of the dilemma hand to the bottom of the dilemma
   // pile, face up, in hand order. To `'choose'` it turns the stack face up and moves no card. Does
@@ -1456,6 +1458,7 @@ function reduceTable(state: TableState, action: TableAction): TableState {
           ...(botSpend !== undefined ? { botSpend } : {}),
           phase: 'choose',
           drawn: 0,
+          ...(action.cardText ? { cardText: true as const } : {}),
         },
       };
     }

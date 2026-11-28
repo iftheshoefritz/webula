@@ -585,6 +585,8 @@ export interface BotRevealFixture {
   spend?: number;
   /** The slot attempted with its away team in place of Bilana System's crewed ship (#1761). */
   awayTeamSlot?: number;
+  /** The attempt applies card text to attributes (#1668), whatever the setting, so the bot reads an ability's gain (#1959). */
+  cardText?: true;
 }
 
 // Each is a `?fixture=<key>` of the page, on the `?fixture=bot` table, in `'face'` with no search: the stack
@@ -629,6 +631,11 @@ export const BOT_REVEAL_FIXTURES: Record<string, BotRevealFixture> = {
   // Again in the core and Dessert Disaster in the hand (#1847, `PRACTICE_BOT_SELECT_AGAIN_TSV`), so the preview
   // shows the controls of the kept roll.
   'bot-select-again': { title: 'Hard of Heart', collectorsInfo: '38V004', awayTeamSlot: 0 },
+  // Bynars' Password, "Unless you have a personnel who has 2 Engineer or a personnel who has 2 Programming, …", at
+  // Bilana System's crew, with Security Drills at the end of the core (#1959, `PRACTICE_BOT_DRILLS_TSV`) and the two
+  // [Fed] U.S.S. Relativity in the hand. The preview reads "Stops Data Lucasian Chair *VP"; after Security Drills makes
+  // a personnel with Engineer or Programming gain it, "No effect". The attempt applies card text, so the bot reads it.
+  'bot-drills': { title: "Bynars' Password", collectorsInfo: '1C012', cardText: true },
 };
 
 export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTURE_BOT_LABEL_DILEMMA, spend?: number, awayTeamSlot?: number): {
@@ -641,12 +648,13 @@ export function fixtureBotLabelAttempt(table: TableState, title: string = FIXTUR
   if (!start || !labelled) return null;
   const n = Math.max(0, start.personnel - start.subtract);
   // The fixture's second dilemma, if it has one, goes right under the revealed one (#1598).
-  const nextTitle = Object.values(BOT_REVEAL_FIXTURES).find((f) => f.title === title)?.next?.title;
+  const fixture = Object.values(BOT_REVEAL_FIXTURES).find((f) => f.title === title);
+  const nextTitle = fixture?.next?.title;
   const next = nextTitle ? table.dilemmaPile.find((c) => c.id !== labelled.id && c.card?.originalName?.includes(nextTitle)) : undefined;
   const rest = table.dilemmaPile.filter((c) => c.id !== labelled.id && c.id !== next?.id);
   const under = [...(next ? [next] : []), ...rest].slice(0, FIXTURE_DILEMMA_STACK - 1);
   return {
-    start: { ...start, botDraw: n, botSpend: spend ?? n },
+    start: { ...start, botDraw: n, botSpend: spend ?? n, ...(fixture?.cardText ? { cardText: true as const } : {}) },
     stack: [labelled, ...under].map((c) => ({ type: 'move', id: c.id, to: 'dilemmaStack' })),
     revealId: labelled.id,
   };
