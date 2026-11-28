@@ -86,7 +86,8 @@ export const modelledToday: ModelledBy = (concern, title, card, clause) => {
     }
     case 'trigger':
     case 'interrupt':
-      return TRIGGERS.has(key);
+      // A "While … facing a dilemma" attempt ability (#1959, Security Drills) starts a clause as a trigger does.
+      return TRIGGERS.has(key) || ATTEMPT_ABILITIES.has(key);
     default:
       return false;
   }
@@ -254,6 +255,8 @@ describe('the coverage report', () => {
     expect(triggers('Li Nalas Legend of Bajor')).toEqual([true]);
     // A `botDeck` row since #1906.
     expect(triggers('Unexpected Difficulties')).toEqual([true]);
+    // A "While … facing a dilemma" row of the attempt abilities since #1959.
+    expect(triggers('Security Drills')).toEqual([true]);
   });
 
   it('finds the shipped models in the shipped decks', () => {
