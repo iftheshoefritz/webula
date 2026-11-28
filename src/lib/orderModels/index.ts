@@ -15,6 +15,9 @@
 //   equipment present on the bottom of its owner's deck".
 // - `placeFromDiscardOnThis`: one card of the discard pile that passes a test, placed on the order's own card,
 //   "Place a personnel from your discard pile on this event" (#1837).
+// - `placeFromHandOnThis`: one card of the hand that passes a test, placed on the ability's own card, "place a [Fed]
+//   card from hand on this event" (#1957). The card comes from outside play, so it is not in play (#1943).
+// An attempt ability's row (`src/lib/attemptAbilities/`) may carry a cost of this same type, paid the same way.
 // Next, for the orders still in the backlog: stop this card, destroy this card, lose points, return this card to
 // hand, and the choice of one of several effects.
 //
@@ -34,7 +37,8 @@ export type OrderCost =
   | { kind: 'stopPersonnel'; test: DownloadTest[]; text: string; present?: true }
   | { kind: 'placeThisOnBottom' }
   | { kind: 'placePresentOnBottom'; types: string[]; text: string }
-  | { kind: 'placeFromDiscardOnThis'; test: DownloadTest[]; text: string };
+  | { kind: 'placeFromDiscardOnThis'; test: DownloadTest[]; text: string }
+  | { kind: 'placeFromHandOnThis'; test: DownloadTest[]; text: string };
 
 export type OrderCostKind = OrderCost['kind'];
 
@@ -192,7 +196,11 @@ export const orderStagesOf = (model: OrderModel): EffectStage[] => stagesOf(mode
 
 /** Whether the cost asks the player for cards: a discard, a personnel to stop, a card present to place. */
 export const costNeedsPick = (cost: OrderCost): boolean =>
-  cost.kind === 'discardFromHand' || cost.kind === 'stopPersonnel' || cost.kind === 'placePresentOnBottom' || cost.kind === 'placeFromDiscardOnThis';
+  cost.kind === 'discardFromHand' ||
+  cost.kind === 'stopPersonnel' ||
+  cost.kind === 'placePresentOnBottom' ||
+  cost.kind === 'placeFromDiscardOnThis' ||
+  cost.kind === 'placeFromHandOnThis';
 
 /** How many cards the cost's pick takes. */
 export const costPickCount = (cost: OrderCost): number => (cost.kind === 'discardFromHand' ? cost.count : costNeedsPick(cost) ? 1 : 0);

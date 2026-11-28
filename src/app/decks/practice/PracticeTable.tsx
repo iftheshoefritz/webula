@@ -6134,6 +6134,6 @@ function orderCostWords(cost: OrderCost): { task: string; action: string } {
   if (cost.kind === 'discardFromHand') return { task: `Discard ${cost.count === 1 ? cost.text : `${cost.count} × ${cost.text}`} from your hand`, action: 'Discard' };
   if (cost.kind === 'stopPersonnel') return { task: `Stop ${cost.text}`, action: 'Stop' };
   if (cost.kind === 'placePresentOnBottom') return { task: `Place ${cost.text} on the bottom of your draw deck`, action: 'Place on bottom' };
-  if (cost.kind === 'placeFromDiscardOnThis') return { task: `Place ${cost.text} on this card`, action: 'Place' };
+  if (cost.kind === 'placeFromDiscardOnThis' || cost.kind === 'placeFromHandOnThis') return { task: `Place ${cost.text} on this card`, action: 'Place' };
   return { task: '', action: 'Use' };
 }
