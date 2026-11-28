@@ -28,7 +28,7 @@ import { tableViewOf } from '../../../app/decks/practice/tableView';
 import { costFactsSource } from '../../../lib/costModels/factsSource';
 import { requirementTextsOf } from '../../../lib/requirementRules';
 import { cardDisplayName } from '../../../lib/cardCount';
-import { cardTitleOf } from '../../../lib/cardTitle';
+import { cardTitleOf, rowCardTitleOf } from '../../../lib/cardTitle';
 import { DECK_TOP_FACTS } from '../../../lib/costModels/model';
 import type { CommandedTraits, CostCoreCard, CostEventCard, CostFacts, CostMission, CostShip, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
@@ -60,7 +60,7 @@ const iconsOf = (affiliation: string): string[] => (/^(\[[a-z0-9]+\])+$/.test(af
 const regionsOf = (keywords: string): string[] => [...keywords.matchAll(/region:\s*([^.;]+)/g)].map((m) => m[1].trim());
 
 const personnelTraitsOf = (cards: CardInstance[]): CommandedTraits[] =>
-  cards.flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y' }] : []));
+  cards.flatMap((c) => (c.card?.type === 'personnel' ? [{ ...partnerTraitsOf(c.card), unique: String(c.card.unique ?? '').toLowerCase() === 'y', cardTitle: rowCardTitleOf(c.card) }] : []));
 
 const slotCards = (s: MissionSlot): CardInstance[] => [...s.awayTeam, ...s.ships.flatMap((ship) => ship.crew ?? [])];
 
@@ -90,6 +90,8 @@ function costMissionOf(slot: MissionSlot, requirements: string): CostMission {
   return {
     completed: slot.completed === true,
     name: card ? cardDisplayName(card) : '',
+    // The card title, which a card names (#1985).
+    ...(card ? { cardTitle: rowCardTitleOf(card) } : {}),
     requirements: card ? requirements : '',
     points: Number.isFinite(points) ? points : 0,
     type: text(card?.missiontype).charAt(0),

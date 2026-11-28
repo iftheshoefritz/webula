@@ -191,8 +191,9 @@ describe('Quark True Ferengi (#1683)', () => {
 describe('Tog Lecherous DaiMon (#1683)', () => {
   const tog = () => personnel('Tog Lecherous DaiMon', { affiliation: 'ferengi' });
   const under = (n: number) => Array.from({ length: n }, () => card('Dilemma', 'dilemma'));
+  // The mission's card title, which Tog names (#1985): "Ferenginar" for Ferenginar Financial Hub.
   const tableWith = (t: CardInstance, name: string, n: number) =>
-    tableOf(slotsOf([{ mission: mission('Here'), awayTeam: [t] }, { mission: mission(name), underMission: under(n) }]));
+    tableOf(slotsOf([{ mission: mission('Here'), awayTeam: [t] }, { mission: card(name, 'mission', { points: '35', missiontype: 'p', title: name.split(' ')[0] }), underMission: under(n) }]));
 
   it('is attributes +1 with four cards beneath Ferenginar', () => {
     const t = tog();

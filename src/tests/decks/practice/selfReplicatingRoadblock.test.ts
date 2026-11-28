@@ -167,4 +167,20 @@ describe('the bot reads the named dilemma (#1789)', () => {
     const t = tableReducer(table({ placed, hand: [], stack: [dilemma('d2', 'Wavefront')], attempt: true }), { type: 'flip', id: 'd2' });
     expect(roadblockReturnOf(t)).toBeNull();
   });
+
+  // "When you name a card, you do so by card title only, not subtitle." (Glossary › naming cards, p. 18, #1974)
+  it('returns a dilemma by its card title, in any case, and not one whose name only starts with it', () => {
+    const titled = card('d3', { type: 'dilemma', name: 'test snag', originalName: 'Test Snag', title: 'test snag', originalTitle: 'Test Snag', cost: '2' }, { face: 'down' });
+    const named = [{ ...roadblock(), named: 'TEST SNAG' }];
+    const t = tableReducer(table({ placed: named, hand: [], stack: [titled], attempt: true }), { type: 'flip', id: 'd3' });
+    expect(roadblockReturnOf(t)).toBe(ROADBLOCK_TITLE);
+    const longer = card('d4', { type: 'dilemma', name: 'test snag again', originalName: 'Test Snag Again', title: 'test snag again', cost: '2' }, { face: 'down' });
+    const u = tableReducer(table({ placed: named, hand: [], stack: [longer], attempt: true }), { type: 'flip', id: 'd4' });
+    expect(roadblockReturnOf(u)).toBeNull();
+  });
+
+  it('offers card titles in their printed case, and finds a Roadblock by its card title', () => {
+    const subtitled = card('x', { type: 'dilemma', name: 'test snag (promo)', originalName: 'Test Snag (Promo)', title: 'test snag', originalTitle: 'Test Snag' }).card;
+    expect(nameableCardTitles([], [subtitled, roadblock().card])).toEqual(['Test Snag', ROADBLOCK_TITLE]);
+  });
 });

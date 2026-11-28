@@ -97,7 +97,10 @@ const card = (id: string, row: Record<string, unknown>): CardInstance => ({
   card: { collectorsinfo: id, imagefile: id, unique: 'n', gametext: '', cost: '1', ...row } as CardInstance['card'],
   face: 'up',
 });
-const mission = (id: string, name: string, missiontype = 'p') => card(id, { type: 'mission', name: name.toLowerCase(), originalName: name, missiontype });
+const mission = (id: string, name: string, missiontype = 'p') =>
+  card(id, { type: 'mission', name: name.toLowerCase(), originalName: name, missiontype, ...(TITLES[name] ? { title: TITLES[name] } : {}) });
+// The card titles of the invented missions with a subtitle: a card names another by its card title (#1985).
+const TITLES: Record<string, string> = { 'Unicomplex Root of the Hive Mind': 'unicomplex', 'Nimbus III Staff Backwater Embassy': 'nimbus iii' };
 const person = (id: string, name: string, unique = 'n') => card(id, { type: 'personnel', name: name.toLowerCase(), originalName: name, unique });
 
 function invented(over: Partial<TableState> & { names?: string[]; awayTeam?: CardInstance[] }): TableState {

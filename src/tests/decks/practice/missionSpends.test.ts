@@ -23,8 +23,9 @@ const card = (id: string, row: Record<string, unknown>, extra: Partial<CardInsta
   face: 'up',
   ...extra,
 });
+// A Unicomplex names its card title, "Unicomplex" (#1985).
 const mission = (id: string, name: string, missiontype = 'p') =>
-  card(id, { type: 'mission', name: name.toLowerCase(), originalName: name, missiontype });
+  card(id, { type: 'mission', name: name.toLowerCase(), originalName: name, missiontype, ...(name.startsWith('Unicomplex ') ? { title: 'Unicomplex' } : {}) });
 const person = (id: string, name: string, icons = '', cost = 1) =>
   card(id, { type: 'personnel', name: name.toLowerCase(), originalName: name, cost: String(cost), icons, affiliation: 'federation' });
 const deckCard = (id: string) => card(id, { type: 'event', name: `card ${id}`, originalName: `Card ${id}`, cost: '1' }, { face: 'down' });

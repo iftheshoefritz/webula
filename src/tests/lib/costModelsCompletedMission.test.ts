@@ -105,6 +105,7 @@ describe('costFactsOf missions (#1694)', () => {
     expect(result?.[0]).toEqual({
       completed: true,
       name: 'Invented Planet',
+      cardTitle: 'invented planet',
       requirements: 'diplomacy or leadership, 2 security',
       points: 35,
       type: 'p',

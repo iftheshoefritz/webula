@@ -2,7 +2,7 @@
 // models of #1635 and #1664 read them: a word inside a field, not the view's whole-value traits. A module of
 // its own, so the rows and the practice table's instance helpers (`rangeModels.ts`) share them.
 
-import { cardTitleOf } from '../cardTitle';
+import { cardTitleOf, rowCardTitleOf } from '../cardTitle';
 import { personnel, type TableView, type ViewCard, type ViewTableCard } from '../tableView';
 
 const words = (field: unknown): string[] => String(field ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean);
@@ -14,14 +14,11 @@ export const hasWord = (field: unknown, word: string): boolean => words(field).i
 export const rowTitleKey = (row: any): string => cardTitleOf(String(row?.originalName ?? row?.name ?? '')).toLowerCase();
 
 /**
- * Whether a row is the card of the lore name in braces, such as {Remus}: its title is the name, or the name
- * followed by the mission's subtitle ("Remus Supervise Dilithium Mine").
+ * Whether a row is the card of the lore name in braces, such as {Remus}: its card title (`rowCardTitleOf`) is the
+ * name, in any case. "When you name a card, you do so by card title only, not subtitle." (Glossary › naming
+ * cards, p. 18), so Remus, Watch Post is {Remus} and Remus Station is not.
  */
-export const rowIsNamed = (row: any, name: string): boolean => {
-  const title = rowTitleKey(row);
-  const lore = name.toLowerCase();
-  return title === lore || title.startsWith(`${lore} `);
-};
+export const rowIsNamed = (row: any, name: string): boolean => rowCardTitleOf(row) === name.toLowerCase();
 
 /** A mission's quadrant, `'a'`, `'d'` or `'g'`, or `''` for a row with none. */
 export const rowQuadrant = (row: any): string => String(row?.quadrant ?? '').trim().toLowerCase();

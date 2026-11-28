@@ -14,6 +14,7 @@ const missionsOf = (facts: CostFacts): SourceMission[] =>
     completed: m.completed,
     ...(m.flipped ? { flipped: true } : {}),
     name: m.name,
+    ...(m.cardTitle !== undefined ? { cardTitle: m.cardTitle } : {}),
     requirements: m.requirements,
     points: m.points,
     type: m.type,

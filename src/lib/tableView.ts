@@ -12,7 +12,7 @@
 // ones too. So every selector of personnel takes `unstopped`, never a default. The brig is outside every
 // selector; the view keeps it, with its ownership gap ("in play").
 
-import { cardTitleOf } from './cardTitle';
+import { cardTitleOf, rowCardTitleOf } from './cardTitle';
 import { isCommanderOf } from './commander';
 import { SKILL_INDEX } from './dilemmaBot/requirements';
 import type { PartnerTraits } from './dilemmaBot/gains';
@@ -30,8 +30,16 @@ export type ViewRow = any;
 /** Any card of the view: its instance id, its title (`cardTitleOf` of `cardDisplayName`) and its row. */
 export interface ViewCard {
   id: string;
-  /** The title less its version suffix, in the case of the card data's `originalName`. */
+  /**
+   * The name less its version suffix, in the case of the card data's `originalName`: the card title and the
+   * subtitle together, "Remus Watch Post", the key of the per-title registries.
+   */
   title: string;
+  /**
+   * The card title alone, lowercased (`rowCardTitleOf`, #1974): "remus". A card names another by it. Absent, as
+   * in a test's hand-built view, it is read from `row`.
+   */
+  cardTitle?: string;
   /** The lowercased type, "personnel". */
   type: string;
   /** The printed cost, 0 when it has none. */
@@ -81,6 +89,8 @@ export interface ViewMission {
   card: ViewCard | null;
   /** The display name, "Celtris III" ("" in an empty slot). */
   name: string;
+  /** The card title of the mission card, lowercased (`rowCardTitleOf`): "celtris iii" ("" in an empty slot). */
+  cardTitle?: string;
   /** The requirement text, lowercased, as the cards in play change it (`requirementTextsOf`, Crescent Nebula). */
   requirements: string;
   points: number;
@@ -144,6 +154,8 @@ export interface SourcePersonnel extends Omit<PartnerTraits, 'type'> {
   unique?: boolean;
   id?: string;
   title?: string;
+  /** The card title alone, lowercased (`rowCardTitleOf`), as `ViewCard.cardTitle`. */
+  cardTitle?: string;
   stopped?: boolean;
   missionIndex?: number;
   shipId?: string;
@@ -173,6 +185,8 @@ export interface SourceMission {
   completed: boolean;
   flipped?: boolean;
   name: string;
+  /** The card title alone, lowercased (`rowCardTitleOf`): "bajor". Absent, it is `cardTitleOf` of `name`. */
+  cardTitle?: string;
   requirements: string;
   points: number;
   type: string;
@@ -371,7 +385,10 @@ export interface MissionQuery {
   quadrant?: string;
   /** The whole title, `cardTitleOf` of the name in the case of the card data: "Nimbus III Staff Backwater Embassy". */
   title?: string;
-  /** A version of the title in any case: the title is `titled`, or `titled` then its subtitle ("Bajor", "Unicomplex"). */
+  /**
+   * A card title in any case, any version and any subtitle: "Bajor", "Ferenginar". "When you name a card, you do so
+   * by card title only, not subtitle." (Glossary › naming cards, p. 18)
+   */
   titled?: string;
   where?: (m: SourceMission) => boolean;
 }
@@ -413,10 +430,17 @@ export function events(reader: TableReader, q: EventQuery = {}): SourceEvent[] {
     .filter((e) => (q.keyword === undefined || e.keywords.includes(q.keyword.toLowerCase())) && (!q.where || q.where(e)));
 }
 
-const isTitled = (title: string, name: string): boolean => {
-  const t = title.toLowerCase();
-  const n = name.toLowerCase();
-  return t === n || t.startsWith(`${n} `);
+/** Whether a card title (`rowCardTitleOf`, lowercased) is the named title `name`, in any case (Glossary › naming cards, p. 18). */
+const isTitled = (cardTitle: string, name: string): boolean => cardTitle === name.toLowerCase();
+
+/** The card title of a view card, lowercased: its `cardTitle`, else read from its row. */
+export const viewCardTitleOf = (c: ViewCard): string => c.cardTitle ?? rowCardTitleOf(c.row);
+
+/** The card title of a mission slot, lowercased: its `cardTitle`, else its view card's, else `cardTitleOf` of its name. */
+const missionCardTitleOf = (m: SourceMission | ViewMission): string => {
+  if (m.cardTitle !== undefined) return m.cardTitle;
+  const card = 'card' in m ? m.card : null;
+  return card ? viewCardTitleOf(card) : cardTitleOf(m.name).toLowerCase();
 };
 
 /** The mission slots that pass `q`; the empty ones only with `includeEmpty`. */
@@ -434,7 +458,7 @@ export function missions(reader: TableReader, q: MissionQuery = {}): SourceMissi
         (q.type === undefined || m.type === q.type.toLowerCase()) &&
         (q.quadrant === undefined || m.quadrant === q.quadrant.toLowerCase()) &&
         (q.title === undefined || cardTitleOf(m.name) === q.title) &&
-        (q.titled === undefined || isTitled(cardTitleOf(m.name), q.titled)) &&
+        (q.titled === undefined || isTitled(missionCardTitleOf(m), q.titled)) &&
         (!q.where || q.where(m))
     );
 }
@@ -611,12 +635,13 @@ export function commandsNone(selection: Selection | Selection[], options: Requir
 }
 
 /**
- * "You must command {<name>}" (#1916, They're Still Coming Through!'s {To Rule in Hell}): a card of that title, or
- * of the title then its subtitle, in play (`inPlay`). It reads a table view; a `CostFacts` source never holds it.
+ * "You must command {<name>}" (#1916, They're Still Coming Through!'s {To Rule in Hell}): a card of that card title,
+ * any subtitle, in play (`inPlay`). "When you name a card, you do so by card title only, not subtitle." (Glossary ›
+ * naming cards, p. 18) It reads a table view; a `CostFacts` source never holds it.
  */
 export function commandsCardTitled(name: string, options: ConditionOptions = {}): Condition {
   return condition(
-    (reader) => !isSource(reader) && inPlay(reader).some((c) => isTitled(c.title, name)),
+    (reader) => !isSource(reader) && inPlay(reader).some((c) => isTitled(viewCardTitleOf(c), name)),
     () => `you command {${name}}`,
     options
   );

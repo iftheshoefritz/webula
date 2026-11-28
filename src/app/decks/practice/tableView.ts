@@ -5,7 +5,7 @@
 
 import { requirementTextsOf } from '../../../lib/requirementRules';
 import { cardDisplayName } from '../../../lib/cardCount';
-import { cardTitleOf } from '../../../lib/cardTitle';
+import { cardTitleOf, rowCardTitleOf } from '../../../lib/cardTitle';
 import type { CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { personnel, regionsOf } from '../../../lib/tableView';
@@ -37,6 +37,8 @@ export const viewCardOf = (c: CardInstance): ViewCard => ({
   id: c.id,
   // A row with no name, as a test's invented card may have, has the title ''.
   title: c.card ? cardTitleOf(cardDisplayName(c.card) ?? '') : '',
+  // The card title alone, which a card names (#1974): "remus" for Remus, Watch Post.
+  cardTitle: c.card ? rowCardTitleOf(c.card) : '',
   type: text(c.card?.type),
   cost: printedCostOf(c),
   row: c.card,
@@ -84,6 +86,7 @@ function missionOf(slot: MissionSlot, index: number, requirements: string): View
     flipped: slot.mission?.flipped === true,
     card: slot.mission ? viewCardOf(slot.mission) : null,
     name: card ? (cardDisplayName(card) ?? '') : '',
+    cardTitle: card ? rowCardTitleOf(card) : '',
     requirements: card ? requirements : '',
     points: Number.isFinite(points) ? points : 0,
     type: text(card?.missiontype).charAt(0),

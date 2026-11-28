@@ -17,7 +17,8 @@ const charge = (name: string, cost: number, f: CostFacts) => moveCharge('playAnd
 const paKlingon = person({ species: 'Klingon', icons: '[Cmd][Pa]', affiliation: 'klingon' });
 const klingon = person({ species: 'Klingon', icons: '[Cmd]', affiliation: 'klingon' });
 const paHuman = person({ species: 'Human', icons: '[Stf][Pa]', affiliation: 'klingon' });
-const khan = person({ name: 'Khan Noonien Singh Invented Subtitle', species: 'Human', icons: '[Cmd][Pa]' });
+// A card names another by its card title (Glossary › naming cards, p. 18, #1985), which the table reads from the row.
+const khan = { ...person({ name: 'Khan Noonien Singh Invented Subtitle', species: 'Human', icons: '[Cmd][Pa]' }), cardTitle: 'khan noonien singh' };
 
 // Each title with its label, its printed cost and its reduction.
 const KLINGON_TITLES: [string, string, number, number][] = [
@@ -90,16 +91,18 @@ describe('the cost models of a named group (#1701)', () => {
   it('charges Khar −1 while a Kahless is commanded', () => {
     expect(charge('Khar', 2, facts(paKlingon))).toEqual({ kind: 'play', cost: 2 });
     expect(charge('Khar', 2, facts(person({ name: 'Kahlessa' })))).toEqual({ kind: 'play', cost: 2 });
-    for (const name of ['Kahless', 'Kahless Invented Subtitle']) {
-      expect(charge('Khar', 2, facts(person({ name })))).toEqual({ kind: 'play', cost: 1, source: { title: 'Khar', reason: 'you command Kahless' } });
+    expect(charge('Khar', 2, facts(person({ name: 'Kahless Invented Subtitle' })))).toEqual({ kind: 'play', cost: 2 });
+    for (const commanded of [person({ name: 'Kahless' }), { ...person({ name: 'Kahless Invented Subtitle' }), cardTitle: 'kahless' }]) {
+      expect(charge('Khar', 2, facts(commanded))).toEqual({ kind: 'play', cost: 1, source: { title: 'Khar', reason: 'you command Kahless' } });
     }
   });
 });
 
 describe('the Khan personnel played to Ceti Alpha V (#1737)', () => {
-  const mission = (name: string, personnel: CommandedTraits[] = []): CostMission => ({
+  const mission = (name: string, personnel: CommandedTraits[] = [], cardTitle?: string): CostMission => ({
     completed: false,
     name,
+    ...(cardTitle ? { cardTitle } : {}),
     requirements: '',
     points: 35,
     type: 'p',
@@ -110,8 +113,8 @@ describe('the Khan personnel played to Ceti Alpha V (#1737)', () => {
     ships: [{ id: 's1', title: 'Invented Ship', affiliation: '', icons: [] }],
   });
   // Khan is at mission 0, so he is commanded wherever the play lands.
-  const table = (cetiName: string, withKhan = true): CostFacts => {
-    const missions = [mission('An Invented Mission', withKhan ? [khan] : [paHuman]), mission(cetiName)];
+  const table = (cetiName: string, withKhan = true, cardTitle = 'ceti alpha v'): CostFacts => {
+    const missions = [mission('An Invented Mission', withKhan ? [khan] : [paHuman]), mission(cetiName, [], cardTitle)];
     return { commanded: missions.flatMap((m) => m.personnel ?? []), core: [], hand: [], missions };
   };
   const chargeAt = (name: string, printed: number, f: CostFacts, to: CostDestination, place: 'awayTeam' | 'crew' = 'awayTeam') =>
@@ -149,6 +152,6 @@ describe('the Khan personnel played to Ceti Alpha V (#1737)', () => {
     expect(chargeAt(name, 3, table(ceti), { missionIndex: 0 })).toEqual({ kind: 'play', cost: 3 });
     expect(chargeAt(name, 3, table(ceti), {})).toEqual({ kind: 'play', cost: 3 });
     expect(chargeAt(name, 3, table(ceti, false), { missionIndex: 1 })).toEqual({ kind: 'play', cost: 3 });
-    expect(chargeAt(name, 3, table('Ceti Alpha Vista Invented'), { missionIndex: 1 })).toEqual({ kind: 'play', cost: 3 });
+    expect(chargeAt(name, 3, table('Ceti Alpha Vista Invented', true, 'ceti alpha vista invented'), { missionIndex: 1 })).toEqual({ kind: 'play', cost: 3 });
   });
 });

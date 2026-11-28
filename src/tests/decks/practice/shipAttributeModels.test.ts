@@ -134,7 +134,7 @@ describe('Erika Hernandez Comparable Captain (#1671)', () => {
 
   it('makes the Columbia she is aboard +2, in every version', () => {
     for (const name of ['Columbia The Second Warp Five Ship', 'Columbia The Second Warp Five Ship *VP']) {
-      const c = ship(name, [erika()], { affiliation: 'starfleet' });
+      const c = ship(name, [erika()], { affiliation: 'starfleet', title: 'Columbia' });
       expect(read(withShip(c), c)).toEqual(plus(2));
       expect(read(withShip(c), c, false)).toEqual(PRINTED);
     }
