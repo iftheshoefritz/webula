@@ -10,7 +10,7 @@ import {
   tableConditionHolds,
 } from './gains';
 import { BOT_SKILLS, RequirementPersonnel, SKILL_INDEX } from './requirements';
-import { cardTitleOf } from '../cardTitle';
+import { cardTitleOf, rowCardTitleOf } from '../cardTitle';
 
 // The personnel of the dilemma bot (#1282, #1287): each attempting card as the profiles the pile
 // bot's play reads (`pile/play.ts`), the partner gains settled against the group, and the seeded
@@ -98,6 +98,8 @@ const listOf = (value: string | number | undefined, separator: string) =>
 /** The fields of a card row that `partnerTraitsOf` reads. */
 export interface TraitsRow {
   name: string;
+  /** The card title (#1971); a row with none reads its name less the version suffix. */
+  title?: string;
   skills?: string | number;
   affiliation?: string | number;
   species?: string | number;
@@ -121,6 +123,7 @@ function baseSkillsOf(text: string | number | undefined): number[] {
 export function partnerTraitsOf(card: TraitsRow, skills: number[] = baseSkillsOf(card.skills)): PartnerTraits {
   return {
     name: card.name.toLowerCase(),
+    cardTitle: rowCardTitleOf(card),
     affiliation: String(card.affiliation ?? '').toLowerCase(),
     species: listOf(card.species, '/'),
     keywords: listOf(card.keywords, '.'),

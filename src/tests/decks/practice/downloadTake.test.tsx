@@ -90,9 +90,9 @@ describe('the download models (#1810)', () => {
 
   it('reads a title, a type, an icon, a keyword, a species and a skill', () => {
     const cards = [
-      deckCard('ret', { type: 'interrupt', name: 'retaliation' }),
-      deckCard('kah', { type: 'personnel', name: 'kahless the unforgettable' }),
-      deckCard('kahe', { type: 'event', name: 'kahless the unforgettable' }),
+      deckCard('ret', { type: 'interrupt', name: 'retaliation', title: 'retaliation' }),
+      deckCard('kah', { type: 'personnel', name: 'kahless the unforgettable', title: 'kahless' }),
+      deckCard('kahe', { type: 'event', name: 'kahless the unforgettable', title: 'kahless the unforgettable' }),
       deckCard('maq', { type: 'ship', icons: '[maq]' }),
       deckCard('inf', { type: 'event', keywords: 'capture. infiltration.' }),
       deckCard('chg', { type: 'personnel', species: 'changeling' }),
@@ -109,7 +109,7 @@ describe('the download models (#1810)', () => {
     expect(passing("Chu'lak Calculating Killer", cards)).toEqual(['hw']);
     expect(passing('Kargan Rash Captain')).toEqual(['e1']);
     expect(passing('Mavek Science Officer')).toEqual(['q1']);
-    expect(passing('Haakona', [deckCard('ec', { type: 'interrupt', name: 'engage cloak' }), deckCard('pu', { type: 'event', keywords: 'pursuit.' })])).toEqual(['ec', 'pu']);
+    expect(passing('Haakona', [deckCard('ec', { type: 'interrupt', name: 'engage cloak', title: 'engage cloak' }), deckCard('pu', { type: 'event', keywords: 'pursuit.' })])).toEqual(['ec', 'pu']);
   });
 
   it("Picard's condition: each non-headquarters mission requires Biology", () => {

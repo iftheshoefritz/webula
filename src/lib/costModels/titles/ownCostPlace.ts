@@ -1,4 +1,5 @@
 import { isCommanderOf } from '../../commander';
+import { cardTitleOf } from '../../cardTitle';
 import { SKILL_INDEX } from '../../dilemmaBot/requirements';
 import { CostChange } from '../../modifiers/model';
 import { CommandedTraits, CostFacts, CostMission, CostModel, CostPlay, CostShip } from '../model';
@@ -101,7 +102,7 @@ export const OWN_COST_PLACE_MODELS: CostModel[] = [
     { title: 'Captain on the Bridge', family: 'ownCost' },
     inCore(({ play, facts }) => {
       const ship = play.type === 'personnel' ? shipOf(play, facts) : undefined;
-      return ship && isCommanderOf((play.keywords ?? []).join('. '), ship.title)
+      return ship && isCommanderOf((play.keywords ?? []).join('. '), ship.cardTitle ?? cardTitleOf(ship.title))
         ? { cost: play.printed - 1, reason: `commands ${ship.title}` }
         : null;
     })
