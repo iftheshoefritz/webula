@@ -106,7 +106,7 @@ describe('CardSearchClient', () => {
 
     render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-    expect(screen.getAllByText('1 card, 1 version').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1 title, 1 card').length).toBeGreaterThan(0);
   });
 
   it('renders a zero-result count when the search matches nothing', () => {
@@ -114,7 +114,7 @@ describe('CardSearchClient', () => {
 
     render(<CardSearchClient data={mockCardData} columns={mockColumns} />);
 
-    expect(screen.getAllByText('0 cards, 0 versions').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('0 titles, 0 cards').length).toBeGreaterThan(0);
   });
 
   it('passes useWindowScroll=true to SearchResults for window-based scrolling', () => {

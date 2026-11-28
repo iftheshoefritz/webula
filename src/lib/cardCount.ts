@@ -19,17 +19,33 @@ export function cardDisplayName(card: CardRow): string {
 }
 
 /**
- * Counts search results, collapsing the versions (reprints) of the same
- * card into a single unique entry while still reporting the raw total.
+ * The title to show for a card's game identity: `originalTitle` (#1971), or, for a row without
+ * it, such as a test fixture, the name less its version suffix. A title never holds a suffix, so
+ * the versions of a card share it, and so do two personas or two missions with one title.
  */
-export function getCardCounts(cards: CardRow[]): { total: number; unique: number } {
-  const uniqueNames = new Set(cards.map((c) => stripVersionSuffix(c.originalName)));
-  return { total: cards.length, unique: uniqueNames.size };
+export function cardTitleDisplay(card: CardRow): string {
+  return card.originalTitle || stripVersionSuffix(card.originalName ?? card.name ?? '');
+}
+
+// The key of a game identity: the lowercase `title`, or the fallback of `cardTitleDisplay`.
+function cardTitleKey(card: CardRow): string {
+  return card.title || stripVersionSuffix(card.originalName ?? card.name ?? '');
 }
 
 /**
- * Formats a card count for display, e.g. "38 cards, 42 versions".
+ * Counts search results: `unique` is the number of distinct titles, `total` the number of
+ * printed rows. By the rules two cards with one title are the same card whatever their
+ * subtitles (Building a Deck, p. 13), so the versions, the personas and the missions at one
+ * location of a title count once. See "Version" in `docs/ubiquitous-language.md`.
+ */
+export function getCardCounts(cards: CardRow[]): { total: number; unique: number } {
+  const uniqueTitles = new Set(cards.map(cardTitleKey));
+  return { total: cards.length, unique: uniqueTitles.size };
+}
+
+/**
+ * Formats a card count for display, e.g. "38 titles, 42 cards": the titles, then the rows.
  */
 export function formatCardCountLabel({ total, unique }: { total: number; unique: number }): string {
-  return `${unique} card${unique !== 1 ? 's' : ''}, ${total} version${total !== 1 ? 's' : ''}`;
+  return `${unique} title${unique !== 1 ? 's' : ''}, ${total} card${total !== 1 ? 's' : ''}`;
 }

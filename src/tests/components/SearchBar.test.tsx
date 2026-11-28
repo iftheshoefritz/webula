@@ -153,9 +153,9 @@ describe('SearchBar (styled variant)', () => {
 
   it('shows the count label inside the search bar when provided', () => {
     render(
-      <SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="styled" countLabel="38 cards, 42 versions" />
+      <SearchBar searchQuery="" setSearchQuery={jest.fn()} variant="styled" countLabel="38 titles, 42 cards" />
     );
-    expect(screen.getByText('38 cards, 42 versions')).toBeInTheDocument();
+    expect(screen.getByText('38 titles, 42 cards')).toBeInTheDocument();
   });
 
   it('still shows the count label alongside the clear button when the input has a value', () => {

@@ -1,4 +1,4 @@
-import { getCardCounts, formatCardCountLabel, stripVersionSuffix, cardDisplayName } from '../../lib/cardCount';
+import { getCardCounts, formatCardCountLabel, stripVersionSuffix, cardDisplayName, cardTitleDisplay } from '../../lib/cardCount';
 
 describe('stripVersionSuffix', () => {
   it('removes a trailing *VP suffix', () => {
@@ -62,21 +62,57 @@ describe('getCardCounts', () => {
   });
 });
 
+describe('getCardCounts by title (#1976)', () => {
+  // Invented cards.
+  it('counts two subtitles of one title as one title and two cards', () => {
+    const cards = [
+      { originalName: 'Zorbo Brave Captain', title: 'zorbo', subtitle: 'brave captain' },
+      { originalName: 'Zorbo Quiet Scholar', title: 'zorbo', subtitle: 'quiet scholar' },
+    ];
+    expect(getCardCounts(cards)).toEqual({ total: 2, unique: 1 });
+  });
+
+  it('collapses a *VP reprint of a title', () => {
+    const cards = [
+      { originalName: 'Zorbo Brave Captain', title: 'zorbo' },
+      { originalName: 'Zorbo Brave Captain *VP', title: 'zorbo' },
+    ];
+    expect(getCardCounts(cards)).toEqual({ total: 2, unique: 1 });
+  });
+
+  it('counts a title that starts with another as a different title', () => {
+    const cards = [
+      { originalName: 'Odo', title: 'odo' },
+      { originalName: 'Odo Founder', title: 'odo founder' },
+    ];
+    expect(getCardCounts(cards)).toEqual({ total: 2, unique: 2 });
+  });
+
+  it('falls back to the name less its suffix for a row without a title', () => {
+    const cards = [
+      { originalName: 'Zorbo', title: 'zorbo' },
+      { originalName: 'Quux Plinth *VP' },
+      { originalName: 'Quux Plinth' },
+    ];
+    expect(getCardCounts(cards)).toEqual({ total: 3, unique: 2 });
+  });
+});
+
+describe('cardTitleDisplay', () => {
+  it('reads originalTitle', () => {
+    expect(cardTitleDisplay({ originalName: 'Zorbo Brave Captain', originalTitle: 'Zorbo' })).toBe('Zorbo');
+  });
+
+  it('falls back to the name less its suffix', () => {
+    expect(cardTitleDisplay({ originalName: 'Quux Plinth *VP' })).toBe('Quux Plinth');
+  });
+});
+
 describe('formatCardCountLabel', () => {
-  it('uses singular wording when both counts are 1', () => {
-    expect(formatCardCountLabel({ total: 1, unique: 1 })).toBe('1 card, 1 version');
-  });
-
-  it('uses plural wording for versions when unique is 1 but total is more', () => {
-    expect(formatCardCountLabel({ total: 3, unique: 1 })).toBe('1 card, 3 versions');
-  });
-
-  it('uses plural wording for both counts', () => {
-    expect(formatCardCountLabel({ total: 42, unique: 38 })).toBe('38 cards, 42 versions');
-  });
-
-  it('handles the zero-result case', () => {
-    expect(formatCardCountLabel({ total: 0, unique: 0 })).toBe('0 cards, 0 versions');
+  it('reads titles, then cards, singular and plural', () => {
+    expect(formatCardCountLabel({ total: 1, unique: 1 })).toBe('1 title, 1 card');
+    expect(formatCardCountLabel({ total: 3, unique: 2 })).toBe('2 titles, 3 cards');
+    expect(formatCardCountLabel({ total: 0, unique: 0 })).toBe('0 titles, 0 cards');
   });
 });
 

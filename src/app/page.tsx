@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { loadCards } from '../lib/loadCards';
 import { filterCards } from '../lib/filterCards';
-import { getCardCounts, stripVersionSuffix } from '../lib/cardCount';
+import { getCardCounts, cardTitleDisplay } from '../lib/cardCount';
 import CardSearchClient from '../components/CardSearchClient';
 import { cardImageUrl } from '../lib/cardImageUrl';
 
@@ -22,23 +22,24 @@ export async function generateMetadata(
   const query = params.q ?? '';
   const { data, columns } = loadCards();
   const results = query ? filterCards(data, columns, query) : data;
-  const uniqueTitles = [...new Set(results.map((c: any) => stripVersionSuffix(c.originalName)))];
+  // Worded by title, like the count label: the number and the preview names both count titles.
+  const uniqueTitles = [...new Set(results.map(cardTitleDisplay))];
   const uniqueCount = getCardCounts(results).unique;
 
   const title = query
-    ? `Webula – "${query}" (${uniqueCount} card${uniqueCount !== 1 ? 's' : ''})`
+    ? `Webula – "${query}" (${uniqueCount} title${uniqueCount !== 1 ? 's' : ''})`
     : 'Webula – Star Trek CCG Card Search';
 
   let description: string;
   if (!query) {
     description = 'Search the Star Trek CCG card database.';
   } else if (uniqueCount === 1) {
-    description = `1 card matches "${query}" in Webula 2e search.`;
+    description = `1 title matches "${query}" in Webula 2e search.`;
   } else {
     const previewNames = uniqueTitles.slice(0, 3);
     const namesStr = previewNames.join(', ');
     const suffix = uniqueCount > 3 ? ` & more — search Webula 2e` : ` — search Webula 2e`;
-    description = `${uniqueCount} cards: ${namesStr}${suffix}`;
+    description = `${uniqueCount} titles: ${namesStr}${suffix}`;
   }
 
   const imageUrl =
