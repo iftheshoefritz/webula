@@ -104,10 +104,26 @@ describe('Shadows of the Night (#1827)', () => {
     expect(moveSpanTotal(m, 0, 1, cheap(), core())).toBe(3);
   });
 
-  it('raises the total after Hurried Departure takes its 3 off', () => {
+  // Rulebook v4, Glossary › "modifications", p. 18: "2) Replace: Any effects that use some form of the verbs "to
+  // replace" or "to become" occur. 3) Modify: Any effects that add, increase, or reduce an aspect of a card by a
+  // specific amount occur." Shadows of the Night reads the total before Hurried Departure takes its 3 off (#1945).
+  it('reads the total before Hurried Departure takes its 3 off, in either core order', () => {
     const m = missions();
     expect(moveSpanTotal(m, 3, 1, costly(), [event('Hurried Departure')])).toBe(3);
-    expect(moveSpanTotal(m, 3, 1, costly(), [...core(), event('Hurried Departure')])).toBe(5);
+    expect(moveSpanTotal(m, 3, 1, costly(), [...core(), event('Hurried Departure')])).toBe(3);
+    expect(moveSpanTotal(m, 3, 1, costly(), [event('Hurried Departure'), ...core()])).toBe(3);
+  });
+
+  it('sets 5 and then takes the reduction off it, when both apply to the same move', () => {
+    const region = { keywords: 'region: invented expanse.' };
+    const m = slotsOf([
+      { mission: card('Region Space', 'mission', { span: '4', quadrant: 'a', missiontype: 's', ...region }) },
+      { mission: card('Region Planet', 'mission', { span: '2', quadrant: 'a', missiontype: 'p', ...region }) },
+    ]);
+    expect(moveSpanTotal(m, 0, 1, costly(), core())).toBe(5);
+    expect(moveSpanTotal(m, 0, 1, costly(), [event('Hurried Departure')])).toBe(1);
+    expect(moveSpanTotal(m, 0, 1, costly(), [...core(), event('Hurried Departure')])).toBe(2);
+    expect(moveSpanTotal(m, 0, 1, costly(), [event('Hurried Departure'), ...core()])).toBe(2);
   });
 
   it('changes nothing with the setting off, nor out of the core', () => {
