@@ -7,7 +7,7 @@ import { missions, type TableView, type ViewCard } from '../../../lib/tableView'
 import { eventMissionIndex, eventSubjects, onRevealedCard, triggerRowsFor, triggerRowsOf } from '../../../lib/triggers';
 import type { GameEvent, TriggerContext, TriggerRow } from '../../../lib/triggers';
 import { gameEventsOf } from './gameEvents';
-import { abilityUsable, effectiveLog, effectSubjectOf, type LogEntry, type TriggerTarget } from './gameLog';
+import { abilityUsable, effectiveLog, effectSubjectOf, entrySegment, type LogEntry, type TriggerTarget } from './gameLog';
 import { findInstanceAnywhere, type CardInstance, type TableState } from './tableReducer';
 import { tableViewOf, viewCardOf } from './tableView';
 
@@ -94,12 +94,58 @@ function eventPasses(row: TriggerRow, event: GameEvent, context: TriggerContext,
   return !filter.where || filter.where(event as never, context);
 }
 
-// Whether the card `id` used its attempt ability `ability` with a kill at the end of the turn (#1835), in the turn
-// before `turn`, in an entry before `index`.
+// Whether the card `id` used its attempt ability `ability` with a kill at the end of the turn (#1835) in the turn
+// `turn`, in an entry before `index`.
 const setUpBefore = (log: LogEntry[], index: number, id: string, ability: number, turn: number): boolean =>
+  setUpIndex(log, index, id, ability, turn) >= 0;
+
+const setUpIndex = (log: LogEntry[], index: number, id: string, ability: number, turn: number): number =>
   log
     .slice(0, index)
-    .some((e) => e.kind === 'attemptAbilityUsed' && e.id === id && e.ability === ability && e.killAtEndOfTurn === true && e.turn === turn - 1);
+    .findIndex((e) => e.kind === 'attemptAbilityUsed' && e.id === id && e.ability === ability && e.killAtEndOfTurn === true && e.turn === turn);
+
+// Whether a delayed row (#1835) is offered at `event` of the entry `index`: at the end of the turn the ability was used
+// in (#1946); or, for a save from before #1946 whose turn ended with no discard segment after the use, at the start
+// of the next turn.
+function delayedOffered(log: LogEntry[], index: number, id: string, ability: number, event: GameEvent): boolean {
+  if (event.kind === 'turnEnding') return setUpBefore(log, index, id, ability, event.turn);
+  if (event.kind !== 'turnStarted') return false;
+  const used = setUpIndex(log, index, id, ability, event.turn - 1);
+  return used >= 0 && !log.slice(used + 1, index).some((e) => e.turn === event.turn - 1 && entrySegment(e) === 'discard');
+}
+
+// The rows that wait for `event`: a `turnStarted` also offers the delayed rows of an old save's turn (#1946).
+const rowsAt = (event: GameEvent): readonly TriggerRow[] =>
+  event.kind === 'turnStarted'
+    ? [...triggerRowsFor('turnStarted'), ...triggerRowsFor('turnEnding').filter((r) => r.afterAbility !== undefined)]
+    : triggerRowsFor(event.kind);
+
+// The index of the entry that opened the discard segment of the table's turn (#1946), whose end-of-turn offers stand
+// through that segment, or -1 while the table is in another segment.
+function discardEntryOf(log: LogEntry[], table: TableState): number {
+  if (table.segment !== 'discard') return -1;
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i].turn !== table.turn) return -1;
+    if (entrySegment(log[i]) === 'discard' && (i === 0 || entrySegment(log[i - 1]) !== 'discard')) return i;
+  }
+  return -1;
+}
+
+/**
+ * Whether a delayed kill (#1835) is set up this turn and its card still stands in its row's source place (#1946):
+ * the next-turn button then goes from orders to the discard segment, where the kill is offered, whatever the hand.
+ */
+export function endOfTurnTriggerSetUp(state: { table: TableState; log: LogEntry[] }): boolean {
+  const { table } = state;
+  const event: GameEvent = { kind: 'turnEnding', turn: table.turn };
+  return effectiveLog(state.log).some(
+    (e) =>
+      e.kind === 'attemptAbilityUsed' &&
+      e.killAtEndOfTurn === true &&
+      e.turn === table.turn &&
+      triggerRowsOf(e.card).some((row) => row.afterAbility === e.ability && sourcesOf(row, event, table).some((s) => s.instance?.id === e.id))
+  );
+}
 
 /** Whether two offers' addresses are the same offer. */
 export const sameTriggerTarget = (a: TriggerTarget, b: TriggerTarget): boolean =>
@@ -111,43 +157,47 @@ const sameTarget = sameTriggerTarget;
  * produced (`gameEventsOf`), whose source card stands in its place, whose filter and condition hold, and which have
  * no `triggerUsed` or `triggerSkipped` record for that event and source (nor, for a row with a `limit`, as many uses of
  * that card's row this turn, #1834). Any other action ends the offers of the entry before it; a trigger taken or skipped,
- * and the steps and corrections addressed to the action, do not. The offers wait, and list none, while an event
- * resolves or a "when you play" effect or an order is pending (`effectSubjectOf`). In the order of the events, then
- * of the registry, then of the cards.
+ * and the steps and corrections addressed to the action, do not. The end-of-turn offers (`turnEnding`, #1946) of the
+ * entry that opened the discard segment stand through that segment, after them, until the turn ends. The offers wait,
+ * and list none, while an event resolves or a "when you play" effect or an order is pending (`effectSubjectOf`). In
+ * the order of the events, then of the registry, then of the cards.
  */
 export function pendingTriggersOf(state: { table: TableState; log: LogEntry[] }): TriggerOffer[] {
   const { table } = state;
   if (table.resolving || effectSubjectOf(state)) return [];
   const log = effectiveLog(state.log);
   const index = lastActionEntry(log);
-  if (index < 0) return [];
-  const events = gameEventsOf(log[index], table, log[index - 1]);
-  if (!events.length) return [];
-  const records = log.slice(index + 1).flatMap((e) => (e.kind === 'triggerUsed' || e.kind === 'triggerSkipped' ? [e.target] : []));
+  const discard = discardEntryOf(log, table);
   let view: TableView | null = null;
   const viewOf = () => (view ??= tableViewOf(table));
   const offers: TriggerOffer[] = [];
-  events.forEach((event, k) => {
-    for (const row of triggerRowsFor(event.kind)) {
-      // Select again and Dessert Disaster (#1905) are taken on the revealed dilemma's own buttons, never as chips.
-      if (onRevealedCard(row)) continue;
-      const rowIndex = triggerRowsOf(row.title).indexOf(row);
-      for (const { instance, slot } of sourcesOf(row, event, table)) {
-        const source = instance ? instance.id : 'botDeck';
-        const target: TriggerTarget = { entry: index, source, row: rowIndex, event: k };
-        if (records.some((r) => r && sameTarget(r, target))) continue;
-        if (!abilityUsable(log, table.turn, { kind: 'trigger', id: source, index: rowIndex }, row.limit)) continue;
-        const sourceCard: ViewCard | null = instance ? viewCardOf(instance) : null;
-        const context: TriggerContext = { view: viewOf(), source: sourceCard, ...(slot !== undefined ? { sourceSlot: viewOf().missions[slot] } : {}) };
-        if (!eventPasses(row, event, context, instance?.id)) continue;
-        if (row.afterAbility !== undefined && !(instance && event.kind === 'turnStarted' && setUpBefore(log, index, instance.id, row.afterAbility, event.turn)))
-          continue;
-        const missionIndex = eventMissionIndex(event);
-        if (row.condition && !row.condition.holds(viewOf(), { ...(missionIndex !== undefined ? { missionIndex } : {}), ...(instance ? { id: instance.id } : {}) }))
-          continue;
-        offers.push({ target, row, event, source: instance, name: instance?.card ? cardDisplayName(instance.card) : row.title });
+  const offersAt = (at: number, only?: GameEvent['kind']) => {
+    const events = gameEventsOf(log[at], table, log[at - 1]);
+    const records = log.slice(at + 1).flatMap((e) => (e.kind === 'triggerUsed' || e.kind === 'triggerSkipped' ? [e.target] : []));
+    events.forEach((event, k) => {
+      if (only && event.kind !== only) return;
+      for (const row of rowsAt(event)) {
+        // Select again and Dessert Disaster (#1905) are taken on the revealed dilemma's own buttons, never as chips.
+        if (onRevealedCard(row)) continue;
+        const rowIndex = triggerRowsOf(row.title).indexOf(row);
+        for (const { instance, slot } of sourcesOf(row, event, table)) {
+          const source = instance ? instance.id : 'botDeck';
+          const target: TriggerTarget = { entry: at, source, row: rowIndex, event: k };
+          if (records.some((r) => r && sameTarget(r, target))) continue;
+          if (!abilityUsable(log, table.turn, { kind: 'trigger', id: source, index: rowIndex }, row.limit)) continue;
+          const sourceCard: ViewCard | null = instance ? viewCardOf(instance) : null;
+          const context: TriggerContext = { view: viewOf(), source: sourceCard, ...(slot !== undefined ? { sourceSlot: viewOf().missions[slot] } : {}) };
+          if (!eventPasses(row, event, context, instance?.id)) continue;
+          if (row.afterAbility !== undefined && !(instance && delayedOffered(log, at, instance.id, row.afterAbility, event))) continue;
+          const missionIndex = eventMissionIndex(event);
+          if (row.condition && !row.condition.holds(viewOf(), { ...(missionIndex !== undefined ? { missionIndex } : {}), ...(instance ? { id: instance.id } : {}) }))
+            continue;
+          offers.push({ target, row, event, source: instance, name: instance?.card ? cardDisplayName(instance.card) : row.title });
+        }
       }
-    }
-  });
+    });
+  };
+  if (discard >= 0 && discard !== index) offersAt(discard, 'turnEnding');
+  if (index >= 0) offersAt(index);
   return offers;
 }

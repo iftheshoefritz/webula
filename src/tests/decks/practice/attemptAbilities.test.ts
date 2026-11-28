@@ -1,8 +1,8 @@
-import { initialTableState, CardInstance, TableState, MISSION_SLOTS } from '../../../app/decks/practice/tableReducer';
+import { initialTableState, nextSegmentOf, CardInstance, TableState, MISSION_SLOTS } from '../../../app/decks/practice/tableReducer';
 import { gameReducer, GameAction, GameState, initialGameState, logEntryText } from '../../../app/decks/practice/gameLog';
 import { attemptAbilitiesOf } from '../../../app/decks/practice/attemptAbilities';
 import { attributesOnTableOf } from '../../../app/decks/practice/attributesOnTable';
-import { pendingTriggersOf } from '../../../app/decks/practice/triggers';
+import { endOfTurnTriggerSetUp, pendingTriggersOf } from '../../../app/decks/practice/triggers';
 import { fromSavedGame, toSavedGame } from '../../../app/decks/practice/savedGame';
 import type { DeckList } from '../../../types';
 import { ATTEMPT_ABILITIES, ATTEMPT_ABILITY_TITLES, changesText } from '../../../lib/attemptAbilities';
@@ -51,7 +51,7 @@ describe('the attempt ability registry (#1835)', () => {
   it('holds Storil and the two shipped-deck rows, each with a delayed kill row', () => {
     expect(ATTEMPT_ABILITY_TITLES).toEqual(['Storil Courageous Captain', 'Worf Honorable Explorer', "Ikat'ika Honorable Warrior"]);
     for (const a of ATTEMPT_ABILITIES) {
-      expect(triggerRowsOf(a.title).map((r) => [r.event.kind, r.source, r.useCost, r.afterAbility])).toEqual([['turnStarted', 'table', { kind: 'killSelf' }, 0]]);
+      expect(triggerRowsOf(a.title).map((r) => [r.event.kind, r.source, r.useCost, r.afterAbility])).toEqual([['turnEnding', 'table', { kind: 'killSelf' }, 0]]);
     }
     expect(changesText({ weapons: 5 })).toBe('Weapons +5');
     expect(changesText({ integrity: 2, cunning: 2, strength: 2 })).toBe('attributes +2');
@@ -93,27 +93,71 @@ describe("Storil's ability (#1835)", () => {
     expect(weaponsOf(ended)).toBeUndefined();
   });
 
-  it('offers the kill at the start of the next turn; taken, he goes to the discard pile, and one undo restores him', () => {
+  // Rulebook v4, "3. Discard Excess Cards", p. 13: "Next, you may complete any actions that happen 'at the end of
+  // each of your turns.' … Once you have done these things, your turn ends. At this time, all stopped cards … become
+  // unstopped" (#1946).
+  const advance: GameAction = { type: 'advanceSegment' };
+  const killOffers = (s: GameState) => pendingTriggersOf(s).map((o) => [o.row.title, o.source?.id, o.event.kind]);
+
+  it('takes the turn through discard, with 7 or fewer cards in hand, and offers the kill there', () => {
     const used = run(start(), use('storil'), { type: 'endAttempt' });
+    expect(used.table.segment).toBe('orders');
     expect(pendingTriggersOf(used)).toEqual([]);
-    const next = run(used, { type: 'nextTurn' });
-    const offers = pendingTriggersOf(next);
+    expect(endOfTurnTriggerSetUp(used)).toBe(true);
+    expect(nextSegmentOf(used.table, endOfTurnTriggerSetUp(used))).toBe('discard');
+    const discard = run(used, advance);
+    expect([discard.table.segment, discard.table.turn]).toEqual(['discard', 1]);
+    expect(killOffers(discard)).toEqual([['Storil Courageous Captain', 'storil', 'turnEnding']]);
+    // One undo goes back to orders.
+    expect(run(discard, { type: 'undo' }).table.segment).toBe('orders');
+  });
+
+  it('keeps the offer through the discards of the segment; taken, he goes to the discard pile this turn, and one undo restores him', () => {
+    const discard = run(start(), use('storil'), { type: 'endAttempt' }, advance);
+    const moved = run(discard, { type: 'move', id: 'c2', to: 'discard' });
+    const offers = pendingTriggersOf(moved);
     expect(offers.map((o) => [o.row.title, o.source?.id])).toEqual([['Storil Courageous Captain', 'storil']]);
-    const killed = run(next, { type: 'useTrigger', target: offers[0].target });
-    expect(killed.table.discard.map((c) => c.id)).toEqual(['storil']);
-    expect(killed.table.missions[1].ships[0].crew?.map((c) => c.id)).toEqual(['c2']);
+    const killed = run(moved, { type: 'useTrigger', target: offers[0].target });
+    expect(killed.table.discard.map((c) => c.id)).toEqual(['c2', 'storil']);
+    expect(killed.table.turn).toBe(1);
+    expect(killed.log.at(-1)).toMatchObject({ kind: 'triggerUsed', turn: 1, segment: 'discard' });
     expect(logEntryText(killed.log.at(-1)!)).toBe('Storil Courageous Captain: killed it');
     expect(pendingTriggersOf(killed)).toEqual([]);
     const undone = run(killed, { type: 'undo' });
-    expect(undone.table.missions[1].ships[0].crew?.map((c) => c.id)).toEqual(['storil', 'c2']);
-    expect(undone.table.discard).toEqual([]);
+    expect(undone.table.missions[1].ships[0].crew?.map((c) => c.id)).toEqual(['storil']);
+    expect(pendingTriggersOf(undone)).toHaveLength(1);
+  });
+
+  it('is gone once skipped, and the turn still ends with it untaken, with no offer at the start of the next turn', () => {
+    const discard = run(start(), use('storil'), { type: 'endAttempt' }, advance);
+    const skipped = run(discard, { type: 'skipTrigger', target: pendingTriggersOf(discard)[0].target });
+    expect(pendingTriggersOf(skipped)).toEqual([]);
+    const next = run(discard, advance);
+    expect([next.table.segment, next.table.turn]).toEqual(['playAndDraw', 2]);
+    expect(pendingTriggersOf(next)).toEqual([]);
+    expect(next.table.missions[1].ships[0].crew?.map((c) => c.id)).toEqual(['storil', 'c2']);
   });
 
   it('sets up no kill without a use, and none a turn later', () => {
-    const next = run(start(), { type: 'endAttempt' }, { type: 'nextTurn' });
+    const ended = run(start(), { type: 'endAttempt' });
+    expect(endOfTurnTriggerSetUp(ended)).toBe(false);
+    const next = run(ended, advance);
+    expect([next.table.segment, next.table.turn]).toEqual(['playAndDraw', 2]);
     expect(pendingTriggersOf(next)).toEqual([]);
-    const twoLater = run(start(), use('storil'), { type: 'endAttempt' }, { type: 'nextTurn' }, { type: 'nextTurn' });
+    const twoLater = run(start(), use('storil'), { type: 'endAttempt' }, advance, advance, advance, advance);
+    expect(twoLater.table.turn).toBe(3);
     expect(pendingTriggersOf(twoLater)).toEqual([]);
+  });
+
+  it('still offers, in a save from before #1946, a kill pending at the start of the next turn', () => {
+    // The old log: the use, then a next turn straight from orders, with no discard segment.
+    const used = run(start(), use('storil'), { type: 'endAttempt' });
+    const old = run(used, { type: 'nextTurn' });
+    expect(old.log.at(-1)).toMatchObject({ kind: 'nextTurn', turn: 2 });
+    const offers = pendingTriggersOf(old);
+    expect(offers.map((o) => [o.row.title, o.source?.id, o.event.kind])).toEqual([['Storil Courageous Captain', 'storil', 'turnStarted']]);
+    const killed = run(old, { type: 'useTrigger', target: offers[0].target });
+    expect(killed.table.discard.map((c) => c.id)).toEqual(['storil']);
   });
 
   it('is offered again the next turn', () => {
@@ -151,5 +195,20 @@ describe("Worf's and Ikat'ika's abilities (#1835)", () => {
       'Worf Honorable Explorer: made itself attributes +2 until the end of this mission attempt; it is killed at the end of this turn'
     );
     expect(attributesOnTableOf(run(used, { type: 'endAttempt' }).table, true).worf).toBeUndefined();
+  });
+
+  // Glossary › "actions" › Effects, p. 16: "if one commands a stopped Ikat'ika, Honorable Warrior at the end of his
+  // turn, Ikat'ika will be killed by his ability if it was used earlier that turn" (#1946).
+  it("kills a stopped Ikat'ika at the end of the turn, before the next turn unstops him", () => {
+    const stopped = run(away(0, [ikat]), use('ikat'), { type: 'endAttempt' }, { type: 'setStopped', ids: ['ikat'], stopped: true });
+    const discard = run(stopped, { type: 'advanceSegment' });
+    expect(discard.table.segment).toBe('discard');
+    expect(discard.table.missions[0].awayTeam.find((c) => c.id === 'ikat')?.stopped).toBe(true);
+    const offers = pendingTriggersOf(discard);
+    expect(offers.map((o) => [o.row.title, o.source?.id])).toEqual([["Ikat'ika Honorable Warrior", 'ikat']]);
+    const killed = run(discard, { type: 'useTrigger', target: offers[0].target });
+    expect(killed.table.turn).toBe(1);
+    expect(killed.table.discard.map((c) => c.id)).toEqual(['ikat']);
+    expect(killed.table.missions[0].awayTeam).toEqual([]);
   });
 });

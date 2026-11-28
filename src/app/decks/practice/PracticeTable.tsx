@@ -240,7 +240,7 @@ import {
   pendingOrderOf,
   pendingTriggerOf,
 } from './gameLog';
-import { pendingTriggersOf } from './triggers';
+import { endOfTurnTriggerSetUp, pendingTriggersOf } from './triggers';
 import { TriggerOffers } from './TriggerOffers';
 import { playConditionLine } from '../../../lib/playModels';
 import { costNeedsPick, costPickCount, OrderCost } from '../../../lib/orderModels';
@@ -907,6 +907,7 @@ function TurnScoreColumn({
   counters,
   onOpenCounters,
   blockedBy = null,
+  warning = null,
   openingHand = null,
 }: {
   turn: number;
@@ -927,6 +928,9 @@ function TurnScoreColumn({
   onOpenCounters: () => void;
   // What holds the turn (#1728): "Resolve These Are The Voyages first" while an event resolves, or null.
   blockedBy?: string | null;
+  // What the turn should wait for but does not (#1946): "Resolve Storil Courageous Captain first" while an end-of-turn
+  // trigger is offered. Unlike `blockedBy`, it leaves the button enabled. Null otherwise.
+  warning?: string | null;
   // Before the first turn (#1736): the "Draw 7" button takes the place of the turn controls. `empty`
   // disables it on an empty draw deck. Null once the opening hand is drawn.
   openingHand?: { onDraw: () => void; empty: boolean } | null;
@@ -982,8 +986,8 @@ function TurnScoreColumn({
             style={tapStyle}
             onClick={onNextTurn}
             disabled={!!blockedBy}
-            aria-label={blockedBy ?? ADVANCE_LABELS[next]}
-            title={blockedBy ?? ADVANCE_LABELS[next]}
+            aria-label={blockedBy ?? warning ?? ADVANCE_LABELS[next]}
+            title={blockedBy ?? warning ?? ADVANCE_LABELS[next]}
           >
             <span data-testid="turn-counter" className="text-text-primary">
               <span className="sr-only">Turn </span>
@@ -2894,6 +2898,10 @@ function PracticeDrawContent() {
   // offers of the last action, which wait while any subject is in progress.
   const pendingTrigger = table.resolving ? null : pendingTriggerOf(game);
   const triggerOffers = pendingTriggersOf(game);
+  // An "at the end of this turn" trigger (#1946): set up this turn, it takes the turn through discard; offered there,
+  // it makes the next-turn button warn, and the turn can still end with it unused.
+  const endOfTurn = endOfTurnTriggerSetUp(game);
+  const endOfTurnOffer = triggerOffers.find((o) => o.event.kind === 'turnEnding');
   const resolvingId =
     table.resolving?.id ??
     (pendingPlay
@@ -4037,6 +4045,7 @@ function PracticeDrawContent() {
         : pendingTrigger
           ? `Resolve ${pendingTrigger.name} first`
           : null;
+  const turnWarning = endOfTurnOffer ? `Resolve ${endOfTurnOffer.name} first` : null;
   const nextTurn = () => {
     if (turnBlockedBy) return;
     dispatch({ type: 'advanceSegment' });
@@ -5423,7 +5432,7 @@ function PracticeDrawContent() {
               <TurnScoreColumn
                 turn={turn}
                 segment={table.segment}
-                next={nextSegmentOf(table)}
+                next={nextSegmentOf(table, endOfTurn)}
                 score={score}
                 onNextTurn={nextTurn}
                 onAdjustScore={adjustScore}
@@ -5438,6 +5447,7 @@ function PracticeDrawContent() {
                 counters={currentCounters}
                 onOpenCounters={() => setCountersListOpen(true)}
                 blockedBy={turnBlockedBy}
+                warning={turnWarning}
                 openingHand={
                   table.openingHand === 'pending'
                     ? { onDraw: () => dispatch({ type: 'drawOpeningHand' }), empty: table.drawDeck.length === 0 }
