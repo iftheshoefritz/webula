@@ -72,8 +72,8 @@ import {
 } from '../../../lib/effectSteps';
 import { triggerRowsOf, type TriggerRow } from '../../../lib/triggers';
 import { endOfTurnTriggerSetUp, pendingTriggersOf, sameTriggerTarget } from './triggers';
-import { attemptAbilitiesOf, modifyStepOf } from './attemptAbilities';
-import { changesText, killsAtEndOfTurn, windowOf } from '../../../lib/attemptAbilities';
+import { attemptAbilitiesOf, gainSkillOptionsOf, modifyStepOf, targetsChosenPersonnel } from './attemptAbilities';
+import { changesText, gainsSkill, killsAtEndOfTurn, windowOf } from '../../../lib/attemptAbilities';
 import type { AmountQuantity } from '../../../lib/modifiers/model';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, exchangeMatches, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
@@ -427,7 +427,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   // An attempt ability the player used (#1835): the card's id and name, the ability's index, the name of the card it
   // changed and the change, for the rest of the attempt, and whether it set up the kill at the end of the turn, which
   // the delayed trigger rows read (`afterAbility`). A use in the `facingDilemma` window (#1956) also records the faced
-  // dilemma, its id and its name: its change lasts until the end of that dilemma.
+  // dilemma, its id and its name: its change lasts until the end of that dilemma. A `gainSkill` use (#1958) records
+  // the skill the target gained.
   | {
       kind: 'attemptAbilityUsed';
       id: string;
@@ -435,6 +436,7 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       ability: number;
       target: string;
       changes: Partial<Record<AmountQuantity, number>>;
+      skill?: string;
       killAtEndOfTurn?: true;
       dilemmaId?: string;
       dilemma?: string;
@@ -553,7 +555,7 @@ export type GameAction =
   // A use of the attempt ability `index` of the card `id` (#1835): its change for the rest of the attempt on
   // `Attempt.timed`, in one `attemptAbilityUsed` entry, which also sets up its delayed kill. `targetId` names the
   // offer's target (#1956): a row that changes a chosen personnel is offered once per personnel and needs it.
-  | { type: 'useAttemptAbility'; id: string; index: number; targetId?: string }
+  | { type: 'useAttemptAbility'; id: string; index: number; targetId?: string; skill?: string }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -3754,24 +3756,37 @@ function triggerSkipState(state: GameState, action: { target: TriggerTarget }): 
 
 // The use of an attempt ability (#1835): its change goes on `Attempt.timed`, for the rest of the attempt, in one
 // `attemptAbilityUsed` entry, which one undo takes back. Refused unless the table offers it. A use in the
-// `facingDilemma` window (#1956) keys its change to the faced dilemma, so the change ends with that dilemma.
-function attemptAbilityUseState(state: GameState, action: { id: string; index: number; targetId?: string }): GameState {
+// `facingDilemma` window (#1956) keys its change to the faced dilemma, so the change ends with that dilemma. A
+// `gainSkill` use (#1958) needs a skill among `gainSkillOptionsOf` of its target, and its change holds that skill.
+function attemptAbilityUseState(state: GameState, action: { id: string; index: number; targetId?: string; skill?: string }): GameState {
   const offer = attemptAbilitiesOf(state).find(
     (o) =>
       o.id === action.id &&
       o.ability.index === action.index &&
-      (action.targetId !== undefined ? o.targetId === action.targetId : modifyStepOf(o.ability)?.target !== 'chosenPersonnel'),
+      (action.targetId !== undefined ? o.targetId === action.targetId : !targetsChosenPersonnel(o.ability)),
   );
   const attempt = state.table.attempt;
   if (!offer || !attempt) return state;
+  const gains = gainsSkill(offer.ability);
+  if (gains !== (action.skill !== undefined)) return state;
+  if (gains && !gainSkillOptionsOf(state.table, offer.targetId).includes(action.skill!)) return state;
   const faced = windowOf(offer.ability) === 'facingDilemma' ? facedDilemmaOf(state.table) : undefined;
   const changes = modifyStepOf(offer.ability)?.changes ?? {};
-  const timed = Object.keys(changes).length
-    ? [
-        ...(attempt.timed ?? []),
-        { title: offer.ability.title, sourceId: offer.id, targetId: offer.targetId, changes: { ...changes }, ...(faced ? { untilDilemma: faced.id } : {}) },
-      ]
-    : attempt.timed;
+  const skills = gains ? [action.skill!] : [];
+  const timed =
+    Object.keys(changes).length || skills.length
+      ? [
+          ...(attempt.timed ?? []),
+          {
+            title: offer.ability.title,
+            sourceId: offer.id,
+            targetId: offer.targetId,
+            changes: { ...changes },
+            ...(skills.length ? { skills } : {}),
+            ...(faced ? { untilDilemma: faced.id } : {}),
+          },
+        ]
+      : attempt.timed;
   const table: TableState = { ...state.table, attempt: { ...attempt, ...(timed ? { timed } : {}) } };
   const entry: LogEntry = {
     kind: 'attemptAbilityUsed',
@@ -3780,6 +3795,7 @@ function attemptAbilityUseState(state: GameState, action: { id: string; index: n
     ability: offer.ability.index,
     target: offer.targetName,
     changes: { ...changes },
+    ...(gains ? { skill: action.skill! } : {}),
     ...(killsAtEndOfTurn(offer.ability) ? { killAtEndOfTurn: true as const } : {}),
     ...(faced ? { dilemmaId: faced.id, dilemma: faced.card ? cardDisplayName(faced.card) : faced.id } : {}),
     turn: table.turn,
@@ -3789,13 +3805,16 @@ function attemptAbilityUseState(state: GameState, action: { id: string; index: n
 }
 
 // "Storil Courageous Captain: made U.S.S. Saratoga Weapons +5 until the end of this mission attempt; it is killed at
-// the end of this turn" (#1835).
+// the end of this turn" (#1835); "Security Drills: made Tasha Yar gain Security until the end of Ancient Computer"
+// (#1958).
 function attemptAbilityUsedText(entry: Extract<LogEntry, { kind: 'attemptAbilityUsed' }>): string {
   const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
   const target = typeof entry.target === 'string' && entry.target ? entry.target : 'a card';
   const changes = entry.changes && typeof entry.changes === 'object' ? changesText(entry.changes) : '';
+  const gain = typeof entry.skill === 'string' && entry.skill ? `gain ${entry.skill}` : '';
+  const what = [changes, gain].filter(Boolean).join(' and ');
   const until = typeof entry.dilemma === 'string' && entry.dilemma ? entry.dilemma : 'this mission attempt';
-  const made = changes ? `made ${target === card ? 'itself' : target} ${changes} until the end of ${until}` : 'used';
+  const made = what ? `made ${target === card ? 'itself' : target} ${what} until the end of ${until}` : 'used';
   return `${card}: ${made}${entry.killAtEndOfTurn === true ? '; it is killed at the end of this turn' : ''}`;
 }
 

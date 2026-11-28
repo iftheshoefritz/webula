@@ -8,6 +8,9 @@
 //   (`itsShip`), or to one personnel of the attempting group the player chooses (`chosenPersonnel`, one offer per
 //   unstopped personnel). The use keeps it on `Attempt.timed`, so the attribute readers add it and `endAttempt` ends
 //   it; a change of a `facingDilemma` row ends earlier, with its dilemma (`TimedChange.untilDilemma`).
+// - `gainSkill` (#1958): the card itself (`self`) or a chosen personnel of the group (`chosenPersonnel`) gains one
+//   level of a skill it already has, the player's pick among `gainSkillOptionsOf`, kept on `Attempt.timed` as a
+//   `TimedChange` with `skills`, so it ends as a `modify` change ends. The gained level is not a listed skill (p. 9).
 // - `killAtEndOfTurn`: a delayed trigger, "he is killed at the end of this turn". The use's log entry sets it up;
 //   the trigger rows of `src/lib/triggers/titles/delayed.ts` offer the kill when the next turn starts, from that
 //   entry (`afterAbility`), once.
@@ -36,12 +39,18 @@ export interface ModifyStep {
   changes: Partial<Record<AmountQuantity, number>>;
 }
 
+/** "Make that personnel gain a skill he or she already has": one more level of a skill the target has, its pick. */
+export interface GainSkillStep {
+  kind: 'gainSkill';
+  target: 'self' | 'chosenPersonnel';
+}
+
 /** "He is killed at the end of this turn": a delayed trigger the use sets up. */
 export interface KillAtEndOfTurnStep {
   kind: 'killAtEndOfTurn';
 }
 
-export type AttemptAbilityStep = ModifyStep | KillAtEndOfTurnStep;
+export type AttemptAbilityStep = ModifyStep | GainSkillStep | KillAtEndOfTurnStep;
 
 export interface AttemptAbility {
   /** The title of the card, `cardTitleOf` of its name, the key of the registry. */
@@ -73,7 +82,7 @@ export const sourceOf = (a: AttemptAbility): AttemptAbilitySource => a.source ??
  * chosen personnel; a `self` row's change goes to the card or its ship, never to a chosen one.
  */
 export function attemptAbilityRowValid(a: AttemptAbility): boolean {
-  const targets = a.steps.flatMap((s) => (s.kind === 'modify' ? [s.target] : []));
+  const targets = a.steps.flatMap((s) => (s.kind === 'modify' || s.kind === 'gainSkill' ? [s.target] : []));
   return sourceOf(a) === 'core' ? targets.every((t) => t === 'chosenPersonnel') : !targets.includes('chosenPersonnel');
 }
 
@@ -118,6 +127,9 @@ export const attemptAbilitiesOfTitle = (name: string): AttemptAbility[] => BY_TI
 
 /** The titles of the registry, in the case of the card data, each once: the model backlog's. */
 export const ATTEMPT_ABILITY_TITLES: readonly string[] = [...new Set(ATTEMPT_ABILITIES.map((a) => a.title))];
+
+/** Whether an ability makes a personnel gain a skill it has (#1958). */
+export const gainsSkill = (a: AttemptAbility): boolean => a.steps.some((s) => s.kind === 'gainSkill');
 
 /** Whether an ability sets up the kill at the end of the turn. */
 export const killsAtEndOfTurn = (a: AttemptAbility): boolean => a.steps.some((s) => s.kind === 'killAtEndOfTurn');

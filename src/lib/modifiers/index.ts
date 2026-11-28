@@ -299,6 +299,10 @@ export function attributeOf(view: TableView, target: ModifierCard, quantity: Exc
 export const timedOf = (view: TableView, id: string, quantity: AmountQuantity): number =>
   (view.timed ?? []).reduce((sum, t) => sum + (t.targetId === id ? (t.changes[quantity] ?? 0) : 0), 0);
 
+/** The skills an ability made the card `id` gain for a time (#1958), each once per level, in the order of the uses. */
+export const timedSkillsOf = (view: TableView, id: string): string[] =>
+  (view.timed ?? []).flatMap((t) => (t.targetId === id ? (t.skills ?? []) : []));
+
 /**
  * The skills `target`, a personnel of an away team or a crew, gains on the table (#1836): the `skills` rows of each
  * unstopped personnel and equipment of its group, of its ship for a crew when it is unstopped (#1942), and of each

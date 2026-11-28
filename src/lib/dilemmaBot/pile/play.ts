@@ -212,9 +212,11 @@ export class PlayState {
     if (this.skillRead && !this.summing) this.skillRead();
     if (this.blockedSkills.has(i)) return 0;
     const p = this.group[k];
-    if (this.firstSkillOff && p.firstSkill === i) return 0;
     if (p.cost <= this.skillsOffCostAtMost) return 0;
-    return (this.abilitiesOff ? p.printed : p).skills[i];
+    const level = (this.abilitiesOff ? p.printed : p).skills[i];
+    // The first skill off removes its listed levels only: a level gained on the table is not listed (#1958).
+    if (this.firstSkillOff && p.firstSkill === i) return Math.max(0, level - (p.firstSkillLevel ?? level));
+    return level;
   }
 
   attr(k: number, a: Attr): number {
@@ -337,7 +339,8 @@ export class PlayState {
       const p = profiles[k];
       for (let i = 0; i < skills.length; i++) skills[i] += p.skills[i];
       const first = this.group[k].firstSkill;
-      if (this.firstSkillOff && first !== undefined) skills[first] -= p.skills[first];
+      // Its listed levels only, as `skill` reads them (#1958).
+      if (this.firstSkillOff && first !== undefined) skills[first] -= Math.min(p.skills[first], this.group[k].firstSkillLevel ?? p.skills[first]);
       const loss = this.attrLoss ? this.attrLoss[k] : 0;
       for (let a = 0; a < 3; a++) attrs[a] += p.attrs[a] + (this.abilitiesOff ? 0 : this.attrBonus) - loss;
     }
