@@ -42,6 +42,7 @@ export const viewCardOf = (c: CardInstance): ViewCard => ({
   row: c.card,
   placedOn: (c.placedOn ?? []).map(viewCardOf),
   ...(c.named ? { named: c.named } : {}),
+  ...(c.notInPlay ? { notInPlay: true as const } : {}),
 });
 
 const pileCardOf = (c: CardInstance): ViewPileCard => ({ ...viewCardOf(c), ...(c.removedFromGame ? { removedFromGame: true } : {}) });
