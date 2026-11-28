@@ -49,7 +49,7 @@ run over the same window changes no byte.
 
 ## The page
 
-`/stats` shows the stats to early-access users: per workflow the runs, the median and 90th
+`/stats` shows the stats to every visitor: per workflow the runs, the median and 90th
 percentile of the duration, the share of runs that did not succeed, and the turns and cost estimate
 where Claude ran; per CI job the median and 90th percentile; the median duration by ISO week; the
 issue counts per status of the latest snapshot and over time; and the 20 completed issues slowest
@@ -61,11 +61,10 @@ weekly chart leaves out a workflow with fewer than `WEEKLY_MIN_RUNS` (10) runs; 
 keeps it. Each chart's legend is a wrapping list of toggles under the canvas, one per series, that
 hide and show the series (#1989).
 
-It reads `/api/stats`, which applies `isEarlyAccessUser` to the caller's email from the NextAuth JWT
-and answers 404 to anyone else, a signed-out caller too. A signed-out visitor sees a "Sign in with
-Google" button, a plain Google sign-in with no Drive scope that comes back to `/stats`; a signed-in
-user who is not early-access sees "Use another Google account", a sign-out back to `/stats`. The
-deck actions menu of the deck builder shows a Stats link to early-access users only.
+It reads `/api/stats`. The page and the route are public, with no sign-in (#1990): the records are
+on the public branch `stats/update`, every figure but the cost estimate comes from GitHub's public
+API, and the route only reads the files bundled with the deployment. Only the Stats link in the deck
+actions menu of the deck builder is gated: it shows to early-access users only.
 
 `src/lib/statsServer.ts` reads the folder, `src/lib/stats.ts` aggregates it (no `fs`), and
 `outputFileTracingIncludes` in `next.config.mjs` puts `stats/` into the route's bundle. The page

@@ -1,15 +1,6 @@
 let mockSearchParams = new URLSearchParams();
 jest.mock('next/navigation', () => ({ useSearchParams: () => mockSearchParams }));
 
-let mockStatus = 'unauthenticated';
-const mockSignIn = jest.fn();
-const mockSignOut = jest.fn();
-jest.mock('next-auth/react', () => ({
-  useSession: () => ({ status: mockStatus, data: null }),
-  signIn: (...args: unknown[]) => mockSignIn(...args),
-  signOut: (...args: unknown[]) => mockSignOut(...args),
-}));
-
 // The mock records the datasets of each chart, so a test can read their `hidden`.
 type MockDataset = { label: string; hidden?: boolean };
 const mockCharts: MockDataset[][] = [];
@@ -38,54 +29,26 @@ describe('StatsClient (#1417)', () => {
   let fetchMock: jest.Mock;
   beforeEach(() => {
     mockSearchParams = new URLSearchParams();
-    mockStatus = 'unauthenticated';
-    mockSignIn.mockReset();
-    mockSignOut.mockReset();
     fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
   });
   afterEach(() => { env.NODE_ENV = originalEnv; });
 
-  it('shows no stats and calls no route for a signed-out user', async () => {
+  it('shows an error when the route fails', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
     await act(async () => { render(<StatsClient />); });
-    expect(screen.getByTestId('stats-denied')).toBeInTheDocument();
-    expect(screen.queryByTestId('stats-view')).not.toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('shows no stats when the route answers 404', async () => {
-    mockStatus = 'authenticated';
-    fetchMock.mockResolvedValue({ ok: false, status: 404 });
-    await act(async () => { render(<StatsClient />); });
-    expect(fetchMock).toHaveBeenCalledWith('/api/stats', expect.anything());
-    expect(screen.getByTestId('stats-denied')).toBeInTheDocument();
+    expect(screen.getByTestId('stats-error')).toBeInTheDocument();
     expect(screen.queryByTestId('stats-view')).not.toBeInTheDocument();
   });
 
-  it('offers a Google sign-in that returns to /stats to a signed-out user (#1442)', async () => {
-    await act(async () => { render(<StatsClient />); });
-    expect(screen.queryByTestId('stats-switch-account')).not.toBeInTheDocument();
-    const button = screen.getByTestId('stats-sign-in');
-    expect(button).toHaveTextContent('Sign in with Google');
-    fireEvent.click(button);
-    expect(mockSignIn).toHaveBeenCalledWith('google', { callbackUrl: '/stats' });
-  });
-
-  it('offers a signed-in user who is not early-access another account, not a sign-in (#1442)', async () => {
-    mockStatus = 'authenticated';
-    fetchMock.mockResolvedValue({ ok: false, status: 404 });
-    await act(async () => { render(<StatsClient />); });
-    expect(screen.getByTestId('stats-denied')).toHaveTextContent('Stats are for early-access users.');
-    expect(screen.queryByTestId('stats-sign-in')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('stats-switch-account'));
-    expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: '/stats' });
-  });
-
-  it('shows the stats the route returns to an early-access user', async () => {
-    mockStatus = 'authenticated';
+  it('shows the stats the route returns to a signed-out visitor, with no sign-in (#1990)', async () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => STATS_FIXTURE });
     await act(async () => { render(<StatsClient />); });
+    expect(fetchMock).toHaveBeenCalledWith('/api/stats', expect.anything());
     expect(screen.getByTestId('stats-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('stats-sign-in')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sign in/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stats-denied')).not.toBeInTheDocument();
     expect(within(screen.getByTestId('stats-workflows')).getByText('Claude Issue Implementation')).toBeInTheDocument();
     expect(screen.getByText('typecheck')).toBeInTheDocument();
     const link = screen.getByText(`#${STATS_FIXTURE.slowestIssues[0].number}`);
@@ -127,8 +90,9 @@ describe('StatsClient (#1417)', () => {
   it('never renders the fixture in production', async () => {
     env.NODE_ENV = 'production';
     mockSearchParams = new URLSearchParams('fixture=1');
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
     await act(async () => { render(<StatsClient />); });
     expect(screen.queryByTestId('stats-view')).not.toBeInTheDocument();
-    expect(screen.getByTestId('stats-denied')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/stats', expect.anything());
   });
 });
