@@ -290,7 +290,8 @@ export interface Attempt {
   cardText?: true;
   // The changes the player's abilities made for the rest of the attempt (#1835), "Weapons +5 until the end of
   // this mission attempt": only `useAttemptAbility` adds one, so one undo takes it back, and it ends with the
-  // attempt. Absent: none, as in a save from before #1835.
+  // attempt, or, keyed to a dilemma, when that dilemma is no longer faced (#1956, `pruneDilemmaTimed`). Absent:
+  // none, as in a save from before #1835.
   timed?: TimedChange[];
 }
 
@@ -985,12 +986,43 @@ export function revealSnapshotOf(table: TableState, dilemmaId: string): RevealSn
   };
 }
 
+// The face-up top card of the stack of an attempt in `'face'`, in a deck game or a bot game, or undefined.
+function faceUpTopOf(table: TableState): CardInstance | undefined {
+  const top = table.dilemmaStack[0];
+  return table.attempt?.phase === 'face' && top?.face === 'up' ? top : undefined;
+}
+
 // The face-up top card of the stack of a bot game's attempt in `'face'`, which a reveal snapshot
 // belongs to (#1587), or undefined.
 export function revealedTopCard(table: TableState): CardInstance | undefined {
-  const { attempt } = table;
-  const top = table.dilemmaStack[0];
-  return attempt?.phase === 'face' && attempt.botDraw !== undefined && top?.face === 'up' ? top : undefined;
+  return table.attempt?.botDraw !== undefined ? faceUpTopOf(table) : undefined;
+}
+
+// The dilemma being faced (#1956), or undefined: the face-up top card of the stack in `'face'`, in a bot game while
+// its reveal snapshot is not `resolved`. It stops being faced when it leaves the top of the stack (a `resolveDilemma`,
+// a move by hand, `endAttempt`), turns face down, or the attempt goes back to `'choose'`. The `facingDilemma` window
+// of the attempt abilities and the end of a change keyed to a dilemma both read it.
+export function facedDilemmaOf(table: TableState): CardInstance | undefined {
+  const top = faceUpTopOf(table);
+  if (!top) return undefined;
+  const snapshot = table.attempt!.revealSnapshot;
+  if (table.attempt!.botDraw !== undefined && snapshot?.dilemmaId === top.id && snapshot.resolved) return undefined;
+  return top;
+}
+
+// Drops every timed change keyed to a dilemma that is no longer the one being faced (#1956), and `timed` with it when
+// it empties. It runs after every table action, so the undo snapshot, the table from before, brings the change back,
+// and a change once dropped stays dropped when its card returns to the top.
+export function pruneDilemmaTimed(table: TableState): TableState {
+  const timed = table.attempt?.timed;
+  if (!timed?.some((t) => t.untilDilemma !== undefined)) return table;
+  const faced = facedDilemmaOf(table)?.id;
+  const kept = timed.filter((t) => t.untilDilemma === undefined || t.untilDilemma === faced);
+  if (kept.length === timed.length) return table;
+  const attempt = { ...table.attempt! };
+  if (kept.length) attempt.timed = kept;
+  else delete attempt.timed;
+  return { ...table, attempt };
 }
 
 // Whether a `resolveDilemma` for `dilemmaId` applies: the snapshot names it, it is the face-up top
@@ -1083,7 +1115,12 @@ export function applyResolveChange(state: TableState, op: ResolveOp, id: string)
   return op === 'remove' ? tableReducer(moved, { type: 'setRemovedFromGame', ids: [id], removedFromGame: true }) : moved;
 }
 
+// Every table action, then the end of the changes keyed to a dilemma it stopped facing (#1956).
 export function tableReducer(state: TableState, action: TableAction): TableState {
+  return pruneDilemmaTimed(reduceTable(state, action));
+}
+
+function reduceTable(state: TableState, action: TableAction): TableState {
   switch (action.type) {
     case 'drawCard': {
       const source = drawReshuffles(state, action)

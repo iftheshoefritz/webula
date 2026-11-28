@@ -304,4 +304,10 @@ export interface TimedChange {
   /** The instance id of the card it changes. */
   targetId: string;
   changes: Partial<Record<AmountQuantity, number>>;
+  /**
+   * The card id of the dilemma it lasts for (#1956), "until the end of that dilemma": the table drops the change as
+   * soon as that dilemma is no longer the one being faced (`pruneDilemmaTimed`), before `endAttempt`, and it does not
+   * come back when the card returns to the top. Absent: until the end of the attempt, as in a save from before #1956.
+   */
+  untilDilemma?: string;
 }

@@ -23,6 +23,7 @@ import {
   cardsAt,
   drawReshuffles,
   shuffledIds,
+  facedDilemmaOf,
   findInstanceAnywhere,
   MoveTarget,
   moveRangeCost,
@@ -72,7 +73,7 @@ import {
 import { triggerRowsOf, type TriggerRow } from '../../../lib/triggers';
 import { endOfTurnTriggerSetUp, pendingTriggersOf, sameTriggerTarget } from './triggers';
 import { attemptAbilitiesOf, modifyStepOf } from './attemptAbilities';
-import { changesText, killsAtEndOfTurn } from '../../../lib/attemptAbilities';
+import { changesText, killsAtEndOfTurn, windowOf } from '../../../lib/attemptAbilities';
 import type { AmountQuantity } from '../../../lib/modifiers/model';
 import { choiceDiscardTop, isCostUse, isCountedChoice, isDownloadChoice, isPersonnelChoice } from '../../../lib/costModels/model';
 import { cardHasIcon, chosenPersonnel, downloadCopyOf, exchangeCandidatesOf, exchangeMatches, personnelCandidateGroups, personnelChoiceDelta } from './personnelChoice';
@@ -425,7 +426,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
   | { kind: 'triggerSkipped'; target: TriggerTarget; card: string }
   // An attempt ability the player used (#1835): the card's id and name, the ability's index, the name of the card it
   // changed and the change, for the rest of the attempt, and whether it set up the kill at the end of the turn, which
-  // the delayed trigger rows read (`afterAbility`).
+  // the delayed trigger rows read (`afterAbility`). A use in the `facingDilemma` window (#1956) also records the faced
+  // dilemma, its id and its name: its change lasts until the end of that dilemma.
   | {
       kind: 'attemptAbilityUsed';
       id: string;
@@ -434,6 +436,8 @@ export type LogEntry = { turn: number; segment?: TurnSegment } & (
       target: string;
       changes: Partial<Record<AmountQuantity, number>>;
       killAtEndOfTurn?: true;
+      dilemmaId?: string;
+      dilemma?: string;
     }
 );
 
@@ -547,8 +551,9 @@ export type GameAction =
   // A skip of the trigger offer at `target` (#1904): one `triggerSkipped` entry, undone like any other.
   | { type: 'skipTrigger'; target: TriggerTarget }
   // A use of the attempt ability `index` of the card `id` (#1835): its change for the rest of the attempt on
-  // `Attempt.timed`, in one `attemptAbilityUsed` entry, which also sets up its delayed kill.
-  | { type: 'useAttemptAbility'; id: string; index: number }
+  // `Attempt.timed`, in one `attemptAbilityUsed` entry, which also sets up its delayed kill. `targetId` names the
+  // offer's target (#1956): a row that changes a chosen personnel is offered once per personnel and needs it.
+  | { type: 'useAttemptAbility'; id: string; index: number; targetId?: string }
   // A spend of counters a mission allows (#1754), one entry that one undo takes back: Earth's draw of 2,
   // or Nimbus III's download of the card `id` into its away team, then the shuffle of the draw deck in
   // `order`, which `withShuffleOrders` chooses.
@@ -3748,14 +3753,24 @@ function triggerSkipState(state: GameState, action: { target: TriggerTarget }): 
 }
 
 // The use of an attempt ability (#1835): its change goes on `Attempt.timed`, for the rest of the attempt, in one
-// `attemptAbilityUsed` entry, which one undo takes back. Refused unless the table offers it.
-function attemptAbilityUseState(state: GameState, action: { id: string; index: number }): GameState {
-  const offer = attemptAbilitiesOf(state).find((o) => o.id === action.id && o.ability.index === action.index);
+// `attemptAbilityUsed` entry, which one undo takes back. Refused unless the table offers it. A use in the
+// `facingDilemma` window (#1956) keys its change to the faced dilemma, so the change ends with that dilemma.
+function attemptAbilityUseState(state: GameState, action: { id: string; index: number; targetId?: string }): GameState {
+  const offer = attemptAbilitiesOf(state).find(
+    (o) =>
+      o.id === action.id &&
+      o.ability.index === action.index &&
+      (action.targetId !== undefined ? o.targetId === action.targetId : modifyStepOf(o.ability)?.target !== 'chosenPersonnel'),
+  );
   const attempt = state.table.attempt;
   if (!offer || !attempt) return state;
+  const faced = windowOf(offer.ability) === 'facingDilemma' ? facedDilemmaOf(state.table) : undefined;
   const changes = modifyStepOf(offer.ability)?.changes ?? {};
   const timed = Object.keys(changes).length
-    ? [...(attempt.timed ?? []), { title: offer.ability.title, sourceId: offer.id, targetId: offer.targetId, changes: { ...changes } }]
+    ? [
+        ...(attempt.timed ?? []),
+        { title: offer.ability.title, sourceId: offer.id, targetId: offer.targetId, changes: { ...changes }, ...(faced ? { untilDilemma: faced.id } : {}) },
+      ]
     : attempt.timed;
   const table: TableState = { ...state.table, attempt: { ...attempt, ...(timed ? { timed } : {}) } };
   const entry: LogEntry = {
@@ -3766,6 +3781,7 @@ function attemptAbilityUseState(state: GameState, action: { id: string; index: n
     target: offer.targetName,
     changes: { ...changes },
     ...(killsAtEndOfTurn(offer.ability) ? { killAtEndOfTurn: true as const } : {}),
+    ...(faced ? { dilemmaId: faced.id, dilemma: faced.card ? cardDisplayName(faced.card) : faced.id } : {}),
     turn: table.turn,
     segment: table.segment,
   };
@@ -3778,7 +3794,8 @@ function attemptAbilityUsedText(entry: Extract<LogEntry, { kind: 'attemptAbility
   const card = typeof entry.card === 'string' && entry.card ? entry.card : 'a card';
   const target = typeof entry.target === 'string' && entry.target ? entry.target : 'a card';
   const changes = entry.changes && typeof entry.changes === 'object' ? changesText(entry.changes) : '';
-  const made = changes ? `made ${target === card ? 'itself' : target} ${changes} until the end of this mission attempt` : 'used';
+  const until = typeof entry.dilemma === 'string' && entry.dilemma ? entry.dilemma : 'this mission attempt';
+  const made = changes ? `made ${target === card ? 'itself' : target} ${changes} until the end of ${until}` : 'used';
   return `${card}: ${made}${entry.killAtEndOfTurn === true ? '; it is killed at the end of this turn' : ''}`;
 }
 
