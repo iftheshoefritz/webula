@@ -107,10 +107,10 @@ describe('the score models (#1812)', () => {
   });
 
   it('Opaka: Bajor and no other headquarters mission', () => {
-    const bajor = costMission('h', { name: 'Bajor Gift of the Prophets' });
+    const bajor = costMission('h', { name: 'Bajor Gift of the Prophets', cardTitle: 'bajor' });
     expect(status('Opaka Collaborator', { missions: [costMission('p'), bajor] })).toBe('met');
     expect(status('Opaka Collaborator', { missions: [bajor, costMission('h', { name: 'Cardassia Prime Hardscrabble World' })] })).toBe('notMet');
-    expect(status('Opaka Collaborator', { missions: [costMission('h', { name: 'Bajoran Exosphere Deliver Evidence' })] })).toBe('notMet');
+    expect(status('Opaka Collaborator', { missions: [costMission('h', { name: 'Bajoran Exosphere Deliver Evidence', cardTitle: 'bajoran exosphere' })] })).toBe('notMet');
   });
 
   it('Kira Taban: not checked, it needs the opponent\'s score', () => {

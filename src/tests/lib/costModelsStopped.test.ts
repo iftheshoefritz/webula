@@ -11,10 +11,16 @@ const card = (name: string, cost: number, type = 'personnel') => ({ name: name.t
 const instance = (id: string, name: string, row: Record<string, string> = {}, stopped = false): CardInstance => ({
   id,
   face: 'up',
-  card: { name: name.toLowerCase(), originalName: name, type: 'personnel', affiliation: 'federation', ...row },
+  card: { name: name.toLowerCase(), originalName: name, type: 'personnel', affiliation: 'federation', ...(TITLES[name] ? { title: TITLES[name] } : {}), ...row },
   ...(stopped ? { stopped: true } : {}),
 });
-const missionCard = (name: string): CardInstance => ({ id: `m-${name}`, face: 'up', card: { name: name.toLowerCase(), originalName: name, type: 'mission' } });
+// The card titles of the invented cards with a subtitle, which a card names (#1985).
+const TITLES: Record<string, string> = { 'Khan Noonien Singh Invented Subtitle': 'Khan Noonien Singh', 'Ceti Alpha V Forge Settlement': 'Ceti Alpha V' };
+const missionCard = (name: string): CardInstance => ({
+  id: `m-${name}`,
+  face: 'up',
+  card: { name: name.toLowerCase(), originalName: name, type: 'mission', ...(TITLES[name] ? { title: TITLES[name] } : {}) },
+});
 
 const empty: MissionSlot = { mission: null, ships: [], awayTeam: [], underMission: [] };
 

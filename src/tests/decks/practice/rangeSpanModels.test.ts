@@ -163,7 +163,7 @@ describe('U.S.S. Pasteur, Medical Ship (#1635)', () => {
 });
 
 describe('The Reman Mines (#1635)', () => {
-  const remus = () => mission('Remus Supervise Dilithium Mine', 'a');
+  const remus = () => card('Remus Supervise Dilithium Mine', 'mission', { span: '2', quadrant: 'a', title: 'Remus' });
   const mines = () => card('The Reman Mines', 'event');
   const withMines = (on: CardInstance) => ({ ...on, placedOn: [mines()] });
   const warbird = (crew?: CardInstance[]) => ship('Warbird', 'romulan', '8', crew);

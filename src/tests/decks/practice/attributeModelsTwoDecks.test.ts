@@ -87,7 +87,7 @@ describe('Beverly Crusher Encouraging Commander (#1670)', () => {
     const e = ensign();
     const uniqueTng = personnel('Unique', { icons: '[stf][tng]' });
     const plain = personnel('Plain', { icons: '[stf]', unique: 'n' });
-    const table = tableOf(slotsOf([{ mission: mission('Here'), ships: [ship('U.S.S. Enterprise-D Explorer *', [b, e, uniqueTng, plain])] }]));
+    const table = tableOf(slotsOf([{ mission: mission('Here'), ships: [ship('U.S.S. Enterprise-D Explorer *', [b, e, uniqueTng, plain], { title: 'U.S.S. Enterprise-D' })] }]));
     expect(of(table, e)).toEqual(plus(1));
     expect(of(table, uniqueTng)).toEqual(PRINTED);
     expect(of(table, plain)).toEqual(PRINTED);

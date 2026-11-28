@@ -1,4 +1,5 @@
-import { CostModel } from '../model';
+import { cardTitleOf } from '../../cardTitle';
+import { CostMission, CostModel } from '../model';
 import { commands } from '../../tableView';
 import { CostRowSpec, own, ownWhen, withRows } from '../rows';
 import { both, commandedPersonnel, species, Test } from './commanded';
@@ -10,22 +11,23 @@ import { both, commandedPersonnel, species, Test } from './commanded';
 
 const paKlingon: Test = both(species('klingon'), (p) => p.icons.includes('[pa]'));
 
-/** A personnel of the title `title`: its name is the title, or the title and a subtitle (`passesPartnerTest`). */
+/**
+ * A personnel of the card title `title`, lowercased, any version and any subtitle: "When you name a card, you do so
+ * by card title only, not subtitle." (Glossary › naming cards, p. 18). With no `cardTitle`, as in a test's hand-built
+ * facts, the card title is the name less its version suffix.
+ */
 const titled =
   (title: string): Test =>
   (p) =>
-    p.name === title || p.name.startsWith(`${title} `);
+    (p.cardTitle ?? cardTitleOf(p.name).toLowerCase()) === title;
 
 const twoPaKlingons = (off: number) => ownWhen(commands(commandedPersonnel({ where: paKlingon }), '[Pa] Klingons', { min: 2 }), off);
 const khanTest = titled('khan noonien singh');
 const commandsKhan = commands(commandedPersonnel({ where: khanTest }), 'Khan Noonien Singh');
 const khan = ownWhen(commandsKhan, 2);
 
-/** Whether a mission's name is of the title {Ceti Alpha V}, any version, in any case. */
-const isCetiAlphaV = (name: string): boolean => {
-  const n = name.toLowerCase();
-  return n === 'ceti alpha v' || n.startsWith('ceti alpha v ');
-};
+/** Whether a mission is of the card title {Ceti Alpha V}, any version and any subtitle, in any case. */
+const isCetiAlphaV = (m: CostMission): boolean => (m.cardTitle ?? cardTitleOf(m.name).toLowerCase()) === 'ceti alpha v';
 
 /**
  * "While you command {Khan Noonien Singh}, you may play this personnel at <cost> to/at {Ceti Alpha V}."
@@ -36,7 +38,7 @@ const khanAtCetiAlphaV = (cost: (printed: number) => number): CostRowSpec =>
   own(
     ({ play, facts, because }) => {
       const slot = play.missionIndex === undefined ? undefined : facts.missions?.[play.missionIndex];
-      return slot && isCetiAlphaV(slot.name) ? { cost: cost(play.printed), reason: `${because}, at Ceti Alpha V` } : null;
+      return slot && isCetiAlphaV(slot) ? { cost: cost(play.printed), reason: `${because}, at Ceti Alpha V` } : null;
     },
     { condition: commandsKhan }
   );

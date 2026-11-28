@@ -7,18 +7,25 @@
 // mission (`namedAtMission`): its search plays them as returning to the pile with no effect, and the Resolve
 // of a revealed named dilemma returns it to the bottom of the dilemma pile (`roadblockReturnOf`). The table
 // does not stop a play of a named event, nor enforce "limit one per mission" or "non-headquarters".
+//
+// "When you name a card, you do so by card title only, not subtitle." (Glossary › naming cards, p. 18): the
+// names offered, the Roadblock test and the return compare card titles (`rowCardTitleOf`, #1974), in any case.
 
 import { cardDisplayName } from '../../../lib/cardCount';
-import { cardTitleOf } from '../../../lib/cardTitle';
+import { rowCardTitleOf, rowPrintedCardTitleOf } from '../../../lib/cardTitle';
 import type { LogEntry } from './gameLog';
 import type { CardInstance, TableState } from './tableReducer';
 
 export const ROADBLOCK_TITLE = 'Self-Replicating Roadblock';
 
-const titleOf = (card: CardInstance['card'] | undefined): string => (card ? cardTitleOf(cardDisplayName(card)) : '');
+/** The card title of a card in its printed case, for display: "Self-Replicating Roadblock". */
+const titleOf = (card: CardInstance['card'] | undefined): string => (card ? rowPrintedCardTitleOf(card) : '');
+
+/** The card title of a card, lowercased, for a comparison. */
+const titleKeyOf = (card: CardInstance['card'] | undefined): string => (card ? rowCardTitleOf(card) : '');
 
 /** Whether a card is Self-Replicating Roadblock, any version. */
-export const isRoadblock = (card: CardInstance['card'] | undefined): boolean => titleOf(card) === ROADBLOCK_TITLE;
+export const isRoadblock = (card: CardInstance['card'] | undefined): boolean => titleKeyOf(card) === ROADBLOCK_TITLE.toLowerCase();
 
 /**
  * The Self-Replicating Roadblock the last log entry placed on a mission card and that names nothing yet,
@@ -56,7 +63,8 @@ export function roadblockReturnOf(table: TableState): string | null {
   const { attempt } = table;
   const top = table.dilemmaStack[0];
   if (!attempt || attempt.botSpend === undefined || attempt.phase !== 'face' || !top || top.face !== 'up') return null;
-  return namedAtMission(table, attempt.missionIndex).includes(titleOf(top.card)) ? ROADBLOCK_TITLE : null;
+  const title = titleKeyOf(top.card);
+  return title && namedAtMission(table, attempt.missionIndex).some((n) => n.toLowerCase() === title) ? ROADBLOCK_TITLE : null;
 }
 
 /**

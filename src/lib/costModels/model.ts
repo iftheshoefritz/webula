@@ -31,6 +31,8 @@ export interface CommandedTraits extends PartnerTraits {
   id?: string;
   title?: string;
   stopped?: boolean;
+  /** Its card title alone, lowercased (`rowCardTitleOf`, #1974): "khan noonien singh". Absent: read from `name`. */
+  cardTitle?: string;
 }
 
 /**
@@ -43,6 +45,8 @@ export interface CommandedTraits extends PartnerTraits {
 export interface CostMission {
   completed: boolean;
   name: string;
+  /** The card title of the mission alone, lowercased (`rowCardTitleOf`, #1974): "ceti alpha v". Absent: read from `name`. */
+  cardTitle?: string;
   requirements: string;
   points: number;
   type: string;

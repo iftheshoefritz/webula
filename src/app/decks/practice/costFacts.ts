@@ -10,7 +10,7 @@ import { DECK_TOP_FACTS } from '../../../lib/costModels/model';
 import type { CommandedTraits, CostFacts, CostMission, CostTurnPlay, PendingDiscount } from '../../../lib/costModels/model';
 import { partnerTraitsOf } from '../../../lib/dilemmaBot/simulator';
 import { skillWordsOf } from '../../../lib/playCost';
-import { personnel, ships } from '../../../lib/tableView';
+import { personnel, ships, viewCardTitleOf } from '../../../lib/tableView';
 import type { TableView, ViewCard, ViewMission, ViewPileCard, ViewRow, ViewTableCard } from '../../../lib/tableView';
 import type { CardInstance, TableState } from './tableReducer';
 import { tableViewOf } from './tableView';
@@ -43,7 +43,7 @@ export const turnPlayOf = (card: CardInstance['card'] | null | undefined, quadra
 export const slotQuadrantOf = (table: TableState, missionIndex: number | undefined): string | undefined =>
   missionIndex === undefined ? undefined : text(table.missions[missionIndex]?.mission?.card?.quadrant) || undefined;
 
-const traitsOf = (p: ViewTableCard): CommandedTraits => ({ ...partnerTraitsOf(p.row), unique: p.unique });
+const traitsOf = (p: ViewTableCard): CommandedTraits => ({ ...partnerTraitsOf(p.row), unique: p.unique, cardTitle: viewCardTitleOf(p) });
 
 const pileCardOf = (c: ViewPileCard) => ({ id: c.id, title: c.title, type: c.type });
 
@@ -54,6 +54,7 @@ function costMissionOf(view: TableView, m: ViewMission): CostMission {
   return {
     completed: m.completed,
     name: m.name,
+    ...(m.card ? { cardTitle: viewCardTitleOf(m.card) } : {}),
     requirements: m.requirements,
     points: m.points,
     type: m.type,
