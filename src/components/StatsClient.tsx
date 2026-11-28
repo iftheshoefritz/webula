@@ -6,12 +6,12 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { FaSignInAlt } from 'react-icons/fa';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
-import { Chart, CategoryScale, Legend, LinearScale, LineController, LineElement, PointElement, Tooltip } from 'chart.js';
+import { Chart, CategoryScale, LinearScale, LineController, LineElement, PointElement, Tooltip } from 'chart.js';
 import { formatDuration } from '../lib/stats';
 import type { StatsSummary } from '../lib/stats';
 import { STATS_FIXTURE, statsFixtureAllowed } from '../lib/statsFixture';
 
-Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend);
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip);
 
 type LoadState =
   | { kind: 'loading' }
@@ -27,41 +27,81 @@ function seriesColor(i: number, n: number): string {
 const usd = (n: number | null) => (n === null ? '–' : `$${n.toFixed(2)}`);
 const date = (iso: string | null) => (iso ? iso.slice(0, 10) : '–');
 
-function LineChart({ labels, series, yTitle, minutes }: {
+/**
+ * A line chart with its legend as HTML under the canvas (#1989): a wrapping list of toggles, one per
+ * series, so every series has an entry at any width. The Chart.js legend drops the rows it has no
+ * room for, with no sign that it did. A hidden series is kept by its label, which stays stable when
+ * the data changes.
+ */
+function LineChart({ labels, series, yTitle, minutes, legendTestId }: {
   labels: string[];
   series: { label: string; data: (number | null)[] }[];
   yTitle: string;
   minutes?: boolean;
+  legendTestId: string;
 }) {
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  const toggle = (label: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
   return (
-    <div className="relative h-56 sm:h-72 w-full">
-      <Line
-        data={{
-          labels,
-          datasets: series.map((s, i) => ({
-            label: s.label,
-            data: s.data,
-            borderColor: seriesColor(i, series.length),
-            backgroundColor: seriesColor(i, series.length),
-            spanGaps: true,
-            tension: 0.2,
-          })),
-        }}
-        options={{
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: yTitle } },
-          },
-          plugins: {
-            legend: { position: 'bottom', labels: { boxWidth: 10, color: '#ddd' } },
-            tooltip: minutes
-              ? { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatDuration((ctx.parsed.y ?? 0) * 60)}` } }
-              : {},
-          },
-        }}
-      />
-    </div>
+    <>
+      <div className="relative h-56 sm:h-72 w-full">
+        <Line
+          data={{
+            labels,
+            datasets: series.map((s, i) => ({
+              label: s.label,
+              data: s.data,
+              borderColor: seriesColor(i, series.length),
+              backgroundColor: seriesColor(i, series.length),
+              spanGaps: true,
+              tension: 0.2,
+              hidden: hidden.has(s.label),
+            })),
+          }}
+          options={{
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: yTitle } },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: minutes
+                ? { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatDuration((ctx.parsed.y ?? 0) * 60)}` } }
+                : {},
+            },
+          }}
+        />
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs" data-testid={legendTestId}>
+        {series.map((s, i) => {
+          const shown = !hidden.has(s.label);
+          return (
+            <li key={s.label}>
+              <button
+                type="button"
+                aria-pressed={shown}
+                onClick={() => toggle(s.label)}
+                className={`flex items-center gap-1 rounded px-1 py-0.5 hover:bg-white/10 ${shown ? 'text-gray-200' : 'text-gray-500 line-through'}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-2.5 w-2.5 rounded-sm"
+                  style={{ backgroundColor: seriesColor(i, series.length), opacity: shown ? 1 : 0.3 }}
+                />
+                {s.label}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -166,6 +206,7 @@ export function StatsView({ stats }: { stats: StatsSummary }) {
           }))}
           yTitle="minutes"
           minutes
+          legendTestId="stats-weekly-legend"
         />
       </Section>
 
@@ -192,6 +233,7 @@ export function StatsView({ stats }: { stats: StatsSummary }) {
               labels={stats.statuses.dates}
               series={stats.statuses.series.map((s) => ({ label: s.status, data: s.counts }))}
               yTitle="issues"
+              legendTestId="stats-statuses-legend"
             />
           </>
         ) : (

@@ -55,6 +55,12 @@ where Claude ran; per CI job the median and 90th percentile; the median duration
 issue counts per status of the latest snapshot and over time; and the 20 completed issues slowest
 from the first label to the close.
 
+A run none of whose jobs started (a ghost run, which GitHub ends after 30 days) counts as a run and
+as not-success, but gives no duration to the medians, the 90th percentiles or the weekly chart. The
+weekly chart leaves out a workflow with fewer than `WEEKLY_MIN_RUNS` (10) runs; the workflow table
+keeps it. Each chart's legend is a wrapping list of toggles under the canvas, one per series, that
+hide and show the series (#1989).
+
 It reads `/api/stats`, which applies `isEarlyAccessUser` to the caller's email from the NextAuth JWT
 and answers 404 to anyone else, a signed-out caller too. A signed-out visitor sees a "Sign in with
 Google" button, a plain Google sign-in with no Drive scope that comes back to `/stats`; a signed-in

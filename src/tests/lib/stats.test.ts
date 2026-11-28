@@ -1,18 +1,25 @@
 import {
   ciJobStats, formatDuration, isoWeek, latestSnapshot, parseJsonLines, percentile, slowestIssues,
-  statusSeries, summarizeStats, weeklySeries, workflowStats,
+  statusSeries, summarizeStats, WEEKLY_MIN_RUNS, weeklySeries, workflowStats,
 } from '../../lib/stats';
 import type { IssueSnapshot, ItemRecord, RunRecord } from '../../lib/stats';
 
 const REPO = 'o/r';
 const at = (minutes: number) => new Date(Date.parse('2026-10-26T00:00:00Z') + minutes * 60000).toISOString();
 
+// A run with one job that spans it; `extra` can give other jobs, or none for a ghost run.
 function run(workflow: string, start: number, minutes: number, conclusion = 'success', extra: Partial<RunRecord> = {}): RunRecord {
   return {
     repository: REPO, workflow, conclusion, created_at: at(start), started_at: at(start),
-    completed_at: at(start + minutes), jobs: [], ...extra,
+    completed_at: at(start + minutes),
+    jobs: [{ name: 'job', conclusion, started_at: at(start), completed_at: at(start + minutes) }], ...extra,
   };
 }
+
+const THIRTY_DAYS = 30 * 24 * 60;
+/** Runs of one workflow, enough for the weekly chart, every one `minutes` long, in the week of `at(0)`. */
+const many = (workflow: string, minutes: number, n = WEEKLY_MIN_RUNS) =>
+  Array.from({ length: n }, (_, i) => run(workflow, i * 10, minutes));
 
 describe('stats aggregation (#1417)', () => {
   it('parses JSON Lines and skips blank and broken lines', () => {
@@ -66,13 +73,43 @@ describe('stats aggregation (#1417)', () => {
     expect(isoWeek('2026-10-26T00:00:00Z')).toBe('2026-W44');
     expect(isoWeek('2026-10-25T23:59:00Z')).toBe('2026-W43');
     expect(isoWeek('2021-01-03T12:00:00Z')).toBe('2020-W53');
-    const runs = [run('A', 0, 2), run('A', 60, 4), run('A', -60 * 24, 10), run('B', 0, 1)];
+    const runs = [...many('A', 2), run('A', -60 * 24, 10), ...many('B', 1)];
     const weekly = weeklySeries(runs);
     expect(weekly.weeks).toEqual(['2026-W43', '2026-W44']);
     expect(weekly.series).toEqual([
       { workflow: 'A', medianSeconds: [600, 120] },
       { workflow: 'B', medianSeconds: [null, 60] },
     ]);
+  });
+
+  it('gives a ghost run no duration, but counts it as a run that did not succeed (#1989)', () => {
+    const normal = [run('A', 0, 2), run('A', 10, 4), run('A', 20, 6)];
+    const ghosts = [
+      run('A', 30, THIRTY_DAYS, 'failure', { jobs: [] }),
+      run('A', 40, THIRTY_DAYS, 'failure', { jobs: undefined }),
+      run('A', 50, 1, 'failure', { jobs: [{ name: 'job', conclusion: null, started_at: null, completed_at: null }] }),
+    ];
+    const [before] = workflowStats(normal);
+    const [after] = workflowStats([...normal, ...ghosts]);
+    expect(after.medianSeconds).toBe(before.medianSeconds);
+    expect(after.p90Seconds).toBe(before.p90Seconds);
+    expect(after).toMatchObject({ runs: 6, notSuccess: 3, failure: 3 });
+
+    const weekly = weeklySeries([...many('A', 2), run('A', 5, THIRTY_DAYS, 'failure', { jobs: [] })]);
+    expect(weekly.series).toEqual([{ workflow: 'A', medianSeconds: [120] }]);
+  });
+
+  it('gives a workflow whose every run is a ghost no median (#1989)', () => {
+    const ghosts = Array.from({ length: WEEKLY_MIN_RUNS }, (_, i) => run('A', i, THIRTY_DAYS, 'failure', { jobs: [] }));
+    const [w] = workflowStats(ghosts);
+    expect(w).toMatchObject({ runs: WEEKLY_MIN_RUNS, medianSeconds: null, p90Seconds: null });
+    expect(weeklySeries(ghosts).series).toEqual([{ workflow: 'A', medianSeconds: [null] }]);
+  });
+
+  it('leaves a workflow with fewer than WEEKLY_MIN_RUNS runs out of the weekly chart, not the table (#1989)', () => {
+    const runs = [...many('A', 2), ...many('B', 3, WEEKLY_MIN_RUNS - 1)];
+    expect(weeklySeries(runs).series.map((s) => s.workflow)).toEqual(['A']);
+    expect(workflowStats(runs).map((w) => w.workflow)).toEqual(['A', 'B']);
   });
 
   it('fills a status a snapshot lacks with 0, and takes the latest snapshot', () => {
