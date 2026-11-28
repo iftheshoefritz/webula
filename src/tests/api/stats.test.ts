@@ -10,19 +10,9 @@ jest.mock('next-auth/jwt', () => ({ getToken: (...args: unknown[]) => mockGetTok
 
 import { GET } from '../../app/api/stats/route';
 
-const request = () => new Request('http://localhost/api/stats');
-
 describe('/api/stats (#1417)', () => {
-  const original = process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS;
-  beforeEach(() => {
-    process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'early@example.com';
-    mockGetToken.mockReset();
-  });
-  afterAll(() => { process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = original; });
-
-  it('gives an early-access caller the aggregated stats of the real stats/ folder', async () => {
-    mockGetToken.mockResolvedValue({ email: 'Early@example.com' });
-    const response = await GET(request());
+  it('gives every caller the aggregated stats of the real stats/ folder (#1990)', async () => {
+    const response = await GET();
     expect(response.status).toBe(200);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     const body = await response.json();
@@ -33,13 +23,20 @@ describe('/api/stats (#1417)', () => {
     expect(body.ciJobs.map((j: { job: string }) => j.job)).toEqual(['test', 'typecheck', 'lint', 'build']);
   });
 
-  it('answers 404 to another caller and to a signed-out caller', async () => {
-    mockGetToken.mockResolvedValue({ email: 'other@example.com' });
-    expect((await GET(request())).status).toBe(404);
-    mockGetToken.mockResolvedValue(null);
-    expect((await GET(request())).status).toBe(404);
-    mockGetToken.mockRejectedValue(new Error('bad token'));
-    expect((await GET(request())).status).toBe(404);
+  it('answers a signed-out caller and a caller who is not early-access with the stats (#1990)', async () => {
+    const original = process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS;
+    process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = 'early@example.com';
+    try {
+      for (const token of [null, { email: 'other@example.com' }]) {
+        mockGetToken.mockResolvedValue(token);
+        const response = await GET();
+        expect(response.status).toBe(200);
+        expect((await response.json()).workflows.length).toBeGreaterThan(0);
+      }
+      expect(mockGetToken).not.toHaveBeenCalled();
+    } finally {
+      process.env.NEXT_PUBLIC_EARLY_ACCESS_EMAILS = original;
+    }
   });
 
   it('keeps no stats file under public/', () => {

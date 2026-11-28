@@ -2,8 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { signIn, signOut, useSession } from 'next-auth/react';
-import { FaSignInAlt } from 'react-icons/fa';
 import { useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
 import { Chart, CategoryScale, LinearScale, LineController, LineElement, PointElement, Tooltip } from 'chart.js';
@@ -15,7 +13,6 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
 
 type LoadState =
   | { kind: 'loading' }
-  | { kind: 'denied' }
   | { kind: 'error' }
   | { kind: 'ready'; stats: StatsSummary };
 
@@ -278,58 +275,31 @@ export function StatsView({ stats }: { stats: StatsSummary }) {
   );
 }
 
-/** The stats page (#1417). The stats come from `/api/stats`, which answers only an early-access user. */
+/**
+ * The stats page (#1417). The stats come from `/api/stats`, which answers every visitor (#1990); only
+ * the deck builder's Stats link is for early-access users.
+ */
 export default function StatsClient() {
   const searchParams = useSearchParams();
   const useFixture = statsFixtureAllowed() && searchParams.get('fixture') === '1';
-  const { status } = useSession();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
 
   useEffect(() => {
-    if (useFixture || status !== 'authenticated') return;
+    if (useFixture) return;
     let cancelled = false;
     fetch('/api/stats', { cache: 'no-store' })
       .then(async (res) => {
         if (cancelled) return;
-        if (res.status === 404 || res.status === 403) setState({ kind: 'denied' });
-        else if (!res.ok) setState({ kind: 'error' });
+        if (!res.ok) setState({ kind: 'error' });
         else setState({ kind: 'ready', stats: (await res.json()) as StatsSummary });
       })
       .catch(() => { if (!cancelled) setState({ kind: 'error' }); });
     return () => { cancelled = true; };
-  }, [useFixture, status]);
+  }, [useFixture]);
 
   let body: React.ReactNode;
   if (useFixture) body = <StatsView stats={STATS_FIXTURE} />;
-  else if (status === 'unauthenticated') {
-    // A plain Google sign-in, no Drive scope, that comes back to /stats (#1442).
-    body = (
-      <div className="space-y-3">
-        <p data-testid="stats-denied">Stats are for early-access users.</p>
-        <button
-          className="btn-primary"
-          data-testid="stats-sign-in"
-          onClick={() => signIn('google', { callbackUrl: '/stats' })}
-        >
-          <FaSignInAlt className="inline mr-2" />
-          Sign in with Google
-        </button>
-      </div>
-    );
-  } else if (state.kind === 'denied') {
-    body = (
-      <div className="space-y-3">
-        <p data-testid="stats-denied">Stats are for early-access users.</p>
-        <button
-          className="text-sm underline hover:text-white"
-          data-testid="stats-switch-account"
-          onClick={() => signOut({ callbackUrl: '/stats' })}
-        >
-          Use another Google account
-        </button>
-      </div>
-    );
-  } else if (state.kind === 'error') body = <p data-testid="stats-error">The stats could not be loaded.</p>;
+  else if (state.kind === 'error') body = <p data-testid="stats-error">The stats could not be loaded.</p>;
   else if (state.kind === 'ready') body = <StatsView stats={state.stats} />;
   else body = <p className="text-gray-400">Loading…</p>;
 
